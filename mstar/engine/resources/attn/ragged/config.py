@@ -9,16 +9,42 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from mstar.engine.resources.attn.config import AttentionStep
 from mstar.engine.resources.spec import NodeResourceSpec
 
 if TYPE_CHECKING:
     from mstar.engine.resources.base import Resource
 
 
+def cross_label(q_label: str, kv_label: str) -> str:
+    """The plan a cross-attention pair runs under: ``q_label``'s spans attending
+    ``kv_label``'s."""
+    return f"{q_label}<-{kv_label}"
+
+
+@dataclass(frozen=True)
+class RaggedAttentionStep(AttentionStep):
+    """A ragged step whose spans also attend each other's.
+
+    Each label in ``segments`` is one span per request (video tokens, text
+    tokens, ...). ``self_labels`` names the spans that attend within
+    themselves — None means every declared label, which is what a plain
+    ``AttentionStep`` gets. ``cross_pairs`` lists ``(q_label, kv_label)``
+    attentions, paired per request in segment order: each request's
+    ``q_label`` span attends that request's ``kv_label`` span. Every label a
+    pair names must be declared for every request in the step.
+    """
+
+    self_labels: tuple[str, ...] | None = None
+    cross_pairs: tuple[tuple[str, str], ...] = ()
+
+
 @dataclass
 class RaggedAttentionConfig:
-    """Varlen self-attention over segments packed into one forward, with no KV
+    """Varlen attention over segments packed into one forward, with no KV
     cache: the whole layout is this step's, and nothing carries to the next.
+    Self-attention within a span, or cross-attention between two spans of the
+    same request (``RaggedAttentionStep.cross_pairs``).
 
     Head counts are **pre-sharding**; the engine narrows them to the rank's
     slice at build, as it does for a ``KVConfig``.

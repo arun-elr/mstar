@@ -7,7 +7,11 @@ import torch
 from mstar.engine.resources.attn.base import EagerSlotKey, WorkspacePool
 from mstar.engine.resources.attn.config import AttentionStep
 from mstar.engine.resources.attn.ragged.base import RaggedAttnManager
-from mstar.engine.resources.attn.ragged.config import RaggedAttentionConfig
+from mstar.engine.resources.attn.ragged.config import (
+    RaggedAttentionConfig,
+    RaggedAttentionStep,
+    cross_label,
+)
 from mstar.engine.resources.attn.ragged.wrappers import RaggedPrefillWrapper
 from mstar.engine.resources.base import CGSlotKey
 from mstar.engine.resources.step import Segment, SlotLease, StepContext
@@ -73,6 +77,8 @@ class FlashInferRaggedManager(RaggedAttnManager):
         max_segments = self._config.max_segments_for(bucket.bs)
         # the bucket's own token count is the ceiling; the per-request override
         # is for a runner that buckets by batch size alone
+        # The same ceiling bounds a cross-attention's key side: the bucket's
+        # token count covers every span its requests declare.
         max_tokens = max(
             bucket.num_tokens, self._config.max_tokens_for(bucket.bs) or 0
         )
@@ -114,8 +120,28 @@ class FlashInferRaggedManager(RaggedAttnManager):
             res.setdefault(seg.label, []).append(seg)
         return res
 
-    # NOTE: can reuse the same AttentionStep dataclass as KV-backed attention
-    def plan(self, step: AttentionStep, ctx: StepContext):
+    @staticmethod
+    def _cu_seqlens(segments: list[Segment]) -> torch.Tensor:
+        # On the CPU: FlashInfer's plan wants it there anyway, and building it
+        # on device would sync (fatally so under preplan). Pinned and freshly
+        # built per plan: the graph wrapper hands this straight to FlashInfer's
+        # non-blocking H2D, so a reused buffer could be overwritten while its
+        # DMA is still in flight. A fresh pinned allocation is held by the
+        # caching host allocator until the copy retires, keeping the plan async
+        # without a per-step sync.
+        cu = [0]
+        for seg in segments:
+            cu.append(cu[-1] + seg.span)
+        return torch.tensor(cu, dtype=torch.int32, pin_memory=torch.cuda.is_available())
+
+    def _wrapper_for(self, lease: SlotLease | None, slot: int, label: str) -> RaggedPrefillWrapper:
+        if lease is not None:
+            return self._cg_wrapper(lease, label)
+        return self._eager_wrapper(label, slot)
+
+    # A plain AttentionStep plans every declared label as self-attention; a
+    # RaggedAttentionStep can also pair labels into cross-attentions.
+    def plan(self, step: AttentionStep | RaggedAttentionStep, ctx: StepContext):
         self.reset_default_cursors()
 
         lease = ctx.slot_lease
@@ -145,29 +171,27 @@ class FlashInferRaggedManager(RaggedAttnManager):
         # them off, so an undeclared label is unattendable. Clear rather than
         # update, so last step's wrapper can't be attended through by mistake.
         plan_states.clear()
-        # cu_seqlens on the CPU: FlashInfer's plan wants it there anyway, and
-        # building it on device would sync (fatally so under preplan)
-        for label, segments in self._group_segments_by_label(
-            step.segments or ()
-        ).items():
-            cu = [0]
-            for seg in segments:
-                cu.append(cu[-1] + seg.span)
-            # Pinned and freshly built per plan: the graph wrapper hands this
-            # straight to FlashInfer's non-blocking H2D, so a reused buffer could
-            # be overwritten while its DMA is still in flight. A fresh pinned
-            # allocation is held by the caching host allocator until the copy
-            # retires, keeping the plan async without a per-step sync.
-            cu_seqlens = torch.tensor(
-                cu, dtype=torch.int32, pin_memory=torch.cuda.is_available()
-            )
-            if lease is not None:
-                wrapper = self._cg_wrapper(lease, label)
-            else:
-                wrapper = self._eager_wrapper(label, ctx.slot)
-
+        by_label = self._group_segments_by_label(step.segments or ())
+        self_labels = getattr(step, "self_labels", None)
+        cross_pairs = getattr(step, "cross_pairs", ())
+        for label in by_label if self_labels is None else self_labels:
+            wrapper = self._wrapper_for(lease, ctx.slot, label)
             # TODO: cache the latest plan state
-            wrapper.plan(cu_seqlens=cu_seqlens, causal=step.causal)
+            wrapper.plan(cu_seqlens=self._cu_seqlens(by_label[label]), causal=step.causal)
+            plan_states[label] = wrapper
+        for q_label, kv_label in cross_pairs:
+            q_segments, kv_segments = by_label[q_label], by_label[kv_label]
+            if [s.request_id for s in q_segments] != [s.request_id for s in kv_segments]:
+                raise ValueError(
+                    f"ragged cross-attention {q_label!r} <- {kv_label!r}: the two labels "
+                    "must be declared for the same requests in the same order"
+                )
+            label = cross_label(q_label, kv_label)
+            wrapper = self._wrapper_for(lease, ctx.slot, label)
+            wrapper.plan(
+                cu_seqlens=self._cu_seqlens(q_segments),
+                kv_cu_seqlens=self._cu_seqlens(kv_segments),
+            )
             plan_states[label] = wrapper
 
         self._preplanned = ctx.is_preplan

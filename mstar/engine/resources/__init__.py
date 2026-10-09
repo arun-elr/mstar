@@ -22,6 +22,8 @@ from mstar.engine.resources.attn.config import (
 from mstar.engine.resources.attn.ragged.config import (
     RaggedAttentionConfig,
     RaggedAttentionSpec,
+    RaggedAttentionStep,
+    cross_label,
 )
 from mstar.engine.resources.base import CGSlotSpec, PublishedInfo, Resource
 from mstar.engine.resources.kv.config import (
@@ -99,6 +101,7 @@ __all__ = [
     "PublishedInfo",
     "RaggedAttentionConfig",
     "RaggedAttentionSpec",
+    "RaggedAttentionStep",
     "Resource",
     "ResourceReqConfig",
     "ResourceStep",
@@ -114,6 +117,7 @@ __all__ = [
     "StepRunner",
     "SubmoduleStep",
     "apply_yaml_overrides",
+    "cross_label",
     "resolve_spec_dependencies",
     "topo_sort",
 ]

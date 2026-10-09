@@ -361,8 +361,9 @@ The spec types are:
        the FlashInfer backend is implemented. See `Cross-attention (encoder-decoder
        models)`_.
    * - ``RaggedAttentionSpec(config=RaggedAttentionConfig(...))``
-     - Cacheless (ragged) varlen self-attention over the segments packed into one
-       forward. Nothing is paged, and nothing carries to the next step.
+     - Cacheless (ragged) varlen attention over the segments packed into one
+       forward: self-attention within a span, or cross-attention between two spans of
+       the same request. Nothing is paged, and nothing carries to the next step.
        ``RaggedAttentionConfig`` holds ``num_qo_heads``, ``num_kv_heads`` and
        ``head_dim`` (all pre-sharding, as in ``KVConfig``), an ``sm_scale`` that
        defaults to ``head_dim ** -0.5``, ``flashinfer_backend``, and the two
@@ -574,6 +575,30 @@ previous step's plan. Because the tower is normally captured as a piecewise regi
 declaration lives in the region's ``declare_step``, and names no ``KVStep``. See
 ``mstar/model/bagel/submodules.py``, region ``"vit_block_loop"``, and `Piecewise CUDA
 graphs (capturing an inner loop)`_.
+
+Cross-attention between spans
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A diffusion transformer whose streams attend each other (video queries over text keys, or
+audio over video) has several spans per request and no cache either. Declare each span as
+its own label, and use ``RaggedAttentionStep`` in place of ``AttentionStep``:
+
+.. code-block:: python
+
+   RaggedAttentionStep(
+       segments=segments,              # one Segment per (request, label)
+       causal=False,
+       self_labels=("video", "audio"),  # None: every declared label self-attends
+       cross_pairs=(("video", "text"), ("audio", "video")),
+   )
+
+Each ``(q_label, kv_label)`` pair is planned as its own layout, pairing each request's
+``q_label`` span with that request's ``kv_label`` span. A layer attends through
+``RaggedAttentionCallable(resource, cross_label(q_label, kv_label))``, passing the key
+span's tokens as ``k`` and ``v``. One resource has one head geometry, so a model whose
+attentions differ in head count or head dim declares one ``RaggedAttentionSpec`` per
+geometry and gives each its own step. LTX-2.5 is the reference
+(``mstar/model/ltx2_5/submodules.py``).
 
 .. note::
 

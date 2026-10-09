@@ -134,7 +134,9 @@ class RaggedAttentionCallable:
     here at construction instead of being a cursor on the resource -- which is
     what lets one stack attend over several spans at once (a refiner over the
     image tokens next to a pass over all of them), the case `AttentionCallable`
-    says to thread explicitly.
+    says to thread explicitly. A cross-attention pair is bound the same way,
+    under ``cross_label(q_label, kv_label)``; its ``k`` / ``v`` are then the
+    key span's tokens, packed in the same request order as ``q``.
 
     One instance per label, held for the life of the resource binding: a
     compiled transformer region guards on the identity of the callables it is
