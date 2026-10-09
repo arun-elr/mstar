@@ -9,6 +9,8 @@ uv.lock
 *.sqlite
 *.prof
 *.json
+# checked-in config fixtures (copies of checkpoint config.json files)
+!test/**/fixtures/**/*.json
 profiler/
 traces/
 
