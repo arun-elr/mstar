@@ -446,7 +446,8 @@ class APIServer:
         Returns the ``request_id``. If a ``request_id`` is provided by the
         caller it is used as-is (useful for deterministic-noise debugging,
         since the conductor's per-request seed is derived from
-        ``hash(request_id)``); otherwise a fresh uuid4 is generated.
+        ``hash(request_id)``); otherwise a fresh uuid4 is generated. An id
+        still held by an earlier request is refused with a 409.
         """
         if request_id is None:
             request_id = str(uuid.uuid4())
@@ -468,6 +469,12 @@ class APIServer:
         with self.request_lock:
             if self.fatal_error is not None:
                 raise HTTPException(status_code=503, detail=self.fatal_error)
+            # A finished request stays in recently_completed until its outputs
+            # drain, and that bookkeeping is keyed by id alone.
+            if request_id in self.pending_requests or request_id in self.recently_completed:
+                raise HTTPException(
+                    status_code=409, detail=f"request_id {request_id!r} is already in use"
+                )
             self.pending_requests[request_id] = PendingRequest(
                 streaming=streaming,
                 input_modalities=input_modalities,
@@ -1279,7 +1286,8 @@ async def generate_ws(websocket: WebSocket):
     ``{"request_id", "modality", "data", "metadata"}``, followed by
     ``{"request_id", "finish": true}``. A rejected message answers
     ``{"request_id", "error": ...}``, and so does a request that fails after
-    it was accepted (with the HTTP ``status`` it would have had); no finish
+    it was accepted. Both carry the HTTP ``status`` when there is one (409
+    for a ``request_id`` already in flight); no finish
     follows an error. Messages may be pipelined: a client can
     send the next observation before the previous action chunk has returned,
     and the ``request_id`` tells the replies apart. Closing the socket aborts
@@ -1360,8 +1368,11 @@ async def generate_ws(websocket: WebSocket):
             raise
         except Exception as exc:  # noqa: BLE001 — reported in-band, the socket stays up
             logger.exception("generate/ws request failed")
+            reply = {"request_id": request_id, "error": str(exc)}
+            if isinstance(exc, HTTPException):
+                reply.update(error=exc.detail, status=exc.status_code)
             try:
-                await send({"request_id": request_id, "error": str(exc)}, binary)
+                await send(reply, binary)
             except Exception:  # noqa: BLE001
                 pass
         finally:

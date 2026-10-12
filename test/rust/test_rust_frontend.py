@@ -4,6 +4,7 @@ stubbed — proves the HTTP surface, the msgpack bridge protocol, and the
 error path end to end without GPUs. Skipped unless the ``mstar_rust``
 extension is installed and the server binary is built
 (``cargo build --release`` in ``rust/server/``)."""
+import base64
 import contextlib
 import json
 import socket
@@ -287,6 +288,46 @@ def test_admission_permit_is_held_through_streaming_body():
         bridge.stop()
         proc.terminate()
         proc.wait(timeout=10)
+
+
+def test_generate_refuses_an_in_flight_request_id():
+    """A second /generate with the id of a request still streaming gets a 409.
+    Taking over the route would cut off the first stream, and the first
+    stream's abort would then cancel the id for both."""
+    import urllib.parse
+
+    gate = threading.Event()
+    stub = _GatedStub(gate)
+    resp_a = None
+    with _model_stack("qwen3_omni", stub) as (port, _upload_dir):
+        try:
+            def generate(timeout):
+                data = urllib.parse.urlencode(
+                    {"text": "hi", "request_id": "dup", "streaming": "true"}).encode()
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/generate", data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"})
+                return urllib.request.urlopen(req, timeout=timeout)
+
+            resp_a = generate(15)
+            deadline = time.time() + 10
+            while not stub.submitted and time.time() < deadline:
+                time.sleep(0.02)
+            assert len(stub.submitted) == 1
+            with pytest.raises(urllib.error.HTTPError) as e:
+                generate(5)
+            assert e.value.code == 409
+            gate.set()
+            body = resp_a.read().decode()
+            text = "".join(
+                base64.b64decode(json.loads(line)["data"]).decode()
+                for line in body.splitlines())
+            assert text == "Hello world"
+            assert len(stub.submitted) == 1 and stub.aborted == []
+        finally:
+            gate.set()
+            if resp_a is not None:
+                resp_a.close()
 
 
 def test_tokenizer_env_fails_fast(tmp_path, monkeypatch):

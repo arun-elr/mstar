@@ -1010,6 +1010,9 @@ async fn generate_finish(
     };
 
     schedule_upload_cleanup(&st.upload_dir, &args);
+    if st.bridge.as_ref().is_some_and(|b| b.is_active(&request_id)) {
+        return detail_error(409, &format!("request_id {request_id:?} is already in use"));
+    }
     if streaming {
         let base = result_stream(&st, &args, &request_id, true);
         let body = base.map(|item| {

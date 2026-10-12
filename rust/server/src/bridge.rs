@@ -183,6 +183,11 @@ impl Bridge {
         }
     }
 
+    /// Whether `request_id` has a request in flight on this frontend.
+    pub fn is_active(&self, request_id: &str) -> bool {
+        self.routes.lock().expect("routes lock").contains_key(request_id)
+    }
+
     /// Submit a flattened request under `request_id`; returns a receiver that
     /// yields `ResultChunk`s until `Done`. The `request_id` is caller-supplied
     /// (the serving handler mints `chatcmpl-…`/`speech-…`), matching mstar,
@@ -194,10 +199,19 @@ impl Bridge {
         streaming: bool,
     ) -> UnboundedReceiver<StreamItem> {
         let (tx, rx) = unbounded_channel();
-        self.routes
-            .lock()
-            .expect("routes lock")
-            .insert(request_id.to_string(), tx.clone());
+        {
+            let mut routes = self.routes.lock().expect("routes lock");
+            if routes.contains_key(request_id) {
+                // Replacing the route would orphan the first request's stream,
+                // and its abort would then hit this one.
+                let _ = tx.send(StreamItem::Error {
+                    status: 409,
+                    message: format!("request_id {request_id:?} is already in use"),
+                });
+                return rx;
+            }
+            routes.insert(request_id.to_string(), tx.clone());
+        }
         let msg = SubmitMsg {
             t: "submit",
             rid: request_id,
