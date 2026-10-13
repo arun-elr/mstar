@@ -1,0 +1,3 @@
+Strategy: Remove outputs (G: 1) (82 nodes, 23 inputs)
+Made 4884 queries
+MINIFIED Wrote minimal repro out to repro.py

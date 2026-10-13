@@ -1,0 +1,16 @@
+t213_fix wan22 mstar_warm 73.36 75.41 u8 55.48 f1 None
+t213_pr wan22 mstar_warm parse-fail
+t213_fix wan22 px_nopad_bench parse-fail
+t213_pr wan22 px_nopad_bench 71.72 73.47 u8 13.86 f1 7.85
+t213_fix wan21 mstar_warm 53.83 54.97 u8 54.65 f1 None
+t213_pr wan21 mstar_warm 53.74 54.9 u8 54.65 f1 None
+t213_fix wan21 px_nopad_bench 53.31 54.55 u8 55.25 f1 54.68
+t213_pr wan21 px_nopad_bench 53.7 54.76 u8 55.25 f1 54.68
+t213_fix wan22 mstar_warm_eager 142.17 143.37 u8 55.39 f1 None
+t212_fix wan22 mstar_warm 74.27 76.54 u8 55.4 f1 None
+t212_pr wan22 mstar_warm 74.55 76.76 u8 55.4 f1 None
+t212_fix wan21 mstar_warm 56.74 57.7 u8 54.42 f1 None
+t212_pr wan21 mstar_warm 57.05 58.15 u8 54.42 f1 None
+t213_pr wan22 mstar_ar_ctx8 352.89 354.62 u8 11.29 f1 None
+t213_fix wan22 mstar_ar_ctx8 352.6 354.03 u8 51.09 f1 None
+DONE

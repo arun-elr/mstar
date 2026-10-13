@@ -1,0 +1,112 @@
+diff --git a/benchmark/wan_vae_decoder/common.py b/benchmark/wan_vae_decoder/common.py
+index 06cbc32..7bf370a 100644
+--- a/benchmark/wan_vae_decoder/common.py
++++ b/benchmark/wan_vae_decoder/common.py
+@@ -18,6 +18,10 @@ WAN22_REPO = "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
+ CHUNK_LATENTS = 3      # latent frames per steady chunk (z in R^{16x3x60x104})
+ FRAMES_PER_CHUNK = 12  # pixel frames per steady chunk (4x temporal)
+ 
++# Same as mstar.model.components.wan_vae.COMPILE_OPTIONS: with comprehensive
++# stride padding, inductor miscompiles the Wan2.2 decoder on torch 2.13.
++INDUCTOR_OPTIONS = {"comprehensive_padding": False}
++
+ 
+ def hf_snapshot(repo: str) -> Path:
+     """Local snapshot dir of ``repo`` from the HF cache; never downloads."""
+@@ -80,8 +84,10 @@ class StreamingDecoder:
+                 elif isinstance(m, nn.Conv2d):
+                     m.weight.data = m.weight.data.contiguous(memory_format=torch.channels_last)
+         self.decoder = vae.decoder
++        # torch.compile takes a mode or options, not both.
++        options = {**torch._inductor.list_mode_options(compile_mode or "default"), **INDUCTOR_OPTIONS}
+         self.step = (
+-            torch.compile(vae.decoder, fullgraph=False, dynamic=False, mode=compile_mode)
++            torch.compile(vae.decoder, fullgraph=False, dynamic=False, options=options)
+             if compile_decoder else vae.decoder
+         )
+         if compile_decoder and compile_mode == "reduce-overhead":
+diff --git a/mstar/model/components/wan_vae.py b/mstar/model/components/wan_vae.py
+index c42da94..e7aa1f7 100644
+--- a/mstar/model/components/wan_vae.py
++++ b/mstar/model/components/wan_vae.py
+@@ -99,6 +99,21 @@ def _cache_signature(feat_cache: list) -> tuple:
+     return tuple(t if t is None or isinstance(t, str) else tuple(t.shape) for t in feat_cache)
+ 
+ 
++# Inductor's comprehensive stride padding miscompiles the Wan2.2 decoder once
++# its mid block and first two up blocks share a graph (torch >= 2.13 traces a
++# decoder call as one graph): a residual up block's shortcut reads its input
++# with padded channels-first strides while that input was written
++# channels-last, so the frames and the cache are wrong (or the read runs out
++# of bounds).
++COMPILE_OPTIONS = {"comprehensive_padding": False}
++
++
++def compile_decode(fn):
++    """``torch.compile`` for a Wan VAE decode callable: one static graph per
++    shape, broken around the causal-conv cache."""
++    return torch.compile(fn, fullgraph=False, dynamic=False, options=COMPILE_OPTIONS)
++
++
+ class DecoderStep:
+     """One ``WanDecoder3d`` call against a caller-owned cache, optionally
+     compiled.
+@@ -120,7 +135,7 @@ class DecoderStep:
+     def __init__(self, vae: nn.Module, compile: bool):
+         self.compiled = compile
+         self._decoder = vae.decoder
+-        self._fn = torch.compile(self._decoder.forward, fullgraph=False, dynamic=False) if compile else None
++        self._fn = compile_decode(self._decoder.forward) if compile else None
+         self._warmed: set[tuple] = set()
+ 
+     def __call__(self, x: torch.Tensor, feat_cache: list, first_chunk: bool = False) -> torch.Tensor:
+diff --git a/mstar/model/cosmos3/submodules.py b/mstar/model/cosmos3/submodules.py
+index 4de1121..2a202b3 100644
+--- a/mstar/model/cosmos3/submodules.py
++++ b/mstar/model/cosmos3/submodules.py
+@@ -59,6 +59,7 @@ from mstar.engine.resources.kv.config import RetentionPolicy
+ from mstar.engine.windowing import WindowSchedule
+ from mstar.model.components.wan_vae import (
+     DecoderStep,
++    compile_decode,
+     cudnn_benchmark,
+     decode_causal,
+     is_channels_last,
+@@ -2639,7 +2640,7 @@ class Cosmos3VAEDecoderSubmodule(NodeSubmodule):
+         if vae is not None and os.environ.get("COSMOS3_COMPILE_VAE", "1").lower() not in (
+             "0", "false", "no", "off",
+         ):
+-            self._decode = torch.compile(vae.decode, fullgraph=False, dynamic=False)
++            self._decode = compile_decode(vae.decode)
+             self._decode_compiled = True
+             logger.info("Cosmos3 VAE decode torch.compile enabled")
+         # Resolve + log the decode dtype now (a cheap cuDNN-version read) so the
+diff --git a/test/modular/test_wan_vae_decode.py b/test/modular/test_wan_vae_decode.py
+index 24c6a58..3d13796 100644
+--- a/test/modular/test_wan_vae_decode.py
++++ b/test/modular/test_wan_vae_decode.py
+@@ -172,6 +172,24 @@ def test_cudnn_benchmark_is_scoped() -> None:
+         assert torch.backends.cudnn.benchmark == before
+ 
+ 
++def test_compiled_decodes_turn_off_inductor_stride_padding(monkeypatch) -> None:
++    """Every compiled Wan VAE decode (the streaming step, Cosmos3's stateless
++    decode) is built without inductor's comprehensive stride padding, which
++    miscompiles the Wan2.2 decoder on torch 2.13 (GPU only, so this checks the
++    switch, not the numerics)."""
++    from mstar.model.cosmos3.config import Cosmos3Config
++    from mstar.model.cosmos3.submodules import Cosmos3VAEDecoderSubmodule
++
++    calls = []
++    monkeypatch.setattr(torch, "compile", lambda fn, **kw: calls.append(kw) or fn)
++    monkeypatch.setenv("COSMOS3_COMPILE_VAE", "1")
++    vae = tiny_wan_vae("wan22")
++    wan_vae.DecoderStep(vae, compile=True)
++    Cosmos3VAEDecoderSubmodule(vae=vae, config=Cosmos3Config())
++    assert len(calls) == 2
++    assert all(kw["options"]["comprehensive_padding"] is False for kw in calls)
++
++
+ def test_compiled_step_runs_steady_calls_compiled_after_a_warm_up_on_a_cache_copy() -> None:
+     """A compiled step runs a stream's start eagerly (the clip-start call, and
+     calls that still find the "Rep" marker in the cache). A steady-state bf16

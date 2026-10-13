@@ -1,0 +1,24 @@
+# Full-length runs (10 warm-up + 75 timed chunks x 2 repeats = 150 samples) unless noted, one GPU job at a time,
+# VM wan-bench-b200-vllm (1x B200), inside vllm/vllm-omni@sha256:d9d81b77...
+#   t213 = container python: torch 2.13.0+cu130, diffusers 0.40.0, Triton 3.7.1, cuDNN 9.20.0
+#   t212 = venv in the same container: torch 2.12.1+cu132, diffusers 0.39.0, Triton 3.7.1, cuDNN 9.20.0.48 (M*'s package versions)
+#   pr  = PR at 4b8b4789 (unchanged)   fix = PR + fix-inductor-padding.patch
+# tag vae variant median_ms p90_ms u8_psnr_db float_psnr_peak1_db
+t213_pr  wan22 mstar_warm        CRASH (CUDA illegal memory access during the run; a 10-chunk run gave 64.89 ms, u8 13.85 dB)
+t213_fix wan22 mstar_warm        73.36  75.41  u8 55.48
+t213_pr  wan21 mstar_warm        53.74  54.90  u8 54.65
+t213_fix wan21 mstar_warm        53.83  54.97  u8 54.65
+t213_pr  wan22 px_nopad_bench    71.72  73.47  u8 13.86  f1 7.85
+t213_fix wan22 px_nopad_bench    72.28  73.73  u8 55.33  f1 56.99
+t213_pr  wan21 px_nopad_bench    53.70  54.76  u8 55.25  f1 54.68
+t213_fix wan21 px_nopad_bench    53.31  54.55  u8 55.25  f1 54.68
+t213_fix wan22 mstar_warm_eager 142.17 143.37  u8 55.39
+t212_pr  wan22 mstar_warm        74.55  76.76  u8 55.40
+t212_fix wan22 mstar_warm        74.27  76.54  u8 55.40
+t212_pr  wan21 mstar_warm        57.05  58.15  u8 54.42
+t212_fix wan21 mstar_warm        56.74  57.70  u8 54.42
+# 10 timed chunks x 1 repeat:
+t213_pr  wan22 mstar_ar_ctx8    352.89 354.62  u8 11.29
+t213_fix wan22 mstar_ar_ctx8    352.60 354.03  u8 51.09
+# (summary.txt is the raw log; its two parse-fail lines are the crash above and a first attempt of
+#  t213_fix px_nopad_bench that hit a bug in the patch's benchmark change, since fixed and rerun.)

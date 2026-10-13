@@ -1,0 +1,84 @@
+Made 4884 queries
+
+# Working Repro with 82 nodes
+inps = [(torch.Size([1024, 1024, 3, 3, 3]), torch.bfloat16, 'cuda'), (torch.Size([1024]), torch.bfloat16, 'cuda'), (torch.Size([1024, 1024, 3, 3]), torch.bfloat16, 'cuda'), (torch.Size([1024]), torch.bfloat16, 'cuda'), (torch.Size([1024, 1, 1, 1]), torch.bfloat16, 'cuda'), (torch.Size([1024, 1024, 3, 3, 3]), torch.bfloat16, 'cuda'), (torch.Size([1024]), torch.bfloat16, 'cuda'), (torch.Size([1024, 1, 1, 1]), torch.bfloat16, 'cuda'), (torch.Size([1024, 1024, 3, 3, 3]), torch.bfloat16, 'cuda'), (torch.Size([1024]), torch.bfloat16, 'cuda'), (torch.Size([2048, 1024, 3, 1, 1]), torch.bfloat16, 'cuda'), (torch.Size([2048]), torch.bfloat16, 'cuda'), (torch.Size([1024, 1024, 3, 3]), torch.bfloat16, 'cuda'), (torch.Size([1024]), torch.bfloat16, 'cuda'), (torch.Size([1, 1024, 1, 30, 52]), torch.bfloat16, 'cuda'), (torch.Size([1, 1024, 3, 32, 54]), torch.bfloat16, 'cuda'), (torch.Size([1, 1024, 2, 60, 104]), torch.bfloat16, 'cuda'), (torch.Size([1, 1024, 2, 60, 104]), torch.bfloat16, 'cuda'), (torch.Size([2, 1024, 60, 104]), torch.bfloat16, 'cuda'), (torch.Size([1, 1024, 2, 60, 104]), torch.bfloat16, 'cuda'), (torch.Size([1, 1024, 2, 60, 104]), torch.bfloat16, 'cuda'), (torch.Size([1, 1024, 2, 60, 104]), torch.bfloat16, 'cuda'), (torch.Size([1, 1024, 2, 60, 104]), torch.bfloat16, 'cuda')]
+inps = [torch.zeros(())] + [torch.ones(shape, dtype=dtype, device=device) for (shape, dtype, device) in inps]
+
+
+
+def forward(self, G_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_weight_ : _bf16_1024_1024_3_3_3_, G_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_bias_ : _bf16_1024_, G_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_weight_ : _bf16_1024_1024_3_3_, G_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_bias_ : _bf16_1024_, G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm1_parameters_gamma_ : _bf16_1024_1_1_1_, G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_weight_ : _bf16_1024_1024_3_3_3_, G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_bias_ : _bf16_1024_, G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm2_parameters_gamma_ : _bf16_1024_1_1_1_, G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_weight_ : _bf16_1024_1024_3_3_3_, G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_bias_ : _bf16_1024_, G_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_weight_ : _bf16_2048_1024_3_1_1_, G_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_bias_ : _bf16_2048_, G_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_weight_ : _bf16_1024_1024_3_3_, G_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_bias_ : _bf16_1024_, add_4, pad_3, to_36, to_45, type_as, to_34, conv3d_14, conv3d_16, getitem_34):
+    g_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_weight_ = G_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_weight_
+    g_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_bias_ = G_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_bias_
+    g_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_weight_ = G_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_weight_
+    g_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_bias_ = G_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_bias_
+    g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm1_parameters_gamma_ = G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm1_parameters_gamma_
+    g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_weight_ = G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_weight_
+    g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_bias_ = G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_bias_
+    g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm2_parameters_gamma_ = G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm2_parameters_gamma_
+    g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_weight_ = G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_weight_
+    g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_bias_ = G_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_bias_
+    g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_weight_ = G_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_weight_
+    g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_bias_ = G_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_bias_
+    g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_weight_ = G_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_weight_
+    g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_bias_ = G_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_bias_
+    conv3d_3 = torch.conv3d(pad_3, g_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_weight_, g_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_bias_, (1, 1, 1), (0, 0, 0), (1, 1, 1), 1);  pad_3 = g_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_weight_ = g_dec_modules_mid_block_modules_resnets_modules_1_modules_conv2_parameters_bias_ = None
+    add_7 = conv3d_3 + add_4;  conv3d_3 = add_4 = None
+    clone_4 = add_7.clone();  add_7 = None
+    conv2d_2 = torch.conv2d(type_as, g_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_weight_, g_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_bias_, (1, 1), (1, 1), (1, 1), 1);  type_as = g_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_weight_ = g_dec_modules_up_blocks_modules_0_modules_upsampler_modules_resample_modules_1_parameters_bias_ = None
+    view_1 = conv2d_2.view(1, 2, 1024, 60, 104);  conv2d_2 = None
+    permute_5 = view_1.permute(0, 2, 1, 3, 4);  view_1 = None
+    repeat_interleave = clone_4.repeat_interleave(8, dim = 1);  clone_4 = None
+    view_2 = repeat_interleave.view(1, 1024, 2, 2, 2, 1, 30, 52);  repeat_interleave = None
+    permute_6 = view_2.permute(0, 1, 5, 2, 6, 3, 7, 4);  view_2 = None
+    contiguous_1 = permute_6.contiguous();  permute_6 = None
+    view_3 = contiguous_1.view(1, 1024, 2, 60, 104);  contiguous_1 = None
+    add_17 = permute_5 + view_3;  permute_5 = view_3 = None
+    clone_12 = add_17.clone()
+    float_13 = add_17.float()
+    normalize_11 = torch.nn.functional.normalize(float_13, p = 2.0, dim = 1, eps = 1e-12, out = None);  float_13 = None
+    to_33 = normalize_11.to(torch.bfloat16);  normalize_11 = None
+    mul_22 = to_33 * 32.0;  to_33 = None
+    mul_23 = mul_22 * g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm1_parameters_gamma_;  mul_22 = g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm1_parameters_gamma_ = None
+    add_18 = mul_23 + 0.0;  mul_23 = None
+    silu_10 = torch.nn.functional.silu(add_18, inplace = False);  add_18 = None
+    cat_22 = torch.cat([to_34, silu_10], dim = 2);  to_34 = silu_10 = None
+    pad_11 = torch._C._nn.pad(cat_22, [1, 1, 1, 1, 0, 0], 'constant', None);  cat_22 = None
+    conv3d_11 = torch.conv3d(pad_11, g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_weight_, g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_bias_, (1, 1, 1), (0, 0, 0), (1, 1, 1), 1);  pad_11 = g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_weight_ = g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv1_parameters_bias_ = None
+    float_14 = conv3d_11.float();  conv3d_11 = None
+    normalize_12 = torch.nn.functional.normalize(float_14, p = 2.0, dim = 1, eps = 1e-12, out = None);  float_14 = None
+    to_35 = normalize_12.to(torch.bfloat16);  normalize_12 = None
+    mul_24 = to_35 * 32.0;  to_35 = None
+    mul_25 = mul_24 * g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm2_parameters_gamma_;  mul_24 = g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_norm2_parameters_gamma_ = None
+    add_19 = mul_25 + 0.0;  mul_25 = None
+    silu_11 = torch.nn.functional.silu(add_19, inplace = False);  add_19 = None
+    dropout_5 = torch.nn.functional.dropout(silu_11, p = 0.0, training = False, inplace = False);  silu_11 = None
+    cat_23 = torch.cat([to_36, dropout_5], dim = 2);  to_36 = dropout_5 = None
+    pad_12 = torch._C._nn.pad(cat_23, [1, 1, 1, 1, 0, 0], 'constant', None);  cat_23 = None
+    conv3d_12 = torch.conv3d(pad_12, g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_weight_, g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_bias_, (1, 1, 1), (0, 0, 0), (1, 1, 1), 1);  pad_12 = g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_weight_ = g_dec_modules_up_blocks_modules_1_modules_resnets_modules_0_modules_conv2_parameters_bias_ = None
+    add_20 = conv3d_12 + add_17;  conv3d_12 = add_17 = None
+    add_23 = conv3d_14 + add_20;  conv3d_14 = add_20 = None
+    add_26 = conv3d_16 + add_23;  conv3d_16 = add_23 = None
+    cat_28 = torch.cat([to_45, add_26], dim = 2);  to_45 = add_26 = None
+    pad_17 = torch._C._nn.pad(cat_28, [0, 0, 0, 0, 0, 0], 'constant', None);  cat_28 = None
+    conv3d_17 = torch.conv3d(pad_17, g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_weight_, g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_bias_, (1, 1, 1), (0, 0, 0), (1, 1, 1), 1);  pad_17 = g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_weight_ = g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_time_conv_parameters_bias_ = None
+    reshape_6 = conv3d_17.reshape(1, 2, 1024, 2, 60, 104);  conv3d_17 = None
+    getitem_35 = reshape_6[(slice(None, None, None), 1, slice(None, None, None), slice(None, None, None), slice(None, None, None), slice(None, None, None))];  reshape_6 = None
+    stack_1 = torch.stack((getitem_34, getitem_35), 3);  getitem_34 = getitem_35 = None
+    reshape_7 = stack_1.reshape(1, 1024, 4, 60, 104);  stack_1 = None
+    permute_7 = reshape_7.permute(0, 2, 1, 3, 4);  reshape_7 = None
+    reshape_8 = permute_7.reshape(4, 1024, 60, 104);  permute_7 = None
+    float_19 = reshape_8.float()
+    interpolate_1 = torch.nn.functional.interpolate(float_19, size = None, scale_factor = (2.0, 2.0), mode = 'nearest-exact', align_corners = None, recompute_scale_factor = None, antialias = False);  float_19 = None
+    type_as_1 = interpolate_1.type_as(reshape_8);  interpolate_1 = reshape_8 = None
+    conv2d_3 = torch.conv2d(type_as_1, g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_weight_, g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_bias_, (1, 1), (1, 1), (1, 1), 1);  type_as_1 = g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_weight_ = g_dec_modules_up_blocks_modules_1_modules_upsampler_modules_resample_modules_1_parameters_bias_ = None
+    view_4 = conv2d_3.view(1, 4, 1024, 120, 208);  conv2d_3 = None
+    permute_8 = view_4.permute(0, 2, 1, 3, 4);  view_4 = None
+    repeat_interleave_1 = clone_12.repeat_interleave(8, dim = 1);  clone_12 = None
+    view_5 = repeat_interleave_1.view(1, 1024, 2, 2, 2, 2, 60, 104);  repeat_interleave_1 = None
+    permute_9 = view_5.permute(0, 1, 5, 2, 6, 3, 7, 4);  view_5 = None
+    contiguous_2 = permute_9.contiguous();  permute_9 = None
+    view_6 = contiguous_2.view(1, 1024, 4, 120, 208);  contiguous_2 = None
+    add_27 = permute_8 + view_6;  permute_8 = view_6 = None
+    return [add_27]
+    
+

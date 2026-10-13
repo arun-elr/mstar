@@ -1,0 +1,44 @@
+# torch 2.13.0+cu130 Inductor output for decoder stages 1-4 (mid_block, up_blocks[0], up_blocks[1]) of the Wan 2.2 VAE,
+# one steady 480x832 latent, bf16. Default config (comprehensive_padding=True) vs comprehensive_padding=False.
+# Full files: pad_1-4_0.py / nopad_1-4_0.py on the VM under ~/w22/code/.
+
+## padded build: buf95 (= up_blocks[0] output = up_blocks[1] input x) is written CHANNELS-LAST in place into the conv2d output buffer
+2973:            buf95 = reinterpret_tensor(buf94, (1, 1024, 2, 60, 104), (12779520, 1, 6389760, 106496, 1024), 0); del buf94  # reuse
+2979:            triton_red_fused__to_copy_add_clamp_min_clone_constant_pad_nd_convolution_div_expand_linalg_vector_norm_mul_permute_silu_slice_unsqueeze_view_21.run(buf95, arg50_1, buf41, arg21_1, buf27, arg51_1, buf98, buf154, 12480, 1024, stream=raw_stream0)
+def triton_red_fused__to_copy_add_clamp_min_clone_constant_pad_nd_convolution_div_expand_linalg_vector_norm_mul_permute_silu_slice_unsqueeze_view_21(in_out_ptr0, in_ptr0, in_ptr1, in_ptr2, in_ptr3, in_ptr4, out_ptr1, out_ptr2, xnumel, r0_numel, XBLOCK : tl.constexpr, R0_BLOCK : tl.constexpr):
+    x4 = xindex
+        tmp0 = tl.load(in_out_ptr0 + (r0_3 + 1024*x4), r0_mask & xmask, eviction_policy='evict_first', other=0.0).to(tl.float32)
+        tl.store(in_out_ptr0 + (r0_3 + 1024*x4), tmp8, r0_mask & xmask)
+
+## padded build: kernel 30 reads buf95 (in_ptr2) for DupUp3D(x_copy) with the PADDED CHANNELS-FIRST strides (C 12544, T 6272, H 104, W 1)
+3177:            triton_poi_fused__to_copy_add_clone_convolution_expand_permute_unsqueeze_view_30.run(buf141, arg79_1, buf95, buf142, 4096, 24960, stream=raw_stream0)
+def triton_poi_fused__to_copy_add_clone_convolution_expand_permute_unsqueeze_view_30(in_ptr0, in_ptr1, in_ptr2, out_ptr0, ynumel, xnumel, YBLOCK : tl.constexpr, XBLOCK : tl.constexpr):
+    ynumel = 4096
+    xnumel = 24960
+    yoffset = tl.program_id(1) * YBLOCK
+    yindex = yoffset + tl.arange(0, YBLOCK)[:, None]
+    ymask = tl.full([YBLOCK], True, tl.int1)[:, None]
+    xoffset = tl.program_id(0) * XBLOCK
+    xindex = xoffset + tl.arange(0, XBLOCK)[None, :]
+    xmask = xindex < xnumel
+    x4 = xindex
+    y0 = (yindex % 1024)
+    y1 = yindex // 1024
+    x2 = (xindex % 208)
+    x3 = xindex // 208
+    y5 = yindex
+    tmp0 = tl.load(in_ptr0 + (y0 + 1024*x4 + 25559040*y1), xmask).to(tl.float32)
+    tmp1 = tl.load(in_ptr1 + (y0), None, eviction_policy='evict_last').to(tl.float32)
+    tmp3 = tl.load(in_ptr2 + (104*(x3 // 2) + 6272*(y1 // 2) + 12544*y0 + (x2 // 2)), xmask, eviction_policy='evict_last').to(tl.float32)
+    tmp2 = tmp0 + tmp1
+    tmp4 = tmp2 + tmp3
+    tl.store(out_ptr0 + (x4 + 24960*y5), tmp4, xmask)
+''', device_str='cuda')
+
+## padded build: the padded layout those strides belong to (an unrelated buffer, the up_blocks[1] residual stream)
+3081:            buf121 = empty_strided_cuda((1, 1024, 2, 60, 104), (12845056, 12544, 6272, 104, 1), torch.bfloat16)
+
+## unpadded build: buf95 is channels-first and the same DupUp3D read matches it
+2702:            buf95 = reinterpret_tensor(buf92, (1, 1024, 2, 60, 104), (12779520, 12480, 6240, 104, 1), 0); del buf92  # reuse
+2906:            triton_poi_fused__to_copy_add_clone_convolution_expand_permute_unsqueeze_view_26.run(buf141, arg79_1, buf95, buf142, 4096, 24960, stream=raw_stream0)
+2182:    tmp3 = tl.load(in_ptr2 + (104*(x3 // 2) + 6240*(y1 // 2) + 12480*y0 + (x2 // 2)), xmask, eviction_policy='evict_last').to(tl.float32)
