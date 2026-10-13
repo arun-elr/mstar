@@ -1,0 +1,11 @@
+vae,variant,frames,md5_u8_stream,b200_md5_u8_stream,same_md5_as_b200,identical_to_stock,psnr_u8_vs_fp32,worst_psnr_u8_vs_fp32,worst_psnr_vs_fp32_at,b200_psnr_u8_vs_fp32,b200_worst_psnr_u8_vs_fp32,psnr_u8_vs_stock,pct_u8_diff_ge1_vs_stock,pct_u8_diff_ge2_vs_stock,max_abs_u8_vs_stock,b200_pct_u8_diff_ge1_vs_stock,b200_max_abs_u8_vs_stock,seam_db,b200_seam_db,deterministic_run2,b200_deterministic_run2
+wan21,ref_fp32,1021,47803da2fcbc08ab08b51ceb62b9aacc,,,False,inf,inf,first latent,,,54.84,21.233,0.0325,12,,,,,,
+wan21,diffusers_bf16,1021,17d4897ffa7c63d2011d7f1bce6e0b3d,f2dc2237a1f0348b0d7a4f16a9b91162,False,True,54.84,54.34,c26 f4,54.84,54.36,inf,0.0,0.0,0,0.0,0,0.024,0.024,,
+wan21,mstar_ar_ctx8,1021,492a36764b165fede03762eed69ff486,63c1a6edd6e76f44cada29ab70789ba0,False,False,51.76,46.68,c72 f1⟂,51.76,46.68,52.12,30.0,2.4013,80,29.999,83,-0.591,-0.592,,
+wan21,mstar_warm,1021,79de51909eaf7b83576b9dc03d92bac5,254ae47e7a048fe8dadd61433945c51c,False,False,54.4,53.97,c73 f12⟂,54.4,53.98,56.07,15.653,0.1245,22,15.655,19,0.029,0.029,max uint8 diff 9,max uint8 diff 1
+wan21,mstar_warm_nobench,1021,a5f0bc18bf8c1a7abc8359fb50dc26a6,4e76d64300447ccd2b33658e5660c8cf,False,False,54.4,53.97,c26 f4,54.4,53.98,56.07,15.653,0.1244,22,15.654,17,0.029,0.029,bit-identical (uint8),bit-identical (uint8)
+wan22,ref_fp32,1021,7fc1be6168219b432ffa4c698f40d8fc,,,False,inf,inf,first latent,,,55.12,19.867,0.0365,39,,,,,,
+wan22,diffusers_bf16,1021,18ae34a5d789248536925e15c6e985db,38576c14dcdb7a5aadc18198316ed054,False,True,55.12,54.32,c73 f6,55.12,54.15,inf,0.0,0.0,0,0.0,0,0.082,0.082,,
+wan22,mstar_ar_ctx8,1021,6fd1586de88ed1ceaaf18fb8e458a49a,b289f57ee278e04db9ee9e1815b01a76,False,False,50.11,34.83,c73 f1⟂,50.11,34.83,50.51,30.382,4.0388,207,30.381,207,-2.296,-2.297,,
+wan22,mstar_warm,1021,7ea2fdbfa9124b90a9c4d1ef7b1812fc,5fabdc7b345c607fcebe853cc23e77bb,False,False,55.28,54.56,c31 f8,55.27,54.48,56.86,13.106,0.0766,37,13.11,38,0.079,0.079,max uint8 diff 13,max uint8 diff 4
+wan22,mstar_warm_nobench,1021,3dff9672f7928b483aa1a5cd3e686f06,d2c7733114c74c583b1d40079130631d,False,False,55.28,54.6,c73 f8,55.27,54.54,56.86,13.109,0.0767,35,13.109,34,0.078,0.079,bit-identical (uint8),bit-identical (uint8)

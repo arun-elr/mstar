@@ -1,0 +1,9 @@
+session,vae,variant,run1_ms,run2_ms,run3_ms,mean_ms,spread_ms,spread_pct,p90_mean_ms,peak_allocated_gib,psnr_float_db_peak1,psnr_u8_db
+in-tree,wan21,mstar_ar_ctx8,577.46,577.75,578.22,577.81,0.76,0.13,580.39,6.33,,52.09
+in-tree,wan21,mstar_warm,103.38,103.45,102.99,103.27,0.46,0.45,105.49,19.03,,54.42
+in-tree,wan21,mstar_warm_eager,191.18,191.1,190.93,191.07,0.25,0.13,192.54,8.04,,54.41
+in-tree,wan21,px_nopad_bench,102.41,102.54,102.8,102.58,0.39,0.38,106.32,19.0,53.91,54.98
+in-tree,wan22,mstar_ar_ctx8,618.81,619.08,619.37,619.09,0.56,0.09,621.53,6.44,,51.08
+in-tree,wan22,mstar_warm,140.91,139.64,139.36,139.97,1.55,1.11,141.86,15.93,,55.4
+in-tree,wan22,mstar_warm_eager,221.67,224.29,221.41,222.46,2.88,1.29,225.04,9.89,,55.39
+in-tree,wan22,px_nopad_bench,139.81,139.49,139.73,139.68,0.32,0.23,142.22,15.91,56.56,55.27
