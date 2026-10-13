@@ -58,15 +58,6 @@ from mstar.engine.cuda_graph_config import (
 from mstar.engine.resources import AttentionStep, KVStep, Segment, SlotLease, SubmoduleStep
 from mstar.engine.resources.kv.config import RetentionPolicy
 from mstar.engine.windowing import WindowSchedule
-from mstar.model.components.wan_vae import (
-    DecoderStep,
-    cudnn_benchmark,
-    decode_causal,
-    feat_cache_bytes,
-    is_channels_last,
-    new_feat_cache,
-    to_channels_last,
-)
 from mstar.model.cosmos3.components.packing import (
     action_start_frame_offset,
     build_action_static_inputs,
@@ -2609,6 +2600,14 @@ class Cosmos3AudioDecoderSubmodule(NodeSubmodule):
         return {"audio_output": [audio[0].to(torch.float32)]}
 
 
+def _wan_vae():
+    # The Wan VAE helpers import diffusers, an optional dependency; only the
+    # decode paths load them, so this module imports without it.
+    from mstar.model.components import wan_vae
+
+    return wan_vae
+
+
 class Cosmos3VAEDecoderSubmodule(NodeSubmodule):
     """Wan VAE decode node: final denoised latents -> pixel frames.
 
@@ -2625,6 +2624,7 @@ class Cosmos3VAEDecoderSubmodule(NodeSubmodule):
         self.vae = vae
         self.config = config
         self._decode_dtype_cached = None
+        self._channels_last = False
         # The decode is 3D-conv bound, one-shot per request at request-specific
         # shapes, and not graph-captured; torch.compile fuses its pointwise
         # epilogues (~20-30% off the 189-frame video decode, neutral for
@@ -2680,7 +2680,7 @@ class Cosmos3VAEDecoderSubmodule(NodeSubmodule):
         # conv3d fails ("Input type (float) and bias type (BFloat16)"). No-op
         # on the fp32-decode path.
         z = (latents.to(vae_dtype) / inv_std + mean).to(vae_dtype)
-        if is_channels_last(vae):
+        if self._channels_last:
             # Also the layout the compiled decode's warm-up traces with.
             z = z.contiguous(memory_format=torch.channels_last_3d)
         return z
@@ -2767,9 +2767,10 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
         # Before any compile traces the decode; only this node's VAE instance
         # is converted (see Cosmos3Model).
         if vae is not None and config.vae_decode_channels_last:
-            to_channels_last(vae)
+            _wan_vae().to_channels_last(vae)
+            self._channels_last = True
         self._warm_enabled = vae is not None and bool(config.windowed_decode_warm_cache)
-        self._step = DecoderStep(vae, compile=self._decode_compiled) if self._warm_enabled else None
+        self._step = _wan_vae().DecoderStep(vae, compile=self._decode_compiled) if self._warm_enabled else None
 
     def prepare_inputs(self, graph_walk, fwd_info, inputs, **kwargs) -> NodeInputs:
         chunks = (inputs or {}).get("window_latents") or []
@@ -2825,7 +2826,7 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
             pixels = self._decode_stream(new, feat_cache, clip_start=False)
         else:
             if st["ar_warm"]:
-                feat_cache = new_feat_cache(self.vae)
+                feat_cache = _wan_vae().new_feat_cache(self.vae)
                 pixels = self._decode_stream(stream_tail, feat_cache, clip_start=True)
                 st.add("ar_feat_cache", feat_cache)
                 self._log_warm_streams("start", rid)
@@ -2876,22 +2877,25 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
             caches = self._warm_streams_live()
             logger.debug(
                 "vae_decoder_ar: warm stream %s (%s); %d live, %.2f GiB of decoder cache",
-                event, rid, len(caches), sum(feat_cache_bytes(c) for c in caches) / 2**30,
+                event, rid, len(caches), sum(_wan_vae().feat_cache_bytes(c) for c in caches) / 2**30,
             )
 
     def _decode_pixels(self, latents: torch.Tensor) -> torch.Tensor:
-        with cudnn_benchmark(self.config.vae_decode_cudnn_benchmark):
+        if not self.config.vae_decode_cudnn_benchmark:
+            return super()._decode_pixels(latents)
+        with _wan_vae().cudnn_benchmark(True):
             return super()._decode_pixels(latents)
 
     def _decode_stream(self, latents: torch.Tensor, feat_cache: list, clip_start: bool) -> torch.Tensor:
         """``_decode_pixels`` continuing the stream whose decoder cache is
         ``feat_cache`` (updated in place)."""
+        wan_vae = _wan_vae()
         z = self._vae_input(latents)
         with (
             torch.autocast(device_type="cuda", enabled=False),
-            cudnn_benchmark(self.config.vae_decode_cudnn_benchmark),
+            wan_vae.cudnn_benchmark(self.config.vae_decode_cudnn_benchmark),
         ):
-            decoded = decode_causal(
+            decoded = wan_vae.decode_causal(
                 self.vae, z, feat_cache, self._step, clip_start=clip_start,
                 latents_per_call=int(self.config.windowed_decode_latents_per_call),
             )
