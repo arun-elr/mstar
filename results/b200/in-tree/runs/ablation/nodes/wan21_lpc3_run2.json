@@ -1,0 +1,37 @@
+{
+  "tag": "wan21_lpc3_run2",
+  "node": "cosmos3_ar",
+  "vae": "wan21",
+  "size": "832x480",
+  "overrides": {
+    "windowed_decode_latents_per_call": 3
+  },
+  "window_latents": 8,
+  "overlap": 2,
+  "new_frames_per_window": 24,
+  "streams": 1,
+  "windows_timed": 30,
+  "median_ms_per_window": 112.15,
+  "p90_ms_per_window": 113.57,
+  "median_ms_per_12_frames": 56.075,
+  "decoded_fps": 213.999,
+  "first_window_ms": 24685.347,
+  "peak_allocated_gib": 19.014,
+  "cache_mib_per_stream": 1801.084,
+  "decode_dtype": "torch.bfloat16",
+  "compiled": true,
+  "ignored_overrides": [],
+  "wall_s": 40.0,
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "gpu": "NVIDIA B200",
+    "mstar": "${VM_HOME}/mstar-pr",
+    "diffusers": "0.39.0",
+    "mstar_commit": "60fbc5cd",
+    "gpu_apps_at_start": [
+      "206502, 34156 MiB"
+    ]
+  }
+}

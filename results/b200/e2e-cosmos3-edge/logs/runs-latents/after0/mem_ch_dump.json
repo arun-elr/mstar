@@ -1,0 +1,42 @@
+[
+ {
+  "pid": 186643,
+  "argv": "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ${VM_HOME}/e2e-cosmos3/runs-latents/after0/config.yaml --socket-path-prefix ${TMPDIR}/tmp.IBdZllL7Mi/ --upload-dir ${TMPDIR}/tmp.wwsLpRnGDp/ --port 8100 --mooncake-port 9100 --tensor-comm-protocol SHM --log-stats-file ${VM_HOME}/e2e-co",
+  "t": 1791921895.005242,
+  "resets": 2,
+  "max_allocated_gib": 62.481847286224365,
+  "max_reserved_gib": 78.42578125,
+  "allocated_gib": 28.53680181503296,
+  "reserved_gib": 66.724609375,
+  "before_resets": [
+   {
+    "max_allocated_gib": 72.75551462173462,
+    "max_reserved_gib": 78.34375
+   },
+   {
+    "max_allocated_gib": 64.68429231643677,
+    "max_reserved_gib": 78.42578125
+   }
+  ]
+ },
+ {
+  "pid": 186704,
+  "argv": "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._inductor.compile_worker.subproc_pool.SubprocPickler --kind=fork --workers=20 --parent=186643 --read-fd=780 --write-fd=783 --torch-key=PJVKqW0MWg39533O0RfI9yanpPd/5Lsn3+F9Dzp1Uzs=",
+  "t": 1791921894.6760733,
+  "resets": 2,
+  "max_allocated_gib": 0.0,
+  "max_reserved_gib": 0.0,
+  "allocated_gib": 0.0,
+  "reserved_gib": 0.0,
+  "before_resets": [
+   {
+    "max_allocated_gib": 0.0,
+    "max_reserved_gib": 0.0
+   },
+   {
+    "max_allocated_gib": 0.0,
+    "max_reserved_gib": 0.0
+   }
+  ]
+ }
+]

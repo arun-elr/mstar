@@ -1,0 +1,111 @@
+{
+  "variant": "px_nopad_bench",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 181.0,
+  "distinct_kernels": 47,
+  "gpu_ms_per_chunk": 136.83,
+  "category_ms_per_chunk": {
+    "convolution": 121.12,
+    "layout conversion": 0.0,
+    "norm / SiLU": 6.33,
+    "concat / pad": 1.13,
+    "upsample": 3.9,
+    "attention": 0.45,
+    "copies": 0.78,
+    "other elementwise": 2.01,
+    "other": 1.12
+  },
+  "top15": [
+    {
+      "name": "sm90_xmma_fprop_implicit_gemm_bf16bf16_bf16f32_f32_nhwckrsc_nhwc_tilesize128x256x64_warpgroupsize2x1x1_g1_execute_segment_k_off_kernel__5x_cudnn",
+      "category": "convolution",
+      "calls_per_chunk": 15.0,
+      "ms_per_chunk": 63.83
+    },
+    {
+      "name": "sm90_xmma_fprop_implicit_gemm_bf16bf16_bf16f32_f32_nhwckrsc_nhwc_tilesize256x128x64_warpgroupsize2x1x1_g1_execute_segment_k_on_kernel__5x_cudnn",
+      "category": "convolution",
+      "calls_per_chunk": 16.0,
+      "ms_per_chunk": 43.354
+    },
+    {
+      "name": "sm90_xmma_fprop_implicit_gemm_bf16bf16_bf16f32_f32_nhwckrsc_nhwc_tilesize256x128x64_warpgroupsize2x1x1_g1_execute_segment_k_off_kernel__5x_cudnn",
+      "category": "convolution",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 11.648
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_mul_unsqueeze_0",
+      "category": "upsample",
+      "calls_per_chunk": 2.0,
+      "ms_per_chunk": 2.176
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_2",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 14.0,
+      "ms_per_chunk": 2.154
+    },
+    {
+      "name": "sm90_xmma_fprop_implicit_gemm_bf16bf16_bf16f32_f32_nhwckrsc_nhwc_tilesize256x64x32_warpgroupsize1x1x1_g1_execute_segment_k_off_kernel__5x_cudnn",
+      "category": "convolution",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 2.013
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_div_expand_linalg_vector_norm_mul_silu_0",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 5.0,
+      "ms_per_chunk": 1.293
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_5",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 2.0,
+      "ms_per_chunk": 1.173
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<c10::BFloat16> >(at::TensorIteratorBase&, at::native:",
+      "category": "other elementwise",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 1.057
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_convolution_mul_permute_unsqueeze_view_6",
+      "category": "upsample",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 0.946
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_4",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 2.0,
+      "ms_per_chunk": 0.809
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_convolution_expand_mul_permute_unsqueeze_view_7",
+      "category": "upsample",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 0.777
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::opera",
+      "category": "copies",
+      "calls_per_chunk": 6.0,
+      "ms_per_chunk": 0.661
+    },
+    {
+      "name": "nvjet_sm90_tst_128x256_64x4_2x1_v_bz_coopA_TNN",
+      "category": "other",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 0.568
+    },
+    {
+      "name": "nvjet_sm90_tst_256x128_64x4_1x2_h_bz_coopA_TNT",
+      "category": "other",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 0.476
+    }
+  ]
+}

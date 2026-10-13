@@ -1,0 +1,77 @@
+{
+ "args": {
+  "port": 8100,
+  "mode": "chained",
+  "size": "832x480",
+  "frames": 241,
+  "window_frames": 29,
+  "steps": 20,
+  "gs": 6.0,
+  "fps": 24.0,
+  "seed": 0,
+  "image": "${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg",
+  "concurrency": 1,
+  "rounds": 2,
+  "warmup": 1,
+  "save_dir": "${VM_HOME}/e2e-cosmos3/runs/before/mp4/ch_c1",
+  "out": "${VM_HOME}/e2e-cosmos3/runs/before/client_ch_c1.json",
+  "tag": "before/ch_c1"
+ },
+ "prompt": "A robot arm is cleaning a plate in the kitchen, smooth natural motion.",
+ "rounds": [
+  {
+   "round": -1,
+   "timed": false,
+   "wall_s": 0.18519297500461107,
+   "wall_start": 1791920136.6730673,
+   "wall_end": 1791920136.8582642,
+   "requests": [
+    {
+     "seed": 0,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.0020812940056202933,
+     "send_wall": 1791920136.6751492
+    }
+   ]
+  },
+  {
+   "round": 0,
+   "timed": true,
+   "wall_s": 0.1799615409981925,
+   "wall_start": 1791920136.8582776,
+   "wall_end": 1791920137.038243,
+   "requests": [
+    {
+     "seed": 0,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.0015487600030610338,
+     "send_wall": 1791920136.8598275
+    }
+   ]
+  },
+  {
+   "round": 1,
+   "timed": true,
+   "wall_s": 0.17929302300035488,
+   "wall_start": 1791920137.0382767,
+   "wall_end": 1791920137.2175744,
+   "requests": [
+    {
+     "seed": 0,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.0016061290007201023,
+     "send_wall": 1791920137.0398834
+    }
+   ]
+  }
+ ]
+}

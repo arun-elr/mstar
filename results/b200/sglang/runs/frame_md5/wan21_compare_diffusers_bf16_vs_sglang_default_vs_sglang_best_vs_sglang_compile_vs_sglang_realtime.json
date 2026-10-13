@@ -1,0 +1,43 @@
+[
+  {
+    "label": "diffusers_bf16",
+    "md5": "ac03880592696422f09abbbc9c3d1899",
+    "frames": 1021
+  },
+  {
+    "label": "sglang_default",
+    "md5": "d5f5e738699ad986d00e3db17f158ceb",
+    "frames": 1021,
+    "vs_diffusers_bf16_identical_bytes_pct": 92.3919,
+    "vs_diffusers_bf16_max_abs_u8": 11,
+    "vs_diffusers_bf16_psnr_u8_db": 59.31,
+    "vs_diffusers_bf16_md5_equal": false
+  },
+  {
+    "label": "sglang_best",
+    "md5": "3f713e0d38bb2f2548a7032faf927404",
+    "frames": 1021,
+    "vs_diffusers_bf16_identical_bytes_pct": 94.1971,
+    "vs_diffusers_bf16_max_abs_u8": 8,
+    "vs_diffusers_bf16_psnr_u8_db": 60.49,
+    "vs_diffusers_bf16_md5_equal": false
+  },
+  {
+    "label": "sglang_compile",
+    "md5": "6bed787a5d50be7337db4e26ce8202ab",
+    "frames": 1021,
+    "vs_diffusers_bf16_identical_bytes_pct": 92.3355,
+    "vs_diffusers_bf16_max_abs_u8": 11,
+    "vs_diffusers_bf16_psnr_u8_db": 59.28,
+    "vs_diffusers_bf16_md5_equal": false
+  },
+  {
+    "label": "sglang_realtime",
+    "md5": "eae4d4fc3782b27dc97d58ba77aba296",
+    "frames": 1021,
+    "vs_diffusers_bf16_identical_bytes_pct": 80.3762,
+    "vs_diffusers_bf16_max_abs_u8": 14,
+    "vs_diffusers_bf16_psnr_u8_db": 55.18,
+    "vs_diffusers_bf16_md5_equal": false
+  }
+]

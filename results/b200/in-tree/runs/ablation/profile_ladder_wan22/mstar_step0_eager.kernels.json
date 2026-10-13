@@ -1,0 +1,111 @@
+{
+  "variant": "mstar_step0_eager",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 7853.0,
+  "distinct_kernels": 37,
+  "gpu_ms_per_chunk": 631.57,
+  "category_ms_per_chunk": {
+    "convolution": 191.5,
+    "layout conversion": 68.25,
+    "norm / SiLU": 23.17,
+    "concat / pad": 11.1,
+    "upsample": 9.17,
+    "attention": 2.91,
+    "copies": 187.71,
+    "other elementwise": 136.05,
+    "other": 1.71
+  },
+  "top15": [
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::opera",
+      "category": "copies",
+      "calls_per_chunk": 1498.0,
+      "ms_per_chunk": 128.765
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 126.0,
+      "ms_per_chunk": 117.276
+    },
+    {
+      "name": "void cudnn::engines_precompiled::nchwToNhwcKernel<__nv_bfloat16, __nv_bfloat16, float, false, true, (cudnnKernelDataType_t)0>(cudnn::engines_precompiled::nchw2n",
+      "category": "layout conversion",
+      "calls_per_chunk": 777.0,
+      "ms_per_chunk": 49.455
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<c10::BFloat16> >(at::TensorIteratorBase&, at::native:",
+      "category": "other elementwise",
+      "calls_per_chunk": 471.0,
+      "ms_per_chunk": 45.645
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::binary_internal::DivFu",
+      "category": "other elementwise",
+      "calls_per_chunk": 330.0,
+      "ms_per_chunk": 37.504
+    },
+    {
+      "name": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::opera",
+      "category": "copies",
+      "calls_per_chunk": 363.0,
+      "ms_per_chunk": 36.219
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_128x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 109.0,
+      "ms_per_chunk": 35.153
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<c10::BFloat16, c10::BFloat16, c10::BFloat16, at::native",
+      "category": "other elementwise",
+      "calls_per_chunk": 330.0,
+      "ms_per_chunk": 30.747
+    },
+    {
+      "name": "void cudnn::engines_precompiled::nhwcToNchwKernel<__nv_bfloat16, __nv_bfloat16, float, true, false, (cudnnKernelDataType_t)0>(cudnn::engines_precompiled::nhwc2n",
+      "category": "layout conversion",
+      "calls_per_chunk": 405.0,
+      "ms_per_chunk": 18.797
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::bfloat16_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda(float)#1}, std::array<char*, 2ul> >(in",
+      "category": "copies",
+      "calls_per_chunk": 364.0,
+      "ms_per_chunk": 13.928
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t1xr3xs3_64x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 11.0,
+      "ms_per_chunk": 13.072
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 16.0,
+      "ms_per_chunk": 12.165
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::(anonymous namespace)::silu_kernel(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{la",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 319.0,
+      "ms_per_chunk": 11.742
+    },
+    {
+      "name": "void at::native::reduce_kernel<128, 4, at::native::ReduceOp<float, at::native::NormTwoOps<float, float, float, true>, unsigned int, float, 4, 4> >(at::native::R",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 330.0,
+      "ms_per_chunk": 11.427
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul> >(int, at::native::FillFunctor<c10::BFloat16>, ",
+      "category": "concat / pad",
+      "calls_per_chunk": 333.0,
+      "ms_per_chunk": 11.101
+    }
+  ]
+}

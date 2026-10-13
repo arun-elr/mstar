@@ -1,0 +1,16 @@
+[
+  {
+    "label": "sglang_best",
+    "md5": "b0b0eb98e9f88ad0fe6e3dfc51071152",
+    "frames": 1021
+  },
+  {
+    "label": "sglang_best_whole",
+    "md5": "b0b0eb98e9f88ad0fe6e3dfc51071152",
+    "frames": 1021,
+    "vs_sglang_best_identical_bytes_pct": 100.0,
+    "vs_sglang_best_max_abs_u8": 0,
+    "vs_sglang_best_psnr_u8_db": Infinity,
+    "vs_sglang_best_md5_equal": true
+  }
+]

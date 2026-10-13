@@ -1,0 +1,111 @@
+{
+  "variant": "mstar_step0",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 3536.0,
+  "distinct_kernels": 153,
+  "gpu_ms_per_chunk": 366.45,
+  "category_ms_per_chunk": {
+    "convolution": 198.23,
+    "layout conversion": 67.44,
+    "norm / SiLU": 27.36,
+    "concat / pad": 33.39,
+    "upsample": 23.42,
+    "attention": 3.29,
+    "copies": 3.11,
+    "other elementwise": 8.23,
+    "other": 1.99
+  },
+  "top15": [
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 126.0,
+      "ms_per_chunk": 119.073
+    },
+    {
+      "name": "void cudnn::engines_precompiled::nchwToNhwcKernel<__nv_bfloat16, __nv_bfloat16, float, false, true, (cudnnKernelDataType_t)0>(cudnn::engines_precompiled::nchw2n",
+      "category": "layout conversion",
+      "calls_per_chunk": 736.0,
+      "ms_per_chunk": 50.257
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_128x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 98.0,
+      "ms_per_chunk": 36.94
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_constant_pad_nd_convolution_mul_permute_unsqueeze_view_11",
+      "category": "upsample",
+      "calls_per_chunk": 10.0,
+      "ms_per_chunk": 18.994
+    },
+    {
+      "name": "void cudnn::engines_precompiled::nhwcToNchwKernel<__nv_bfloat16, __nv_bfloat16, float, true, false, (cudnnKernelDataType_t)0>(cudnn::engines_precompiled::nhwc2n",
+      "category": "layout conversion",
+      "calls_per_chunk": 379.0,
+      "ms_per_chunk": 17.183
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t1xr3xs3_64x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 11.0,
+      "ms_per_chunk": 14.15
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 16.0,
+      "ms_per_chunk": 12.562
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 122.0,
+      "ms_per_chunk": 11.559
+    },
+    {
+      "name": "triton_poi_fused_constant_pad_nd_7",
+      "category": "concat / pad",
+      "calls_per_chunk": 50.0,
+      "ms_per_chunk": 8.534
+    },
+    {
+      "name": "triton_red_fused__to_copy_add_clamp_min_constant_pad_nd_convolution_div_expand_linalg_vector_norm_mul_silu_5",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 40.0,
+      "ms_per_chunk": 5.548
+    },
+    {
+      "name": "triton_red_fused__to_copy_add_clamp_min_constant_pad_nd_convolution_div_expand_linalg_vector_norm_mul_silu_9",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 20.0,
+      "ms_per_chunk": 4.417
+    },
+    {
+      "name": "triton_poi_fused_constant_pad_nd_8",
+      "category": "concat / pad",
+      "calls_per_chunk": 50.0,
+      "ms_per_chunk": 4.135
+    },
+    {
+      "name": "triton_poi_fused_constant_pad_nd_4",
+      "category": "concat / pad",
+      "calls_per_chunk": 109.0,
+      "ms_per_chunk": 3.867
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x64x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x64x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 11.0,
+      "ms_per_chunk": 3.58
+    },
+    {
+      "name": "triton_red_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_2",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 16.0,
+      "ms_per_chunk": 3.349
+    }
+  ]
+}

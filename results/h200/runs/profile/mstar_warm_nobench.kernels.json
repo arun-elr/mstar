@@ -1,0 +1,111 @@
+{
+  "variant": "mstar_warm_nobench",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 178.0,
+  "distinct_kernels": 50,
+  "gpu_ms_per_chunk": 120.93,
+  "category_ms_per_chunk": {
+    "convolution": 100.5,
+    "layout conversion": 0.0,
+    "norm / SiLU": 10.74,
+    "concat / pad": 1.54,
+    "upsample": 4.2,
+    "attention": 1.6,
+    "copies": 1.13,
+    "other elementwise": 1.12,
+    "other": 0.11
+  },
+  "top15": [
+    {
+      "name": "sm80_xmma_fprop_implicit_gemm_bf16bf16_bf16f32_f32_nhwckrsc_nhwc_tilesize256x32x32_stage4_warpsize4x1x1_g1_tensor16x8x16_execute_kernel__5x_cudnn",
+      "category": "convolution",
+      "calls_per_chunk": 7.0,
+      "ms_per_chunk": 55.778
+    },
+    {
+      "name": "sm90_xmma_fprop_implicit_gemm_bf16bf16_bf16f32_f32_nhwckrsc_nhwc_tilesize256x128x64_warpgroupsize2x1x1_g1_execute_segment_k_off_kernel__5x_cudnn",
+      "category": "convolution",
+      "calls_per_chunk": 12.0,
+      "ms_per_chunk": 34.116
+    },
+    {
+      "name": "sm90_xmma_fprop_implicit_gemm_bf16bf16_bf16f32_f32_nhwckrsc_nhwc_tilesize128x128x64_warpgroupsize1x1x1_g1_execute_segment_k_off_kernel__5x_cudnn",
+      "category": "convolution",
+      "calls_per_chunk": 6.0,
+      "ms_per_chunk": 6.607
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_2",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 14.0,
+      "ms_per_chunk": 4.943
+    },
+    {
+      "name": "sm90_xmma_fprop_implicit_gemm_bf16bf16_bf16f32_f32_nhwckrsc_nhwc_tilesize256x128x64_warpgroupsize2x1x1_g1_execute_segment_k_on_kernel__5x_cudnn",
+      "category": "convolution",
+      "calls_per_chunk": 10.0,
+      "ms_per_chunk": 3.852
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_mul_unsqueeze_0",
+      "category": "upsample",
+      "calls_per_chunk": 2.0,
+      "ms_per_chunk": 2.664
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_4",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 4.0,
+      "ms_per_chunk": 2.024
+    },
+    {
+      "name": "fmha_cutlassF_bf16_aligned_32x128_gmem_sm80(PyTorchMemEffAttention::AttentionKernel<cutlass::bfloat16_t, cutlass::arch::Sm80, true, 32, 128, 65536, true, true>:",
+      "category": "attention",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 1.604
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_3",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 1.39
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_div_expand_linalg_vector_norm_mul_silu_0",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 5.0,
+      "ms_per_chunk": 1.216
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_convolution_mul_permute_unsqueeze_view_5",
+      "category": "upsample",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 1.105
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::opera",
+      "category": "copies",
+      "calls_per_chunk": 5.0,
+      "ms_per_chunk": 0.95
+    },
+    {
+      "name": "triton_poi_fused__to_copy_add_cat_clamp_min_div_expand_linalg_vector_norm_mul_silu_1",
+      "category": "concat / pad",
+      "calls_per_chunk": 23.0,
+      "ms_per_chunk": 0.715
+    },
+    {
+      "name": "triton_poi_fused_add_convolution_5",
+      "category": "other elementwise",
+      "calls_per_chunk": 2.0,
+      "ms_per_chunk": 0.637
+    },
+    {
+      "name": "triton_poi_fused_cat_0",
+      "category": "concat / pad",
+      "calls_per_chunk": 4.0,
+      "ms_per_chunk": 0.586
+    }
+  ]
+}

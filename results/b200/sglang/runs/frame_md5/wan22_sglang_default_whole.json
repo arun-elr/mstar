@@ -1,0 +1,31 @@
+{
+  "label": "sglang_default_whole",
+  "vae": "wan22",
+  "md5": "a7fe5de0f8c258d99194da52f4b86771",
+  "frames": 1021,
+  "shape_thwc": [
+    1021,
+    480,
+    832,
+    3
+  ],
+  "settings": {
+    "path": "DecodingStage.decode -> AutoencoderKLWan.decode (whole clip)",
+    "pipeline_config": "Wan2_2_TI2V_5B_Config",
+    "quality": "lossless",
+    "enable_torch_compile": false,
+    "vae_torch_compile_mode": "default",
+    "vae_precision": "fp32",
+    "vae_decode_precision": "fp32",
+    "disable_autocast": false,
+    "vae_tiling": false,
+    "use_feature_cache": true,
+    "channels_last_3d_conv3d_weights": 62,
+    "conv3d_modules": 62,
+    "fast_path_installed": true,
+    "decode_dtype": "float32",
+    "autocast": false,
+    "quality_gate_kernel_fusions": false
+  },
+  "torch": "2.13.0+cu130"
+}

@@ -1,0 +1,80 @@
+{
+  "variant": "sglang_compile_maxat",
+  "n_samples": 150,
+  "median_ms": 101.13,
+  "p90_ms": 102.38,
+  "p10_ms": 100.56,
+  "mean_ms": 101.29,
+  "decoder_fps": 118.7,
+  "psnr_float_db_vs_fp32": 59.91,
+  "psnr_float_db_vs_fp32_peak1": 53.89,
+  "psnr_u8_db_vs_fp32": 55.28,
+  "first_timed_call_ms": 57384.4,
+  "wall_s": 150.6,
+  "peak_allocated_gib": 7.41,
+  "peak_reserved_gib": 11.34,
+  "conv_inputs_not_channels_last": "n/a (compiled)",
+  "output_dtype": "torch.float32",
+  "dynamo_unique_graph_breaks": 5,
+  "dynamo_graph_break_reasons": [
+    "Unsupported method call\n  Explanation: Dynamo does not know how to trace method `get` of class `ContextVar`\n  Hint: Avoid calling `ContextVar.get` in your code.\n  Hint: Please report an issue to PyTorch.\n\n  Developer debug context: call_method UserDefinedObjectVariable(ContextVar) get [] {}\n\n For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0156.html",
+    "Unsupported method call\n  Explanation: Dynamo does not know how to trace method `set` of class `ContextVar`\n  Hint: Avoid calling `ContextVar.set` in your code.\n  Hint: Please report an issue to PyTorch.\n\n  Developer debug context: call_method UserDefinedObjectVariable(ContextVar) set [LazyVariableTracker(unrealized: <class 'int'>)] {}\n\n For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0156.html",
+    "Unsupported method call\n  Explanation: Dynamo does not know how to trace method `set` of class `ContextVar`\n  Hint: Avoid calling `ContextVar.set` in your code.\n  Hint: Please report an issue to PyTorch.\n\n  Developer debug context: call_method UserDefinedObjectVariable(ContextVar) set [LazyVariableTracker(unrealized: <class 'list'>)] {}\n\n For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0156.html",
+    "Unsupported method call\n  Explanation: Dynamo does not know how to trace method `set` of class `ContextVar`\n  Hint: Avoid calling `ContextVar.set` in your code.\n  Hint: Please report an issue to PyTorch.\n\n  Developer debug context: call_method UserDefinedObjectVariable(ContextVar) set [ListVariable(length=33)] {}\n\n For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0156.html",
+    "can't handle functions not implemented in python \n  Explanation: Dynamo can only handle functions defined in python\n  Hint: Move usage of this function out of `torch.compile` region\n  Hint: Avoid using `tensor.is_inference()` and `torch.is_inference_mode_enabled()` in your compile code. This is primarily used in conjunction with `torch.inference_mode`. Consider using `torch.no_grad` instead because `torch.no_grad` leads to same improvements as `inference_mode` when `torch.compile` is used.\n\n  Developer debug context: <functools._lru_cache_wrapper object at 0x7b68a7f5ea30>\n\n For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0177.html"
+  ],
+  "dynamo_frames_compiled": 148,
+  "steady_decode_latents": 3,
+  "warm_cache": true,
+  "sglang_settings": {
+    "path": "stage",
+    "pipeline_config": "WanT2V480PConfig",
+    "quality": "lossless",
+    "enable_torch_compile": true,
+    "vae_torch_compile_mode": "max-autotune-no-cudagraphs",
+    "vae_precision": "fp32",
+    "vae_decode_precision": "bf16",
+    "disable_autocast": false,
+    "vae_tiling": false,
+    "use_feature_cache": true,
+    "channels_last_3d_conv3d_weights": 35,
+    "conv3d_modules": 35,
+    "fast_path_installed": true,
+    "decode_dtype": "bfloat16",
+    "autocast": true,
+    "quality_gate_kernel_fusions": false
+  },
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": false,
+    "cudnn_allow_tf32": true,
+    "cudnn_benchmark": false,
+    "cudnn_conv_fp32_precision": "tf32",
+    "cuda_matmul_fp32_precision": "none"
+  },
+  "env": {
+    "torch": "2.13.0+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "triton": "3.7.1",
+    "sglang": "0.5.21",
+    "sglang_commit": "e00930c5489053f26d86b179cee0d087f846acbb",
+    "dynamo_recompile_limit": 64,
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "17384, 13010 MiB"
+    ],
+    "source_md5": {
+      "multimodal_gen/runtime/models/vaes/wanvae.py": "f97bb736219915f2e2ed88eb8118c201",
+      "multimodal_gen/runtime/models/vaes/wan_vae_cuda_opt.py": "83f61d9ed09193c747a20129b671663a",
+      "multimodal_gen/runtime/pipelines_core/stages/decoding.py": "9361b8a5aca4d65decf1c0354ed42edf",
+      "multimodal_gen/runtime/pipelines_core/stages/realtime/vae.py": "9bab6216cdbddab65cc29c906c16cbd4",
+      "kernels/ops/diffusion/layout/wan_causal_cache_triton.py": "16dcfb499d4957bf0cb3cff5a03ebc2c"
+    }
+  },
+  "latents": "${VM_HOME}/bench/inputs/wan21/latents.pt",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+  "vae_revision": "0fad780a534b6463e45facd96134c9f345acfa5b"
+}

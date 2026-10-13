@@ -1,0 +1,30 @@
+[
+ {
+  "pid": 158347,
+  "argv": "${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config ${VM_HOME}/e2e-cosmos3/runs/before/config.yaml --socket-path-prefix ${TMPDIR}/tmp.VgKVFFTqC9/ --upload-dir ${TMPDIR}/tmp.LYoM9eRTen/ --port 8100 --mooncake-port 9100 --tensor-comm-protocol SHM --log-stats-file ${VM_HOME}/e2e-cosmos3/",
+  "t": 1791920138.5911415,
+  "resets": 4,
+  "max_allocated_gib": 26.741958618164062,
+  "max_reserved_gib": 26.921875,
+  "allocated_gib": 26.50405788421631,
+  "reserved_gib": 26.921875,
+  "before_resets": [
+   {
+    "max_allocated_gib": 26.14754819869995,
+    "max_reserved_gib": 26.3359375
+   },
+   {
+    "max_allocated_gib": 26.32602310180664,
+    "max_reserved_gib": 26.51171875
+   },
+   {
+    "max_allocated_gib": 26.266539573669434,
+    "max_reserved_gib": 26.51171875
+   },
+   {
+    "max_allocated_gib": 26.742703914642334,
+    "max_reserved_gib": 26.921875
+   }
+  ]
+ }
+]

@@ -1,0 +1,31 @@
+{
+  "label": "sglang_default_bf16",
+  "vae": "wan22",
+  "md5": "e6a627674ebf2063bc6dfff08e4ce033",
+  "frames": 1021,
+  "shape_thwc": [
+    1021,
+    480,
+    832,
+    3
+  ],
+  "settings": {
+    "path": "stage",
+    "pipeline_config": "Wan2_2_TI2V_5B_Config",
+    "quality": "lossless",
+    "enable_torch_compile": false,
+    "vae_torch_compile_mode": "default",
+    "vae_precision": "fp32",
+    "vae_decode_precision": "bf16",
+    "disable_autocast": false,
+    "vae_tiling": false,
+    "use_feature_cache": true,
+    "channels_last_3d_conv3d_weights": 62,
+    "conv3d_modules": 62,
+    "fast_path_installed": true,
+    "decode_dtype": "bfloat16",
+    "autocast": true,
+    "quality_gate_kernel_fusions": false
+  },
+  "torch": "2.13.0+cu130"
+}

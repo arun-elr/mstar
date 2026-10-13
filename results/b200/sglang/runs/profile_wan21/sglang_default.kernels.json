@@ -1,0 +1,172 @@
+{
+  "variant": "sglang_default",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 891.0,
+  "distinct_kernels": 40,
+  "gpu_ms_per_chunk": 106.09,
+  "category_ms_per_chunk": {
+    "convolution": 39.11,
+    "layout conversion": 1.11,
+    "norm / SiLU": 20.49,
+    "concat / pad": 13.84,
+    "upsample": 2.04,
+    "attention": 1.82,
+    "copies": 8.91,
+    "other elementwise": 18.74,
+    "other": 0.03
+  },
+  "category_ms_per_chunk_mstar_rules": {
+    "convolution": 39.11,
+    "layout conversion": 1.11,
+    "norm / SiLU": 20.49,
+    "concat / pad": 0.0,
+    "upsample": 2.04,
+    "attention": 1.82,
+    "copies": 8.91,
+    "other elementwise": 18.74,
+    "other": 13.86
+  },
+  "recategorized_kernels": [
+    {
+      "name": "_cat_pad_cl3d_kernel",
+      "category": "concat / pad",
+      "mstar_category": "other",
+      "calls_per_chunk": 96.0,
+      "ms_per_chunk": 13.836
+    }
+  ],
+  "top15": [
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 24.0,
+      "ms_per_chunk": 18.141
+    },
+    {
+      "name": "_cat_pad_cl3d_kernel",
+      "category": "concat / pad",
+      "calls_per_chunk": 96.0,
+      "ms_per_chunk": 13.836
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<c10::BFloat16> >(at::TensorIteratorBase&, at::native:",
+      "category": "other elementwise",
+      "calls_per_chunk": 124.0,
+      "ms_per_chunk": 13.758
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 18.0,
+      "ms_per_chunk": 10.512
+    },
+    {
+      "name": "void sglang::wan_norm_silu_post_kernel<__nv_bfloat16, __nv_bfloat16, true>(__nv_bfloat16 const*, float const*, __nv_bfloat16 const*, __nv_bfloat16 const*, float",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 78.0,
+      "ms_per_chunk": 10.339
+    },
+    {
+      "name": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<c10::BFloat16, at::native::NormTwoOps<c10::BFloat16, float, float, true>, unsigned int, float, 4, 4>",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 81.0,
+      "ms_per_chunk": 9.635
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::bfloat16_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda(float)#1}, std::array<char*, 2ul> >(in",
+      "category": "copies",
+      "calls_per_chunk": 97.0,
+      "ms_per_chunk": 7.241
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 21.0,
+      "ms_per_chunk": 4.987
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x64x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x64x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 2.147
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunctor_add<c10::BFloat16>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<c10::BFl",
+      "category": "other elementwise",
+      "calls_per_chunk": 36.0,
+      "ms_per_chunk": 1.837
+    },
+    {
+      "name": "fmha_cutlassF_bf16_aligned_32x128_gmem_sm80(PyTorchMemEffAttention::AttentionKernel<cutlass::bfloat16_t, cutlass::arch::Sm80, true, 32, 128, 65536, true, true>:",
+      "category": "attention",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 1.822
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_128x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 36.0,
+      "ms_per_chunk": 1.731
+    },
+    {
+      "name": "void at::native::(anonymous namespace)::upsample_nearest2d_out_frame<float, &at::native::nearest_neighbor_exact_compute_source_index>(float const*, float*, unsi",
+      "category": "upsample",
+      "calls_per_chunk": 6.0,
+      "ms_per_chunk": 1.409
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t1xr3xs3_64x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 1.283
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl<at::native::BinaryFunctor<float, float, float, at::native::binary_internal::DivFunctor<f",
+      "category": "other elementwise",
+      "calls_per_chunk": 9.0,
+      "ms_per_chunk": 1.201
+    }
+  ],
+  "sglang_settings": {
+    "path": "stage",
+    "pipeline_config": "WanT2V480PConfig",
+    "quality": "lossless",
+    "enable_torch_compile": false,
+    "vae_torch_compile_mode": "default",
+    "vae_precision": "fp32",
+    "vae_decode_precision": "bf16",
+    "disable_autocast": false,
+    "vae_tiling": false,
+    "use_feature_cache": true,
+    "channels_last_3d_conv3d_weights": 35,
+    "conv3d_modules": 35,
+    "fast_path_installed": true,
+    "decode_dtype": "bfloat16",
+    "autocast": true,
+    "quality_gate_kernel_fusions": false
+  },
+  "env": {
+    "torch": "2.13.0+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "triton": "3.7.1",
+    "sglang": "0.5.21",
+    "sglang_commit": "e00930c5489053f26d86b179cee0d087f846acbb",
+    "dynamo_recompile_limit": 64,
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "33532, 9902 MiB"
+    ],
+    "source_md5": {
+      "multimodal_gen/runtime/models/vaes/wanvae.py": "f97bb736219915f2e2ed88eb8118c201",
+      "multimodal_gen/runtime/models/vaes/wan_vae_cuda_opt.py": "83f61d9ed09193c747a20129b671663a",
+      "multimodal_gen/runtime/pipelines_core/stages/decoding.py": "9361b8a5aca4d65decf1c0354ed42edf",
+      "multimodal_gen/runtime/pipelines_core/stages/realtime/vae.py": "9bab6216cdbddab65cc29c906c16cbd4",
+      "kernels/ops/diffusion/layout/wan_causal_cache_triton.py": "16dcfb499d4957bf0cb3cff5a03ebc2c"
+    }
+  }
+}

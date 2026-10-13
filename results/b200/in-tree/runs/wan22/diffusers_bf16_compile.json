@@ -1,0 +1,30 @@
+{
+  "variant": "diffusers_bf16_compile",
+  "n_samples": 150,
+  "median_ms": 105.18,
+  "p90_ms": 106.15,
+  "p10_ms": 103.91,
+  "mean_ms": 104.98,
+  "decoder_fps": 114.1,
+  "psnr_float_db_vs_fp32": 62.58,
+  "psnr_u8_db_vs_fp32": 55.27,
+  "first_timed_call_ms": 29182.1,
+  "wall_s": 86.8,
+  "peak_allocated_gib": 6.32,
+  "peak_reserved_gib": 9.94,
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "diffusers": "0.39.0",
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "16009, 10912 MiB"
+    ],
+    "mstar_commit": "99f5108b"
+  },
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
+}

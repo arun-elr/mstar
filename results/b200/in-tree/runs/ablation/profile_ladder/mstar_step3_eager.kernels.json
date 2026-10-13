@@ -1,0 +1,111 @@
+{
+  "variant": "mstar_step3_eager",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 495.0,
+  "distinct_kernels": 34,
+  "gpu_ms_per_chunk": 133.95,
+  "category_ms_per_chunk": {
+    "convolution": 38.68,
+    "layout conversion": 0.0,
+    "norm / SiLU": 14.08,
+    "concat / pad": 0.0,
+    "upsample": 8.56,
+    "attention": 1.1,
+    "copies": 24.99,
+    "other elementwise": 46.52,
+    "other": 0.03
+  },
+  "top15": [
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 8.0,
+      "ms_per_chunk": 18.704
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 13.0,
+      "ms_per_chunk": 15.573
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::binary_internal::DivFu",
+      "category": "other elementwise",
+      "calls_per_chunk": 30.0,
+      "ms_per_chunk": 14.358
+    },
+    {
+      "name": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::opera",
+      "category": "copies",
+      "calls_per_chunk": 33.0,
+      "ms_per_chunk": 13.946
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<c10::BFloat16> >(at::TensorIteratorBase&, at::native:",
+      "category": "other elementwise",
+      "calls_per_chunk": 40.0,
+      "ms_per_chunk": 12.612
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<c10::BFloat16, c10::BFloat16, c10::BFloat16, at::native",
+      "category": "other elementwise",
+      "calls_per_chunk": 30.0,
+      "ms_per_chunk": 11.393
+    },
+    {
+      "name": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::NormTwoOps<float, float, float, true>, unsigned int, float, 4, 4> >(at::native::R",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 30.0,
+      "ms_per_chunk": 9.775
+    },
+    {
+      "name": "void at::native::(anonymous namespace)::upsample_nearest2d_nhwc_out_frame<float, &at::native::nearest_neighbor_exact_compute_source_index>(float const*, float*,",
+      "category": "upsample",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 8.561
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::bfloat16_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda(float)#1}, std::array<char*, 2ul> >(in",
+      "category": "copies",
+      "calls_per_chunk": 34.0,
+      "ms_per_chunk": 5.449
+    },
+    {
+      "name": "Memcpy DtoD (Device -> Device)",
+      "category": "copies",
+      "calls_per_chunk": 96.0,
+      "ms_per_chunk": 4.388
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::(anonymous namespace)::silu_kernel(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{la",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 29.0,
+      "ms_per_chunk": 4.3
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::AUnaryFunctor<c10::BFloat16, c10::BFloat16, c10::BFloat16, at::native::binary_internal::MulFunctor",
+      "category": "other elementwise",
+      "calls_per_chunk": 32.0,
+      "ms_per_chunk": 3.021
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunctorOnSelf_add<c10::BFloat16>, std::array<char*, 2ul> >(int, at::native::CUDAFunctorOnSelf_",
+      "category": "other elementwise",
+      "calls_per_chunk": 31.0,
+      "ms_per_chunk": 3.017
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunctor_add<c10::BFloat16>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<c10::BFl",
+      "category": "other elementwise",
+      "calls_per_chunk": 15.0,
+      "ms_per_chunk": 1.994
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s32x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t3xr3xs3_32x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 1.986
+    }
+  ]
+}

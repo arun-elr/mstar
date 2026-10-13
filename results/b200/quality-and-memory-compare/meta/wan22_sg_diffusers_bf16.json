@@ -1,0 +1,18 @@
+{
+  "label": "diffusers_bf16",
+  "vae": "wan22",
+  "md5": "8844f3b715430e73fb25c0f89f13f4c8",
+  "frames": 1021,
+  "shape_thwc": [
+    1021,
+    480,
+    832,
+    3
+  ],
+  "settings": {
+    "path": "diffusers AutoencoderKLWan, eager bf16, per-frame, warm cache",
+    "diffusers": "0.39.0",
+    "diffusers_file": "${VM_HOME}/diffusers039/diffusers/__init__.py"
+  },
+  "torch": "2.13.0+cu130"
+}

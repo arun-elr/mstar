@@ -1,0 +1,25 @@
+{
+  "step": "stock_bf16",
+  "prompt_id": "fox",
+  "frames": 121,
+  "height": 704,
+  "width": 1280,
+  "md5": "260894c1f61432dfc086a1d89bf8ef93",
+  "md5_pass1": "260894c1f61432dfc086a1d89bf8ef93",
+  "pass1_total_ms": 4281.3,
+  "total_ms": 3978.1,
+  "window_ms": [
+    3978.1
+  ],
+  "steady_chunk_ms_median": null,
+  "steady_windows": "1..",
+  "peak_alloc_gib": 11.59,
+  "config": {
+    "decode_dtype": "torch.bfloat16",
+    "compiled": false,
+    "call": "vae.decode(whole clip)"
+  },
+  "torch": "2.12.1+cu130",
+  "cudnn": 92000,
+  "cudnn_benchmark_after": false
+}

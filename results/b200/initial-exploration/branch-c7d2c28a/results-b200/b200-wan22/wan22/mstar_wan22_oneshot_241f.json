@@ -1,0 +1,34 @@
+{
+  "variant": "mstar_wan22_oneshot_241f",
+  "n_samples": 5,
+  "median_ms": 184.97,
+  "p90_ms": 185.06,
+  "p10_ms": 184.96,
+  "mean_ms": 185.0,
+  "decoder_fps": 64.9,
+  "psnr_float_db_vs_fp32": null,
+  "psnr_u8_db_vs_fp32": null,
+  "first_timed_call_ms": null,
+  "wall_s": 25.5,
+  "peak_allocated_gib": 6.27,
+  "peak_reserved_gib": 8.73,
+  "decode_dtype": "torch.bfloat16",
+  "clip_frames": 241,
+  "clip_ms_median": 3714.834716796875,
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "diffusers": "0.39.0",
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "19219, 9674 MiB"
+    ],
+    "mstar_commit": "99f5108b"
+  },
+  "latents": "${VM_HOME}/wan-bench/results/b200-wan22/wan22/latents.pt",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
+}

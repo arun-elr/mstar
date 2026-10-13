@@ -1,0 +1,47 @@
+{
+  "variant": "mstar_warm_lpc1",
+  "n_samples": 150,
+  "median_ms": 77.29,
+  "p90_ms": 78.61,
+  "p10_ms": 75.17,
+  "mean_ms": 76.9,
+  "decoder_fps": 155.3,
+  "psnr_float_db_vs_fp32": null,
+  "psnr_float_db_vs_fp32_peak1": null,
+  "psnr_u8_db_vs_fp32": 55.4,
+  "first_timed_call_ms": 13548.8,
+  "wall_s": 31.7,
+  "peak_allocated_gib": 7.41,
+  "peak_reserved_gib": 11.18,
+  "decode_dtype": "torch.bfloat16",
+  "steady_decode_latents": 3,
+  "node_config": {
+    "windowed_decode_warm_cache": true,
+    "vae_decode_channels_last": true,
+    "windowed_decode_latents_per_call": 1,
+    "vae_decode_cudnn_benchmark": true
+  },
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": true,
+    "cudnn_allow_tf32": true,
+    "cudnn_benchmark": false,
+    "cudnn_conv_fp32_precision": "tf32",
+    "cuda_matmul_fp32_precision": "tf32"
+  },
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "diffusers": "0.39.0",
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "211179, 12958 MiB"
+    ],
+    "mstar_commit": "60fbc5cd"
+  },
+  "latents": "runs/b200/wan22/latents.pt",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
+}

@@ -1,0 +1,22 @@
+{
+  "variant": "ref_fp32",
+  "n_samples": 3,
+  "median_ms": 628.71,
+  "p90_ms": 629.08,
+  "p10_ms": 619.85,
+  "mean_ms": 625.17,
+  "decoder_fps": 19.1,
+  "psnr_float_db_vs_fp32": null,
+  "psnr_u8_db_vs_fp32": null,
+  "first_timed_call_ms": 638.4,
+  "wall_s": 5.5,
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.15",
+    "diffusers": "0.39.0",
+    "mstar_commit": "df0f2b13"
+  },
+  "latents": "${WAN_BENCH}/smoke/lat.pt"
+}

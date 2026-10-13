@@ -1,0 +1,111 @@
+{
+  "variant": "mstar_step2_eager",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 1627.0,
+  "distinct_kernels": 37,
+  "gpu_ms_per_chunk": 143.25,
+  "category_ms_per_chunk": {
+    "convolution": 57.15,
+    "layout conversion": 0.06,
+    "norm / SiLU": 7.64,
+    "concat / pad": 0.0,
+    "upsample": 5.76,
+    "attention": 0.8,
+    "copies": 28.6,
+    "other elementwise": 43.24,
+    "other": 0.0
+  },
+  "top15": [
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 36.0,
+      "ms_per_chunk": 34.735
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<c10::BFloat16> >(at::TensorIteratorBase&, at::native:",
+      "category": "other elementwise",
+      "calls_per_chunk": 134.0,
+      "ms_per_chunk": 16.885
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::binary_internal::DivFu",
+      "category": "other elementwise",
+      "calls_per_chunk": 90.0,
+      "ms_per_chunk": 10.997
+    },
+    {
+      "name": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::opera",
+      "category": "copies",
+      "calls_per_chunk": 99.0,
+      "ms_per_chunk": 10.69
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_128x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 30.0,
+      "ms_per_chunk": 10.097
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<c10::BFloat16, c10::BFloat16, c10::BFloat16, at::native",
+      "category": "other elementwise",
+      "calls_per_chunk": 90.0,
+      "ms_per_chunk": 8.886
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::opera",
+      "category": "copies",
+      "calls_per_chunk": 62.0,
+      "ms_per_chunk": 7.676
+    },
+    {
+      "name": "Memcpy DtoD (Device -> Device)",
+      "category": "copies",
+      "calls_per_chunk": 363.0,
+      "ms_per_chunk": 6.065
+    },
+    {
+      "name": "void at::native::(anonymous namespace)::upsample_nearest2d_nhwc_out_frame<float, &at::native::nearest_neighbor_exact_compute_source_index>(float const*, float*,",
+      "category": "upsample",
+      "calls_per_chunk": 9.0,
+      "ms_per_chunk": 5.756
+    },
+    {
+      "name": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::NormTwoOps<float, float, float, true>, unsigned int, float, 4, 4> >(at::native::R",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 87.0,
+      "ms_per_chunk": 4.153
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::bfloat16_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda(float)#1}, std::array<char*, 2ul> >(in",
+      "category": "copies",
+      "calls_per_chunk": 99.0,
+      "ms_per_chunk": 4.075
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t1xr3xs3_64x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 3.817
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::(anonymous namespace)::silu_kernel(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{la",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 87.0,
+      "ms_per_chunk": 3.456
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 3.251
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 33.0,
+      "ms_per_chunk": 2.842
+    }
+  ]
+}

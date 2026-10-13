@@ -1,0 +1,111 @@
+{
+  "variant": "mstar_step3",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 149.0,
+  "distinct_kernels": 49,
+  "gpu_ms_per_chunk": 57.67,
+  "category_ms_per_chunk": {
+    "convolution": 40.59,
+    "layout conversion": 0.0,
+    "norm / SiLU": 9.45,
+    "concat / pad": 1.09,
+    "upsample": 3.62,
+    "attention": 1.38,
+    "copies": 0.8,
+    "other elementwise": 0.72,
+    "other": 0.03
+  },
+  "top15": [
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 8.0,
+      "ms_per_chunk": 19.33
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 13.0,
+      "ms_per_chunk": 16.083
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_2",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 14.0,
+      "ms_per_chunk": 4.377
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s32x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t3xr3xs3_32x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 2.344
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_mul_unsqueeze_0",
+      "category": "upsample",
+      "calls_per_chunk": 2.0,
+      "ms_per_chunk": 2.312
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_4",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 4.0,
+      "ms_per_chunk": 1.686
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_128x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 12.0,
+      "ms_per_chunk": 1.407
+    },
+    {
+      "name": "fmha_cutlassF_bf16_aligned_32x128_gmem_sm80(PyTorchMemEffAttention::AttentionKernel<cutlass::bfloat16_t, cutlass::arch::Sm80, true, 32, 128, 65536, true, true>:",
+      "category": "attention",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 1.378
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t1xr3xs3_64x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 2.0,
+      "ms_per_chunk": 1.318
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_convolution_div_expand_linalg_vector_norm_mul_silu_3",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 1.228
+    },
+    {
+      "name": "triton_per_fused__to_copy_add_clamp_min_div_expand_linalg_vector_norm_mul_silu_0",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 5.0,
+      "ms_per_chunk": 1.132
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_convolution_mul_permute_unsqueeze_view_5",
+      "category": "upsample",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 1.018
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::opera",
+      "category": "copies",
+      "calls_per_chunk": 5.0,
+      "ms_per_chunk": 0.663
+    },
+    {
+      "name": "triton_poi_fused__to_copy_add_cat_clamp_min_div_expand_linalg_vector_norm_mul_silu_1",
+      "category": "concat / pad",
+      "calls_per_chunk": 23.0,
+      "ms_per_chunk": 0.517
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::(anonymous namespace)::silu_kernel(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{la",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 1.0,
+      "ms_per_chunk": 0.466
+    }
+  ]
+}

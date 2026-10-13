@@ -1,0 +1,158 @@
+{
+ "args": {
+  "port": 8100,
+  "mode": "kv",
+  "size": "832x480",
+  "frames": 241,
+  "window_frames": 29,
+  "steps": 20,
+  "gs": 6.0,
+  "fps": 24.0,
+  "seed": 0,
+  "image": "${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg",
+  "concurrency": 4,
+  "rounds": 2,
+  "warmup": 1,
+  "save_dir": "${VM_HOME}/e2e-cosmos3/runs/before/mp4/kv_c4",
+  "out": "${VM_HOME}/e2e-cosmos3/runs/before/client_kv_c4.json",
+  "tag": "before/kv_c4"
+ },
+ "prompt": "A robot arm is cleaning a plate in the kitchen, smooth natural motion.",
+ "rounds": [
+  {
+   "round": -1,
+   "timed": false,
+   "wall_s": 0.4330955490004271,
+   "wall_start": 1791920131.794899,
+   "wall_end": 1791920132.228,
+   "requests": [
+    {
+     "seed": 0,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.0028966160025447607,
+     "send_wall": 1791920131.797796
+    },
+    {
+     "seed": 1,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.005094230000395328,
+     "send_wall": 1791920131.7999935
+    },
+    {
+     "seed": 2,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.00674935999995796,
+     "send_wall": 1791920131.8016486
+    },
+    {
+     "seed": 3,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.010286213000654243,
+     "send_wall": 1791920131.8051856
+    }
+   ]
+  },
+  {
+   "round": 0,
+   "timed": true,
+   "wall_s": 0.42411737099610036,
+   "wall_start": 1791920132.2280202,
+   "wall_end": 1791920132.6521416,
+   "requests": [
+    {
+     "seed": 0,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.0021962149985483848,
+     "send_wall": 1791920132.2302175
+    },
+    {
+     "seed": 1,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.006338261999189854,
+     "send_wall": 1791920132.2343593
+    },
+    {
+     "seed": 2,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.004010535994893871,
+     "send_wall": 1791920132.2320318
+    },
+    {
+     "seed": 3,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.007942799995362293,
+     "send_wall": 1791920132.2359638
+    }
+   ]
+  },
+  {
+   "round": 1,
+   "timed": true,
+   "wall_s": 0.4401185210008407,
+   "wall_start": 1791920132.6521838,
+   "wall_end": 1791920133.0923069,
+   "requests": [
+    {
+     "seed": 0,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.0022022789999027736,
+     "send_wall": 1791920132.6543872
+    },
+    {
+     "seed": 1,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.00423275500361342,
+     "send_wall": 1791920132.6564174
+    },
+    {
+     "seed": 2,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.005687477001629304,
+     "send_wall": 1791920132.6578722
+    },
+    {
+     "seed": 3,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.007638531998964027,
+     "send_wall": 1791920132.6598232
+    }
+   ]
+  }
+ ]
+}

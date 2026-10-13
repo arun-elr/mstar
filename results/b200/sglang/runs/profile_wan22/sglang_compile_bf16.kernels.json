@@ -1,0 +1,179 @@
+{
+  "variant": "sglang_compile_bf16",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 874.0,
+  "distinct_kernels": 48,
+  "gpu_ms_per_chunk": 102.65,
+  "category_ms_per_chunk": {
+    "convolution": 56.38,
+    "layout conversion": 0.03,
+    "norm / SiLU": 4.77,
+    "concat / pad": 10.68,
+    "upsample": 6.17,
+    "attention": 0.83,
+    "copies": 1.86,
+    "other elementwise": 21.9,
+    "other": 0.04
+  },
+  "category_ms_per_chunk_mstar_rules": {
+    "convolution": 56.38,
+    "layout conversion": 0.03,
+    "norm / SiLU": 4.77,
+    "concat / pad": 0.0,
+    "upsample": 6.17,
+    "attention": 0.83,
+    "copies": 1.86,
+    "other elementwise": 18.58,
+    "other": 14.04
+  },
+  "recategorized_kernels": [
+    {
+      "name": "_cat_pad_cl3d_kernel",
+      "category": "concat / pad",
+      "mstar_category": "other",
+      "calls_per_chunk": 96.0,
+      "ms_per_chunk": 10.684
+    },
+    {
+      "name": "_dup_up3d_add_kernel",
+      "category": "other elementwise",
+      "mstar_category": "other",
+      "calls_per_chunk": 9.0,
+      "ms_per_chunk": 3.318
+    }
+  ],
+  "top15": [
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 36.0,
+      "ms_per_chunk": 34.357
+    },
+    {
+      "name": "_cat_pad_cl3d_kernel",
+      "category": "concat / pad",
+      "calls_per_chunk": 96.0,
+      "ms_per_chunk": 10.684
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_128x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 27.0,
+      "ms_per_chunk": 10.152
+    },
+    {
+      "name": "void at::native::(anonymous namespace)::upsample_nearest2d_nhwc_out_frame<float, &at::native::nearest_neighbor_exact_compute_source_index>(float const*, float*,",
+      "category": "upsample",
+      "calls_per_chunk": 9.0,
+      "ms_per_chunk": 6.167
+    },
+    {
+      "name": "triton_poi_fused__to_copy_convolution_2",
+      "category": "other elementwise",
+      "calls_per_chunk": 57.0,
+      "ms_per_chunk": 5.133
+    },
+    {
+      "name": "triton_per_fused_add_clamp_min_div_expand_linalg_vector_norm_mul_silu_0",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 87.0,
+      "ms_per_chunk": 4.76
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t1xr3xs3_64x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 3.912
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<c10::BFloat16> >(at::TensorIteratorBase&, at::native:",
+      "category": "other elementwise",
+      "calls_per_chunk": 16.0,
+      "ms_per_chunk": 3.423
+    },
+    {
+      "name": "triton_poi_fused_1",
+      "category": "other elementwise",
+      "calls_per_chunk": 90.0,
+      "ms_per_chunk": 3.421
+    },
+    {
+      "name": "_dup_up3d_add_kernel",
+      "category": "other elementwise",
+      "calls_per_chunk": 9.0,
+      "ms_per_chunk": 3.318
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 3.0,
+      "ms_per_chunk": 3.246
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 33.0,
+      "ms_per_chunk": 2.998
+    },
+    {
+      "name": "triton_poi_fused_add_0",
+      "category": "other elementwise",
+      "calls_per_chunk": 42.0,
+      "ms_per_chunk": 2.804
+    },
+    {
+      "name": "triton_poi_fused__to_copy_convolution_3",
+      "category": "other elementwise",
+      "calls_per_chunk": 87.0,
+      "ms_per_chunk": 1.961
+    },
+    {
+      "name": "triton_poi_fused_empty_0",
+      "category": "other elementwise",
+      "calls_per_chunk": 96.0,
+      "ms_per_chunk": 1.359
+    }
+  ],
+  "sglang_settings": {
+    "path": "stage",
+    "pipeline_config": "Wan2_2_TI2V_5B_Config",
+    "quality": "lossless",
+    "enable_torch_compile": true,
+    "vae_torch_compile_mode": "default",
+    "vae_precision": "fp32",
+    "vae_decode_precision": "bf16",
+    "disable_autocast": false,
+    "vae_tiling": false,
+    "use_feature_cache": true,
+    "channels_last_3d_conv3d_weights": 62,
+    "conv3d_modules": 62,
+    "fast_path_installed": true,
+    "decode_dtype": "bfloat16",
+    "autocast": true,
+    "quality_gate_kernel_fusions": false
+  },
+  "env": {
+    "torch": "2.13.0+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "triton": "3.7.1",
+    "sglang": "0.5.21",
+    "sglang_commit": "e00930c5489053f26d86b179cee0d087f846acbb",
+    "dynamo_recompile_limit": 64,
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "35218, 11362 MiB"
+    ],
+    "source_md5": {
+      "multimodal_gen/runtime/models/vaes/wanvae.py": "f97bb736219915f2e2ed88eb8118c201",
+      "multimodal_gen/runtime/models/vaes/wan_vae_cuda_opt.py": "83f61d9ed09193c747a20129b671663a",
+      "multimodal_gen/runtime/pipelines_core/stages/decoding.py": "9361b8a5aca4d65decf1c0354ed42edf",
+      "multimodal_gen/runtime/pipelines_core/stages/realtime/vae.py": "9bab6216cdbddab65cc29c906c16cbd4",
+      "kernels/ops/diffusion/layout/wan_causal_cache_triton.py": "16dcfb499d4957bf0cb3cff5a03ebc2c"
+    }
+  }
+}

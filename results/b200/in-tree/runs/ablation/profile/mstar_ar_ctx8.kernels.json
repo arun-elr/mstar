@@ -1,0 +1,111 @@
+{
+  "variant": "mstar_ar_ctx8",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 3432.0,
+  "distinct_kernels": 149,
+  "gpu_ms_per_chunk": 331.1,
+  "category_ms_per_chunk": {
+    "convolution": 136.7,
+    "layout conversion": 77.29,
+    "norm / SiLU": 29.87,
+    "concat / pad": 40.07,
+    "upsample": 28.94,
+    "attention": 7.07,
+    "copies": 3.82,
+    "other elementwise": 7.11,
+    "other": 0.21
+  },
+  "top15": [
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 77.0,
+      "ms_per_chunk": 62.869
+    },
+    {
+      "name": "void cudnn::engines_precompiled::nchwToNhwcKernel<__nv_bfloat16, __nv_bfloat16, float, false, true, (cudnnKernelDataType_t)0>(cudnn::engines_precompiled::nchw2n",
+      "category": "layout conversion",
+      "calls_per_chunk": 736.0,
+      "ms_per_chunk": 52.373
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 66.0,
+      "ms_per_chunk": 36.644
+    },
+    {
+      "name": "void cudnn::engines_precompiled::nhwcToNchwKernel<__nv_bfloat16, __nv_bfloat16, float, true, false, (cudnnKernelDataType_t)0>(cudnn::engines_precompiled::nhwc2n",
+      "category": "layout conversion",
+      "calls_per_chunk": 379.0,
+      "ms_per_chunk": 24.921
+    },
+    {
+      "name": "triton_poi_fused__to_copy__unsafe_index_add_arange_clone_constant_pad_nd_convolution_mul_permute_unsqueeze_view_10",
+      "category": "upsample",
+      "calls_per_chunk": 10.0,
+      "ms_per_chunk": 22.616
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 76.0,
+      "ms_per_chunk": 17.666
+    },
+    {
+      "name": "triton_poi_fused_constant_pad_nd_4",
+      "category": "concat / pad",
+      "calls_per_chunk": 160.0,
+      "ms_per_chunk": 13.299
+    },
+    {
+      "name": "triton_poi_fused_constant_pad_nd_5",
+      "category": "concat / pad",
+      "calls_per_chunk": 99.0,
+      "ms_per_chunk": 8.001
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x64x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x64x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 11.0,
+      "ms_per_chunk": 7.6
+    },
+    {
+      "name": "fmha_cutlassF_bf16_aligned_32x128_gmem_sm80(PyTorchMemEffAttention::AttentionKernel<cutlass::bfloat16_t, cutlass::arch::Sm80, true, 32, 128, 65536, true, true>:",
+      "category": "attention",
+      "calls_per_chunk": 11.0,
+      "ms_per_chunk": 7.073
+    },
+    {
+      "name": "triton_red_fused__to_copy_add_clamp_min_constant_pad_nd_convolution_div_expand_linalg_vector_norm_mul_silu_5",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 33.0,
+      "ms_per_chunk": 6.488
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_128x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 131.0,
+      "ms_per_chunk": 6.413
+    },
+    {
+      "name": "triton_red_fused__to_copy_add_clamp_min_constant_pad_nd_convolution_div_expand_linalg_vector_norm_mul_silu_8",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 20.0,
+      "ms_per_chunk": 4.788
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_weight_stationary_nq_2d_tiled_bf16_bf16_f32_void_bf16_void_t1xr3xs3_64x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_1sm",
+      "category": "convolution",
+      "calls_per_chunk": 11.0,
+      "ms_per_chunk": 4.626
+    },
+    {
+      "name": "triton_poi_fused_cat_constant_pad_nd_0",
+      "category": "concat / pad",
+      "calls_per_chunk": 20.0,
+      "ms_per_chunk": 4.01
+    }
+  ]
+}

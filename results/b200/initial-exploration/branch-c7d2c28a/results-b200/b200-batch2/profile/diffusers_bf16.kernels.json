@@ -1,0 +1,111 @@
+{
+  "variant": "diffusers_bf16",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+  "profiled_chunks": 6,
+  "kernels_per_chunk": 2046.0,
+  "distinct_kernels": 35,
+  "gpu_ms_per_chunk": 192.85,
+  "category_ms_per_chunk": {
+    "convolution": 39.62,
+    "layout conversion": 24.13,
+    "norm / SiLU": 8.45,
+    "concat / pad": 4.04,
+    "upsample": 3.9,
+    "attention": 1.87,
+    "copies": 62.47,
+    "other elementwise": 48.32,
+    "other": 0.06
+  },
+  "top15": [
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::opera",
+      "category": "copies",
+      "calls_per_chunk": 415.0,
+      "ms_per_chunk": 41.363
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x128x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 21.0,
+      "ms_per_chunk": 18.418
+    },
+    {
+      "name": "void cudnn::engines_precompiled::nchwToNhwcKernel<__nv_bfloat16, __nv_bfloat16, float, false, true, (cudnnKernelDataType_t)0>(cudnn::engines_precompiled::nchw2n",
+      "category": "layout conversion",
+      "calls_per_chunk": 210.0,
+      "ms_per_chunk": 16.327
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<c10::BFloat16> >(at::TensorIteratorBase&, at::native:",
+      "category": "other elementwise",
+      "calls_per_chunk": 121.0,
+      "ms_per_chunk": 14.539
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::binary_internal::DivFu",
+      "category": "other elementwise",
+      "calls_per_chunk": 90.0,
+      "ms_per_chunk": 14.309
+    },
+    {
+      "name": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::opera",
+      "category": "copies",
+      "calls_per_chunk": 99.0,
+      "ms_per_chunk": 13.981
+    },
+    {
+      "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<c10::BFloat16, c10::BFloat16, c10::BFloat16, at::native",
+      "category": "other elementwise",
+      "calls_per_chunk": 90.0,
+      "ms_per_chunk": 11.575
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha",
+      "category": "convolution",
+      "calls_per_chunk": 18.0,
+      "ms_per_chunk": 10.743
+    },
+    {
+      "name": "void cudnn::engines_precompiled::nhwcToNchwKernel<__nv_bfloat16, __nv_bfloat16, float, true, false, (cudnnKernelDataType_t)0>(cudnn::engines_precompiled::nhwc2n",
+      "category": "layout conversion",
+      "calls_per_chunk": 108.0,
+      "ms_per_chunk": 7.803
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::bfloat16_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda(float)#1}, std::array<char*, 2ul> >(in",
+      "category": "copies",
+      "calls_per_chunk": 99.0,
+      "ms_per_chunk": 5.476
+    },
+    {
+      "name": "cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fprop_bf16_bf16_f32_void_bf16_f32_256x256x64_dyn_cga_ndhwc_ndhwc_ndhwc_align8_2sm_relu_valpha_stream_k",
+      "category": "convolution",
+      "calls_per_chunk": 21.0,
+      "ms_per_chunk": 5.034
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::(anonymous namespace)::silu_kernel(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{la",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 87.0,
+      "ms_per_chunk": 4.418
+    },
+    {
+      "name": "void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul> >(int, at::native::FillFunctor<c10::BFloat16>, ",
+      "category": "concat / pad",
+      "calls_per_chunk": 90.0,
+      "ms_per_chunk": 4.043
+    },
+    {
+      "name": "void at::native::reduce_kernel<128, 4, at::native::ReduceOp<float, at::native::NormTwoOps<float, float, float, true>, unsigned int, float, 4, 4> >(at::native::R",
+      "category": "norm / SiLU",
+      "calls_per_chunk": 90.0,
+      "ms_per_chunk": 4.027
+    },
+    {
+      "name": "void at::native::(anonymous namespace)::upsample_nearest2d_out_frame<float, &at::native::nearest_neighbor_exact_compute_source_index>(float const*, float*, unsi",
+      "category": "upsample",
+      "calls_per_chunk": 9.0,
+      "ms_per_chunk": 3.895
+    }
+  ]
+}

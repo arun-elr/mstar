@@ -1,0 +1,38 @@
+{
+  "variant": "px_nopad_bench",
+  "n_samples": 150,
+  "median_ms": 55.91,
+  "p90_ms": 56.92,
+  "p10_ms": 54.74,
+  "mean_ms": 55.69,
+  "decoder_fps": 214.6,
+  "psnr_float_db_vs_fp32": 59.93,
+  "psnr_float_db_vs_fp32_peak1": 53.91,
+  "psnr_u8_db_vs_fp32": 54.98,
+  "first_timed_call_ms": 9121.2,
+  "wall_s": 58.7,
+  "peak_allocated_gib": 18.99,
+  "peak_reserved_gib": 31.89,
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": false,
+    "cudnn_allow_tf32": true,
+    "cudnn_benchmark": true,
+    "cudnn_conv_fp32_precision": "tf32",
+    "cuda_matmul_fp32_precision": "none"
+  },
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "diffusers": "0.39.0",
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "53298, 33390 MiB"
+    ],
+    "mstar_commit": "99f5108b"
+  },
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
+}

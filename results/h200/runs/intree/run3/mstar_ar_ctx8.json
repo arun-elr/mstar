@@ -1,0 +1,41 @@
+{
+  "variant": "mstar_ar_ctx8",
+  "n_samples": 150,
+  "median_ms": 578.22,
+  "p90_ms": 580.43,
+  "p10_ms": 574.86,
+  "mean_ms": 577.34,
+  "decoder_fps": 20.8,
+  "psnr_float_db_vs_fp32": null,
+  "psnr_float_db_vs_fp32_peak1": null,
+  "psnr_u8_db_vs_fp32": 52.09,
+  "first_timed_call_ms": 70000.6,
+  "wall_s": 196.5,
+  "peak_allocated_gib": 6.33,
+  "peak_reserved_gib": 10.52,
+  "decode_dtype": "torch.bfloat16",
+  "steady_decode_latents": 11,
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": true,
+    "cudnn_allow_tf32": true,
+    "cudnn_benchmark": false,
+    "cudnn_conv_fp32_precision": "tf32",
+    "cuda_matmul_fp32_precision": "tf32"
+  },
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.15",
+    "diffusers": "0.39.0",
+    "gpu": "NVIDIA H200",
+    "gpu_mem_gib": 139.8,
+    "nvidia_smi": "580.173.02, 1980 MHz, 700.00 W",
+    "gpu_apps_at_start": [
+      "1889428, 11402 MiB"
+    ],
+    "mstar_commit": "c56b572b"
+  },
+  "latents": "${WAN_BENCH}/sglang/inputs/wan21/latents.pt",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
+}

@@ -1,0 +1,30 @@
+{
+  "label": "sglang_realtime",
+  "vae": "wan21",
+  "md5": "eae4d4fc3782b27dc97d58ba77aba296",
+  "frames": 1021,
+  "shape_thwc": [
+    1021,
+    480,
+    832,
+    3
+  ],
+  "settings": {
+    "path": "realtime",
+    "pipeline_config": "WanT2V480PConfig",
+    "quality": "lossless",
+    "enable_torch_compile": false,
+    "vae_torch_compile_mode": "default",
+    "vae_precision": "fp32",
+    "vae_decode_precision": "bf16",
+    "disable_autocast": false,
+    "vae_tiling": false,
+    "use_feature_cache": true,
+    "channels_last_3d_conv3d_weights": 35,
+    "conv3d_modules": 35,
+    "fast_path_installed": true,
+    "decode_dtype": "fp32",
+    "autocast": false
+  },
+  "torch": "2.13.0+cu130"
+}

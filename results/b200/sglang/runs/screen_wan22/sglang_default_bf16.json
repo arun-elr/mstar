@@ -1,0 +1,71 @@
+{
+  "variant": "sglang_default_bf16",
+  "n_samples": 150,
+  "median_ms": 115.67,
+  "p90_ms": 116.66,
+  "p10_ms": 114.8,
+  "mean_ms": 115.6,
+  "decoder_fps": 103.7,
+  "psnr_float_db_vs_fp32": 62.44,
+  "psnr_float_db_vs_fp32_peak1": 56.42,
+  "psnr_u8_db_vs_fp32": 56.79,
+  "first_timed_call_ms": 1058.2,
+  "wall_s": 32.4,
+  "peak_allocated_gib": 7.76,
+  "peak_reserved_gib": 10.09,
+  "conv_inputs_not_channels_last": "6/118",
+  "output_dtype": "torch.float32",
+  "steady_decode_latents": 3,
+  "warm_cache": true,
+  "sglang_settings": {
+    "path": "stage",
+    "pipeline_config": "Wan2_2_TI2V_5B_Config",
+    "quality": "lossless",
+    "enable_torch_compile": false,
+    "vae_torch_compile_mode": "default",
+    "vae_precision": "fp32",
+    "vae_decode_precision": "bf16",
+    "disable_autocast": false,
+    "vae_tiling": false,
+    "use_feature_cache": true,
+    "channels_last_3d_conv3d_weights": 62,
+    "conv3d_modules": 62,
+    "fast_path_installed": true,
+    "decode_dtype": "bfloat16",
+    "autocast": true,
+    "quality_gate_kernel_fusions": false
+  },
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": false,
+    "cudnn_allow_tf32": true,
+    "cudnn_benchmark": false,
+    "cudnn_conv_fp32_precision": "tf32",
+    "cuda_matmul_fp32_precision": "none"
+  },
+  "env": {
+    "torch": "2.13.0+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "triton": "3.7.1",
+    "sglang": "0.5.21",
+    "sglang_commit": "e00930c5489053f26d86b179cee0d087f846acbb",
+    "dynamo_recompile_limit": 64,
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "23708, 11614 MiB"
+    ],
+    "source_md5": {
+      "multimodal_gen/runtime/models/vaes/wanvae.py": "f97bb736219915f2e2ed88eb8118c201",
+      "multimodal_gen/runtime/models/vaes/wan_vae_cuda_opt.py": "83f61d9ed09193c747a20129b671663a",
+      "multimodal_gen/runtime/pipelines_core/stages/decoding.py": "9361b8a5aca4d65decf1c0354ed42edf",
+      "multimodal_gen/runtime/pipelines_core/stages/realtime/vae.py": "9bab6216cdbddab65cc29c906c16cbd4",
+      "kernels/ops/diffusion/layout/wan_causal_cache_triton.py": "16dcfb499d4957bf0cb3cff5a03ebc2c"
+    }
+  },
+  "latents": "${VM_HOME}/bench/inputs/wan22/latents.pt",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+  "vae_revision": "b8fff7315c768468a5333511427288870b2e9635"
+}

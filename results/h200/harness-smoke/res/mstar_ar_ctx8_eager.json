@@ -1,0 +1,24 @@
+{
+  "variant": "mstar_ar_ctx8_eager",
+  "n_samples": 3,
+  "median_ms": 811.05,
+  "p90_ms": 862.65,
+  "p10_ms": 703.79,
+  "mean_ms": 787.86,
+  "decoder_fps": 14.8,
+  "psnr_float_db_vs_fp32": null,
+  "psnr_u8_db_vs_fp32": 54.11,
+  "first_timed_call_ms": 389.4,
+  "wall_s": 5.4,
+  "decode_dtype": "torch.bfloat16",
+  "steady_decode_latents": 11,
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.15",
+    "diffusers": "0.39.0",
+    "mstar_commit": "df0f2b13"
+  },
+  "latents": "${WAN_BENCH}/smoke/lat.pt"
+}

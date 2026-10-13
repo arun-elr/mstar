@@ -1,0 +1,41 @@
+{
+ "args": {
+  "port": 8100,
+  "mode": "kv",
+  "size": "832x480",
+  "frames": 241,
+  "window_frames": 29,
+  "steps": 20,
+  "gs": 6.0,
+  "fps": 24.0,
+  "seed": 0,
+  "image": "${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg",
+  "concurrency": 1,
+  "rounds": 1,
+  "warmup": 0,
+  "save_dir": "${VM_HOME}/e2e-cosmos3/runs/before/mp4/kv_dump",
+  "out": "${VM_HOME}/e2e-cosmos3/runs/before/client_kv_dump.json",
+  "tag": "before/kv_dump"
+ },
+ "prompt": "A robot arm is cleaning a plate in the kitchen, smooth natural motion.",
+ "rounds": [
+  {
+   "round": 0,
+   "timed": true,
+   "wall_s": 0.18310574999486562,
+   "wall_start": 1791920128.0295784,
+   "wall_end": 1791920128.212689,
+   "requests": [
+    {
+     "seed": 0,
+     "arrivals": [],
+     "frames": [],
+     "bytes": [],
+     "error": "RuntimeError: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'",
+     "send_offset_s": 0.0026191209981334396,
+     "send_wall": 1791920128.0321984
+    }
+   ]
+  }
+ ]
+}

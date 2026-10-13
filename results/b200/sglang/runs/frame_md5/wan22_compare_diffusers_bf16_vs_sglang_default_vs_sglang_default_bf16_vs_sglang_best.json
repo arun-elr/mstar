@@ -1,0 +1,34 @@
+[
+  {
+    "label": "diffusers_bf16",
+    "md5": "8844f3b715430e73fb25c0f89f13f4c8",
+    "frames": 1021
+  },
+  {
+    "label": "sglang_default",
+    "md5": "a7fe5de0f8c258d99194da52f4b86771",
+    "frames": 1021,
+    "vs_diffusers_bf16_identical_bytes_pct": 86.0146,
+    "vs_diffusers_bf16_max_abs_u8": 42,
+    "vs_diffusers_bf16_psnr_u8_db": 56.63,
+    "vs_diffusers_bf16_md5_equal": false
+  },
+  {
+    "label": "sglang_default_bf16",
+    "md5": "e6a627674ebf2063bc6dfff08e4ce033",
+    "frames": 1021,
+    "vs_diffusers_bf16_identical_bytes_pct": 93.7412,
+    "vs_diffusers_bf16_max_abs_u8": 24,
+    "vs_diffusers_bf16_psnr_u8_db": 60.14,
+    "vs_diffusers_bf16_md5_equal": false
+  },
+  {
+    "label": "sglang_best",
+    "md5": "b0b0eb98e9f88ad0fe6e3dfc51071152",
+    "frames": 1021,
+    "vs_diffusers_bf16_identical_bytes_pct": 95.5842,
+    "vs_diffusers_bf16_max_abs_u8": 27,
+    "vs_diffusers_bf16_psnr_u8_db": 61.66,
+    "vs_diffusers_bf16_md5_equal": false
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "variant": "px_nopad_bench",
+  "n_samples": 150,
+  "median_ms": 72.02,
+  "p90_ms": 73.83,
+  "p10_ms": 69.75,
+  "mean_ms": 71.67,
+  "decoder_fps": 166.6,
+  "psnr_float_db_vs_fp32": 62.58,
+  "psnr_float_db_vs_fp32_peak1": 56.56,
+  "psnr_u8_db_vs_fp32": 55.27,
+  "first_timed_call_ms": 11561.1,
+  "wall_s": 67.4,
+  "peak_allocated_gib": 15.91,
+  "peak_reserved_gib": 21.9,
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": false,
+    "cudnn_allow_tf32": true,
+    "cudnn_benchmark": true,
+    "cudnn_conv_fp32_precision": "tf32",
+    "cuda_matmul_fp32_precision": "none"
+  },
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "diffusers": "0.39.0",
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "90111, 23162 MiB"
+    ],
+    "mstar_commit": "4b8b4789"
+  },
+  "latents": "runs/b200/wan22/latents.pt",
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
+}

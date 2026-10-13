@@ -1,0 +1,57 @@
+{
+  "variant": "vllm_omni_best",
+  "n_samples": 150,
+  "median_ms": 63.99,
+  "p90_ms": 66.0,
+  "p10_ms": 62.42,
+  "mean_ms": 63.98,
+  "decoder_fps": 187.5,
+  "psnr_float_db_vs_fp32": 59.9,
+  "psnr_float_db_vs_fp32_peak1": 53.88,
+  "psnr_u8_db_vs_fp32": 54.88,
+  "first_timed_call_ms": 460.7,
+  "wall_s": 30.8,
+  "peak_allocated_gib": 3.82,
+  "peak_reserved_gib": 6.89,
+  "vae_use_tiling": false,
+  "vae_fast_path": "channels_last",
+  "lingbot_vae_decode_fast_path": null,
+  "vae_fast_path_installed": true,
+  "vae_fast_path_reason": null,
+  "vae_fast_path_fused_silu": [
+    "bfloat16",
+    "float16"
+  ],
+  "autocast_dtype": "torch.bfloat16",
+  "vllm_omni_config": "channels_last",
+  "decode_path": "WanStreamingDecoder.decode_chunk",
+  "latents_per_decoder_call": 1,
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": false,
+    "cudnn_allow_tf32": false,
+    "cudnn_benchmark": false,
+    "cudnn_conv_fp32_precision": "none",
+    "cuda_matmul_fp32_precision": "ieee"
+  },
+  "env": {
+    "torch": "2.13.0+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "1, 7786 MiB"
+    ],
+    "vllm": "0.31.0",
+    "vllm_omni": "0.31.0rc2.dev98+gf69b1f2b1",
+    "triton": "3.7.1",
+    "vllm_omni_commit": "f69b1f2b19cece03f6736c7da093ea25de0e24fd",
+    "docker_image": "vllm/vllm-omni:nightly-f69b1f2b19cece03f6736c7da093ea25de0e24fd",
+    "docker_image_digest": "vllm/vllm-omni@sha256:d9d81b77c0c5055425f388ddde756ec4206c53e141d1ca6d1cbee21b2ba24e9f"
+  },
+  "latents": "/vo/inputs/wan21/latents.pt",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
+}

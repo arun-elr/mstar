@@ -1,0 +1,39 @@
+{
+  "step": "s2_channels_last",
+  "prompt_id": "fox",
+  "frames": 121,
+  "height": 704,
+  "width": 1280,
+  "md5": "bb9534952cde3a5ea6ff369ab43c6d93",
+  "md5_pass1": "bb9534952cde3a5ea6ff369ab43c6d93",
+  "pass1_total_ms": 4786.9,
+  "total_ms": 1744.2,
+  "window_ms": [
+    48.18,
+    235.63,
+    159.4,
+    162.07,
+    166.05,
+    163.51,
+    162.16,
+    162.01,
+    160.57,
+    162.2,
+    162.4
+  ],
+  "steady_chunk_ms_median": 162.2,
+  "steady_windows": "4..10",
+  "peak_alloc_gib": 15.45,
+  "config": {
+    "windowed_decode_warm_cache": true,
+    "vae_decode_channels_last": true,
+    "windowed_decode_latents_per_call": 1,
+    "vae_decode_cudnn_benchmark": false,
+    "windowed_decode_context_latents": 8,
+    "compiled": true,
+    "decode_dtype": "torch.bfloat16"
+  },
+  "torch": "2.12.1+cu130",
+  "cudnn": 92000,
+  "cudnn_benchmark_after": false
+}

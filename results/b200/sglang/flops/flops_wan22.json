@@ -1,0 +1,11 @@
+{
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+  "chunk_flops": 88180549816320,
+  "chunk_conv_flops": 88150645739520,
+  "chunk_min_conv_bytes": 23363901440,
+  "conv_calls_per_chunk": 40,
+  "mstar_ar_ctx8_executed_flops": 303041143541760,
+  "mstar_ar_ctx4_executed_flops": 185467077120000,
+  "mstar_ar_ctx2_executed_flops": 126680043909120,
+  "mstar_ar_ctx1_executed_flops": 97286527303680
+}

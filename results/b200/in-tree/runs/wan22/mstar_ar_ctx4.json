@@ -1,0 +1,32 @@
+{
+  "variant": "mstar_ar_ctx4",
+  "n_samples": 75,
+  "median_ms": 226.57,
+  "p90_ms": 228.24,
+  "p10_ms": 221.98,
+  "mean_ms": 226.1,
+  "decoder_fps": 53.0,
+  "psnr_float_db_vs_fp32": null,
+  "psnr_u8_db_vs_fp32": 46.03,
+  "first_timed_call_ms": 13181.5,
+  "wall_s": 41.7,
+  "peak_allocated_gib": 6.38,
+  "peak_reserved_gib": 10.07,
+  "decode_dtype": "torch.bfloat16",
+  "steady_decode_latents": 7,
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "diffusers": "0.39.0",
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "18354, 11042 MiB"
+    ],
+    "mstar_commit": "99f5108b"
+  },
+  "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
+}

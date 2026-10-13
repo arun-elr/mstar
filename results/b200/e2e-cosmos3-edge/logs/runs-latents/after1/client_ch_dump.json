@@ -1,0 +1,74 @@
+{
+ "args": {
+  "port": 8100,
+  "mode": "chained",
+  "size": "832x480",
+  "frames": 241,
+  "window_frames": 29,
+  "steps": 20,
+  "gs": 6.0,
+  "fps": 24.0,
+  "seed": 0,
+  "image": "${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg",
+  "concurrency": 1,
+  "rounds": 1,
+  "warmup": 0,
+  "save_dir": "${VM_HOME}/e2e-cosmos3/runs-latents/after1/mp4/ch_dump",
+  "out": "${VM_HOME}/e2e-cosmos3/runs-latents/after1/client_ch_dump.json",
+  "tag": "after1/ch_dump"
+ },
+ "prompt": "A robot arm is cleaning a plate in the kitchen, smooth natural motion.",
+ "rounds": [
+  {
+   "round": 0,
+   "timed": true,
+   "wall_s": 9.432147350999003,
+   "wall_start": 1791921966.2522058,
+   "wall_end": 1791921975.6843576,
+   "requests": [
+    {
+     "seed": 0,
+     "arrivals": [
+      1.667833179999434,
+      2.597604095994029,
+      3.4481309249968035,
+      4.308849969995208,
+      5.17402610899444,
+      6.04055415399489,
+      6.908674768994388,
+      7.751824520993978,
+      8.631435808994866,
+      9.426289752998855
+     ],
+     "frames": [
+      29,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      20
+     ],
+     "bytes": [
+      1811077,
+      1463440,
+      595845,
+      778868,
+      444107,
+      819364,
+      1747330,
+      1532773,
+      2167888,
+      995009
+     ],
+     "error": null,
+     "send_offset_s": 0.0021377270022640005,
+     "send_wall": 1791921966.2543445
+    }
+   ]
+  }
+ ]
+}

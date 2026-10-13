@@ -1,0 +1,39 @@
+{
+  "variant": "diffusers_bf16_compile",
+  "n_samples": 150,
+  "median_ms": 167.43,
+  "p90_ms": 169.97,
+  "p10_ms": 163.31,
+  "mean_ms": 167.25,
+  "decoder_fps": 71.7,
+  "psnr_float_db_vs_fp32": 59.93,
+  "psnr_float_db_vs_fp32_peak1": 53.91,
+  "psnr_u8_db_vs_fp32": 54.98,
+  "first_timed_call_ms": 29238.7,
+  "wall_s": 102.1,
+  "peak_allocated_gib": 6.19,
+  "peak_reserved_gib": 10.39,
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": false,
+    "cudnn_allow_tf32": true,
+    "cudnn_benchmark": false,
+    "cudnn_conv_fp32_precision": "tf32",
+    "cuda_matmul_fp32_precision": "none"
+  },
+  "env": {
+    "torch": "2.12.1+cu132",
+    "cuda": "13.2",
+    "cudnn": 92000,
+    "python": "3.12.15",
+    "diffusers": "0.39.0",
+    "gpu": "NVIDIA H200",
+    "gpu_mem_gib": 139.8,
+    "nvidia_smi": "580.173.02, 1980 MHz, 700.00 W",
+    "gpu_apps_at_start": [
+      "1894331, 11266 MiB"
+    ],
+    "mstar_commit": "c56b572b"
+  },
+  "latents": "${WAN_BENCH}/sglang/inputs/wan21/latents.pt",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
+}

@@ -1,0 +1,354 @@
+{
+ "phases": [
+  {
+   "variant": "before",
+   "phase": "kv_c8",
+   "mode": "kv",
+   "concurrency": 8,
+   "rounds": 1,
+   "requests_ok": 8,
+   "errors": [],
+   "windows": 8.0,
+   "frames": 241.0,
+   "ttff_s": 11.76157721349955,
+   "window_gap_med_s": 10.731899341000826,
+   "window_gap_p90_s": 23.750113436497486,
+   "total_s": 103.53246979000323,
+   "fps_per_stream": 2.3278880626008616,
+   "round_wall_s": 128.83241668100527,
+   "fps_aggregate": 14.9651776289644,
+   "ttff_all_s": [
+    10.847,
+    10.944,
+    9.38,
+    12.579,
+    12.681,
+    8.005,
+    12.776,
+    13.732
+   ],
+   "total_all_s": [
+    99.236,
+    102.741,
+    77.042,
+    104.263,
+    125.445,
+    115.872,
+    102.802,
+    128.811
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1.0,
+     "total_ms": 82.4,
+     "avg_ms": 82.4
+    },
+    "dit/video_gen_ar": {
+     "n": 168.0,
+     "total_ms": 60072.75,
+     "avg_ms": 357.6
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 9.0,
+     "total_ms": 6743.049999999999,
+     "avg_ms": 749.25
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1.0,
+     "total_ms": 72.9,
+     "avg_ms": 72.9
+    }
+   },
+   "dit_ms_per_window": 7509.09375,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 842.8812499999999,
+   "decoder_ms_per_request": 6743.049999999999,
+   "decoder_share_of_request_wall": 0.06512980916689275,
+   "decoder_share_of_round_wall": 0.4187175975559684,
+   "mem_by_pid": {
+    "189870": {
+     "max_allocated_gib": 34.060269355773926,
+     "max_reserved_gib": 36.283203125,
+     "allocated_gib": 28.536802768707275,
+     "resets": 2,
+     "argv": "${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config ${VM_HOME}/e2e-cosmos3/runs-c8/before/config"
+    },
+    "189933": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 2,
+     "argv": "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 34.060269355773926,
+   "torch_max_reserved_gib": 36.283203125,
+   "torch_idle_allocated_gib": 28.536802768707275,
+   "torch_peak_above_idle_gib": 5.52346658706665,
+   "smi_peak_mib": 38306
+  },
+  {
+   "variant": "after0",
+   "phase": "kv_c8",
+   "mode": "kv",
+   "concurrency": 8,
+   "rounds": 1,
+   "requests_ok": 1,
+   "errors": [
+    "RuntimeError: Error in worker: OutOfMemoryError: CUDA out of memory. Tried to allocate 1.62 GiB. GPU 0 has a total capacity of 178.35 GiB of which 489.75 MiB is free. Including non-PyTorch memory, this process has 177.86 GiB memory in use. Of the allocated memory 175.56 GiB is allocated by PyTorch, with 120.75 MiB allocated in private pools (e.g., CUDA Graphs), and 1.18 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+    "RuntimeError: Error in worker: OutOfMemoryError: CUDA out of memory. Tried to allocate 1.62 GiB. GPU 0 has a total capacity of 178.35 GiB of which 489.75 MiB is free. Including non-PyTorch memory, this process has 177.86 GiB memory in use. Of the allocated memory 175.56 GiB is allocated by PyTorch, with 120.75 MiB allocated in private pools (e.g., CUDA Graphs), and 1.18 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+    "RuntimeError: Error in worker: OutOfMemoryError: CUDA out of memory. Tried to allocate 1.62 GiB. GPU 0 has a total capacity of 178.35 GiB of which 489.75 MiB is free. Including non-PyTorch memory, this process has 177.86 GiB memory in use. Of the allocated memory 175.56 GiB is allocated by PyTorch, with 120.75 MiB allocated in private pools (e.g., CUDA Graphs), and 1.18 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+    "RuntimeError: Error in worker: OutOfMemoryError: CUDA out of memory. Tried to allocate 1.62 GiB. GPU 0 has a total capacity of 178.35 GiB of which 489.75 MiB is free. Including non-PyTorch memory, this process has 177.86 GiB memory in use. Of the allocated memory 175.56 GiB is allocated by PyTorch, with 120.75 MiB allocated in private pools (e.g., CUDA Graphs), and 1.18 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+    "RuntimeError: Error in worker: OutOfMemoryError: CUDA out of memory. Tried to allocate 1.62 GiB. GPU 0 has a total capacity of 178.35 GiB of which 489.75 MiB is free. Including non-PyTorch memory, this process has 177.86 GiB memory in use. Of the allocated memory 175.56 GiB is allocated by PyTorch, with 120.75 MiB allocated in private pools (e.g., CUDA Graphs), and 1.18 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+    "RuntimeError: Error in worker: OutOfMemoryError: CUDA out of memory. Tried to allocate 1.62 GiB. GPU 0 has a total capacity of 178.35 GiB of which 489.75 MiB is free. Including non-PyTorch memory, this process has 177.86 GiB memory in use. Of the allocated memory 175.56 GiB is allocated by PyTorch, with 120.75 MiB allocated in private pools (e.g., CUDA Graphs), and 1.18 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+    "RuntimeError: Error in worker: OutOfMemoryError: CUDA out of memory. Tried to allocate 1.62 GiB. GPU 0 has a total capacity of 178.35 GiB of which 489.75 MiB is free. Including non-PyTorch memory, this process has 177.86 GiB memory in use. Of the allocated memory 175.56 GiB is allocated by PyTorch, with 120.75 MiB allocated in private pools (e.g., CUDA Graphs), and 1.18 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+   ],
+   "windows": 8,
+   "frames": 241,
+   "ttff_s": 14.2848134129963,
+   "window_gap_med_s": 1.557740542004467,
+   "window_gap_p90_s": 5.692423906002663,
+   "total_s": 35.18644643099833,
+   "fps_per_stream": 6.849228167232181,
+   "round_wall_s": 35.2008510539963,
+   "fps_aggregate": 6.846425378475036,
+   "ttff_all_s": [
+    14.285
+   ],
+   "total_all_s": [
+    35.186
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1,
+     "total_ms": 61.0,
+     "avg_ms": 61.0
+    },
+    "dit/video_gen_ar": {
+     "n": 168,
+     "total_ms": 27281.7,
+     "avg_ms": 162.4
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 9,
+     "total_ms": 3405.3,
+     "avg_ms": 378.4
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1,
+     "total_ms": 40.8,
+     "avg_ms": 40.8
+    }
+   },
+   "dit_ms_per_window": 3410.2125,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 425.6625,
+   "decoder_ms_per_request": 3405.3,
+   "decoder_share_of_request_wall": 0.09677874140197404,
+   "decoder_share_of_round_wall": 0.7739131067658437,
+   "mem_by_pid": {
+    "193130": {
+     "max_allocated_gib": 175.58784818649292,
+     "max_reserved_gib": 176.8828125,
+     "allocated_gib": 28.536802768707275,
+     "resets": 2,
+     "argv": "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ${VM_HOME}/e2e-cosmos3/runs-c8/after0/config.y"
+    },
+    "193200": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 2,
+     "argv": "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 175.58784818649292,
+   "torch_max_reserved_gib": 176.8828125,
+   "torch_idle_allocated_gib": 28.536802768707275,
+   "torch_peak_above_idle_gib": 147.05104541778564,
+   "smi_peak_mib": 182142
+  },
+  {
+   "variant": "after1",
+   "phase": "kv_c8",
+   "mode": "kv",
+   "concurrency": 8,
+   "rounds": 1,
+   "requests_ok": 8,
+   "errors": [],
+   "windows": 8.0,
+   "frames": 241.0,
+   "ttff_s": 11.571912867999345,
+   "window_gap_med_s": 8.029337754000153,
+   "window_gap_p90_s": 20.34927556399998,
+   "total_s": 88.59201677549572,
+   "fps_per_stream": 2.7203838696725473,
+   "round_wall_s": 109.5083637400021,
+   "fps_aggregate": 17.60596117185636,
+   "ttff_all_s": [
+    10.804,
+    9.25,
+    10.691,
+    7.913,
+    12.34,
+    12.436,
+    12.53,
+    13.459
+   ],
+   "total_all_s": [
+    88.158,
+    66.535,
+    85.686,
+    98.955,
+    88.966,
+    106.803,
+    88.218,
+    109.484
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1.0,
+     "total_ms": 77.8,
+     "avg_ms": 77.8
+    },
+    "dit/video_gen_ar": {
+     "n": 168.0,
+     "total_ms": 60061.75,
+     "avg_ms": 357.5
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 9.0,
+     "total_ms": 2962.8500000000004,
+     "avg_ms": 329.2
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1.0,
+     "total_ms": 71.55000000000001,
+     "avg_ms": 71.55000000000001
+    }
+   },
+   "dit_ms_per_window": 7507.71875,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 370.35625000000005,
+   "decoder_ms_per_request": 2962.8500000000004,
+   "decoder_share_of_request_wall": 0.033443758341208864,
+   "decoder_share_of_round_wall": 0.21644739443167896,
+   "mem_by_pid": {
+    "194729": {
+     "max_allocated_gib": 60.237027645111084,
+     "max_reserved_gib": 64.41015625,
+     "allocated_gib": 28.536802768707275,
+     "resets": 2,
+     "argv": "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ${VM_HOME}/e2e-cosmos3/runs-c8/after1/config.y"
+    },
+    "194812": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 2,
+     "argv": "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 60.237027645111084,
+   "torch_max_reserved_gib": 64.41015625,
+   "torch_idle_allocated_gib": 28.536802768707275,
+   "torch_peak_above_idle_gib": 31.70022487640381,
+   "smi_peak_mib": 67112
+  }
+ ],
+ "startup": {
+  "before": {
+   "startup_s": 50.338029861450195,
+   "mem_after_startup": {
+    "189870": {
+     "max_allocated_gib": 33.87713050842285,
+     "max_reserved_gib": 35.5546875,
+     "allocated_gib": 28.57808542251587,
+     "resets": 0,
+     "argv": "${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config ${VM_HOME}/e2e-cosmos3/runs-c8/before/config"
+    },
+    "189933": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 0,
+     "argv": "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   }
+  },
+  "after0": {
+   "startup_s": 52.356093406677246,
+   "mem_after_startup": {
+    "193130": {
+     "max_allocated_gib": 72.74916648864746,
+     "max_reserved_gib": 78.34375,
+     "allocated_gib": 28.57808542251587,
+     "resets": 0,
+     "argv": "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ${VM_HOME}/e2e-cosmos3/runs-c8/after0/config.y"
+    },
+    "193200": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 0,
+     "argv": "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   }
+  },
+  "after1": {
+   "startup_s": 46.313225507736206,
+   "mem_after_startup": {
+    "194729": {
+     "max_allocated_gib": 36.892462730407715,
+     "max_reserved_gib": 38.267578125,
+     "allocated_gib": 28.65222692489624,
+     "resets": 0,
+     "argv": "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ${VM_HOME}/e2e-cosmos3/runs-c8/after1/config.y"
+    },
+    "194812": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 0,
+     "argv": "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   }
+  }
+ },
+ "equivalence": {
+  "kv": null,
+  "chained": null
+ },
+ "mp4_md5": {
+  "before/kv_c8": {
+   "r0_s0": "bcf4edad921d1e8a03c14cfa48e6192c",
+   "r0_s1": "c10d60a8034d4d5ad6577301ba1213f0",
+   "r0_s2": "78c2586ace766591027d4dd7fa0ff2a2",
+   "r0_s3": "c5d84333e86590122c588d1da3081acf",
+   "r0_s4": "7319f055bcd74e6816a1db1a7df032b8",
+   "r0_s5": "2a5f1243092b846052d445eaac6d20cd",
+   "r0_s6": "f79f98c129055c3438e70c0b21be6ad8",
+   "r0_s7": "aa01cf12fd801eba3d39f27aab4601d0"
+  },
+  "after0/kv_c8": {
+   "r0_s0": "4e561769e1e5501c9b56b72af29c0af3",
+   "r0_s1": "90c0079d7a7b9c1b05261bfff96e206d",
+   "r0_s2": "d551c8f1c44aba382be019a75cab6224",
+   "r0_s3": "7d46ab9d14928e46301de1e278749ac1",
+   "r0_s4": "9ff4658ce17291f203d09b28b3906262",
+   "r0_s5": "f3d8cc53e88ea1227e153f611e744d40",
+   "r0_s6": "f27d75ac2195f1c4b3ce568c7f9d0d55",
+   "r0_s7": "f84900b5c45201ee18ccf17631ea0c74"
+  },
+  "after1/kv_c8": {
+   "r0_s0": "37afc134e315896942de324201276701",
+   "r0_s1": "5195b29fc48f086059326f7b1ba976e5",
+   "r0_s2": "2f901646fdf9a024a37ecbead2b61ee7",
+   "r0_s3": "21797b188a1e139c6a932a5d4f1583a4",
+   "r0_s4": "7f2a851babde80bbeb7bd37fb2a6ab91",
+   "r0_s5": "772c9a15e5697ff92d75520732524330",
+   "r0_s6": "5f314375f45a9bf1c92e5f89ecee457b",
+   "r0_s7": "f251b85b5df2fd30b8dd49ed2cdd36df"
+  }
+ }
+}

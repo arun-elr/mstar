@@ -1,0 +1,63 @@
+{
+  "variant": "vllm_omni_lingbot_fused",
+  "n_samples": 150,
+  "median_ms": 110.07,
+  "p90_ms": 110.18,
+  "p10_ms": 109.94,
+  "mean_ms": 110.07,
+  "decoder_fps": 109.0,
+  "psnr_float_db_vs_fp32": 59.75,
+  "psnr_float_db_vs_fp32_peak1": 53.73,
+  "psnr_u8_db_vs_fp32": 54.91,
+  "first_timed_call_ms": 118.5,
+  "wall_s": 37.0,
+  "peak_allocated_gib": 3.97,
+  "peak_reserved_gib": 5.14,
+  "vae_use_tiling": false,
+  "vae_fast_path": "lossless",
+  "lingbot_vae_decode_fast_path": "fused",
+  "lingbot_fast_path_counts": {
+    "level": "fused",
+    "conv_params_cast": 0,
+    "upsamples": 3,
+    "persistent_input_buffers": 0,
+    "fused_norm_silu": 29,
+    "channels_last_convs": 39,
+    "resample_forwards": 3
+  },
+  "vae_fast_path_installed": false,
+  "vae_fast_path_reason": "decoder.up_blocks.0.upsamplers.0 has a custom forward that the fast path would replace or bypass",
+  "vae_fast_path_fused_silu": [],
+  "autocast_dtype": "torch.bfloat16",
+  "vllm_omni_config": "lingbot_fused",
+  "decode_path": "WanStreamingDecoder.decode_chunk",
+  "latents_per_decoder_call": 1,
+  "precision_flags": {
+    "cuda_matmul_allow_tf32": false,
+    "cudnn_allow_tf32": false,
+    "cudnn_benchmark": false,
+    "cudnn_conv_fp32_precision": "none",
+    "cuda_matmul_fp32_precision": "ieee"
+  },
+  "env": {
+    "torch": "2.13.0+cu130",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "python": "3.12.3",
+    "diffusers": "0.40.0",
+    "gpu": "NVIDIA B200",
+    "gpu_mem_gib": 178.4,
+    "nvidia_smi": "580.173.02, 1965 MHz, 1000.00 W",
+    "gpu_apps_at_start": [
+      "1, 5994 MiB"
+    ],
+    "vllm": "0.31.0",
+    "vllm_omni": "0.31.0rc2.dev98+gf69b1f2b1",
+    "triton": "3.7.1",
+    "vllm_omni_commit": "f69b1f2b19cece03f6736c7da093ea25de0e24fd",
+    "docker_image": "vllm/vllm-omni:nightly-f69b1f2b19cece03f6736c7da093ea25de0e24fd",
+    "docker_image_digest": "vllm/vllm-omni@sha256:d9d81b77c0c5055425f388ddde756ec4206c53e141d1ca6d1cbee21b2ba24e9f"
+  },
+  "latents": "/vo/inputs/wan21/latents.pt",
+  "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
+}
