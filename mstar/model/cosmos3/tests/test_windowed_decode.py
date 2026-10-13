@@ -7,6 +7,8 @@ streams per decoder copy. No GPU, no weights."""
 
 from __future__ import annotations
 
+import sys
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -324,3 +326,30 @@ def test_streaming_cudnn_benchmark_is_opt_in_and_scoped(monkeypatch, vae, enable
     assert seen and all(f is enabled for f in seen)
     assert torch.backends.cudnn.benchmark is False
 
+
+def test_warm_slot_check_survives_concurrent_request_removal(monkeypatch, vae) -> None:
+    """The cap check reads the request states on the GPU thread while the
+    worker's main thread removes requests."""
+    sub = _decoder(monkeypatch, vae, max_warm=1 << 20)
+    rids = [f"r{i}" for i in range(2000)]
+    for rid in rids:
+        sub.request_state(rid)
+    stop = threading.Event()
+
+    def churn():
+        while not stop.is_set():
+            for rid in rids[::7]:
+                sub.cleanup_request(rid)
+                sub.request_state(rid)
+
+    interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    thread = threading.Thread(target=churn)
+    thread.start()
+    try:
+        for _ in range(300):
+            assert sub._warm_slot_free()
+    finally:
+        stop.set()
+        thread.join()
+        sys.setswitchinterval(interval)

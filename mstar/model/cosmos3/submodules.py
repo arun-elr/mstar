@@ -2862,7 +2862,10 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
         return {"video_output": [video]}
 
     def _warm_streams_live(self) -> list:
-        return [s["ar_feat_cache"] for s in self.request_states.values() if s.get("ar_feat_cache") is not None]
+        # A snapshot: the worker's main thread removes request states while
+        # forwards run on its GPU thread, and list() copies under the GIL.
+        states = list(self.request_states.values())
+        return [s["ar_feat_cache"] for s in states if s.get("ar_feat_cache") is not None]
 
     def _warm_slot_free(self) -> bool:
         cap = int(self.config.windowed_decode_max_warm_streams)
