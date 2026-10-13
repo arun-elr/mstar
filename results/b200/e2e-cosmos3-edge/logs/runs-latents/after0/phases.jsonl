@@ -1,0 +1,4 @@
+{"phase": "kv_dump", "event": "start", "t": 1791921861.421716528, "stats_bytes": 4563}
+{"phase": "kv_dump", "event": "end", "t": 1791921875.066049952, "stats_bytes": 6949}
+{"phase": "ch_dump", "event": "start", "t": 1791921878.595152463, "stats_bytes": 6949}
+{"phase": "ch_dump", "event": "end", "t": 1791921893.499964056, "stats_bytes": 9337}

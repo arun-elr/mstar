@@ -1,0 +1,1407 @@
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py:1443: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 158999
+2026-10-13 19:35:52,140 INFO [api_server] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 19:35:52,165 INFO [api_server] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 19:35:52,167 INFO [api_server] __main__: Conductor process started (pid=159041, model=cosmos3_edge)
+2026-10-13 19:35:52,167 INFO [api_server] __main__: Waiting for workers to finish setup (loading weights, capturing CUDA graphs)...
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+2026-10-13 19:35:54,022 INFO [conductor] __mp_main__: yaml model_kwargs from ${VM_HOME}/e2e-cosmos3/runs/after0/config.yaml: {'cuda_graph': True, 'graph_max_latent_area': 2000, 'gen_capture_video': [], 'image_size_default': [640, 640], 'video_size_default': [832, 480], 'num_frames_video': 121, 'num_inference_steps_video': 20, 'guidance_scale': 6.0, 'flow_shift_video': 12.0, 'conditioning_resize': 'aspect_crop', 'num_inference_steps_action': 30, 'guidance_scale_action': 1.0, 'flow_shift_action': 10.0, 'enable_windowed_video': True, 'windowed_decode_warm_cache': True, 'vae_decode_channels_last': True, 'windowed_decode_latents_per_call': 0, 'vae_decode_cudnn_benchmark': True} (forwarded to cosmos3_edge.__init__)
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 159041
+2026-10-13 19:35:56,321 INFO [conductor] mstar.conductor.conductor: Detected worker device type: cuda
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 159123
+2026-10-13 19:35:59,560 INFO [conductor] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 19:35:59,576 INFO [conductor] mstar.conductor.conductor: Conductor waiting for 1 worker(s) to finish setup
+2026-10-13 19:36:00,060 INFO [worker_0] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 19:36:00,230 INFO [worker_0] mstar.graph.runtime.utils: graph runtime: python (MSTAR_RUST_GRAPH=AUTO)
+2026-10-13 19:36:00,230 INFO [worker_0] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='kv', nodes={'reasoner', 'dit'}, config=PagedKVConfig(num_layers=28, num_kv_heads=8, head_dim=128, num_qo_heads=16, max_seq_len=262144, max_num_pages=1024, page_size=128, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True)), AttentionSpec(resource_key='attn', nodes={'reasoner', 'dit'}, config=AttentionConfig(kv_cache='kv', backend=<AttnBackend.FLASHINFER: 'flashinfer'>, flashinfer_backend='auto')), SamplerSpec(resource_key='sampler', nodes={'reasoner'}, vocab_size=131072, enable_repetion_penalty=True, enable_min_p=False), AttentionSpec(resource_key='attn_gen', nodes={'dit'}, config=AttentionConfig(kv_cache='kv', backend=<AttnBackend.DENSE: 'dense'>, flashinfer_backend='auto'))]
+2026-10-13 19:36:00,503 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vision_encoder
+2026-10-13 19:36:02,281 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 denoise compute torch.compile enabled
+2026-10-13 19:36:02,281 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for dit
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-10-13 19:36:02,807 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode torch.compile enabled
+2026-10-13 19:36:02,807 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode dtype = torch.bfloat16 (cuDNN 92000)
+2026-10-13 19:36:02,808 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_decoder_ar
+2026-10-13 19:36:02,811 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode torch.compile enabled
+2026-10-13 19:36:02,811 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode dtype = torch.bfloat16 (cuDNN 92000)
+2026-10-13 19:36:02,811 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_decoder
+2026-10-13 19:36:02,812 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for reasoner
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-10-13 19:36:03,343 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_encoder
+2026-10-13 19:36:03,493 INFO [worker_0] mstar.worker.engine_manager: Engine loaded on device cuda:0 for nodes ['dit', 'reasoner', 'vae_decoder', 'vae_decoder_ar', 'vae_encoder', 'vision_encoder']
+2026-10-13 19:36:03,505 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vision_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:36:04,387 - INFO - core.py:594 - flashinfer.jit: Building JIT module batch_prefill_with_kv_cache_dtype_q_bf16_dtype_kv_bf16_dtype_o_bf16_dtype_idx_i32_head_dim_qk_128_head_dim_vo_128_posenc_0_use_swa_False_use_logits_cap_False_f16qk_False_kv_stride_equal; this can take several minutes on first use.
+2026-10-13 19:36:04,389 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: image_gen[bs=1,tokens=800,key=(1, 48, 1, 40, 40)] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,408 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: image_gen[bs=1,tokens=800,key=(1, 48, 1, 40, 40)] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,422 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: image_gen[bs=1,tokens=780,key=(1, 48, 1, 30, 52)] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,436 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: image_gen[bs=1,tokens=780,key=(1, 48, 1, 30, 52)] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,450 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=256,key=True] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,463 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=256,key=True] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,477 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=128,key=True] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,491 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=128,key=True] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,505 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: image_gen[bs=1,tokens=120,key=(1, 48, 1, 12, 20)] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,519 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: image_gen[bs=1,tokens=120,key=(1, 48, 1, 12, 20)] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,533 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=64,key=True] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,546 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=64,key=True] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,560 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=32,key=True] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,573 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=32,key=True] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,698 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=16,key=True] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,712 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for dit: prefill[bs=1,tokens=16,key=True] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,712 ERROR [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[dit]: captured 0 of 8 buckets; these run eagerly: [BucketKey(graph_walk='image_gen', bs=1, num_tokens=800, cg_key_info=(1, 48, 1, 40, 40)), BucketKey(graph_walk='image_gen', bs=1, num_tokens=780, cg_key_info=(1, 48, 1, 30, 52)), BucketKey(graph_walk='prefill', bs=1, num_tokens=256, cg_key_info=True), BucketKey(graph_walk='prefill', bs=1, num_tokens=128, cg_key_info=True), BucketKey(graph_walk='image_gen', bs=1, num_tokens=120, cg_key_info=(1, 48, 1, 12, 20)), BucketKey(graph_walk='prefill', bs=1, num_tokens=64, cg_key_info=True), BucketKey(graph_walk='prefill', bs=1, num_tokens=32, cg_key_info=True), BucketKey(graph_walk='prefill', bs=1, num_tokens=16, cg_key_info=True)]
+2026-10-13 19:36:04,713 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[dit]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 1155.25 MB.
+2026-10-13 19:36:04,713 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_decoder_ar]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:36:04,713 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_decoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:36:04,729 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=32,tokens=32] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,746 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=32,tokens=32] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,760 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=16,tokens=16] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,773 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=16,tokens=16] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,787 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=8,tokens=8] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,801 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=8,tokens=8] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,815 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=4,tokens=4] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,828 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=4,tokens=4] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,841 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=2,tokens=2] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,855 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=2,tokens=2] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,868 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=1,tokens=1] slot=0
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,881 ERROR [worker_0] mstar.engine.cuda_graph_runner: Failed to capture CUDA graph for reasoner: reasoner_decode[bs=1,tokens=1] slot=1
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 433, in warmup_and_capture
+    slot = self._capture_one(spec)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 584, in _capture_one
+    static_inputs = prepare()
+                    ^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/cuda_graph_runner.py", line 576, in prepare
+    self._step_runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 307, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/api_logging.py", line 2369, in _auto_dump_wrapper
+    return _inner(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 1635, in plan
+    return self._plan_impl(
+           ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/decode.py", line 2042, in _plan_impl
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:04,882 ERROR [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[reasoner]: captured 0 of 6 buckets; these run eagerly: [BucketKey(graph_walk='reasoner_decode', bs=32, num_tokens=32, cg_key_info=None), BucketKey(graph_walk='reasoner_decode', bs=16, num_tokens=16, cg_key_info=None), BucketKey(graph_walk='reasoner_decode', bs=8, num_tokens=8, cg_key_info=None), BucketKey(graph_walk='reasoner_decode', bs=4, num_tokens=4, cg_key_info=None), BucketKey(graph_walk='reasoner_decode', bs=2, num_tokens=2, cg_key_info=None), BucketKey(graph_walk='reasoner_decode', bs=1, num_tokens=1, cg_key_info=None)]
+2026-10-13 19:36:04,882 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[reasoner]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 1140.54 MB.
+2026-10-13 19:36:04,882 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:36:04,882 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vision_encoder (submodule opt-out)
+2026-10-13 19:36:04,882 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for dit (submodule opt-out)
+2026-10-13 19:36:04,882 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder_ar (submodule opt-out)
+2026-10-13 19:36:04,882 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder (submodule opt-out)
+2026-10-13 19:36:04,882 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for reasoner (submodule opt-out)
+2026-10-13 19:36:04,882 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_encoder (submodule opt-out)
+2026-10-13 19:36:05,374 INFO [worker_0] mstar.worker.worker: Worker worker_0: gc.freeze() after warmup — 762444 objects moved to the permanent generation
+2026-10-13 19:36:05,374 INFO [worker_0] mstar.worker.worker: Worker worker_0: engine runs on dedicated GPU thread
+2026-10-13 19:36:05,374 INFO [worker_0] mstar.worker.worker: Worker worker_0: plan_executor enabled — speculative plan() pre-runs on a dedicated thread
+2026-10-13 19:36:05,383 INFO [conductor] mstar.conductor.conductor: Conductor: all 1 worker(s) ready
+2026-10-13 19:36:05,385 INFO [api_server] __main__: All workers ready
+2026-10-13 19:36:05,386 INFO [api_server] __main__: Running 2 warmup request(s) before binding
+2026-10-13 19:36:05,387 INFO [api_server] __main__: Request warmup-0 submitted  in=['text']  out=['video']
+2026-10-13 19:36:05,441 ERROR [worker_0] mstar.worker.worker: Worker worker_0 error in main loop: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/worker/worker.py", line 3719, in run
+    outputs = pending.future.result()
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/worker/worker.py", line 1797, in _execute_on_gpu_thread
+    outputs = engine.exec_and_postprocess(node_batch)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/engine.py", line 1317, in exec_and_postprocess
+    outputs = self.exec(batch)
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/engine.py", line 826, in exec
+    batch.outputs = self._exec_single(batch)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/engine.py", line 881, in _exec_single
+    raw, batch.step = self._drive_step(
+                      ^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/engine.py", line 1158, in _drive_step
+    self._runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,443 ERROR [worker_0] mstar.worker.worker: Worker worker_0 failing request warmup-0: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,444 ERROR [conductor] mstar.conductor.conductor: Request warmup-0 failed on a worker: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,444 INFO [conductor] mstar.conductor.conductor: Draining request warmup-0 (2 participants) before teardown
+2026-10-13 19:36:05,456 INFO [conductor] mstar.conductor.conductor: Tore down request warmup-0; freed worker resources
+2026-10-13 19:36:05,457 INFO [worker_0] mstar.worker.worker: Request cleanup complete: warmup-0
+2026-10-13 19:36:05,458 ERROR [api_server] __main__: Request warmup-0 failed in the engine: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,462 WARNING [api_server] __main__: warmup request 1/2 failed after 0.1 s: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,463 INFO [api_server] __main__: Request warmup-1 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:36:05,629 ERROR [worker_0] mstar.worker.worker: Worker worker_0 error in main loop: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+Traceback (most recent call last):
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/worker/worker.py", line 3719, in run
+    outputs = pending.future.result()
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/worker/worker.py", line 1797, in _execute_on_gpu_thread
+    outputs = engine.exec_and_postprocess(node_batch)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/engine.py", line 1317, in exec_and_postprocess
+    outputs = self.exec(batch)
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/engine.py", line 826, in exec
+    batch.outputs = self._exec_single(batch)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/engine.py", line 881, in _exec_single
+    raw, batch.step = self._drive_step(
+                      ^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/engine.py", line 1158, in _drive_step
+    self._runner.plan(step)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/runner.py", line 370, in plan
+    results[key] = self._resources[key].plan(step.get(key), step.ctx)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/flashinfer.py", line 182, in plan
+    wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1298, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/engine/resources/attn/wrappers.py", line 170, in plan
+    self.attn_wrapper.plan(
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 2991, in plan
+    self._cached_module = get_batch_prefill_module(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/prefill.py", line 545, in get_batch_prefill_module
+    module = _gen_batch_prefill_primary_module(backend, *args).build_and_load()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 357, in build_and_load
+    self.build()
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/core.py", line 599, in build
+    run_ninja(self.build_dir, self.ninja_path, verbose)
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/flashinfer/jit/cpp_ext.py", line 433, in run_ninja
+    subprocess.run(
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,630 ERROR [worker_0] mstar.worker.worker: Worker worker_0 failing request warmup-1: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,632 ERROR [conductor] mstar.conductor.conductor: Request warmup-1 failed on a worker: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,632 INFO [conductor] mstar.conductor.conductor: Draining request warmup-1 (2 participants) before teardown
+2026-10-13 19:36:05,642 INFO [conductor] mstar.conductor.conductor: Tore down request warmup-1; freed worker resources
+2026-10-13 19:36:05,642 INFO [worker_0] mstar.worker.worker: Request cleanup complete: warmup-1
+2026-10-13 19:36:05,643 ERROR [api_server] __main__: Request warmup-1 failed in the engine: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,645 WARNING [api_server] __main__: warmup request 2/2 failed after 0.2 s: Error in worker: FileNotFoundError: [Errno 2] No such file or directory: 'ninja'
+2026-10-13 19:36:05,645 INFO [api_server] __main__: Starting mstar API server on 0.0.0.0:8100
+INFO:     Started server process [158999]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8100 (Press CTRL+C to quit)
+2026-10-13 19:36:12,482 INFO [conductor] mstar.conductor.conductor: Shutting down conductor...
+Process SpawnProcess-1:1:
+Traceback (most recent call last):
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/conductor/conductor.py", line 197, in _worker_process_target
+    worker.run()
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/worker/worker.py", line 3906, in run
+    self.communicator.wait_for_work(10)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/communication/communicator.py", line 164, in wait_for_work
+    events = dict(self.poller.poll(timeout=timeout_ms))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/zmq/sugar/poll.py", line 106, in poll
+    return zmq_poll(self.sockets, timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1680, in zmq.backend.cython._zmq.zmq_poll
+    _check_rc(rc)
+    ^^^^^^^^^^^
+KeyboardInterrupt
+[W1013 19:36:12.499624408 CudaIPCTypes.cpp:16] Producer process has been terminated before all shared CUDA tensors released. See Note [Sharing CUDA tensors]
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [158999]
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py", line 144, in _conductor_process_target
+    conductor.shutdown()
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/conductor/conductor.py", line 552, in shutdown
+    p.join(timeout=5)
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/popen_fork.py", line 43, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/popen_fork.py", line 27, in poll
+    pid, sts = os.waitpid(self.pid, flag)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+2026-10-13 19:36:12,923 INFO [conductor] mstar.conductor.conductor: Shutting down conductor...

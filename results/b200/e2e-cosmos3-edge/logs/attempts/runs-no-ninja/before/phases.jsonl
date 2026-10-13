@@ -1,0 +1,10 @@
+{"phase": "kv_c1", "event": "start", "t": 1791920123.641755943, "stats_bytes": 0}
+{"phase": "kv_c1", "event": "end", "t": 1791920124.449002542, "stats_bytes": 2228}
+{"phase": "kv_dump", "event": "start", "t": 1791920127.985400026, "stats_bytes": 2228}
+{"phase": "kv_dump", "event": "end", "t": 1791920128.221772478, "stats_bytes": 2785}
+{"phase": "kv_c4", "event": "start", "t": 1791920131.751560225, "stats_bytes": 2785}
+{"phase": "kv_c4", "event": "end", "t": 1791920133.103154960, "stats_bytes": 9469}
+{"phase": "ch_c1", "event": "start", "t": 1791920136.630807257, "stats_bytes": 9469}
+{"phase": "ch_c1", "event": "end", "t": 1791920137.228132696, "stats_bytes": 11140}
+{"phase": "ch_dump", "event": "start", "t": 1791920140.756711965, "stats_bytes": 11140}
+{"phase": "ch_dump", "event": "end", "t": 1791920140.995041946, "stats_bytes": 11697}

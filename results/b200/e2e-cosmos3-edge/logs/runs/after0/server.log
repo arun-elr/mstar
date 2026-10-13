@@ -1,0 +1,437 @@
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py:1443: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 170282
+2026-10-13 19:47:43,191 INFO [api_server] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 19:47:43,208 INFO [api_server] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 19:47:43,210 INFO [api_server] __main__: Conductor process started (pid=170328, model=cosmos3_edge)
+2026-10-13 19:47:43,210 INFO [api_server] __main__: Waiting for workers to finish setup (loading weights, capturing CUDA graphs)...
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+2026-10-13 19:47:44,981 INFO [conductor] __mp_main__: yaml model_kwargs from ${VM_HOME}/e2e-cosmos3/runs/after0/config.yaml: {'cuda_graph': True, 'graph_max_latent_area': 2000, 'gen_capture_video': [], 'image_size_default': [640, 640], 'video_size_default': [832, 480], 'num_frames_video': 121, 'num_inference_steps_video': 20, 'guidance_scale': 6.0, 'flow_shift_video': 12.0, 'conditioning_resize': 'aspect_crop', 'num_inference_steps_action': 30, 'guidance_scale_action': 1.0, 'flow_shift_action': 10.0, 'enable_windowed_video': True, 'windowed_decode_warm_cache': True, 'vae_decode_channels_last': True, 'windowed_decode_latents_per_call': 0, 'vae_decode_cudnn_benchmark': True} (forwarded to cosmos3_edge.__init__)
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 170328
+2026-10-13 19:47:47,256 INFO [conductor] mstar.conductor.conductor: Detected worker device type: cuda
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 170380
+2026-10-13 19:47:50,588 INFO [conductor] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 19:47:50,612 INFO [conductor] mstar.conductor.conductor: Conductor waiting for 1 worker(s) to finish setup
+2026-10-13 19:47:51,070 INFO [worker_0] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 19:47:51,246 INFO [worker_0] mstar.graph.runtime.utils: graph runtime: python (MSTAR_RUST_GRAPH=AUTO)
+2026-10-13 19:47:51,246 INFO [worker_0] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='kv', nodes={'dit', 'reasoner'}, config=PagedKVConfig(num_layers=28, num_kv_heads=8, head_dim=128, num_qo_heads=16, max_seq_len=262144, max_num_pages=1024, page_size=128, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True)), AttentionSpec(resource_key='attn', nodes={'dit', 'reasoner'}, config=AttentionConfig(kv_cache='kv', backend=<AttnBackend.FLASHINFER: 'flashinfer'>, flashinfer_backend='auto')), SamplerSpec(resource_key='sampler', nodes={'reasoner'}, vocab_size=131072, enable_repetion_penalty=True, enable_min_p=False), AttentionSpec(resource_key='attn_gen', nodes={'dit'}, config=AttentionConfig(kv_cache='kv', backend=<AttnBackend.DENSE: 'dense'>, flashinfer_backend='auto'))]
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-10-13 19:47:51,800 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_encoder
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-10-13 19:47:52,857 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode torch.compile enabled
+2026-10-13 19:47:52,857 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode dtype = torch.bfloat16 (cuDNN 92000)
+2026-10-13 19:47:52,858 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_decoder_ar
+2026-10-13 19:47:53,131 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vision_encoder
+2026-10-13 19:47:54,431 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 denoise compute torch.compile enabled
+2026-10-13 19:47:54,431 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for dit
+2026-10-13 19:47:54,435 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode torch.compile enabled
+2026-10-13 19:47:54,435 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode dtype = torch.bfloat16 (cuDNN 92000)
+2026-10-13 19:47:54,435 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_decoder
+2026-10-13 19:47:54,436 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for reasoner
+2026-10-13 19:47:54,527 WARNING [worker_0] mstar.engine.resources.attn.dense: Attention backend 'dense' requested but the fa3-fwd kernel is unavailable (ModuleNotFoundError: No module named 'fa3_fwd_interface'); using the paged 'flashinfer' backend instead.
+2026-10-13 19:47:54,533 INFO [worker_0] mstar.worker.engine_manager: Engine loaded on device cuda:0 for nodes ['dit', 'reasoner', 'vae_decoder', 'vae_decoder_ar', 'vae_encoder', 'vision_encoder']
+2026-10-13 19:47:54,552 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:47:54,552 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_decoder_ar]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:47:54,552 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vision_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:47:57,330 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: image_gen[bs=1,tokens=800,key=(1, 48, 1, 40, 40)] (2 slots)
+2026-10-13 19:47:58,179 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: image_gen[bs=1,tokens=780,key=(1, 48, 1, 30, 52)] (2 slots)
+2026-10-13 19:47:58,390 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=256,key=True] (2 slots)
+2026-10-13 19:47:58,538 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=128,key=True] (2 slots)
+2026-10-13 19:47:59,571 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: image_gen[bs=1,tokens=120,key=(1, 48, 1, 12, 20)] (2 slots)
+2026-10-13 19:47:59,704 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=64,key=True] (2 slots)
+2026-10-13 19:47:59,835 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=32,key=True] (2 slots)
+2026-10-13 19:48:00,084 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=16,key=True] (2 slots)
+2026-10-13 19:48:00,085 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[dit]: warmup_and_capture done. shared_static_buffers: 17 entries, 0.36 MB resident (would have been 0.73 MB with per-capture clones — saved 0.37 MB). Total cuda alloc delta during warmup: 1221.26 MB.
+2026-10-13 19:48:00,085 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_decoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:48:01,437 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=32,tokens=32] (2 slots)
+2026-10-13 19:48:02,715 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=16,tokens=16] (2 slots)
+2026-10-13 19:48:03,747 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=8,tokens=8] (2 slots)
+2026-10-13 19:48:04,800 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=4,tokens=4] (2 slots)
+2026-10-13 19:48:05,832 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=2,tokens=2] (2 slots)
+2026-10-13 19:48:07,155 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=1,tokens=1] (2 slots)
+2026-10-13 19:48:07,156 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[reasoner]: warmup_and_capture done. shared_static_buffers: 2 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 1141.62 MB.
+2026-10-13 19:48:07,156 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_encoder (submodule opt-out)
+2026-10-13 19:48:07,156 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder_ar (submodule opt-out)
+2026-10-13 19:48:07,156 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vision_encoder (submodule opt-out)
+2026-10-13 19:48:07,156 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for dit (submodule opt-out)
+2026-10-13 19:48:07,156 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder (submodule opt-out)
+2026-10-13 19:48:07,156 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for reasoner (submodule opt-out)
+2026-10-13 19:48:07,729 INFO [worker_0] mstar.worker.worker: Worker worker_0: gc.freeze() after warmup — 1025784 objects moved to the permanent generation
+2026-10-13 19:48:07,729 INFO [worker_0] mstar.worker.worker: Worker worker_0: engine runs on dedicated GPU thread
+2026-10-13 19:48:07,729 INFO [worker_0] mstar.worker.worker: Worker worker_0: plan_executor enabled — speculative plan() pre-runs on a dedicated thread
+2026-10-13 19:48:07,735 INFO [conductor] mstar.conductor.conductor: Conductor: all 1 worker(s) ready
+2026-10-13 19:48:07,746 INFO [api_server] __main__: All workers ready
+2026-10-13 19:48:07,747 INFO [api_server] __main__: Running 2 warmup request(s) before binding
+2026-10-13 19:48:07,747 INFO [api_server] __main__: Request warmup-0 submitted  in=['text']  out=['video']
+2026-10-13 19:48:59,152 INFO [conductor] mstar.conductor.conductor: Request warmup-0 done
+2026-10-13 19:48:59,154 INFO [api_server] __main__: API server received warmup-0 done
+2026-10-13 19:48:59,288 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:48:59,689 INFO [conductor] mstar.conductor.conductor: Tore down request warmup-0; freed worker resources
+2026-10-13 19:48:59,690 INFO [worker_0] mstar.worker.worker: Request cleanup complete: warmup-0
+2026-10-13 19:48:59,693 INFO [api_server] __main__: warmup request 1/2 (video) done in 51.9 s
+2026-10-13 19:48:59,694 INFO [api_server] __main__: Request warmup-1 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:49:19,715 INFO [conductor] mstar.conductor.conductor: Request warmup-1 done
+2026-10-13 19:49:19,716 INFO [api_server] __main__: API server received warmup-1 done
+2026-10-13 19:49:19,782 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:19,980 INFO [api_server] __main__: warmup request 2/2 (video) done in 20.3 s
+2026-10-13 19:49:19,980 INFO [conductor] mstar.conductor.conductor: Tore down request warmup-1; freed worker resources
+2026-10-13 19:49:19,980 INFO [api_server] __main__: Starting mstar API server on 0.0.0.0:8100
+2026-10-13 19:49:19,981 INFO [worker_0] mstar.worker.worker: Request cleanup complete: warmup-1
+INFO:     Started server process [170282]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8100 (Press CTRL+C to quit)
+2026-10-13 19:49:22,737 INFO [api_server] __main__: Request 3274441b-8bc6-4287-880b-1af03b5b6081 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:49:24,231 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:25,495 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:31,683 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:33,211 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:34,763 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:36,309 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:37,860 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:39,307 INFO [conductor] mstar.conductor.conductor: Request 3274441b-8bc6-4287-880b-1af03b5b6081 done
+2026-10-13 19:49:39,307 INFO [api_server] __main__: API server received 3274441b-8bc6-4287-880b-1af03b5b6081 done
+2026-10-13 19:49:39,329 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:39,401 INFO [api_server] __main__: Async stream results received finish for 3274441b-8bc6-4287-880b-1af03b5b6081
+2026-10-13 19:49:39,404 INFO [conductor] mstar.conductor.conductor: Tore down request 3274441b-8bc6-4287-880b-1af03b5b6081; freed worker resources
+2026-10-13 19:49:39,404 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 3274441b-8bc6-4287-880b-1af03b5b6081
+2026-10-13 19:49:39,413 INFO [api_server] __main__: Request 2f186ada-41e5-48bc-b097-6757d078db03 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:49:40,907 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:42,172 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:43,710 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:45,252 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:46,804 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:48,341 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:49,876 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:51,298 INFO [conductor] mstar.conductor.conductor: Request 2f186ada-41e5-48bc-b097-6757d078db03 done
+2026-10-13 19:49:51,299 INFO [api_server] __main__: API server received 2f186ada-41e5-48bc-b097-6757d078db03 done
+2026-10-13 19:49:51,316 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:51,390 INFO [api_server] __main__: Async stream results received finish for 2f186ada-41e5-48bc-b097-6757d078db03
+2026-10-13 19:49:51,393 INFO [conductor] mstar.conductor.conductor: Tore down request 2f186ada-41e5-48bc-b097-6757d078db03; freed worker resources
+2026-10-13 19:49:51,394 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 2f186ada-41e5-48bc-b097-6757d078db03
+2026-10-13 19:49:51,403 INFO [api_server] __main__: Request 40161ad1-ffaa-4e59-a97e-da1669243341 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:49:52,886 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:54,153 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:55,686 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:57,249 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:49:58,806 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:00,352 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:01,890 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:03,317 INFO [conductor] mstar.conductor.conductor: Request 40161ad1-ffaa-4e59-a97e-da1669243341 done
+2026-10-13 19:50:03,319 INFO [api_server] __main__: API server received 40161ad1-ffaa-4e59-a97e-da1669243341 done
+2026-10-13 19:50:03,338 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:03,409 INFO [api_server] __main__: Async stream results received finish for 40161ad1-ffaa-4e59-a97e-da1669243341
+2026-10-13 19:50:03,415 INFO [conductor] mstar.conductor.conductor: Tore down request 40161ad1-ffaa-4e59-a97e-da1669243341; freed worker resources
+2026-10-13 19:50:03,416 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 40161ad1-ffaa-4e59-a97e-da1669243341
+2026-10-13 19:50:03,420 INFO [api_server] __main__: Request 87f45e89-ee0b-4071-bd78-20595fe53a77 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:50:04,918 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:06,182 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:07,730 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:09,269 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:10,822 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:12,368 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:13,918 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:15,351 INFO [conductor] mstar.conductor.conductor: Request 87f45e89-ee0b-4071-bd78-20595fe53a77 done
+2026-10-13 19:50:15,352 INFO [api_server] __main__: API server received 87f45e89-ee0b-4071-bd78-20595fe53a77 done
+2026-10-13 19:50:15,370 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:15,443 INFO [api_server] __main__: Async stream results received finish for 87f45e89-ee0b-4071-bd78-20595fe53a77
+2026-10-13 19:50:15,444 INFO [conductor] mstar.conductor.conductor: Tore down request 87f45e89-ee0b-4071-bd78-20595fe53a77; freed worker resources
+2026-10-13 19:50:15,445 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 87f45e89-ee0b-4071-bd78-20595fe53a77
+2026-10-13 19:50:19,052 INFO [api_server] __main__: Request 4921ff11-43aa-4ec6-900d-851147ff5d06 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:50:20,563 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:21,831 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:23,368 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:24,919 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:26,466 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:28,011 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:29,561 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:30,982 INFO [conductor] mstar.conductor.conductor: Request 4921ff11-43aa-4ec6-900d-851147ff5d06 done
+2026-10-13 19:50:30,983 INFO [api_server] __main__: API server received 4921ff11-43aa-4ec6-900d-851147ff5d06 done
+2026-10-13 19:50:31,007 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:31,080 INFO [api_server] __main__: Async stream results received finish for 4921ff11-43aa-4ec6-900d-851147ff5d06
+2026-10-13 19:50:31,083 INFO [conductor] mstar.conductor.conductor: Tore down request 4921ff11-43aa-4ec6-900d-851147ff5d06; freed worker resources
+2026-10-13 19:50:31,084 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 4921ff11-43aa-4ec6-900d-851147ff5d06
+2026-10-13 19:50:34,697 INFO [api_server] __main__: Request fd8ab769-81e1-4db7-8638-0a9b7c63f737 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:50:34,698 INFO [api_server] __main__: Request f6f23004-3213-451a-a93b-0d7e1321b306 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:50:34,698 INFO [api_server] __main__: Request 012ec55c-23b5-43c7-822a-f2e2c87efa15 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:50:34,698 INFO [api_server] __main__: Request 4bf3ed8f-4365-4a35-9bc3-d4119715b525 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:50:39,432 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:40,481 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:41,387 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:42,359 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:46,112 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:47,061 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:47,816 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:48,633 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:53,064 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:54,116 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:54,900 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:50:55,718 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:00,178 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:01,241 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:02,027 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:02,855 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:07,311 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:08,374 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:09,167 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:09,986 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:14,425 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:15,492 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:16,280 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:17,099 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:21,552 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:22,613 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:23,406 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:24,222 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:28,552 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:28,992 INFO [conductor] mstar.conductor.conductor: Request fd8ab769-81e1-4db7-8638-0a9b7c63f737 done
+2026-10-13 19:51:28,993 INFO [api_server] __main__: API server received fd8ab769-81e1-4db7-8638-0a9b7c63f737 done
+2026-10-13 19:51:28,995 INFO [api_server] __main__: Async stream results received finish for fd8ab769-81e1-4db7-8638-0a9b7c63f737
+2026-10-13 19:51:29,000 INFO [conductor] mstar.conductor.conductor: Tore down request fd8ab769-81e1-4db7-8638-0a9b7c63f737; freed worker resources
+2026-10-13 19:51:29,145 INFO [worker_0] mstar.worker.worker: Request cleanup complete: fd8ab769-81e1-4db7-8638-0a9b7c63f737
+2026-10-13 19:51:29,624 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:29,708 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:29,883 INFO [conductor] mstar.conductor.conductor: Request f6f23004-3213-451a-a93b-0d7e1321b306 done
+2026-10-13 19:51:29,883 INFO [conductor] mstar.conductor.conductor: Request 012ec55c-23b5-43c7-822a-f2e2c87efa15 done
+2026-10-13 19:51:29,884 INFO [api_server] __main__: API server received f6f23004-3213-451a-a93b-0d7e1321b306 done
+2026-10-13 19:51:29,884 INFO [api_server] __main__: API server received 012ec55c-23b5-43c7-822a-f2e2c87efa15 done
+2026-10-13 19:51:29,884 INFO [conductor] mstar.conductor.conductor: Request 4bf3ed8f-4365-4a35-9bc3-d4119715b525 done
+2026-10-13 19:51:29,886 INFO [api_server] __main__: API server received 4bf3ed8f-4365-4a35-9bc3-d4119715b525 done
+2026-10-13 19:51:29,886 INFO [api_server] __main__: Async stream results received finish for 012ec55c-23b5-43c7-822a-f2e2c87efa15
+2026-10-13 19:51:29,890 INFO [api_server] __main__: Async stream results received finish for f6f23004-3213-451a-a93b-0d7e1321b306
+2026-10-13 19:51:29,891 INFO [conductor] mstar.conductor.conductor: Tore down request f6f23004-3213-451a-a93b-0d7e1321b306; freed worker resources
+2026-10-13 19:51:29,891 INFO [conductor] mstar.conductor.conductor: Tore down request 012ec55c-23b5-43c7-822a-f2e2c87efa15; freed worker resources
+2026-10-13 19:51:29,892 INFO [worker_0] mstar.worker.worker: Request cleanup complete: f6f23004-3213-451a-a93b-0d7e1321b306
+2026-10-13 19:51:29,892 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 012ec55c-23b5-43c7-822a-f2e2c87efa15
+2026-10-13 19:51:29,894 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:29,965 INFO [api_server] __main__: Async stream results received finish for 4bf3ed8f-4365-4a35-9bc3-d4119715b525
+2026-10-13 19:51:29,979 INFO [conductor] mstar.conductor.conductor: Tore down request 4bf3ed8f-4365-4a35-9bc3-d4119715b525; freed worker resources
+2026-10-13 19:51:29,980 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 4bf3ed8f-4365-4a35-9bc3-d4119715b525
+2026-10-13 19:51:29,983 INFO [api_server] __main__: Request f5cd7a26-da4e-4533-a960-b7a2650d792f submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:51:29,985 INFO [api_server] __main__: Request 16a42b43-f450-4f2d-914b-a38f3c43ad93 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:51:29,987 INFO [api_server] __main__: Request 94113488-3f3f-4598-8100-e31fdf22551a submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:51:29,987 INFO [api_server] __main__: Request 18abdef4-c143-450a-9f58-377c664fca6a submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:51:34,911 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:35,782 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:37,244 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:37,344 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:41,710 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:42,432 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:43,479 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:43,597 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:48,751 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:49,538 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:50,609 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:50,734 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:55,905 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:56,703 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:57,789 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:51:57,910 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:03,104 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:03,896 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:04,986 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:05,107 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:10,271 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:11,077 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:12,162 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:12,279 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:17,473 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:18,271 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:19,359 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:19,482 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:24,553 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:25,111 INFO [conductor] mstar.conductor.conductor: Request f5cd7a26-da4e-4533-a960-b7a2650d792f done
+2026-10-13 19:52:25,112 INFO [api_server] __main__: API server received f5cd7a26-da4e-4533-a960-b7a2650d792f done
+2026-10-13 19:52:25,114 INFO [api_server] __main__: Async stream results received finish for f5cd7a26-da4e-4533-a960-b7a2650d792f
+2026-10-13 19:52:25,120 INFO [conductor] mstar.conductor.conductor: Tore down request f5cd7a26-da4e-4533-a960-b7a2650d792f; freed worker resources
+2026-10-13 19:52:25,123 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:25,297 INFO [worker_0] mstar.worker.worker: Request cleanup complete: f5cd7a26-da4e-4533-a960-b7a2650d792f
+2026-10-13 19:52:25,694 INFO [conductor] mstar.conductor.conductor: Request 16a42b43-f450-4f2d-914b-a38f3c43ad93 done
+2026-10-13 19:52:25,695 INFO [api_server] __main__: API server received 16a42b43-f450-4f2d-914b-a38f3c43ad93 done
+2026-10-13 19:52:25,696 INFO [conductor] mstar.conductor.conductor: Request 94113488-3f3f-4598-8100-e31fdf22551a done
+2026-10-13 19:52:25,696 INFO [conductor] mstar.conductor.conductor: Request 18abdef4-c143-450a-9f58-377c664fca6a done
+2026-10-13 19:52:25,696 INFO [api_server] __main__: API server received 94113488-3f3f-4598-8100-e31fdf22551a done
+2026-10-13 19:52:25,696 INFO [api_server] __main__: API server received 18abdef4-c143-450a-9f58-377c664fca6a done
+2026-10-13 19:52:25,697 INFO [api_server] __main__: Async stream results received finish for 16a42b43-f450-4f2d-914b-a38f3c43ad93
+2026-10-13 19:52:25,709 INFO [conductor] mstar.conductor.conductor: Tore down request 16a42b43-f450-4f2d-914b-a38f3c43ad93; freed worker resources
+2026-10-13 19:52:25,712 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 16a42b43-f450-4f2d-914b-a38f3c43ad93
+2026-10-13 19:52:25,713 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:25,799 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:25,800 INFO [api_server] __main__: Async stream results received finish for 94113488-3f3f-4598-8100-e31fdf22551a
+2026-10-13 19:52:25,884 INFO [api_server] __main__: Async stream results received finish for 18abdef4-c143-450a-9f58-377c664fca6a
+2026-10-13 19:52:25,897 INFO [conductor] mstar.conductor.conductor: Tore down request 94113488-3f3f-4598-8100-e31fdf22551a; freed worker resources
+2026-10-13 19:52:25,897 INFO [conductor] mstar.conductor.conductor: Tore down request 18abdef4-c143-450a-9f58-377c664fca6a; freed worker resources
+2026-10-13 19:52:25,898 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 94113488-3f3f-4598-8100-e31fdf22551a
+2026-10-13 19:52:25,898 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 18abdef4-c143-450a-9f58-377c664fca6a
+2026-10-13 19:52:25,910 INFO [api_server] __main__: Request 07ad5372-d08a-4358-bd73-714630607f8f submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:52:25,914 INFO [api_server] __main__: Request 1e61351b-b878-4981-a607-79eefe3ae8aa submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:52:25,915 INFO [api_server] __main__: Request be21d7a1-8403-42c3-98b7-02e5509f4aca submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:52:25,916 INFO [api_server] __main__: Request 5f0e39f7-9ba6-44e1-84db-307516b68a0d submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:52:30,634 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:31,684 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:32,596 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:33,568 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:37,319 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:38,267 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:39,016 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:39,834 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:44,271 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:45,326 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:46,114 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:46,929 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:51,379 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:52,447 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:53,234 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:54,055 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:58,517 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:52:59,585 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:00,385 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:01,207 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:05,661 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:06,726 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:07,506 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:08,340 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:12,787 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:13,859 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:14,651 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:15,474 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:19,811 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:20,244 INFO [conductor] mstar.conductor.conductor: Request 07ad5372-d08a-4358-bd73-714630607f8f done
+2026-10-13 19:53:20,245 INFO [api_server] __main__: API server received 07ad5372-d08a-4358-bd73-714630607f8f done
+2026-10-13 19:53:20,247 INFO [api_server] __main__: Async stream results received finish for 07ad5372-d08a-4358-bd73-714630607f8f
+2026-10-13 19:53:20,255 INFO [conductor] mstar.conductor.conductor: Tore down request 07ad5372-d08a-4358-bd73-714630607f8f; freed worker resources
+2026-10-13 19:53:20,397 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 07ad5372-d08a-4358-bd73-714630607f8f
+2026-10-13 19:53:20,873 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:20,951 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:21,135 INFO [conductor] mstar.conductor.conductor: Request 1e61351b-b878-4981-a607-79eefe3ae8aa done
+2026-10-13 19:53:21,135 INFO [conductor] mstar.conductor.conductor: Request be21d7a1-8403-42c3-98b7-02e5509f4aca done
+2026-10-13 19:53:21,136 INFO [api_server] __main__: API server received 1e61351b-b878-4981-a607-79eefe3ae8aa done
+2026-10-13 19:53:21,136 INFO [api_server] __main__: API server received be21d7a1-8403-42c3-98b7-02e5509f4aca done
+2026-10-13 19:53:21,136 INFO [conductor] mstar.conductor.conductor: Request 5f0e39f7-9ba6-44e1-84db-307516b68a0d done
+2026-10-13 19:53:21,138 INFO [api_server] __main__: API server received 5f0e39f7-9ba6-44e1-84db-307516b68a0d done
+2026-10-13 19:53:21,138 INFO [api_server] __main__: Async stream results received finish for be21d7a1-8403-42c3-98b7-02e5509f4aca
+2026-10-13 19:53:21,139 INFO [api_server] __main__: Async stream results received finish for 1e61351b-b878-4981-a607-79eefe3ae8aa
+2026-10-13 19:53:21,155 INFO [conductor] mstar.conductor.conductor: Tore down request 1e61351b-b878-4981-a607-79eefe3ae8aa; freed worker resources
+2026-10-13 19:53:21,155 INFO [conductor] mstar.conductor.conductor: Tore down request be21d7a1-8403-42c3-98b7-02e5509f4aca; freed worker resources
+2026-10-13 19:53:21,156 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 1e61351b-b878-4981-a607-79eefe3ae8aa
+2026-10-13 19:53:21,157 INFO [worker_0] mstar.worker.worker: Request cleanup complete: be21d7a1-8403-42c3-98b7-02e5509f4aca
+2026-10-13 19:53:21,159 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:21,243 INFO [api_server] __main__: Async stream results received finish for 5f0e39f7-9ba6-44e1-84db-307516b68a0d
+2026-10-13 19:53:21,244 INFO [conductor] mstar.conductor.conductor: Tore down request 5f0e39f7-9ba6-44e1-84db-307516b68a0d; freed worker resources
+2026-10-13 19:53:21,244 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 5f0e39f7-9ba6-44e1-84db-307516b68a0d
+2026-10-13 19:53:24,861 INFO [api_server] __main__: Request f5b47bce-d580-4cbd-b016-134be2cefe91 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:53:26,802 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:37,450 WARNING [worker_0] mstar.worker.worker: Worker worker_0: plan_executor timed out waiting for batch N commit; skipping pre-plan
+2026-10-13 19:53:42,546 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:48,004 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:48,845 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:49,704 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:50,558 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:51,423 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:52,287 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:53,146 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:53,952 INFO [conductor] mstar.conductor.conductor: Request f5b47bce-d580-4cbd-b016-134be2cefe91 done
+2026-10-13 19:53:53,953 INFO [api_server] __main__: API server received f5b47bce-d580-4cbd-b016-134be2cefe91 done
+2026-10-13 19:53:53,961 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:54,037 INFO [api_server] __main__: Async stream results received finish for f5b47bce-d580-4cbd-b016-134be2cefe91
+2026-10-13 19:53:54,040 INFO [conductor] mstar.conductor.conductor: Tore down request f5b47bce-d580-4cbd-b016-134be2cefe91; freed worker resources
+2026-10-13 19:53:54,041 INFO [worker_0] mstar.worker.worker: Request cleanup complete: f5b47bce-d580-4cbd-b016-134be2cefe91
+2026-10-13 19:53:54,050 INFO [api_server] __main__: Request 29938ecf-1694-4dec-9101-ffeb751b9dd8 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:53:55,477 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:56,293 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:57,142 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:58,008 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:58,861 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:53:59,711 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:00,562 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:01,423 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:02,278 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:03,082 INFO [conductor] mstar.conductor.conductor: Request 29938ecf-1694-4dec-9101-ffeb751b9dd8 done
+2026-10-13 19:54:03,082 INFO [api_server] __main__: API server received 29938ecf-1694-4dec-9101-ffeb751b9dd8 done
+2026-10-13 19:54:03,092 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:03,165 INFO [api_server] __main__: Async stream results received finish for 29938ecf-1694-4dec-9101-ffeb751b9dd8
+2026-10-13 19:54:03,167 INFO [conductor] mstar.conductor.conductor: Tore down request 29938ecf-1694-4dec-9101-ffeb751b9dd8; freed worker resources
+2026-10-13 19:54:03,168 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 29938ecf-1694-4dec-9101-ffeb751b9dd8
+2026-10-13 19:54:03,179 INFO [api_server] __main__: Request 0614cf9f-b652-46d2-aeb3-fb5cf82116ed submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:54:04,588 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:05,413 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:06,268 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:07,131 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:07,989 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:08,850 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:09,711 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:10,561 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:11,425 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:12,229 INFO [conductor] mstar.conductor.conductor: Request 0614cf9f-b652-46d2-aeb3-fb5cf82116ed done
+2026-10-13 19:54:12,230 INFO [api_server] __main__: API server received 0614cf9f-b652-46d2-aeb3-fb5cf82116ed done
+2026-10-13 19:54:12,239 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:12,313 INFO [api_server] __main__: Async stream results received finish for 0614cf9f-b652-46d2-aeb3-fb5cf82116ed
+2026-10-13 19:54:12,316 INFO [conductor] mstar.conductor.conductor: Tore down request 0614cf9f-b652-46d2-aeb3-fb5cf82116ed; freed worker resources
+2026-10-13 19:54:12,317 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 0614cf9f-b652-46d2-aeb3-fb5cf82116ed
+2026-10-13 19:54:15,918 INFO [api_server] __main__: Request 854dad9e-13e2-40ce-9d5a-b1cfa8f0d606 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:54:17,346 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:18,169 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:19,032 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:19,890 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:20,749 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:21,611 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:22,477 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:23,338 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:24,208 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:25,011 INFO [conductor] mstar.conductor.conductor: Request 854dad9e-13e2-40ce-9d5a-b1cfa8f0d606 done
+2026-10-13 19:54:25,012 INFO [api_server] __main__: API server received 854dad9e-13e2-40ce-9d5a-b1cfa8f0d606 done
+2026-10-13 19:54:25,037 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 19:54:25,116 INFO [api_server] __main__: Async stream results received finish for 854dad9e-13e2-40ce-9d5a-b1cfa8f0d606
+2026-10-13 19:54:25,119 INFO [conductor] mstar.conductor.conductor: Tore down request 854dad9e-13e2-40ce-9d5a-b1cfa8f0d606; freed worker resources
+2026-10-13 19:54:25,120 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 854dad9e-13e2-40ce-9d5a-b1cfa8f0d606
+2026-10-13 19:54:26,672 INFO [conductor] mstar.conductor.conductor: Shutting down conductor...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [170282]
+[W1013 19:54:27.530576703 CudaIPCTypes.cpp:16] Producer process has been terminated before all shared CUDA tensors released. See Note [Sharing CUDA tensors]
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py", line 144, in _conductor_process_target
+    conductor.shutdown()
+  File "${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/conductor/conductor.py", line 552, in shutdown
+    p.join(timeout=5)
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/popen_fork.py", line 40, in wait
+    if not wait([self.sentinel], timeout):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/connection.py", line 1136, in wait
+    ready = selector.select(timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+2026-10-13 19:54:28,279 INFO [conductor] mstar.conductor.conductor: Shutting down conductor...
+${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:292: UserWarning: resource_tracker: '/mp-3w58pyjj': [Errno 2] No such file or directory
+  warnings.warn('resource_tracker: %r: %s' % (name, e))

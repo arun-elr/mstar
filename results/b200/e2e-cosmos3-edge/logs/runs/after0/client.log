@@ -1,0 +1,34 @@
+=== after0/kv_c1 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=1.61s gap_med=1.53s total=11.99s fps=20.11
+  round 0 wall=11.99s
+  round 1 seed 0: chunks=8 frames=241 TTFF=1.60s gap_med=1.54s total=12.01s fps=20.06
+  round 1 wall=12.02s
+  round 2 seed 0: chunks=8 frames=241 TTFF=1.61s gap_med=1.53s total=12.03s fps=20.04
+  round 2 wall=12.03s
+DONE
+=== after0/kv_dump mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=1.63s gap_med=1.54s total=12.04s fps=20.02
+  round 0 wall=12.05s
+DONE
+=== after0/kv_c4 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=4 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=5.05s gap_med=7.15s total=54.65s fps=4.41
+  round 0 seed 1: chunks=8 frames=241 TTFF=5.92s gap_med=7.15s total=55.24s fps=4.36
+  round 0 seed 2: chunks=8 frames=241 TTFF=7.48s gap_med=7.16s total=55.92s fps=4.31
+  round 0 seed 3: chunks=8 frames=241 TTFF=7.37s gap_med=7.17s total=55.83s fps=4.32
+  round 0 wall=55.93s
+  round 1 seed 0: chunks=8 frames=241 TTFF=4.84s gap_med=7.10s total=53.99s fps=4.46
+  round 1 seed 1: chunks=8 frames=241 TTFF=6.80s gap_med=7.11s total=55.12s fps=4.37
+  round 1 seed 2: chunks=8 frames=241 TTFF=7.78s gap_med=7.13s total=55.35s fps=4.35
+  round 1 seed 3: chunks=8 frames=241 TTFF=5.89s gap_med=7.12s total=55.05s fps=4.38
+  round 1 wall=55.36s
+DONE
+=== after0/ch_c1 mode=chained size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=10 frames=241 TTFF=1.54s gap_med=0.85s total=9.12s fps=26.41
+  round 0 wall=9.13s
+  round 1 seed 0: chunks=10 frames=241 TTFF=1.53s gap_med=0.86s total=9.14s fps=26.36
+  round 1 wall=9.15s
+DONE
+=== after0/ch_dump mode=chained size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=10 frames=241 TTFF=1.55s gap_med=0.86s total=9.21s fps=26.17
+  round 0 wall=9.22s
+DONE

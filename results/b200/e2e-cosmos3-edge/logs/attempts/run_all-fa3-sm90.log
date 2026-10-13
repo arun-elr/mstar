@@ -1,0 +1,59 @@
+[19:36:38] start before
+[19:36:38] variant before MSTAR=${VM_HOME}/e2e-cosmos3/mstar-main rev=99f5108b50ccd2289b875cc67b2cf776bc7c445b overrides={}
+[19:36:38] gpu apps at start:  docker: 
+[19:36:38] image ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg md5 1dd31d4d20b8f25fe724d3326f3b1135
+[19:39:41] server died during startup
+2026-10-13 19:39:34,817 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=1,tokens=1] (2 slots)
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[reasoner]: warmup_and_capture done. shared_static_buffers: 2 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 1141.62 MB.
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vision_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_decoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for dit (submodule opt-out)
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_encoder (submodule opt-out)
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder_ar (submodule opt-out)
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for reasoner (submodule opt-out)
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vision_encoder (submodule opt-out)
+2026-10-13 19:39:34,819 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder (submodule opt-out)
+2026-10-13 19:39:35,541 INFO [worker_0] mstar.worker.worker: Worker worker_0: gc.freeze() after warmup — 1228696 objects moved to the permanent generation
+2026-10-13 19:39:35,544 INFO [worker_0] mstar.worker.worker: Worker worker_0: engine runs on dedicated GPU thread
+2026-10-13 19:39:35,545 INFO [worker_0] mstar.worker.worker: Worker worker_0: plan_executor enabled — speculative plan() pre-runs on a dedicated thread
+2026-10-13 19:39:35,551 INFO [conductor] mstar.conductor.conductor: Conductor: all 1 worker(s) ready
+2026-10-13 19:39:35,557 INFO [api_server] __main__: All workers ready
+2026-10-13 19:39:35,558 INFO [api_server] __main__: Running 2 warmup request(s) before binding
+2026-10-13 19:39:35,558 INFO [api_server] __main__: Request warmup-0 submitted  in=['text']  out=['video']
+CUDA error (/build/fa-fwd/flash-attention/hopper/flash_fwd_launch_template.h:164): no kernel image is available for execution on the device
+[W1013 19:39:38.745297996 CudaIPCTypes.cpp:16] Producer process has been terminated before all shared CUDA tensors released. See Note [Sharing CUDA tensors]
+2026-10-13 19:39:39,527 ERROR [conductor] mstar.conductor.conductor: Worker worker_0 (pid 159641) exited with exit code 1. It hosted nodes ['dit', 'reasoner', 'vae_decoder', 'vae_decoder_ar', 'vae_encoder', 'vision_encoder']. Shutting the deployment down.
+2026-10-13 19:39:39,527 INFO [conductor] mstar.conductor.conductor: Shutting down conductor...
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py", line 138, in _conductor_process_target
+    conductor.run()
+  File "${VM_HOME}/e2e-cosmos3/mstar-main/mstar/conductor/conductor.py", line 1612, in run
+    self._poll_worker_liveness()
+  File "${VM_HOME}/e2e-cosmos3/mstar-main/mstar/conductor/conductor.py", line 607, in _poll_worker_liveness
+    raise DeadWorkerError(worker_id, p.pid, p.exitcode)
+mstar.conductor.conductor.DeadWorkerError: worker worker_0 (pid 159641) exited with exit code 1
+2026-10-13 19:39:39,528 ERROR [api_server] __main__: Request warmup-0 failed in the engine: worker worker_0 (pid 159641) exited with exit code 1, so the server is shutting down
+2026-10-13 19:39:39,532 WARNING [api_server] __main__: warmup request 1/2 failed after 4.0 s: worker worker_0 (pid 159641) exited with exit code 1, so the server is shutting down
+2026-10-13 19:39:39,533 INFO [api_server] __main__: Request warmup-1 submitted  in=['image', 'text']  out=['video']
+2026-10-13 19:39:40,063 ERROR [api_server] __main__: Conductor process exited with exit code 1, shutting the server down
+2026-10-13 19:39:40,067 WARNING [api_server] __main__: warmup request 2/2 failed after 0.5 s: conductor process exited with exit code 1, so the server is shutting down
+2026-10-13 19:39:40,067 INFO [api_server] __main__: Starting mstar API server on 0.0.0.0:8100
+INFO:     Started server process [159533]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8100 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [159533]
+${VM_HOME}/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+[19:39:41] stopping server pgid 159533
+[19:39:44] server stopped; gpu apps: 
+[19:39:44] end before rc=1
+ABORT: before failed

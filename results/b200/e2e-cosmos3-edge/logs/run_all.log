@@ -1,0 +1,196 @@
+[19:40:00] start before
+[19:40:00] variant before MSTAR=${VM_HOME}/e2e-cosmos3/mstar-main rev=99f5108b50ccd2289b875cc67b2cf776bc7c445b overrides={}
+[19:40:00] gpu apps at start:  docker: 
+[19:40:00] image ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg md5 1dd31d4d20b8f25fe724d3326f3b1135
+[19:41:55] server ready after 114.787683584 s
+  pid 162287 resets=0 max_alloc=33.88 GiB max_reserved=35.57 GiB  ${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config /home
+  pid 162352 resets=0 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+[19:41:57] phase kv_c1: --mode kv --frames 241 --concurrency 1 --warmup 1 --rounds 3 --save-dir ${VM_HOME}/e2e-cosmos3/runs/before/mp4/kv_c1
+=== before/kv_c1 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=1.43s gap_med=1.88s total=14.25s fps=16.91
+  round 0 wall=14.26s
+  round 1 seed 0: chunks=8 frames=241 TTFF=1.43s gap_med=1.89s total=14.26s fps=16.89
+  round 1 wall=14.27s
+  round 2 seed 0: chunks=8 frames=241 TTFF=1.44s gap_med=1.89s total=14.28s fps=16.87
+  round 2 wall=14.29s
+DONE
+  pid 162287 resets=1 max_alloc=33.85 GiB max_reserved=35.81 GiB  ${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config /home
+  pid 162352 resets=1 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:42:58] phase kv_dump: --mode kv --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir ${VM_HOME}/e2e-cosmos3/runs/before/mp4/kv_dump
+=== before/kv_dump mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=1.44s gap_med=1.88s total=14.30s fps=16.85
+  round 0 wall=14.31s
+DONE
+  pid 162287 resets=2 max_alloc=33.85 GiB max_reserved=35.81 GiB  ${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config /home
+  pid 162352 resets=2 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:43:15] phase kv_c4: --mode kv --frames 241 --concurrency 4 --warmup 1 --rounds 2 --save-dir ${VM_HOME}/e2e-cosmos3/runs/before/mp4/kv_c4
+=== before/kv_c4 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=4 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=4.85s gap_med=8.53s total=62.60s fps=3.85
+  round 0 seed 1: chunks=8 frames=241 TTFF=5.53s gap_med=8.55s total=63.52s fps=3.79
+  round 0 seed 2: chunks=8 frames=241 TTFF=6.71s gap_med=8.56s total=64.91s fps=3.71
+  round 0 seed 3: chunks=8 frames=241 TTFF=6.60s gap_med=8.56s total=64.82s fps=3.72
+  round 0 wall=64.92s
+  round 1 seed 0: chunks=8 frames=241 TTFF=5.56s gap_med=8.54s total=63.57s fps=3.79
+  round 1 seed 1: chunks=8 frames=241 TTFF=4.86s gap_med=8.55s total=62.66s fps=3.85
+  round 1 seed 2: chunks=8 frames=241 TTFF=6.74s gap_med=8.56s total=64.99s fps=3.71
+  round 1 seed 3: chunks=8 frames=241 TTFF=6.63s gap_med=8.56s total=64.90s fps=3.71
+  round 1 wall=65.00s
+DONE
+  pid 162287 resets=3 max_alloc=33.97 GiB max_reserved=36.21 GiB  ${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config /home
+  pid 162352 resets=3 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:46:34] phase ch_c1: --mode chained --frames 241 --concurrency 1 --warmup 1 --rounds 2 --save-dir ${VM_HOME}/e2e-cosmos3/runs/before/mp4/ch_c1
+=== before/ch_c1 mode=chained size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=10 frames=241 TTFF=1.35s gap_med=1.17s total=11.85s fps=20.34
+  round 0 wall=11.85s
+  round 1 seed 0: chunks=10 frames=241 TTFF=1.36s gap_med=1.17s total=11.85s fps=20.34
+  round 1 wall=11.86s
+DONE
+  pid 162287 resets=4 max_alloc=33.83 GiB max_reserved=36.21 GiB  ${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config /home
+  pid 162352 resets=4 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:47:19] phase ch_dump: --mode chained --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir ${VM_HOME}/e2e-cosmos3/runs/before/mp4/ch_dump
+=== before/ch_dump mode=chained size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=10 frames=241 TTFF=1.37s gap_med=1.16s total=11.85s fps=20.34
+  round 0 wall=11.85s
+DONE
+  pid 162287 resets=5 max_alloc=33.83 GiB max_reserved=36.21 GiB  ${VM_HOME}/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config /home
+  pid 162352 resets=5 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:47:32] variant before done
+[19:47:32] stopping server pgid 162212
+[19:47:38] server stopped; gpu apps: 
+[19:47:38] end before rc=0
+[19:47:38] start after0
+[19:47:38] variant after0 MSTAR=${VM_HOME}/e2e-cosmos3/mstar-pr rev=60fbc5cdd4f648e058acb20cd37e6d0ca8c84d56 overrides={"windowed_decode_warm_cache": true, "vae_decode_channels_last": true, "windowed_decode_latents_per_call": 0, "vae_decode_cudnn_benchmark": true}
+[19:47:38] gpu apps at start:  docker: 
+[19:47:38] image ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg md5 1dd31d4d20b8f25fe724d3326f3b1135
+[19:49:20] server ready after 101.662866483 s
+  pid 170380 resets=0 max_alloc=72.73 GiB max_reserved=78.89 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 170575 resets=0 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+[19:49:22] phase kv_c1: --mode kv --frames 241 --concurrency 1 --warmup 1 --rounds 3 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after0/mp4/kv_c1
+=== after0/kv_c1 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=1.61s gap_med=1.53s total=11.99s fps=20.11
+  round 0 wall=11.99s
+  round 1 seed 0: chunks=8 frames=241 TTFF=1.60s gap_med=1.54s total=12.01s fps=20.06
+  round 1 wall=12.02s
+  round 2 seed 0: chunks=8 frames=241 TTFF=1.61s gap_med=1.53s total=12.03s fps=20.04
+  round 2 wall=12.03s
+DONE
+  pid 170380 resets=1 max_alloc=64.65 GiB max_reserved=78.97 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 170575 resets=1 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:50:19] phase kv_dump: --mode kv --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after0/mp4/kv_dump
+=== after0/kv_dump mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=1.63s gap_med=1.54s total=12.04s fps=20.02
+  round 0 wall=12.05s
+DONE
+  pid 170380 resets=2 max_alloc=64.65 GiB max_reserved=78.97 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 170575 resets=2 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:50:34] phase kv_c4: --mode kv --frames 241 --concurrency 4 --warmup 1 --rounds 2 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after0/mp4/kv_c4
+=== after0/kv_c4 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=4 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=5.05s gap_med=7.15s total=54.65s fps=4.41
+  round 0 seed 1: chunks=8 frames=241 TTFF=5.92s gap_med=7.15s total=55.24s fps=4.36
+  round 0 seed 2: chunks=8 frames=241 TTFF=7.48s gap_med=7.16s total=55.92s fps=4.31
+  round 0 seed 3: chunks=8 frames=241 TTFF=7.37s gap_med=7.17s total=55.83s fps=4.32
+  round 0 wall=55.93s
+  round 1 seed 0: chunks=8 frames=241 TTFF=4.84s gap_med=7.10s total=53.99s fps=4.46
+  round 1 seed 1: chunks=8 frames=241 TTFF=6.80s gap_med=7.11s total=55.12s fps=4.37
+  round 1 seed 2: chunks=8 frames=241 TTFF=7.78s gap_med=7.13s total=55.35s fps=4.35
+  round 1 seed 3: chunks=8 frames=241 TTFF=5.89s gap_med=7.12s total=55.05s fps=4.38
+  round 1 wall=55.36s
+DONE
+  pid 170380 resets=3 max_alloc=120.86 GiB max_reserved=137.83 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 170575 resets=3 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:53:24] phase ch_c1: --mode chained --frames 241 --concurrency 1 --warmup 1 --rounds 2 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after0/mp4/ch_c1
+=== after0/ch_c1 mode=chained size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=10 frames=241 TTFF=1.54s gap_med=0.85s total=9.12s fps=26.41
+  round 0 wall=9.13s
+  round 1 seed 0: chunks=10 frames=241 TTFF=1.53s gap_med=0.86s total=9.14s fps=26.36
+  round 1 wall=9.15s
+DONE
+  pid 170380 resets=4 max_alloc=62.48 GiB max_reserved=137.83 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 170575 resets=4 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:54:15] phase ch_dump: --mode chained --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after0/mp4/ch_dump
+=== after0/ch_dump mode=chained size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=10 frames=241 TTFF=1.55s gap_med=0.86s total=9.21s fps=26.17
+  round 0 wall=9.22s
+DONE
+  pid 170380 resets=5 max_alloc=56.12 GiB max_reserved=67.41 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 170575 resets=5 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:54:26] variant after0 done
+[19:54:26] stopping server pgid 170282
+[19:54:32] server stopped; gpu apps: 
+[19:54:32] end after0 rc=0
+[19:54:32] start after1
+[19:54:32] variant after1 MSTAR=${VM_HOME}/e2e-cosmos3/mstar-pr rev=60fbc5cdd4f648e058acb20cd37e6d0ca8c84d56 overrides={"windowed_decode_warm_cache": true, "vae_decode_channels_last": true, "windowed_decode_latents_per_call": 1, "vae_decode_cudnn_benchmark": true}
+[19:54:32] gpu apps at start:  docker: 
+[19:54:32] image ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg md5 1dd31d4d20b8f25fe724d3326f3b1135
+[19:55:20] server ready after 47.327917646 s
+  pid 178429 resets=0 max_alloc=36.92 GiB max_reserved=38.15 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 178552 resets=0 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+[19:55:22] phase kv_c1: --mode kv --frames 241 --concurrency 1 --warmup 1 --rounds 3 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after1/mp4/kv_c1
+=== after1/kv_c1 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=1.39s gap_med=1.55s total=11.90s fps=20.26
+  round 0 wall=11.90s
+  round 1 seed 0: chunks=8 frames=241 TTFF=1.38s gap_med=1.55s total=11.87s fps=20.30
+  round 1 wall=11.88s
+  round 2 seed 0: chunks=8 frames=241 TTFF=1.38s gap_med=1.55s total=11.88s fps=20.28
+  round 2 wall=11.89s
+DONE
+  pid 178429 resets=1 max_alloc=34.85 GiB max_reserved=38.23 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 178552 resets=1 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:56:13] phase kv_dump: --mode kv --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after1/mp4/kv_dump
+=== after1/kv_dump mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=1.40s gap_med=1.55s total=11.91s fps=20.24
+  round 0 wall=11.92s
+DONE
+  pid 178429 resets=2 max_alloc=34.85 GiB max_reserved=38.23 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 178552 resets=2 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:56:29] phase kv_c4: --mode kv --frames 241 --concurrency 4 --warmup 1 --rounds 2 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after1/mp4/kv_c4
+=== after1/kv_c4 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=4 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=6.18s gap_med=7.16s total=54.64s fps=4.41
+  round 0 seed 1: chunks=8 frames=241 TTFF=4.62s gap_med=7.16s total=53.47s fps=4.51
+  round 0 seed 2: chunks=8 frames=241 TTFF=5.46s gap_med=7.16s total=54.58s fps=4.42
+  round 0 seed 3: chunks=8 frames=241 TTFF=6.90s gap_med=7.17s total=54.86s fps=4.39
+  round 0 wall=54.87s
+  round 1 seed 0: chunks=8 frames=241 TTFF=4.65s gap_med=7.21s total=53.93s fps=4.47
+  round 1 seed 1: chunks=8 frames=241 TTFF=5.88s gap_med=7.21s total=54.98s fps=4.38
+  round 1 seed 2: chunks=8 frames=241 TTFF=5.99s gap_med=7.21s total=55.05s fps=4.38
+  round 1 seed 3: chunks=8 frames=241 TTFF=6.78s gap_med=7.23s total=55.26s fps=4.36
+  round 1 wall=55.28s
+DONE
+  pid 178429 resets=3 max_alloc=45.35 GiB max_reserved=48.62 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 178552 resets=3 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:59:17] phase ch_c1: --mode chained --frames 241 --concurrency 1 --warmup 1 --rounds 2 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after1/mp4/ch_c1
+=== after1/ch_c1 mode=chained size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=10 frames=241 TTFF=1.32s gap_med=0.86s total=9.03s fps=26.69
+  round 0 wall=9.03s
+  round 1 seed 0: chunks=10 frames=241 TTFF=1.31s gap_med=0.86s total=8.98s fps=26.82
+  round 1 wall=8.99s
+DONE
+  pid 178429 resets=4 max_alloc=38.26 GiB max_reserved=48.62 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 178552 resets=4 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:59:48] phase ch_dump: --mode chained --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir ${VM_HOME}/e2e-cosmos3/runs/after1/mp4/ch_dump
+=== after1/ch_dump mode=chained size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=10 frames=241 TTFF=1.32s gap_med=0.86s total=9.00s fps=26.77
+  round 0 wall=9.01s
+DONE
+  pid 178429 resets=5 max_alloc=34.84 GiB max_reserved=39.32 GiB  ${VM_HOME}/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config /home/b
+  pid 178552 resets=5 max_alloc=0.00 GiB max_reserved=0.00 GiB  ${VM_HOME}/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[19:59:59] variant after1 done
+[19:59:59] stopping server pgid 178354
+[20:00:05] server stopped; gpu apps: 
+[20:00:05] end after1 rc=0
+ALL_DONE

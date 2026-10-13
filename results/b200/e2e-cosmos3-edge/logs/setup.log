@@ -1,0 +1,219 @@
++ export PATH=${VM_HOME}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
++ PATH=${VM_HOME}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
++ cd ${VM_HOME}/e2e-cosmos3
++ uv venv --python 3.12 --seed venv
+Using CPython 3.12.15
+Creating virtual environment with seed packages at: venv
+ + pip==26.2.1
+Activate with: source venv/bin/activate
++ VIRTUAL_ENV=${VM_HOME}/e2e-cosmos3/venv
++ uv pip install --python venv/bin/python --torch-backend=cu130 torch==2.12.1 torchvision torchaudio diffusers==0.39.0 './mstar-pr[cosmos3]'
+Using Python 3.12.15 environment at: venv
+Resolved 117 packages in 243ms
+   Building mstar-ai @ file://${VM_HOME}/e2e-cosmos3/mstar-pr
+Downloading pandas (10.3MiB)
+Downloading sympy (6.0MiB)
+Downloading nvidia-cuda-runtime (2.1MiB)
+Downloading aiohttp (1.8MiB)
+Downloading nvidia-cufile (1.2MiB)
+Downloading setuptools (1.0MiB)
+Downloading nvidia-cutlass-dsl-libs-cu12 (87.5MiB)
+Downloading pillow (6.6MiB)
+Downloading nccl4py (3.5MiB)
+Downloading nvidia-cutlass-dsl-libs-base (2.9MiB)
+Downloading nvidia-cudnn-frontend (9.7MiB)
+Downloading nccl-extensions (21.5MiB)
+Downloading cuda-bindings (6.8MiB)
+Downloading nvidia-cusparselt-cu13 (162.3MiB)
+Downloading cuda-core (6.3MiB)
+Downloading nvidia-cusparse (139.2MiB)
+Downloading apache-tvm-ffi (3.1MiB)
+Downloading nvidia-cudnn-cu13 (349.2MiB)
+Downloading nvidia-cublas (403.5MiB)
+Downloading pyarrow (51.4MiB)
+Downloading nvidia-cutlass-dsl-libs-core (1.6MiB)
+Downloading nvidia-curand (56.8MiB)
+Downloading nvidia-cusolver (191.6MiB)
+Downloading nvidia-nccl-cu13 (196.4MiB)
+Downloading nvidia-cuda-nvrtc (86.0MiB)
+Downloading nvidia-nvshmem-cu13 (57.6MiB)
+Downloading flashinfer-python (64.1MiB)
+Downloading fa3-fwd (26.3MiB)
+Downloading nvidia-cutlass-dsl-libs-cu13 (87.7MiB)
+Downloading networkx (2.0MiB)
+Downloading nvidia-cuda-cupti (10.2MiB)
+Downloading nvidia-cufft (204.2MiB)
+Downloading numpy (16.0MiB)
+Downloading mooncake-transfer-engine (93.4MiB)
+Downloading torchaudio (1.6MiB)
+Downloading torchcodec (9.5MiB)
+Downloading nvidia-nvjitlink (38.8MiB)
+ Downloaded torchaudio
+ Downloaded setuptools
+ Downloaded torchcodec
+ Downloaded nvidia-cufile
+ Downloaded nvidia-cutlass-dsl-libs-core
+ Downloaded aiohttp
+ Downloaded networkx
+ Downloaded nvidia-cuda-runtime
+ Downloaded nvidia-cutlass-dsl-libs-base
+ Downloaded apache-tvm-ffi
+ Downloaded nccl4py
+ Downloaded sympy
+ Downloaded cuda-core
+ Downloaded cuda-bindings
+ Downloaded pillow
+ Downloaded nvidia-cudnn-frontend
+ Downloaded nvidia-cuda-cupti
+ Downloaded pandas
+ Downloaded numpy
+ Downloaded nccl-extensions
+      Built mstar-ai @ file://${VM_HOME}/e2e-cosmos3/mstar-pr
+ Downloaded fa3-fwd
+ Downloaded nvidia-nvjitlink
+ Downloaded pyarrow
+ Downloaded nvidia-curand
+ Downloaded nvidia-nvshmem-cu13
+ Downloaded flashinfer-python
+ Downloaded nvidia-cuda-nvrtc
+ Downloaded nvidia-cutlass-dsl-libs-cu12
+ Downloaded mooncake-transfer-engine
+ Downloaded nvidia-cutlass-dsl-libs-cu13
+ Downloaded nvidia-cusparse
+ Downloaded nvidia-cusparselt-cu13
+ Downloaded nvidia-cusolver
+ Downloaded nvidia-nccl-cu13
+ Downloaded nvidia-cufft
+ Downloaded nvidia-cudnn-cu13
+ Downloaded nvidia-cublas
+Prepared 71 packages in 4.21s
+Installed 117 packages in 177ms
+ + aiohappyeyeballs==2.7.1
+ + aiohttp==3.14.5
+ + aiosignal==1.4.0
+ + annotated-doc==0.0.5
+ + annotated-types==0.8.0
+ + anyio==4.15.1
+ + apache-tvm-ffi==0.1.14.post1
+ + attrs==26.1.0
+ + av==19.0.1
+ + beautifulsoup4==4.15.0
+ + certifi==2026.7.22
+ + charset-normalizer==3.5.2
+ + click==8.5.0
+ + cuda-bindings==13.4.3
+ + cuda-core==1.2.1
+ + cuda-pathfinder==1.8.3
+ + cuda-python==13.4.1
+ + cuda-tile==1.6.0
+ + cuda-toolkit==13.0.2
+ + datasets==5.1.0
+ + diffusers==0.39.0
+ + dill==0.4.1
+ + einops==0.8.2
+ + fa3-fwd==0.0.3
+ + fastapi==0.143.0
+ + filelock==4.1.1
+ + flashinfer-python==0.7.1
+ + frozenlist==1.8.0
+ + fsspec==2026.7.0
+ + gdown==6.4.2
+ + h11==0.16.0
+ + hf-xet==1.7.0
+ + httpcore==1.0.9
+ + httpx==0.28.1
+ + huggingface-hub==1.33.0
+ + idna==3.20
+ + importlib-metadata==9.0.1
+ + jinja2==3.1.6
+ + markdown-it-py==4.2.0
+ + markupsafe==3.0.4
+ + mdurl==0.1.2
+ + mooncake-transfer-engine==0.3.13.post1
+ + mpmath==1.3.0
+ + msgpack==1.2.3
+ + mstar-ai==0.2.1 (from file://${VM_HOME}/e2e-cosmos3/mstar-pr)
+ + multidict==7.1.0
+ + multiprocess==0.70.19
+ + nccl-extensions==0.1.0
+ + nccl4py==0.6.0
+ + networkx==3.7
+ + ninja==1.13.2
+ + numpy==2.5.4
+ + nvidia-cublas==13.1.1.3
+ + nvidia-cuda-cupti==13.0.85
+ + nvidia-cuda-nvrtc==13.0.88
+ + nvidia-cuda-runtime==13.0.96
+ + nvidia-cudnn-cu13==9.20.0.48
+ + nvidia-cudnn-frontend==1.31.0
+ + nvidia-cufft==12.0.0.61
+ + nvidia-cufile==1.15.1.6
+ + nvidia-curand==10.4.0.35
+ + nvidia-cusolver==12.0.4.66
+ + nvidia-cusparse==12.6.3.3
+ + nvidia-cusparselt-cu13==0.8.1
+ + nvidia-cutlass-dsl==4.8.0
+ + nvidia-cutlass-dsl-libs-base==4.8.0
+ + nvidia-cutlass-dsl-libs-core==4.8.0
+ + nvidia-cutlass-dsl-libs-cu12==4.8.0
+ + nvidia-cutlass-dsl-libs-cu13==4.8.0
+ + nvidia-ml-py==13.615.71
+ + nvidia-nccl-cu13==2.29.7
+ + nvidia-nvjitlink==13.0.88
+ + nvidia-nvshmem-cu13==3.4.5
+ + nvidia-nvtx==13.0.85
+ + opentelemetry-api==1.45.1
+ + packaging==26.3
+ + pandas==3.0.6
+ + pillow==12.3.0
+ + propcache==0.5.4
+ + protobuf==7.36.2
+ + pyarrow==26.0.0
+ + pydantic==2.14.1
+ + pydantic-core==2.50.1
+ + pygments==2.21.0
+ + pysocks==1.7.1
+ + python-dateutil==2.9.0.post0
+ + python-multipart==0.0.32
+ + pyyaml==6.0.3
+ + pyzmq==27.2.0
+ + regex==2026.9.29
+ + requests==2.34.2
+ + rich==15.0.0
+ + safetensors==0.8.0
+ + setuptools==81.0.0
+ + shellingham==1.5.4
+ + six==1.17.0
+ + soupsieve==3.0.3
+ + starlette==1.8.0
+ + sympy==1.14.0
+ + tabulate==0.10.0
+ + tokenizers==0.23.3
+ + torch==2.12.1+cu130
+ + torchaudio==2.11.0+cu130
+ + torchcodec==0.17.0+cu130
+ + torchvision==0.27.1+cu130
+ + tqdm==4.70.1
+ + transformers==5.19.0
+ + triton==3.7.1
+ + typer==0.27.3
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + urllib3==2.8.0
+ + uvicorn==0.54.0
+ + websockets==17.2
+ + xxhash==4.0.1
+ + yarl==1.25.1
+ + zipp==4.1.1
++ venv/bin/python -c 'import torch,diffusers,flashinfer;print(torch.__version__,diffusers.__version__,flashinfer.__version__,torch.cuda.is_available())'
+2.12.1+cu130 0.39.0 0.7.1 True
++ venv/bin/python -c 'import fa3_fwd'
++ echo fa3 rc=0
+fa3 rc=0
++ venv/bin/pip uninstall -y mstar-ai mstar
+Found existing installation: mstar-ai 0.2.1
+Uninstalling mstar-ai-0.2.1:
+  Successfully uninstalled mstar-ai-0.2.1
++ true
++ echo SETUP_DONE
+SETUP_DONE

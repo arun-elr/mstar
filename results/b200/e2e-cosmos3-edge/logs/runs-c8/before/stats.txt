@@ -1,0 +1,503 @@
+============================================================
+ Request profile: warmup-0
+============================================================
+ Inputs:
+   text         x1           6 B
+ Outputs:
+   video        x1       4.6 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                       29.3 ms
+   preprocess done → conductor ingest            0.5 ms
+   conductor ingest → conductor done         15448.4 ms
+   conductor done → first chunk                563.1 ms
+   first chunk → last chunk                      0.0 ms
+   last chunk → finish                           4.9 ms
+   total                                     16046.3 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill         n=1          8.34 (   8.34)      6.99 (   6.99)      1.16 (   1.16)      0.19 (   0.19)
+     video_gen       n=4        1757.1 (  439.3)    1741.2 (  435.3)      10.9 (   2.73)      4.97 (   1.24)
+   vae_decoder
+     video_gen       n=1       13674.1 (13674.1)   13476.8 (13476.8)      0.07 (   0.07)     197.3 (  197.3)
+   vae_decoder_ar
+     video_decode_ar n=1          0.48 (   0.48)      0.24 (   0.24)      0.11 (   0.11)      0.13 (   0.13)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       text_inputs                 328 B      0.55 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            138.3 MiB     121.6 ms  (x1)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       text_inputs                 328 B      0.29 ms  (x2)
+     worker_0
+       video_output            138.3 MiB     116.0 ms  (x1)
+============================================================
+============================================================
+ Request profile: warmup-1
+============================================================
+ Inputs:
+   text         x1           6 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x1       4.4 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                      153.4 ms
+   preprocess done → conductor ingest            1.2 ms
+   conductor ingest → conductor done          6246.1 ms
+   conductor done → first chunk                240.9 ms
+   first chunk → last chunk                      0.0 ms
+   last chunk → finish                           4.9 ms
+   total                                      6646.5 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          7.44 (   7.44)      6.16 (   6.16)      1.15 (   1.15)      0.13 (   0.13)
+     video_gen_ar    n=10       1611.3 (  161.1)    1572.6 (  157.3)      14.4 (   1.44)      24.4 (   2.44)
+   vae_decoder_ar
+     video_decode_ar n=3        4499.5 ( 1499.8)    4404.9 ( 1468.3)      0.22 (   0.07)      94.4 (   31.5)
+   vae_encoder
+     prefill_cond    n=1          89.0 (   89.0)      88.5 (   88.5)      0.07 (   0.07)      0.42 (   0.42)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      58.5 ms  (x1)
+       text_inputs                 328 B      0.22 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output             65.1 MiB      57.3 ms  (x1)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      53.7 ms  (x1)
+       text_inputs                 328 B      0.13 ms  (x2)
+     worker_0
+       video_output             65.1 MiB      53.5 ms  (x1)
+============================================================
+============================================================
+ Request profile: f0279ce3-3916-4183-9117-c71102a26e64
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      11.3 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                       85.0 ms
+   preprocess done → conductor ingest            1.4 ms
+   conductor ingest → first chunk             1331.3 ms
+   first chunk → conductor done              12775.4 ms
+   conductor done → last chunk                  88.7 ms
+   last chunk → finish                           7.4 ms
+   total                                     14289.2 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          6.87 (   6.87)      5.60 (   5.60)      1.15 (   1.15)      0.11 (   0.11)
+     video_gen_ar    n=168     10274.6 (   61.2)    9895.2 (   58.9)     270.2 (   1.61)     109.2 (   0.65)
+   vae_decoder_ar
+     video_decode_ar n=9        4293.4 (  477.0)    4016.7 (  446.3)      0.50 (   0.06)     276.2 (   30.7)
+   vae_encoder
+     prefill_cond    n=1          10.3 (   10.3)      9.91 (   9.91)      0.06 (   0.06)      0.30 (   0.30)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      61.1 ms  (x1)
+       text_inputs                 424 B      0.27 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     237.0 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      55.3 ms  (x1)
+       text_inputs                 424 B      0.14 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     230.3 ms  (x8)
+============================================================
+============================================================
+ Request profile: 164db07f-2016-404c-992e-15af2bf5dcb8
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      21.8 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                      170.4 ms
+   preprocess done → conductor ingest            1.3 ms
+   conductor ingest → first chunk             9162.0 ms
+   first chunk → last chunk                  67654.1 ms
+   last chunk → conductor done                1063.5 ms
+   conductor done → finish                       3.0 ms
+   total                                     78054.3 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          8.66 (   8.66)      7.41 (   7.41)      1.16 (   1.16)      0.09 (   0.09)
+     video_gen_ar    n=168     56498.1 (  336.3)   56120.3 (  334.0)     169.3 (   1.01)     208.6 (   1.24)
+   vae_decoder_ar
+     video_decode_ar n=9        5442.5 (  604.7)    5114.0 (  568.2)      0.52 (   0.06)     328.0 (   36.4)
+   vae_encoder
+     prefill_cond    n=1          72.4 (   72.4)      71.9 (   71.9)      0.08 (   0.08)      0.47 (   0.47)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      63.5 ms  (x1)
+       text_inputs                 424 B      0.16 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     247.0 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      56.3 ms  (x1)
+       text_inputs                 424 B      0.51 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     236.1 ms  (x8)
+============================================================
+============================================================
+ Request profile: b9bb69c8-e04a-45cd-9077-edf6b8f2e804
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      11.1 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                      251.2 ms
+   preprocess done → conductor ingest            1.5 ms
+   conductor ingest → first chunk            10540.8 ms
+   first chunk → last chunk                  88406.2 ms
+   last chunk → conductor done                 789.1 ms
+   conductor done → finish                       3.4 ms
+   total                                     99992.2 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          86.4 (   86.4)      84.5 (   84.5)      1.75 (   1.75)      0.23 (   0.23)
+     video_gen_ar    n=168     61703.5 (  367.3)   61304.6 (  364.9)     174.5 (   1.04)     224.3 (   1.34)
+   vae_decoder_ar
+     video_decode_ar n=9        6341.4 (  704.6)    5936.9 (  659.7)      0.65 (   0.07)     403.8 (   44.9)
+   vae_encoder
+     prefill_cond    n=1          72.4 (   72.4)      71.9 (   71.9)      0.08 (   0.08)      0.47 (   0.47)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      61.2 ms  (x1)
+       text_inputs                 424 B      0.68 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     251.2 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      54.6 ms  (x1)
+       text_inputs                 424 B      0.44 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     239.7 ms  (x8)
+============================================================
+============================================================
+ Request profile: f60f1be9-a3fb-4eda-a67d-20a42e948485
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      10.8 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                      571.6 ms
+   preprocess done → conductor ingest            1.0 ms
+   conductor ingest → first chunk            12163.1 ms
+   first chunk → last chunk                  90035.9 ms
+   last chunk → conductor done                1293.2 ms
+   conductor done → finish                       3.4 ms
+   total                                    104068.3 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          82.4 (   82.4)      81.3 (   81.3)      0.92 (   0.92)      0.24 (   0.24)
+     video_gen_ar    n=168     62413.7 (  371.5)   62025.3 (  369.2)     173.3 (   1.03)     215.1 (   1.28)
+   vae_decoder_ar
+     video_decode_ar n=9       11224.4 ( 1247.2)   10547.6 ( 1172.0)      0.76 (   0.08)     676.0 (   75.1)
+   vae_encoder
+     prefill_cond    n=1          73.4 (   73.4)      72.8 (   72.8)      0.09 (   0.09)      0.56 (   0.56)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      62.0 ms  (x1)
+       text_inputs                 424 B      0.30 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     239.4 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      53.7 ms  (x1)
+       text_inputs                 424 B      0.11 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     222.1 ms  (x8)
+============================================================
+============================================================
+ Request profile: 079f7b90-7be6-4d03-9e2f-00e074e50738
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      12.2 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                      330.8 ms
+   preprocess done → conductor ingest            1.3 ms
+   conductor ingest → first chunk            10565.1 ms
+   first chunk → last chunk                  91803.3 ms
+   last chunk → conductor done                1367.1 ms
+   conductor done → finish                       4.0 ms
+   total                                    104071.6 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          86.4 (   86.4)      84.5 (   84.5)      1.75 (   1.75)      0.23 (   0.23)
+     video_gen_ar    n=168     62353.3 (  371.2)   61953.2 (  368.8)     174.8 (   1.04)     225.3 (   1.34)
+   vae_decoder_ar
+     video_decode_ar n=9       10926.1 ( 1214.0)   10279.0 ( 1142.1)      0.76 (   0.08)     646.3 (   71.8)
+   vae_encoder
+     prefill_cond    n=1          73.4 (   73.4)      72.8 (   72.8)      0.09 (   0.09)      0.56 (   0.56)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      61.2 ms  (x1)
+       text_inputs                 424 B      0.30 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     250.9 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      54.2 ms  (x1)
+       text_inputs                 424 B      0.35 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     229.9 ms  (x8)
+============================================================
+============================================================
+ Request profile: 99461b77-435d-42db-ae2f-297be1aefd0e
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      18.1 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                      407.9 ms
+   preprocess done → conductor ingest            1.9 ms
+   conductor ingest → first chunk            12126.7 ms
+   first chunk → last chunk                  91664.2 ms
+   last chunk → conductor done                 283.3 ms
+   conductor done → finish                       2.9 ms
+   total                                    104487.0 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          82.4 (   82.4)      81.3 (   81.3)      0.92 (   0.92)      0.24 (   0.24)
+     video_gen_ar    n=168     62431.5 (  371.6)   62022.8 (  369.2)     192.7 (   1.15)     216.0 (   1.29)
+   vae_decoder_ar
+     video_decode_ar n=9        7793.3 (  865.9)    7289.5 (  809.9)      0.72 (   0.08)     503.1 (   55.9)
+   vae_encoder
+     prefill_cond    n=1          73.4 (   73.4)      72.8 (   72.8)      0.09 (   0.09)      0.56 (   0.56)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      61.0 ms  (x1)
+       text_inputs                 424 B      0.27 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     235.9 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      52.8 ms  (x1)
+       text_inputs                 424 B      0.12 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     243.4 ms  (x8)
+============================================================
+============================================================
+ Request profile: 570b32ac-31ba-4294-a2fc-3e6f9864dbdd
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      10.9 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                       87.6 ms
+   preprocess done → conductor ingest            0.8 ms
+   conductor ingest → first chunk             7876.9 ms
+   first chunk → last chunk                 107881.1 ms
+   last chunk → conductor done                 799.4 ms
+   conductor done → finish                       2.5 ms
+   total                                    116648.3 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          6.88 (   6.88)      5.61 (   5.61)      1.13 (   1.13)      0.14 (   0.14)
+     video_gen_ar    n=168     58442.0 (  347.9)   58033.1 (  345.4)     194.7 (   1.16)     214.2 (   1.28)
+   vae_decoder_ar
+     video_decode_ar n=9        7144.7 (  793.9)    6750.3 (  750.0)      0.58 (   0.06)     393.8 (   43.8)
+   vae_encoder
+     prefill_cond    n=1          10.2 (   10.2)      9.87 (   9.87)      0.07 (   0.07)      0.31 (   0.31)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      65.6 ms  (x1)
+       text_inputs                 424 B      0.23 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     210.2 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      57.9 ms  (x1)
+       text_inputs                 424 B      0.16 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     238.4 ms  (x8)
+============================================================
+============================================================
+ Request profile: 411b6d7d-6273-4359-95be-2039f07b5e69
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      11.0 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                      490.2 ms
+   preprocess done → conductor ingest            1.4 ms
+   conductor ingest → first chunk            12146.6 ms
+   first chunk → last chunk                 112776.9 ms
+   last chunk → conductor done                  43.1 ms
+   conductor done → finish                       3.8 ms
+   total                                    125462.0 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          82.4 (   82.4)      81.3 (   81.3)      0.92 (   0.92)      0.24 (   0.24)
+     video_gen_ar    n=168     53090.8 (  316.0)   52680.3 (  313.6)     210.2 (   1.25)     200.3 (   1.19)
+   vae_decoder_ar
+     video_decode_ar n=9        6027.6 (  669.7)    5653.8 (  628.2)      0.67 (   0.07)     373.1 (   41.5)
+   vae_encoder
+     prefill_cond    n=1          73.4 (   73.4)      72.8 (   72.8)      0.09 (   0.09)      0.56 (   0.56)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      60.5 ms  (x1)
+       text_inputs                 424 B      2.40 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     167.4 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      55.8 ms  (x1)
+       text_inputs                 424 B      0.34 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     233.1 ms  (x8)
+============================================================
+============================================================
+ Request profile: 50c5b6ab-e922-4086-9679-3f8dde1a6852
+============================================================
+ Inputs:
+   text         x1          70 B
+   image        x1     840.6 KiB
+ Outputs:
+   video        x8      16.4 MiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                      653.0 ms
+   preprocess done → conductor ingest            1.0 ms
+   conductor ingest → first chunk            13038.8 ms
+   first chunk → conductor done             114990.8 ms
+   conductor done → last chunk                  81.2 ms
+   last chunk → finish                          14.7 ms
+   total                                    128779.5 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                    all                 fwd                 pre                post*        
+   dit
+     prefill_cond    n=1          82.4 (   82.4)      81.3 (   81.3)      0.92 (   0.92)      0.24 (   0.24)
+     video_gen_ar    n=168     39457.3 (  234.9)   39060.5 (  232.5)     220.3 (   1.31)     176.5 (   1.05)
+   vae_decoder_ar
+     video_decode_ar n=9        4294.6 (  477.2)    4039.3 (  448.8)      0.55 (   0.06)     254.8 (   28.3)
+   vae_encoder
+     prefill_cond    n=1          11.6 (   11.6)      11.2 (   11.2)      0.05 (   0.05)      0.30 (   0.30)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       image_inputs             60.9 MiB      57.7 ms  (x1)
+       text_inputs                 424 B      0.14 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output            275.4 MiB     132.6 ms  (x8)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       image_inputs             60.9 MiB      54.9 ms  (x1)
+       text_inputs                 424 B      0.11 ms  (x2)
+     worker_0
+       video_output            275.4 MiB     236.8 ms  (x8)
+============================================================

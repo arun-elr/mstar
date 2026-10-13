@@ -1,0 +1,13 @@
+=== before/kv_warm mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+DONE
+=== before/kv_c8 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=8 i2v ${VM_HOME}/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=10.85s gap_med=11.13s total=99.24s fps=2.43
+  round 0 seed 1: chunks=8 frames=241 TTFF=10.94s gap_med=10.73s total=102.74s fps=2.35
+  round 0 seed 2: chunks=8 frames=241 TTFF=9.38s gap_med=9.00s total=77.04s fps=3.13
+  round 0 seed 3: chunks=8 frames=241 TTFF=12.58s gap_med=12.12s total=104.26s fps=2.31
+  round 0 seed 4: chunks=8 frames=241 TTFF=12.68s gap_med=6.26s total=125.45s fps=1.92
+  round 0 seed 5: chunks=8 frames=241 TTFF=8.01s gap_med=11.97s total=115.87s fps=2.08
+  round 0 seed 6: chunks=8 frames=241 TTFF=12.78s gap_med=11.94s total=102.80s fps=2.34
+  round 0 seed 7: chunks=8 frames=241 TTFF=13.73s gap_med=5.18s total=128.81s fps=1.87
+  round 0 wall=128.83s
+DONE
