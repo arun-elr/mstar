@@ -1,0 +1,42 @@
+
+### fox
+
+| step | md5 (uint8 frames) | = stock | px ≥1 lvl | px ≥2 lvl | max | PSNR mean / worst (dB) | SSIM worst | ms/chunk (median) | total ms |
+|---|---|---|---|---|---|---|---|---|---|
+| stock diffusers `vae.decode` (reference) | `260894c1f614` | yes | 0.00 % | 0.000 % | 0 | ∞ / ∞ | 1.0000 | – | 3978 |
+| diffusers pipeline decode, fp32 VAE (context) | `b3b2814cd4ef` | no | 61.95 % | 1.867 % | 29 | 52.9 / 52.4 | 0.9981 | – | 5452 |
+| M* before (stateless re-decode) | `8d9ade325279` | no | 49.59 % | 16.298 % | 160 | 47.1 / 35.8 | 0.9707 | 783.5 | 6964 |
+| + warm cache | `d41f77847dcb` | no | 24.76 % | 0.446 % | 33 | 57.5 / 56.7 | 0.9991 | 227.0 | 2354 |
+| + channels-last (incl. native padding) | `bb9534952cde` | no | 25.36 % | 0.449 % | 28 | 57.6 / 56.7 | 0.9991 | 162.2 | 1744 |
+| + one decoder call per chunk | `f8f62793c8c9` | no | 24.61 % | 0.427 % | 30 | 57.8 / 56.7 | 0.9991 | 159.4 | 1884 |
+| + cudnn.benchmark (= this PR) | `de0b5aa77705` | no | 24.65 % | 0.430 % | 27 | 57.8 / 56.7 | 0.9991 | 159.5 | 1874 |
+| control: warm cache only, eager | `260894c1f614` | yes | 0.00 % | 0.000 % | 0 | ∞ / ∞ | 1.0000 | 394.1 | 3974 |
+
+  s0_mstar_before: 1.00x vs M* before per chunk, peak 13.77 GiB, pass1 34148.6 ms, first window 28.31, identical frames 0, both passes same True, prev same False, clip psnr 43.0967
+  s1_warm_cache: 3.45x vs M* before per chunk, peak 13.06 GiB, pass1 6495.4 ms, first window 37.21, identical frames 5, both passes same True, prev same False, clip psnr 57.6683
+  s2_channels_last: 4.83x vs M* before per chunk, peak 15.45 GiB, pass1 4786.9 ms, first window 48.18, identical frames 0, both passes same True, prev same False, clip psnr 57.5755
+  s3_one_call: 4.91x vs M* before per chunk, peak 34.73 GiB, pass1 4933.6 ms, first window 48.31, identical frames 0, both passes same True, prev same False, clip psnr 57.7227
+  s4_cudnn_benchmark: 4.91x vs M* before per chunk, peak 34.73 GiB, pass1 6933.1 ms, first window 47.64, identical frames 0, both passes same True, prev same False, clip psnr 57.7105
+  c1_warm_cache_eager: 1.99x vs M* before per chunk, peak 11.29 GiB, pass1 4337.5 ms, first window 37.09, identical frames 121, both passes same True, prev same , clip psnr inf
+
+### waves
+
+| step | md5 (uint8 frames) | = stock | px ≥1 lvl | px ≥2 lvl | max | PSNR mean / worst (dB) | SSIM worst | ms/chunk (median) | total ms |
+|---|---|---|---|---|---|---|---|---|---|
+| stock diffusers `vae.decode` (reference) | `b034ca5bff80` | yes | 0.00 % | 0.000 % | 0 | ∞ / ∞ | 1.0000 | – | 3980 |
+| diffusers pipeline decode, fp32 VAE (context) | `5e642643a507` | no | 71.87 % | 8.275 % | 67 | 48.9 / 47.3 | 0.9977 | – | 5470 |
+| M* before (stateless re-decode) | `e10cfff5e7c2` | no | 63.57 % | 33.572 % | 238 | 38.0 / 27.0 | 0.9261 | 784.8 | 6961 |
+| + warm cache | `d0cef71a19aa` | no | 40.01 % | 4.197 % | 46 | 52.1 / 50.0 | 0.9989 | 227.6 | 2354 |
+| + channels-last (incl. native padding) | `a6ddcc6e6e62` | no | 41.17 % | 4.254 % | 48 | 52.3 / 50.1 | 0.9989 | 163.6 | 1752 |
+| + one decoder call per chunk | `ad3da2186b2c` | no | 40.31 % | 4.127 % | 40 | 52.5 / 50.1 | 0.9989 | 158.0 | 1881 |
+| + cudnn.benchmark (= this PR) | `b8d53ea7e2b6` | no | 40.36 % | 4.135 % | 39 | 52.5 / 50.1 | 0.9989 | 158.2 | 1876 |
+| control: warm cache only, eager | `b034ca5bff80` | yes | 0.00 % | 0.000 % | 0 | ∞ / ∞ | 1.0000 | 394.1 | 3975 |
+
+  s0_mstar_before: 1.00x vs M* before per chunk, peak 13.77 GiB, pass1 30642.3 ms, first window 28.31, identical frames 0, both passes same True, prev same False, clip psnr 32.2567
+  s1_warm_cache: 3.45x vs M* before per chunk, peak 13.06 GiB, pass1 6520.6 ms, first window 37.18, identical frames 5, both passes same True, prev same False, clip psnr 52.1271
+  s2_channels_last: 4.80x vs M* before per chunk, peak 15.45 GiB, pass1 4854.1 ms, first window 48.14, identical frames 0, both passes same True, prev same False, clip psnr 52.0598
+  s3_one_call: 4.97x vs M* before per chunk, peak 34.73 GiB, pass1 4901.3 ms, first window 48.24, identical frames 0, both passes same True, prev same False, clip psnr 52.1804
+  s4_cudnn_benchmark: 4.96x vs M* before per chunk, peak 34.73 GiB, pass1 6880.1 ms, first window 47.46, identical frames 0, both passes same True, prev same False, clip psnr 52.1756
+  c1_warm_cache_eager: 1.99x vs M* before per chunk, peak 11.29 GiB, pass1 4325.0 ms, first window 37.05, identical frames 121, both passes same True, prev same , clip psnr inf
+{"repo": "Wan-AI/Wan2.2-TI2V-5B-Diffusers", "revision": "b8fff7315c768468a5333511427288870b2e9635", "prompt_id": "fox", "prompt": "A red fox running through fresh snow in a pine forest, morning light, slow tracking shot", "seed": 42, "generator": "torch.Generator('cuda').manual_seed", "height": 704, "width": 1280, "num_frames": 121, "guidance_scale": 5.0, "num_inference_steps": 50, "transformer_dtype": "bfloat16", "pipeline": "diffusers.WanPipeline, output_type='latent'", "latent_shape": [1, 48, 31, 44, 80], "latent_dtype": "torch.float32", "load_s": 6.03, "pipeline_s_to_latents": 72.6, "torch": "2.12.1+cu130", "cuda": "13.0", "cudnn": 92000, "gpu": "NVIDIA B200", "diffusers": "0.39.0", "transformers": "5.19.0"}
+{"repo": "Wan-AI/Wan2.2-TI2V-5B-Diffusers", "revision": "b8fff7315c768468a5333511427288870b2e9635", "prompt_id": "waves", "prompt": "Waves rolling onto a rocky beach at sunset, seagulls in the distance", "seed": 42, "generator": "torch.Generator('cuda').manual_seed", "height": 704, "width": 1280, "num_frames": 121, "guidance_scale": 5.0, "num_inference_steps": 50, "transformer_dtype": "bfloat16", "pipeline": "diffusers.WanPipeline, output_type='latent'", "latent_shape": [1, 48, 31, 44, 80], "latent_dtype": "torch.float32", "load_s": 5.92, "pipeline_s_to_latents": 71.56, "torch": "2.12.1+cu130", "cuda": "13.0", "cudnn": 92000, "gpu": "NVIDIA B200", "diffusers": "0.39.0", "transformers": "5.19.0"}
