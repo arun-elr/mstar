@@ -336,8 +336,9 @@ class Cosmos3Config:
     # Latent frames of already-generated context re-decoded ahead of each
     # window so the causal VAE's conv stack is warm at the kept frames; the
     # context-derived pixels are trimmed. Raise if window boundaries seam.
-    # With windowed_decode_warm_cache this re-decode only runs where a stream
-    # has no decoder cache yet (a resumed session's first window).
+    # With windowed_decode_warm_cache this re-decode runs only for a warm
+    # stream's first window (fresh or resumed); a stream is bound to one
+    # decoder copy for its life.
     windowed_decode_context_latents: int = 8
     # Keep each live stream's VAE decoder cache (the last frames every causal
     # conv saw) in its request state, so a window decodes only its new latents,
@@ -346,14 +347,23 @@ class Cosmos3Config:
     # stream's last window is decoded or the request goes away. Sessions still
     # store only latents. False re-decodes the context ahead of every window.
     windowed_decode_warm_cache: bool = True
+    # At most this many streams per decoder copy hold a warm cache (0: no cap).
+    # A stream that starts while the cap is reached takes the stateless
+    # re-decode for its whole life. The cache is about 1.76 GiB per stream for
+    # the Wan 2.1 VAE and 1.33 GiB for Wan 2.2 at 832x480 in bf16, outside any
+    # engine resource pool; max_concurrent_requests also bounds it.
+    windowed_decode_max_warm_streams: int = 0
     # Latent frames per VAE decoder call in the streaming decode (0: a
     # window's new latents in one call — the warm-path default). 1 is the
-    # stock per-frame decode (bit-exact vs ``vae.decode``). 0 is the same
-    # math to float rounding (uint8 can differ by one level); fewer, larger
-    # kernels. The activation peak grows with the frames per call (832x480,
-    # Wan2.2 VAE, bf16: about +3 GiB per extra latent per call), on the GPU
-    # the DiT shares. The stateless fallback (warm cache off) still goes
-    # through ``vae.decode``.
+    # stock per-frame decode (the same calls as ``vae.decode``, bit-exact in
+    # fp32). 0 is the same math to float rounding (uint8 can differ by one
+    # level); fewer, larger kernels, and a transient activation peak that
+    # grows with the latents per call, on the GPU the DiT may share. Served
+    # 8-latent windows (6 new latents) at 832x480 on a B200: 0 takes 56.2 ms
+    # per 12 frames at a 35.3 GiB peak (Wan 2.1; Wan 2.2: 71.4 ms, 28.8 GiB),
+    # 1 takes 60.0 ms at 8.2 GiB (76.3 ms, 7.4 GiB). At 1280x704 (Wan 2.2,
+    # 3-latent windows) 0 saves about 3 ms per window for 15.5 -> 34.7 GiB.
+    # The stateless fallback still goes through ``vae.decode``.
     windowed_decode_latents_per_call: int = 0
     # Run the VAE decode (both decoder nodes) on channels-last weights and
     # activations, cuDNN's native conv3d layout: no per-conv layout conversion

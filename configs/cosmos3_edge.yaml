@@ -45,6 +45,10 @@ model_kwargs:
   # window with stream_video; the kv-mode context horizon (context_frames)
   # bounds the committed K/V a long rollout keeps.
   enable_windowed_video: true
+  # The streaming decoder keeps each live stream's VAE conv cache (about
+  # 1.3-1.8 GiB per stream at 832x480). Uncomment to cap the warm streams per
+  # decoder copy; streams past the cap take the stateless context re-decode.
+  # windowed_decode_max_warm_streams: 0   # 0: no cap
 node_groups:
   # The DiT and the reasoner share one transformer instance and one KV pool;
   # they must sit in the same group. The vision encoder feeds the reasoner's

@@ -1,9 +1,9 @@
 """CPU checks for the streaming VAE decoder's warm path (Cosmos3VAEDecoderARSubmodule
 with ``windowed_decode_warm_cache``) on a tiny randomly initialized Wan VAE:
 the per-window frames equal one decode of the whole stream, the re-decode
-fallback covers a stream without a cache (first window of a resumed session,
-a lost cache), and the cache lives only as long as the stream. No GPU, no
-weights."""
+covers a warm stream's first window (fresh or resumed), the cache lives only
+as long as the stream, and ``windowed_decode_max_warm_streams`` caps the warm
+streams per decoder copy. No GPU, no weights."""
 
 from __future__ import annotations
 
@@ -42,11 +42,12 @@ def vae():
     return _tiny_vae()
 
 
-def _decoder(monkeypatch, vae, warm=True, ctx=3, channels_last=False):
+def _decoder(monkeypatch, vae, warm=True, ctx=3, channels_last=False, max_warm=0):
     monkeypatch.setenv("COSMOS3_COMPILE_VAE", "0")
     cfg = Cosmos3Config()
     cfg.windowed_decode_context_latents = ctx
     cfg.windowed_decode_warm_cache = warm
+    cfg.windowed_decode_max_warm_streams = max_warm
     cfg.vae_decode_channels_last = channels_last
     sub = Cosmos3VAEDecoderARSubmodule(vae, cfg)
     sub._decode_dtype_cached = torch.float32
@@ -123,9 +124,9 @@ def test_cache_goes_with_an_aborted_request(monkeypatch, vae) -> None:
 
 
 def test_missing_cache_falls_back_to_the_redecode(monkeypatch, vae) -> None:
-    """A stream whose cache is gone mid-rollout decodes its next window the
-    stateless way (behind re-decoded context, trimmed), then carries on warm
-    from the cache that decode left."""
+    """The path a warm stream's first window takes (no cache yet), forced
+    here on a later window: it decodes the stateless way (behind re-decoded
+    context, trimmed), then carries on warm from the cache that decode left."""
     stream = _stream(20)
     windows = _windows(stream)
     warm, cold = _decoder(monkeypatch, vae), _decoder(monkeypatch, vae, warm=False)
@@ -227,3 +228,47 @@ def test_warm_cache_switch_off_keeps_no_cache(monkeypatch, vae) -> None:
     sub = _decoder(monkeypatch, vae, warm=False)
     _run(sub, "r", _windows(_stream(14))[:1], 53, num_windows=2)
     assert "ar_feat_cache" not in sub.request_state("r") and sub._step is None
+
+
+def _warm(sub) -> set:
+    return {r for r, s in sub.request_states.items() if s.get("ar_feat_cache") is not None}
+
+
+def test_warm_stream_cap_keeps_overflow_streams_stateless(monkeypatch, vae) -> None:
+    """With the cap reached, a new stream takes the stateless re-decode for
+    its whole life (its frames are the stateless path's), while the warm
+    stream keeps its cache."""
+    sub = _decoder(monkeypatch, vae, max_warm=1)
+    streams = {"a": _stream(20, seed=2), "b": _stream(20, seed=3)}
+    windows = {r: _windows(s) for r, s in streams.items()}
+    chunks = {"a": [], "b": []}
+    for i in range(3):
+        for r in ("a", "b"):
+            chunks[r] += _run(sub, r, windows[r][i : i + 1], 77, num_windows=3)
+            if i < 2:
+                assert _warm(sub) == {"a"}
+    assert not sub.request_state("b")["ar_warm"]
+    stateless = _run(_decoder(monkeypatch, vae, warm=False), "b", windows["b"], 77)
+    assert torch.equal(torch.cat(chunks["b"], dim=2), torch.cat(stateless, dim=2))
+    _u8_close(torch.cat(chunks["a"], dim=2), sub._decode_pixels(streams["a"]))
+
+
+def test_warm_stream_cap_zero_is_no_cap(monkeypatch, vae) -> None:
+    sub = _decoder(monkeypatch, vae, max_warm=0)
+    for r in ("a", "b", "c"):
+        _run(sub, r, _windows(_stream(14))[:1], 53, num_windows=2)
+    assert _warm(sub) == {"a", "b", "c"}
+
+
+def test_warm_stream_slot_frees_when_a_stream_ends_or_aborts(monkeypatch, vae) -> None:
+    sub = _decoder(monkeypatch, vae, max_warm=1)
+    windows = _windows(_stream(14))
+    _run(sub, "a", windows[:1], 53, num_windows=2)
+    _run(sub, "b", windows[:1], 53, num_windows=2)
+    assert _warm(sub) == {"a"}
+    _run(sub, "a", windows[1:], 53, num_windows=2)  # a's last window frees its slot
+    _run(sub, "c", windows[:1], 53, num_windows=2)
+    assert _warm(sub) == {"c"}
+    sub.cleanup_request("c")  # abort
+    _run(sub, "d", windows[:1], 53, num_windows=2)
+    assert _warm(sub) == {"d"}

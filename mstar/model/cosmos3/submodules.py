@@ -61,6 +61,7 @@ from mstar.model.components.wan_vae import (
     DecoderStep,
     cudnn_benchmark,
     decode_causal,
+    feat_cache_bytes,
     is_channels_last,
     new_feat_cache,
     to_channels_last,
@@ -2743,13 +2744,15 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
     A live stream keeps the VAE decoder's causal conv cache in its request
     state (``windowed_decode_warm_cache``), so each window decodes only its
     new latents, continuing the cache the previous window left: the frames
-    are those of one decode of the whole stream. Where a stream has no cache
-    (its first window, or the warm cache is off), the window is decoded
-    behind a re-decoded left context instead (the last few latents of the
-    stream so far, or of the resumed session), so the conv stack is warm at
-    the kept frames, and the context-derived pixels are trimmed; that decode
-    leaves the cache the stream then continues from. Sessions store only the
-    latent context, never the cache, so any node can resume them.
+    are those of one decode of the whole stream. A warm stream's first
+    window (fresh or resumed) is decoded behind a re-decoded left context
+    (the last few latents of the resumed session, if any), so the conv stack
+    is warm at the kept frames, and the context-derived pixels are trimmed;
+    that decode leaves the cache the stream continues from. A stream is
+    bound to one decoder copy for its life. With the warm cache off, or for
+    a stream that starts while ``windowed_decode_max_warm_streams`` streams
+    already hold a cache, every window takes that stateless re-decode.
+    Sessions store only the latent context, never the cache.
 
     The chunk count is the completion signal — it is known per request up
     front — so the stream's terminal flush (an empty pass, and the only pass
@@ -2803,6 +2806,8 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
                 ar_resume=resume,
                 ar_end_session=bool(md.get("end_session")),
                 ar_session_ttl=md.get("session_timeout_s"),
+                # Decided once per stream, so a stream never switches paths.
+                ar_warm=self._warm_streams and self._warm_slot_free(),
             )
             if resume and session_id:
                 tail = self._sessions.get(str(session_id))  # promotes, like the DiT
@@ -2820,10 +2825,11 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
         if feat_cache is not None:
             pixels = self._decode_stream(new, feat_cache, clip_start=False)
         else:
-            if self._warm_streams:
+            if st["ar_warm"]:
                 feat_cache = new_feat_cache(self.vae)
                 pixels = self._decode_stream(stream_tail, feat_cache, clip_start=True)
                 st.add("ar_feat_cache", feat_cache)
+                self._log_warm_streams("start", rid)
             else:
                 pixels = self._decode_pixels(stream_tail)
             if tail is not None:
@@ -2835,7 +2841,9 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
         st.add("ar_tail", stream_tail[:, :, -st["ar_ctx"]:])
         st.add("ar_chunks", index + 1)
         if index + 1 >= st["ar_windows"]:
-            st.remove("ar_feat_cache")
+            if st.get("ar_feat_cache") is not None:
+                st.remove("ar_feat_cache")
+                self._log_warm_streams("end", rid)
             if st["ar_session_id"]:
                 if st.get("ar_end_session"):
                     self._sessions.end(st["ar_session_id"])
@@ -2853,6 +2861,28 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
             return {}
         video = torch.cat(st["ar_pixels"], dim=2)[:, :, : st["ar_out_frames"]]
         return {"video_output": [video]}
+
+    def _warm_streams_live(self) -> list:
+        return [s["ar_feat_cache"] for s in self.request_states.values() if s.get("ar_feat_cache") is not None]
+
+    def _warm_slot_free(self) -> bool:
+        cap = int(self.config.windowed_decode_max_warm_streams)
+        return cap <= 0 or len(self._warm_streams_live()) < cap
+
+    def _log_warm_streams(self, event: str, rid: str) -> None:
+        if logger.isEnabledFor(logging.DEBUG):
+            caches = self._warm_streams_live()
+            logger.debug(
+                "vae_decoder_ar: warm stream %s (%s); %d live, %.2f GiB of decoder cache",
+                event, rid, len(caches), sum(feat_cache_bytes(c) for c in caches) / 2**30,
+            )
+
+    def cleanup_request(self, request_id: str):
+        st = self.request_states.get(request_id)
+        held = st is not None and st.get("ar_feat_cache") is not None
+        super().cleanup_request(request_id)
+        if held:
+            self._log_warm_streams("removed", request_id)
 
     def _decode_stream(self, latents: torch.Tensor, feat_cache: list, clip_start: bool) -> torch.Tensor:
         """``_decode_pixels`` continuing the stream whose decoder cache is
