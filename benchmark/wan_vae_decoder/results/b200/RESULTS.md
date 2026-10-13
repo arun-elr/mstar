@@ -284,8 +284,8 @@ Same latents, same fp32 reference, same stream protocol and timing (3-latent chu
 | M* before | upstream main | stateless context re-decode, compiled | 338.37 | 372.08 | 3,432 / 3,536 | 120 / 237 | 30.0% ≠ / 30.4% ≠ |
 | diffusers | 0.39.0 | stock, eager bf16 | 191.98 | 184.57 | 2,046 / 2,173 | 212 / 478 | identical / identical |
 | diffusers | 0.39.0 | stock + torch.compile, warm cache | 95.90 | 105.18 | — / — | 424 / 838 | 10.2% ≠ / 9.9% ≠ |
-| vLLM-Omni | f69b1f2b | default (vae_fast_path=lossless) | 97.32 | 105.92 | 999 / 1,078 | 418 / 833 | not hashed / not hashed |
-| vLLM-Omni | f69b1f2b | best (--vae-fast-path channels_last) | 64.08 | 77.85 | 444 / 463 | 634 / 1,133 | not hashed / not hashed |
+| vLLM-Omni | f69b1f2b | default (vae_fast_path=lossless) | 97.32 | 105.92 | 999 / 1,078 | 418 / 833 | identical / identical |
+| vLLM-Omni | f69b1f2b | best (--vae-fast-path channels_last) | 64.08 | 77.85 | 444 / 463 | 634 / 1,133 | 7.6% ≠ / 6.3% ≠ |
 | vLLM-Omni | f69b1f2b | best + cudnn.benchmark | 62.60 | 77.72 | 423 / 499 | 649 / 1,135 | not hashed / not hashed |
 | SGLang | v0.5.21 | default (quality=lossless, bf16) | 107.64 | — | 891 / — | 378 / — | 7.6% ≠ / — |
 | SGLang | v0.5.21 | default as served (fp32 decode) | — | 170.97 | — / 863 | — / 516 | — / 14.0% ≠ |
@@ -294,7 +294,33 @@ Same latents, same fp32 reference, same stream protocol and timing (3-latent chu
 | SGLang | v0.5.21 | --enable-torch-compile, bf16 | 102.16 | 110.96 | 843 / 874 | 398 / 795 | 7.7% ≠ / — |
 | **M* this PR** | in-tree node | Cosmos3VAEDecoderARSubmodule defaults | **55.88** | **72.78** | 149 / 165 | 727 / 1,212 | 15.7% ≠ / 13.1% ≠ |
 
-Kernels per chunk come from one profiled run; TFLOP/s is useful work (40.65 / 88.18 TFLOP per chunk) over wall time. The uint8 column compares each engine with stock diffusers bf16 run on that engine's own stack. M*'s rows also carry the node's bf16 input de-normalization. vLLM-Omni's runs did not hash frames; its default level is lossless by design and lands at stock's PSNR (53.73 dB).
+Kernels per chunk come from one profiled run; TFLOP/s is useful work (40.65 / 88.18 TFLOP per chunk) over wall time. The uint8 column compares each engine with stock diffusers bf16 run on that engine's own stack. M*'s rows also carry the node's bf16 input de-normalization.
+
+**Output quality, same streams.** Every engine's full 1,021-frame stream was compared with M*'s stock diffusers bf16 stream and fp32 reference, using `quality.py`'s metrics.
+
+| VAE | engine | setting | PSNR vs fp32 mean / worst | worst SSIM vs fp32 | values ≠ stock (≥ 1 / ≥ 2) | md5 = stock | seam |
+|---|---|---|---|---:|---|---|---:|
+| 2.1 | M* | before: stateless context re-decode | 51.76 / 46.68 | 0.9923 | 30.0% / 2.401% | no | -0.59 dB |
+| 2.1 | M* | this PR, in-tree node | 54.40 / 53.98 | 0.9978 | 15.7% / 0.125% | no | +0.03 dB |
+| 2.1 | diffusers | stock bf16, eager | 54.84 / 54.36 | 0.9979 | 0.0% / 0.000% | yes | +0.02 dB |
+| 2.1 | vLLM-Omni | `vae_fast_path=lossless` (default) | 54.84 / 54.36 | 0.9979 | 0.0% / 0.000% | yes | +0.02 dB |
+| 2.1 | vLLM-Omni | `--vae-fast-path channels_last` | 54.82 / 54.31 | 0.9979 | 7.6% / 0.003% | no | +0.02 dB |
+| 2.1 | SGLang | default (`quality=lossless`, bf16) | 55.21 / 54.40 | 0.9980 | 14.6% / 0.002% (7.6%†) | no | +0.07 dB |
+| 2.1 | SGLang | best (`--quality extra-high`, bf16) | 55.16 / 54.33 | 0.9980 | 13.4% / 0.001% (5.8%†) | no | +0.07 dB |
+| 2.2 | M* | before: stateless context re-decode | 50.11 / 34.83 | 0.9724 | 30.4% / 4.038% | no | -2.30 dB |
+| 2.2 | M* | this PR, in-tree node | 55.27 / 54.48 | 0.9981 | 13.1% / 0.076% | no | +0.08 dB |
+| 2.2 | diffusers | stock bf16, eager | 55.12 / 54.15 | 0.9980 | 0.0% / 0.000% | yes | +0.08 dB |
+| 2.2 | vLLM-Omni | `vae_fast_path=lossless` (default) | 55.12 / 54.15 | 0.9980 | 0.0% / 0.000% | yes | +0.08 dB |
+| 2.2 | vLLM-Omni | `--vae-fast-path channels_last` | 55.02 / 54.34 | 0.9980 | 6.3% / 0.008% | no | +0.07 dB |
+| 2.2 | SGLang | default as served (fp32 decode) | 69.27 / 68.28 | 0.9999 | 19.9% / 0.037% (14.0%†) | no | +0.13 dB |
+| 2.2 | SGLang | default + `--vae-decode-precision bf16` | 56.58 / 55.56 | 0.9984 | 11.7% / 0.008% (6.3%†) | no | +0.13 dB |
+| 2.2 | SGLang | best (`--quality extra-high`, bf16) | 56.65 / 55.38 | 0.9984 | 10.8% / 0.003% (4.4%†) | no | +0.15 dB |
+
+† SGLang converts to uint8 from an fp32 [0, 1] tensor, while M* and stock diffusers round `x / 2 + 0.5` in bf16 first. The figure in parentheses compares SGLang with stock diffusers converted SGLang's way. Stock converted that way also scores SGLang's PSNR, so SGLang's higher PSNR comes from its uint8 conversion, not its decode.
+
+- Every bf16 configuration lands at bf16-rounding quality: within 0.5 dB of stock against fp32 once the uint8 conversion is matched, worst-frame SSIM ≥ 0.9977, ≤ 0.13% of values off by two or more levels, no seam (≤ 0.15 dB) and no drift.
+- vLLM-Omni's default is byte-identical to stock on both VAEs (same md5). M*'s in-tree node is 0.44 dB below stock on Wan 2.1, from the node's bf16 input de-normalization, and 0.15 dB above it on Wan 2.2.
+- The stateless context re-decode is the only approximation in the table.
 
 **How each engine was measured.** Each engine's own decoder ran through its own loader with its documented flags, driven by this benchmark's stream protocol:
 

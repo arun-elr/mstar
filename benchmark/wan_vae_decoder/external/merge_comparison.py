@@ -7,7 +7,8 @@ M* rows come from ``ladder_<vae>.csv`` (the change ladder through M*'s node;
 ``--mstar intree``: ``intree.csv`` and ``variance.csv`` instead),
 stock diffusers from ``variance.csv`` / ``runs.csv`` / ``profile.csv``, the
 frame-stream comparison from ``quality.csv``; vLLM-Omni and SGLang from
-``external/{vllm_omni,sglang}/*.csv`` (their summarize scripts' output). The
+``external/{vllm_omni,sglang}/*.csv`` (their summarize scripts' output) and
+``external/quality_compare.csv`` (every engine's full stream against M*'s stock). The
 uint8 column compares each engine with stock diffusers bf16 run on that
 engine's own stack. ``chart`` marks the rows ``plot_results.py`` draws.
 """
@@ -49,6 +50,14 @@ def main():
     vo = {f: read(d / "external" / "vllm_omni" / f"{f}.csv") for f in ("variance", "profile")}
     sg = {f: read(d / "external" / "sglang" / f"{f}.csv") for f in ("variance", "profile")}
     sg_md5 = [dict(r, variant=r["stream"]) for r in read(d / "external" / "sglang" / "frame_md5.csv")]
+    qc = read(d / "external" / "quality_compare.csv")
+
+    def vo_u8(vae, setting):
+        r = next((r for r in qc if r["vae"] == vae and r["engine"] == "vLLM-Omni" and setting in r["setting"]), None)
+        if r is None:
+            return "not hashed"
+        pct = float(r["pct_u8_diff_ge1_vs_stock"])
+        return "identical" if pct == 0 else f"{pct:.1f}% ≠"
 
     intree = read(d / "intree.csv")
 
@@ -104,13 +113,14 @@ def main():
     add("diffusers", "0.39.0", STACK_MSTAR, "stock + torch.compile, warm cache",
         [stock_ms(v, "diffusers_bf16_compile") for v in VAES], [None, None],
         [u8(v, "diffusers_bf16_compile") for v in VAES], "variance.csv / runs.csv", chart=(True, False))
-    for variant, setting, chart in (("vllm_omni_default", "default (vae_fast_path=lossless)", True),
-                                    ("vllm_omni_best", "best (--vae-fast-path channels_last)", True),
-                                    ("vllm_omni_best_cudnnbench", "best + cudnn.benchmark", False)):
+    vo_rows = (("vllm_omni_default", "default (vae_fast_path=lossless)", True, "lossless"),
+               ("vllm_omni_best", "best (--vae-fast-path channels_last)", True, "channels_last"),
+               ("vllm_omni_best_cudnnbench", "best + cudnn.benchmark", False, None))
+    for variant, setting, chart, key in vo_rows:
         add("vLLM-Omni", "f69b1f2b", STACK_213, setting,
             [pick(vo["variance"], v, variant, "mean_ms") for v in VAES],
             [pick(vo["profile"], v, variant, "kernels_per_chunk") for v in VAES],
-            ["not hashed", "not hashed"], "external/vllm_omni", chart=(chart, chart))
+            [vo_u8(v, key) if key else "not hashed" for v in VAES], "external/vllm_omni", chart=(chart, chart))
     for wan21, wan22, setting, chart in (
             ("sglang_default", None, "default (quality=lossless, bf16)", (True, False)),
             (None, "sglang_default", "default as served (fp32 decode)", (False, False)),

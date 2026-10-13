@@ -176,6 +176,39 @@ def ladder_rows(abl: Path, vae: str) -> list[dict]:
     return rows
 
 
+def lpc_rows(abl: Path) -> list[dict]:
+    """windowed_decode_latents_per_call sweep on M*'s node (run_ablation.sh lpc): the
+    benchmark chunk and the served window, 2 runs each, and the frame-stream md5."""
+    rows = []
+    for vae, sfx in (("wan21", ""), ("wan22", "_wan22")):
+        frames = {r["variant"]: r for r in read_rows(abl / f"lpc_frames_{vae}.csv")}
+        for n in (1, 2, 3, 0):
+            v = f"mstar_warm_lpc{n}"
+            bench = [load(abl / f"lpc{sfx}" / f"run{r}").get(v) for r in (1, 2)]
+            nodes = [p for p in (abl / "nodes" / f"{vae}_lpc{n}_run{r}.json" for r in (1, 2)) if p.exists()]
+            served = [json.loads(p.read_text()) for p in nodes]
+            if not all(bench) or not served:
+                continue
+            bm = [b["median_ms"] for b in bench]
+            sm = [s["median_ms_per_12_frames"] for s in served]
+            fr = frames.get(v, {})
+            rows.append({
+                "vae": vae, "latents_per_call": n,
+                "chunk_run1_ms": bm[0], "chunk_run2_ms": bm[1], "chunk_mean_ms": r2(statistics.fmean(bm)),
+                "chunk_spread_pct": r2((max(bm) - min(bm)) / statistics.fmean(bm) * 100),
+                "chunk_peak_allocated_gib": bench[0].get("peak_allocated_gib"),
+                "served_run1_ms_per_12f": r2(sm[0]), "served_run2_ms_per_12f": r2(sm[-1]),
+                "served_mean_ms_per_12f": r2(statistics.fmean(sm)),
+                "served_spread_pct": r2((max(sm) - min(sm)) / statistics.fmean(sm) * 100),
+                "served_peak_allocated_gib": r2(max(s["peak_allocated_gib"] for s in served)),
+                "psnr_u8_vs_fp32": bench[0].get("psnr_u8_db_vs_fp32"),
+                "md5_u8_stream": fr.get("md5_u8_stream", ""),
+                "identical_to_stock_node_input": fr.get("identical_to_ref", ""),
+                "pct_values_diff_vs_stock_node_input": fr.get("pct_values_diff_vs_ref", ""),
+            })
+    return rows
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run")
@@ -204,6 +237,7 @@ def main():
     write_csv(out / "nodes.csv", [node_row(r) for r in load_nodes(abl / "nodes")])
     for vae in ("wan21", "wan22"):
         write_csv(out / f"ladder_{vae}.csv", ladder_rows(abl, vae))
+    write_csv(out / "lpc.csv", lpc_rows(abl))
 
     def wall(vae, variant):
         """Wall ms per chunk: 3-run mean, else an ablation run, else the run_all suite."""
