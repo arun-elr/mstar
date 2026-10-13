@@ -1,0 +1,229 @@
+"""CPU checks for the streaming VAE decoder's warm path (Cosmos3VAEDecoderARSubmodule
+with ``windowed_decode_warm_cache``) on a tiny randomly initialized Wan VAE:
+the per-window frames equal one decode of the whole stream, the re-decode
+fallback covers a stream without a cache (first window of a resumed session,
+a lost cache), and the cache lives only as long as the stream. No GPU, no
+weights."""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+import torch
+
+pytest.importorskip("diffusers")
+from diffusers import AutoencoderKLWan  # noqa: E402
+
+from mstar.model.components.wan_vae import is_channels_last  # noqa: E402
+from mstar.model.cosmos3 import constants as C  # noqa: E402
+from mstar.model.cosmos3.config import Cosmos3Config  # noqa: E402
+from mstar.model.cosmos3.submodules import Cosmos3VAEDecoderARSubmodule  # noqa: E402
+
+# 8-latent windows re-pinning 2 latents, as the served default (29 / 8 frames).
+WINDOW, OVERLAP = 8, 2
+
+
+def _tiny_vae() -> AutoencoderKLWan:
+    vae = AutoencoderKLWan(
+        base_dim=8, decoder_base_dim=16, z_dim=8, dim_mult=[1, 2, 2, 2], num_res_blocks=1, is_residual=True,
+        in_channels=12, out_channels=12, patch_size=2, scale_factor_spatial=16,
+        latents_mean=[0.1 * i for i in range(8)], latents_std=[0.5 + 0.1 * i for i in range(8)],
+    ).eval()
+    gen = torch.Generator().manual_seed(0)
+    with torch.no_grad():
+        for p in vae.parameters():
+            p.copy_(torch.randn(p.shape, generator=gen) * 0.2)
+    return vae
+
+
+@pytest.fixture(scope="module")
+def vae():
+    return _tiny_vae()
+
+
+def _decoder(monkeypatch, vae, warm=True, ctx=3, channels_last=False):
+    monkeypatch.setenv("COSMOS3_COMPILE_VAE", "0")
+    cfg = Cosmos3Config()
+    cfg.windowed_decode_context_latents = ctx
+    cfg.windowed_decode_warm_cache = warm
+    cfg.vae_decode_channels_last = channels_last
+    sub = Cosmos3VAEDecoderARSubmodule(vae, cfg)
+    sub._decode_dtype_cached = torch.float32
+    return sub
+
+
+def _stream(units: int, seed: int = 1) -> torch.Tensor:
+    gen = torch.Generator().manual_seed(seed)
+    return torch.randn(1, 8, units, 4, 6, generator=gen)
+
+
+def _windows(stream: torch.Tensor, start: int = 0):
+    """The chained windows over ``stream[start:]``: each re-pins the last
+    OVERLAP latents of the one before."""
+    out, a = [], start
+    while True:
+        out.append(stream[:, :, a : a + WINDOW])
+        if a + WINDOW >= stream.shape[2]:
+            return out
+        a += WINDOW - OVERLAP
+
+
+def _run(sub, rid, windows, frames, **md):
+    md = {"num_windows": len(windows), "overlap_latent_units": OVERLAP, "num_frames": frames,
+          "stream_video": True, **md}
+    infos = SimpleNamespace(request_ids=[rid], per_request_info={rid: SimpleNamespace(step_metadata=md)})
+    return [sub.forward(C.VIDEO_DECODE_AR_WALK, infos, w)["video_output"][0] for w in windows]
+
+
+def _u8_close(a: torch.Tensor, b: torch.Tensor, tol: int = 1) -> None:
+    """One-call-per-window vs per-frame ``vae.decode`` is the same math to
+    float rounding; after uint8 that is at most one level."""
+    assert a.shape == b.shape
+    assert (a.int() - b.int()).abs().max() <= tol
+
+
+def test_warm_windows_are_the_whole_stream_decode(monkeypatch, vae) -> None:
+    """Each window decodes only its new latents from the stream's cache; the
+    chunks concatenate to one decode of the whole stream, exactly, which the
+    re-decode path only approximates."""
+    sub = _decoder(monkeypatch, vae)
+    stream = _stream(20)  # 3 windows: [0, 8), [6, 14), [12, 20)
+    chunks = _run(sub, "r", _windows(stream), 77)
+    whole = sub._decode_pixels(stream)
+    assert [c.shape[2] for c in chunks] == [29, 24, 24]
+    _u8_close(torch.cat(chunks, dim=2), whole)
+    # Per-frame warm path is bit-exact against ``vae.decode``.
+    per_frame = _decoder(monkeypatch, vae)
+    per_frame.config.windowed_decode_latents_per_call = 1
+    assert torch.equal(torch.cat(_run(per_frame, "r1", _windows(stream), 77), dim=2), whole)
+    redecode = torch.cat(_run(_decoder(monkeypatch, vae, warm=False), "r", _windows(stream), 77), dim=2)
+    assert not torch.equal(redecode, whole)
+    # Context covering the whole stream makes the re-decode path exact too.
+    exact = torch.cat(_run(_decoder(monkeypatch, vae, warm=False, ctx=20), "r", _windows(stream), 77), dim=2)
+    assert torch.equal(exact, whole)
+
+
+def test_cache_is_freed_after_the_last_window(monkeypatch, vae) -> None:
+    sub = _decoder(monkeypatch, vae)
+    windows = _windows(_stream(14))
+    _run(sub, "r", windows[:1], 53, num_windows=2)
+    st = sub.request_state("r")
+    assert len(st["ar_feat_cache"]) and any(torch.is_tensor(t) for t in st["ar_feat_cache"])
+    _run(sub, "r", windows[1:], 53, num_windows=2)
+    assert "ar_feat_cache" not in st and "ar_tail" in st
+
+
+def test_cache_goes_with_an_aborted_request(monkeypatch, vae) -> None:
+    sub = _decoder(monkeypatch, vae)
+    _run(sub, "r", _windows(_stream(14))[:1], 53, num_windows=2)
+    assert "ar_feat_cache" in sub.request_state("r")
+    sub.cleanup_request("r")
+    assert "r" not in sub.request_states
+
+
+def test_missing_cache_falls_back_to_the_redecode(monkeypatch, vae) -> None:
+    """A stream whose cache is gone mid-rollout decodes its next window the
+    stateless way (behind re-decoded context, trimmed), then carries on warm
+    from the cache that decode left."""
+    stream = _stream(20)
+    windows = _windows(stream)
+    warm, cold = _decoder(monkeypatch, vae), _decoder(monkeypatch, vae, warm=False)
+    ref = _run(cold, "r", windows, 77)
+    first = _run(warm, "r", windows[:1], 77, num_windows=3)
+    warm.request_state("r").remove("ar_feat_cache")
+    second = _run(warm, "r", windows[1:2], 77, num_windows=3)
+    _u8_close(second[0], ref[1])
+    assert "ar_feat_cache" in warm.request_state("r")
+    third = _run(warm, "r", windows[2:], 77, num_windows=3)
+    # The rest continues from the context the fallback decoded: the stream
+    # from latent 14 - ctx - (WINDOW - OVERLAP) onwards, decoded in one go.
+    start = 14 - 3 - (WINDOW - OVERLAP)
+    tail = warm._decode_pixels(stream[:, :, start:])[:, :, -24:]
+    _u8_close(third[0], tail)
+    assert first[0].shape[2] == 29
+
+
+def test_resumed_session_warms_up_from_the_stored_latents(monkeypatch, vae) -> None:
+    """A resumed session's first window decodes behind the session's stored
+    latent context (the store never holds a decoder cache), exactly as the
+    re-decode path does; its later windows run warm."""
+    stream = _stream(26)
+    first = _windows(stream)[:2]  # request 1: units [0, 14)
+    # Request 2 resumes at unit 14 with its first window re-pinning 12..14.
+    resumed = _windows(stream, start=12)
+    outs = {}
+    for warm in (True, False):
+        sub = _decoder(monkeypatch, vae, warm=warm)
+        _run(sub, "r1", first, 53, session_id="s")
+        stored = sub._sessions.get("s")
+        assert torch.is_tensor(stored) and stored.shape[2] == 3
+        outs[warm] = _run(sub, "r2", resumed, 48, session_id="s", resume_latent_units=OVERLAP)
+        assert "ar_feat_cache" not in sub.request_state("r2")
+    assert [c.shape[2] for c in outs[True]] == [24, 24]
+    _u8_close(outs[True][0], outs[False][0])
+    # The second window continues the cache: the stream from the stored
+    # context onwards, decoded in one go.
+    whole = sub._decode_pixels(stream[:, :, 11:])
+    _u8_close(outs[True][1], whole[:, :, -24:])
+
+
+def test_concurrent_streams_keep_their_own_cache(monkeypatch, vae) -> None:
+    sub = _decoder(monkeypatch, vae)
+    streams = {"a": _stream(20, seed=2), "b": _stream(20, seed=3)}
+    windows = {r: _windows(s) for r, s in streams.items()}
+    chunks = {"a": [], "b": []}
+    for i in range(3):
+        for r in ("a", "b"):
+            chunks[r] += _run(sub, r, windows[r][i : i + 1], 77, num_windows=3)
+    for r, s in streams.items():
+        _u8_close(torch.cat(chunks[r], dim=2), sub._decode_pixels(s))
+
+
+def test_channels_last_decoder(monkeypatch) -> None:
+    """The channels-last decode (the default) keeps the warm stream exact
+    against its own whole-stream decode, and matches the default layout to
+    8-bit rounding."""
+    stream = _stream(20)
+    sub = _decoder(monkeypatch, _tiny_vae(), channels_last=True)
+    assert is_channels_last(sub.vae)
+    assert sub._vae_input(stream).is_contiguous(memory_format=torch.channels_last_3d)
+    chunks = _run(sub, "r", _windows(stream), 77)
+    video = torch.cat(chunks, dim=2)
+    assert all(c.is_contiguous() for c in chunks)
+    _u8_close(video, sub._decode_pixels(stream))
+    plain = _decoder(monkeypatch, _tiny_vae())._decode_pixels(stream)
+    assert (video.int() - plain.int()).abs().max() <= 1
+
+
+def test_window_in_one_decoder_call(monkeypatch, vae) -> None:
+    """The warm path (default ``windowed_decode_latents_per_call=0``) decodes
+    a window's new latents in one decoder call (the clip-start latent
+    alone), same frames to 8-bit rounding. ``=1`` is the stock per-frame
+    opt-out."""
+    stream = _stream(20)
+    sub = _decoder(monkeypatch, vae)
+    assert sub.config.windowed_decode_latents_per_call == 0
+    assert sub.config.vae_decode_cudnn_benchmark
+    calls = []
+    decoder = sub._step._decoder
+    sub._step._decoder = lambda x, **kw: calls.append(x.shape[2]) or decoder(x, **kw)
+    video = torch.cat(_run(sub, "r", _windows(stream), 77), dim=2)
+    assert calls == [1, 7, 6, 6]
+    assert (video.int() - sub._decode_pixels(stream).int()).abs().max() <= 1
+
+    per_frame = _decoder(monkeypatch, vae)
+    per_frame.config.windowed_decode_latents_per_call = 1
+    frame_calls = []
+    decoder = per_frame._step._decoder
+    per_frame._step._decoder = lambda x, **kw: frame_calls.append(x.shape[2]) or decoder(x, **kw)
+    per_frame_video = torch.cat(_run(per_frame, "r2", _windows(stream), 77), dim=2)
+    assert frame_calls == [1] + [1] * (7 + 6 + 6)
+    assert torch.equal(per_frame_video, per_frame._decode_pixels(stream))
+    _u8_close(per_frame_video, video)
+
+
+def test_warm_cache_switch_off_keeps_no_cache(monkeypatch, vae) -> None:
+    sub = _decoder(monkeypatch, vae, warm=False)
+    _run(sub, "r", _windows(_stream(14))[:1], 53, num_windows=2)
+    assert "ar_feat_cache" not in sub.request_state("r") and sub._step is None

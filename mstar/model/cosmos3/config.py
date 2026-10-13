@@ -336,7 +336,35 @@ class Cosmos3Config:
     # Latent frames of already-generated context re-decoded ahead of each
     # window so the causal VAE's conv stack is warm at the kept frames; the
     # context-derived pixels are trimmed. Raise if window boundaries seam.
+    # With windowed_decode_warm_cache this re-decode only runs where a stream
+    # has no decoder cache yet (a resumed session's first window).
     windowed_decode_context_latents: int = 8
+    # Keep each live stream's VAE decoder cache (the last frames every causal
+    # conv saw) in its request state, so a window decodes only its new latents,
+    # exactly as one decode of the whole stream would. Costs the cache per live
+    # stream (1.3 GiB at 832x480 for the Wan2.2 VAE in bf16), freed when the
+    # stream's last window is decoded or the request goes away. Sessions still
+    # store only latents. False re-decodes the context ahead of every window.
+    windowed_decode_warm_cache: bool = True
+    # Latent frames per VAE decoder call in the streaming decode (0: a
+    # window's new latents in one call — the warm-path default). 1 is the
+    # stock per-frame decode (bit-exact vs ``vae.decode``). 0 is the same
+    # math to float rounding (uint8 can differ by one level); fewer, larger
+    # kernels. The activation peak grows with the frames per call (832x480,
+    # Wan2.2 VAE, bf16: about +3 GiB per extra latent per call), on the GPU
+    # the DiT shares. The stateless fallback (warm cache off) still goes
+    # through ``vae.decode``.
+    windowed_decode_latents_per_call: int = 0
+    # Run the VAE decode (both decoder nodes) on channels-last weights and
+    # activations, cuDNN's native conv3d layout: no per-conv layout conversion
+    # kernels. Same math; bf16 output differs from the default layout only by
+    # rounding.
+    vae_decode_channels_last: bool = True
+    # Let cuDNN time its conv algorithms for each new VAE decode shape (once,
+    # then cached) instead of its heuristic pick. Algorithm choice only —
+    # same math. Pays off on shapes that repeat (a stream's windows); the
+    # first decode of a shape is slower.
+    vae_decode_cudnn_benchmark: bool = True
     # Sessions (``session_id`` on a windowed request): the DiT node keeps the
     # last window's clean latents and the streaming decoder its decode
     # context per session, so a later request with ``resume_session`` picks

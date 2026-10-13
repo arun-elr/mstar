@@ -44,9 +44,10 @@ Streaming rollout (opt-in, ``enable_windowed_video``; ported from #198):
                  retention policy releases frames past the context horizon at
                  each commit). Each finished window's latents leave the loop on
                  a streaming edge.
-    vae_decoder_ar (partition ``window_decoder``) - decodes each window behind
-                 re-decoded context while the loop denoises the next one, and
-                 emits the video per window (``stream_video``) or assembled.
+    vae_decoder_ar (partition ``window_decoder``) - decodes each window,
+                 continuing the stream's decoder cache, while the loop
+                 denoises the next one, and emits the video per window
+                 (``stream_video``) or assembled.
 """
 
 from __future__ import annotations
