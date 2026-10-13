@@ -18,7 +18,10 @@ from diffusers import AutoencoderKLWan  # noqa: E402
 from mstar.model.components.wan_vae import is_channels_last  # noqa: E402
 from mstar.model.cosmos3 import constants as C  # noqa: E402
 from mstar.model.cosmos3.config import Cosmos3Config  # noqa: E402
-from mstar.model.cosmos3.submodules import Cosmos3VAEDecoderARSubmodule  # noqa: E402
+from mstar.model.cosmos3.submodules import (  # noqa: E402
+    Cosmos3VAEDecoderARSubmodule,
+    Cosmos3VAEDecoderSubmodule,
+)
 
 # 8-latent windows re-pinning 2 latents, as the served default (29 / 8 frames).
 WINDOW, OVERLAP = 8, 2
@@ -204,7 +207,6 @@ def test_window_in_one_decoder_call(monkeypatch, vae) -> None:
     stream = _stream(20)
     sub = _decoder(monkeypatch, vae)
     sub.config.windowed_decode_latents_per_call = 0
-    assert sub.config.vae_decode_cudnn_benchmark
     calls = []
     decoder = sub._step._decoder
     sub._step._decoder = lambda x, **kw: calls.append(x.shape[2]) or decoder(x, **kw)
@@ -271,3 +273,54 @@ def test_warm_stream_slot_frees_when_a_stream_ends_or_aborts(monkeypatch, vae) -
     sub.cleanup_request("c")  # abort
     _run(sub, "d", windows[:1], 53, num_windows=2)
     assert _warm(sub) == {"d"}
+
+
+def _record_cudnn_benchmark(monkeypatch) -> list:
+    import torch.nn.functional as F
+
+    seen = []
+    conv3d = F.conv3d
+
+    def conv(*args, **kw):
+        seen.append(torch.backends.cudnn.benchmark)
+        return conv3d(*args, **kw)
+
+    monkeypatch.setattr(F, "conv3d", conv)
+    monkeypatch.setattr(torch.backends.cudnn, "benchmark", False)
+    return seen
+
+
+def test_whole_clip_decoder_keeps_its_default_layout_and_cudnn_flag(monkeypatch) -> None:
+    """The streaming switches leave the whole-clip decoder alone: its VAE stays
+    in the default layout and cuDNN's flag untouched, even with the streaming
+    node's channels-last and cudnn.benchmark both on."""
+    monkeypatch.setenv("COSMOS3_COMPILE_VAE", "0")
+    cfg = Cosmos3Config()
+    cfg.vae_decode_cudnn_benchmark = True
+    assert cfg.vae_decode_channels_last
+    vae = _tiny_vae()
+    sub = Cosmos3VAEDecoderSubmodule(vae, cfg)
+    sub._decode_dtype_cached = torch.float32
+    seen = _record_cudnn_benchmark(monkeypatch)
+    stream = _stream(5)
+    video = sub._decode_pixels(stream)
+    assert not is_channels_last(vae)
+    assert seen and not any(seen)
+    with torch.no_grad():
+        ref = vae.decode(sub._vae_input(stream)).sample
+    assert torch.equal(video, (ref / 2 + 0.5).clamp(0, 1).mul(255).to(torch.uint8))
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("warm", [True, False])
+def test_streaming_cudnn_benchmark_is_opt_in_and_scoped(monkeypatch, vae, enabled, warm) -> None:
+    """Off by default; when on, it covers every conv of both streaming paths
+    (warm and stateless) and nothing after them."""
+    sub = _decoder(monkeypatch, vae, warm=warm)
+    assert not sub.config.vae_decode_cudnn_benchmark
+    sub.config.vae_decode_cudnn_benchmark = enabled
+    seen = _record_cudnn_benchmark(monkeypatch)
+    _run(sub, "r", _windows(_stream(14)), 53)
+    assert seen and all(f is enabled for f in seen)
+    assert torch.backends.cudnn.benchmark is False
+

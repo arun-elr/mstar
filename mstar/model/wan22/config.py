@@ -79,26 +79,6 @@ class Wan22Config:
     # "tiled"/"untiled" force a path. WAN22_VAE_DECODE_TILING overrides at runtime.
     vae_decode_tiling: str = "auto"
 
-    # Run the VAE decode on channels-last weights and activations, cuDNN's
-    # native conv3d layout: no per-conv layout conversion kernels. Same math;
-    # bf16 output differs from the default layout only by rounding.
-    vae_decode_channels_last: bool = True
-
-    # torch.compile the VAE decoder's per-latent-frame step for untiled
-    # decodes. The step's shapes depend only on the resolution, not the frame
-    # count, so a resolution compiles once (three graphs: the clip's first
-    # latent, its second, and the steady state) and later requests reuse it.
-    # Left off: wan22 still sets ``disable_torch_compile`` on the node, and
-    # flipping this would change the first-request latency at every new
-    # resolution (compile tax) without changing numerics. Opt in explicitly
-    # when that tax is acceptable; do not treat a silent default flip as
-    # equivalent to the eager per-frame decode for serving SLOs.
-    compile_vae_decode: bool = False
-    # Let cuDNN time its conv algorithms for each new VAE decode shape (once,
-    # then cached) instead of its heuristic pick. Algorithm choice only —
-    # same math. Default on, matching the Cosmos3 decoder.
-    vae_decode_cudnn_benchmark: bool = True
-
     @property
     def hidden_size(self) -> int:
         """DiT hidden width (num_attention_heads * attention_head_dim)."""

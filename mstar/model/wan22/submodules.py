@@ -604,15 +604,6 @@ class Wan22VaeDecoderSubmodule(_SingleRequestMixin, _Fp32IslandMixin, NodeSubmod
         # ``vae`` is never None here: dummy mode returns from
         # ``_create_submodule`` before any submodule is constructed.
         self.vae = vae.to(self._decode_dtype())
-        if config.vae_decode_channels_last:
-            from mstar.model.components.wan_vae import to_channels_last
-
-            to_channels_last(self.vae)
-        self._step = None
-        if config.compile_vae_decode:
-            from mstar.model.components.wan_vae import DecoderStep
-
-            self._step = DecoderStep(self.vae, compile=True)
         self._record_fp32_islands()
 
     def _decode_dtype(self):
@@ -698,8 +689,6 @@ class Wan22VaeDecoderSubmodule(_SingleRequestMixin, _Fp32IslandMixin, NodeSubmod
         latents: torch.Tensor,
         **kwargs,
     ) -> NameToTensorList:
-        from mstar.model.components.wan_vae import cudnn_benchmark, decode_causal, new_feat_cache
-
         with _inference_ctx():
             vae = self.vae
             vae_dtype = self._decode_dtype()
@@ -716,8 +705,6 @@ class Wan22VaeDecoderSubmodule(_SingleRequestMixin, _Fp32IslandMixin, NodeSubmod
                 latents.device, latents.dtype
             )
             latents = latents / latents_std + latents_mean
-            if self.config.vae_decode_channels_last:
-                latents = latents.contiguous(memory_format=torch.channels_last_3d)
 
             # Feature 1: pick untiled vs tiled from live free VRAM at decode time.
             height, width, num_frames = self._output_size(latents)
@@ -732,13 +719,10 @@ class Wan22VaeDecoderSubmodule(_SingleRequestMixin, _Fp32IslandMixin, NodeSubmod
                 "tiled" if tiled else "untiled", height, width, num_frames,
                 estimate / 2**30, free_bytes / 2**30, _DECODE_UNTILED_SAFETY_MARGIN, mode,
             )
-            with cudnn_benchmark(self.config.vae_decode_cudnn_benchmark):
-                if tiled:
-                    video = vae.tiled_decode(latents, return_dict=False)[0]
-                elif self._step is not None:
-                    video = decode_causal(vae, latents, new_feat_cache(vae), self._step, clip_start=True)
-                else:
-                    video = vae.decode(latents, return_dict=False)[0]
+            if tiled:
+                video = vae.tiled_decode(latents, return_dict=False)[0]
+            else:
+                video = vae.decode(latents, return_dict=False)[0]
             # Quantize to 8-bit at the worker boundary (see class docstring).
-            video = (video / 2 + 0.5).clamp(0, 1).mul(255).to(torch.uint8).contiguous()
+            video = (video / 2 + 0.5).clamp(0, 1).mul(255).to(torch.uint8)
         return {"video_output": [video]}

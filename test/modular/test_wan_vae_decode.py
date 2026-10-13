@@ -147,58 +147,18 @@ def test_channels_last_stream_feeds_every_conv_channels_last(kind, monkeypatch) 
     torch.testing.assert_close(torch.cat(parts, dim=2), ref, rtol=0, atol=1e-5)
 
 
-def test_wan22_decoder_node_channels_last_switch(monkeypatch) -> None:
-    """The wan22 decode node, both layouts: same frames to 8-bit rounding,
-    contiguous output."""
-    from mstar.model.wan22.config import Wan22Config
-    from mstar.model.wan22.submodules import Wan22VaeDecoderSubmodule
-
-    monkeypatch.setenv("WAN22_VAE_DECODE_FP32", "1")
-    monkeypatch.setattr(torch.cuda, "mem_get_info", lambda *a, **k: (1 << 40, 1 << 40))
-    z = _latents(tiny_wan_vae("wan22"), 5)
-    outs = {}
-    for cl in (False, True):
-        cfg = Wan22Config(vae_z_dim=8, vae_decode_tiling="untiled", vae_decode_channels_last=cl)
-        sub = Wan22VaeDecoderSubmodule(tiny_wan_vae("wan22"), cfg)
-        assert wan_vae.is_channels_last(sub.vae) == cl
-        outs[cl] = sub.forward("video_gen", engine_inputs=None, latents=z)["video_output"][0]
-    assert outs[True].shape == (1, 3, 17, 64, 96) and outs[True].is_contiguous()
-    assert (outs[True].int() - outs[False].int()).abs().max() <= 1
-
-
-def test_wan22_decoder_node_compiled_step_path(monkeypatch) -> None:
-    """compile_vae_decode routes an untiled decode through the per-frame
-    decoder step (here run eagerly): the same frames as ``vae.decode``."""
-    from mstar.model.wan22.config import Wan22Config
-    from mstar.model.wan22.submodules import Wan22VaeDecoderSubmodule
-
-    monkeypatch.setenv("WAN22_VAE_DECODE_FP32", "1")
-    monkeypatch.setattr(torch.cuda, "mem_get_info", lambda *a, **k: (1 << 40, 1 << 40))
-    z = _latents(tiny_wan_vae("wan22"), 5)
-    cfg = Wan22Config(vae_z_dim=8, vae_decode_tiling="untiled")
-    plain = Wan22VaeDecoderSubmodule(tiny_wan_vae("wan22"), cfg)
-    assert plain._step is None
-    cfg = Wan22Config(vae_z_dim=8, vae_decode_tiling="untiled", compile_vae_decode=True)
-    stepped = Wan22VaeDecoderSubmodule(tiny_wan_vae("wan22"), cfg)
-    calls = []
-    decoder = stepped.vae.decoder
-    stepped._step.compiled = False
-    stepped._step._decoder = lambda x, **kw: calls.append(x.shape[2]) or decoder(x, **kw)
-    out = stepped.forward("video_gen", engine_inputs=None, latents=z)["video_output"][0]
-    assert calls == [1] * 5
-    assert torch.equal(out, plain.forward("video_gen", engine_inputs=None, latents=z)["video_output"][0])
-
-
-def test_cudnn_benchmark_is_scoped() -> None:
-    before = torch.backends.cudnn.benchmark
+@pytest.mark.parametrize("before", [False, True])
+def test_cudnn_benchmark_is_scoped(before, monkeypatch) -> None:
+    monkeypatch.setattr(torch.backends.cudnn, "benchmark", before)
     with wan_vae.cudnn_benchmark(True):
         assert torch.backends.cudnn.benchmark
-    assert torch.backends.cudnn.benchmark == before
+    assert torch.backends.cudnn.benchmark is before
     with pytest.raises(RuntimeError), wan_vae.cudnn_benchmark(True):
         raise RuntimeError
-    assert torch.backends.cudnn.benchmark == before
+    assert torch.backends.cudnn.benchmark is before
     with wan_vae.cudnn_benchmark(False):
-        assert torch.backends.cudnn.benchmark == before
+        assert torch.backends.cudnn.benchmark is before
+    assert torch.backends.cudnn.benchmark is before
 
 
 def test_compiled_step_runs_steady_calls_compiled_after_a_warm_up_on_a_cache_copy() -> None:

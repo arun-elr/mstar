@@ -108,13 +108,15 @@ class DecoderStep:
     Only steady-state calls run compiled. A stream's first two calls (the
     clip-start latent, then the call that still finds diffusers' ``"Rep"``
     marker in the temporal upsamples' slots) run eagerly: compiled, the
-    second one returns wrong frames and a wrong cache at 832x480 (torch 2.12,
-    diffusers 0.39), while every steady-state call matches eager.
+    second one returns wrong frames and a wrong cache at 832x480 (seen on
+    torch 2.12.1, diffusers 0.39, cuDNN 9.20), while every steady-state call
+    matches eager.
 
     A compiled bf16 graph's first execution in a process returns corrupted
     frames on some torch/cuDNN stacks (every later call of the same graph is
-    correct), so a compiled step runs each new call signature once on a copy
-    of the cache and discards the result before serving it. The signature is
+    correct; the whole-clip decoder's ``_warmed_decode_shapes`` works around
+    the same thing), so a compiled step runs each new call signature once on
+    a copy of the cache and discards the result before serving it. The signature is
     the input's shape and strides plus the cache's slot shapes, so the warm-up
     sees the real layout.
     """
@@ -181,7 +183,8 @@ def decode_causal(
 def cudnn_benchmark(enabled: bool):
     """Within the block, let cuDNN time its conv algorithms per new shape
     (once, then cached) instead of taking its heuristic pick; restores the
-    process-wide flag on exit."""
+    process-wide flag on exit. Not safe against convs on other threads: the
+    decoder nodes run every forward on the worker's one GPU thread."""
     if not enabled:
         yield
         return

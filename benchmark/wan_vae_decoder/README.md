@@ -29,9 +29,9 @@ and samples.
 
 `mstar_step0` is the stateless context re-decode (before this change); step 1
 adds the warm cache, step 2 channels-last with conv-internal padding.
-`mstar_warm` is the node at this change's defaults (adds `cudnn.benchmark`, one
-latent per decoder call), and `mstar_warm_lpc0` the opt-in one decoder call per
-window. `bench_wan_decoder.py`'s docstring lists every variant.
+`mstar_warm` is the node at this change's defaults (one latent per decoder
+call, `cudnn.benchmark` off); `mstar_warm_lpc0` is the opt-in one decoder call
+per window and `mstar_warm_bench` the opt-in `cudnn.benchmark`. `bench_wan_decoder.py`'s docstring lists every variant.
 
 ## Reproduce
 

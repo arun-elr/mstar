@@ -45,12 +45,13 @@ model_kwargs:
   # window with stream_video; the kv-mode context horizon (context_frames)
   # bounds the committed K/V a long rollout keeps.
   enable_windowed_video: true
-  # The streaming decoder keeps each live stream's VAE conv cache (about
-  # 1.3-1.8 GiB per stream at 832x480). Uncomment to cap the warm streams per
+  # The streaming decoder keeps each live stream's VAE conv cache (1.33 GiB
+  # of tensors per stream at 832x480). Uncomment to cap the warm streams per
   # decoder copy; streams past the cap take the stateless context re-decode.
   # windowed_decode_max_warm_streams: 0   # 0: no cap
   # Latents per decoder call in the streaming decode (default 1). 0 decodes a
-  # window's new latents in one call: ~6% faster at 832x480, ~27 GiB more peak.
+  # window's new latents in one call: the decoder alone is ~6% faster at
+  # 832x480 for ~21 GiB more peak, and served end to end no faster.
   # windowed_decode_latents_per_call: 1
 node_groups:
   # The DiT and the reasoner share one transformer instance and one KV pool;

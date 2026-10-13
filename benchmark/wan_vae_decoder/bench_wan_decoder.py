@@ -15,8 +15,8 @@ Variants:
                       switches turned on one at a time (STEPS below): 0 is the
                       stateless context re-decode, 5 all switches on
   mstar_warm[_eager]  the node at its config defaults (warm cache, channels-last,
-                      one latent per decoder call, cudnn.benchmark)
-  mstar_warm_nobench  the same with vae_decode_cudnn_benchmark off
+                      one latent per decoder call, cudnn.benchmark off)
+  mstar_warm_bench    the same with vae_decode_cudnn_benchmark on (opt-in)
   mstar_warm_lpc{N}   mstar_warm with windowed_decode_latents_per_call=N
 
 The prototype-harness variants (px_*, channels_last_*), the ablation suites and
@@ -235,19 +235,19 @@ STEPS = {
 
 def node_overrides(variant: str) -> tuple[dict, bool] | None:
     """(config overrides, compiled) for an in-tree node variant, or None."""
-    m = re.fullmatch(r"mstar_(warm|warm_nobench|step(\d))(?:_lpc(\d+))?(_eager)?", variant)
+    m = re.fullmatch(r"mstar_(warm|warm_bench|step(\d))(?:_lpc(\d+))?(_eager)?", variant)
     if not m:
         return None
     if m[2] is not None:
         over = dict(STEPS[int(m[2])])
-    else:  # the node's config defaults, cudnn.benchmark on or off
-        over = {"vae_decode_cudnn_benchmark": m[1] == "warm"}
+    else:  # the node's config defaults, or with cudnn.benchmark on
+        over = {"vae_decode_cudnn_benchmark": True} if m[1] == "warm_bench" else {}
     if m[3] is not None:
         over["windowed_decode_latents_per_call"] = int(m[3])
     return over, not m[4]
 
 
-def mstar_warm_node(raw, device, compiled, n_steady, cudnn_benchmark=True, overrides=None):
+def mstar_warm_node(raw, device, compiled, n_steady, overrides=None):
     """``Cosmos3VAEDecoderARSubmodule`` at its config defaults (or with
     ``overrides``), and ``(start, chunk)`` closures streaming ``raw``
     through it as one request of ``1 + n_steady`` windows."""
@@ -261,7 +261,6 @@ def mstar_warm_node(raw, device, compiled, n_steady, cudnn_benchmark=True, overr
 
     vae = load_vae(REPO, torch.float32, device)
     cfg = Cosmos3Config()
-    cfg.vae_decode_cudnn_benchmark = cudnn_benchmark
     for k, val in (overrides or {}).items():
         setattr(cfg, k, val)
     sub = Cosmos3VAEDecoderARSubmodule(vae=vae, config=cfg)
@@ -291,7 +290,7 @@ def mstar_warm_node(raw, device, compiled, n_steady, cudnn_benchmark=True, overr
 def run_mstar_warm(args, raw, ref, compiled, overrides):
     """In-tree streaming decode: ``Cosmos3VAEDecoderARSubmodule`` with the
     serving defaults this change lands (warm conv cache, channels-last, one
-    decoder call per chunk, ``cudnn.benchmark``) or a ladder step's switches.
+    latent per decoder call) or a ladder step's switches.
     ``--dump-u8``: the first replay's uint8 frames (the whole stream), written
     outside the timed region."""
     n_steady = args.warmup + args.chunks
