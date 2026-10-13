@@ -1,0 +1,880 @@
+[run_all] GPU 0 apps at start: none
+name, driver_version, memory.used [MiB], memory.total [MiB], clocks.max.sm [MHz], power.limit [W]
+NVIDIA B200, 580.173.02, 0 MiB, 183359 MiB, 1965 MHz, 1000.00 W
+[run_all] 04:53:15 prepare latents (wan21)
+wrote ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt: raw latents (1, 16, 256, 60, 104) from ${VM_HOME}/wan-bench/assets/draw.mp4 (ping-pong to 1021 frames, 480x832)
+[run_all] 04:55:30 bench --variant ref_fp32 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --repeats 1 --save-ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+{"variant": "ref_fp32", "n_samples": 75, "median_ms": 2407.46, "p90_ms": 2407.61, "p10_ms": 2407.36, "mean_ms": 2407.48, "decoder_fps": 5.0, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": null, "first_timed_call_ms": 2407.8, "wall_s": 208.3, "peak_allocated_gib": 7.73, "peak_reserved_gib": 11.31, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[run_all] 04:59:01 bench --variant diffusers_bf16 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --profile
+${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/profiler/profiler.py:272: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+USDT:2026-10-13 04:59:42 6902:6902 ActivityProfilerController.cpp:415] profiler_start
+USDT:2026-10-13 04:59:43 6902:6902 ActivityProfilerController.cpp:455] profiler_stop
+{"variant": "diffusers_bf16", "n_samples": 150, "median_ms": 192.11, "p90_ms": 192.33, "p10_ms": 191.95, "mean_ms": 192.13, "decoder_fps": 62.5, "psnr_float_db_vs_fp32": 59.75, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 196.5, "wall_s": 41.4, "peak_allocated_gib": 4.44, "peak_reserved_gib": 6.41, "profile": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/diffusers_bf16.profile.txt", "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[run_all] 04:59:45 bench --variant diffusers_bf16_compile --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+${TMPDIR}/tmpr0a3_tcw/cuda_utils.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+Traceback (most recent call last):
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 398, in <module>
+    main()
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 342, in main
+    res = run_streaming(args, raw, ref)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 180, in run_streaming
+    sd.first(z[:, :, :1])
+  File "${VM_HOME}/wan-bench/common.py", line 109, in first
+    out = self.step(x, feat_cache=self.feat, feat_idx=[0], first_chunk=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 473, in __call__
+    return super().__call__(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1062, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1069, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1049, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1836, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1597, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2613, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2619, in _compile_to_module
+    self.codegen_with_cpp_wrapper() if self.cpp_wrapper else self.codegen()
+                                                             ^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2555, in codegen
+    self.scheduler.codegen()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7350, in codegen
+    self._codegen_partitions()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7490, in _codegen_partitions
+    self._codegen(partition)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7641, in _codegen
+    self.get_backend(device).codegen_node(node)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/cuda_combined_scheduling.py", line 152, in codegen_node
+    return self._triton_scheduling.codegen_node(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1864, in codegen_node
+    return self._codegen_nodes(nodes, coalesce_analysis)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1837, in _codegen_nodes
+    return self.codegen_node_schedule(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1961, in codegen_node_schedule
+    src_code = kernel.codegen_kernel()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5760, in codegen_kernel
+    **self.inductor_meta_common(),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5568, in inductor_meta_common
+    "backend_hash": torch.utils._triton.triton_hash_with_backend(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 219, in triton_hash_with_backend
+    backend = triton_backend()
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 193, in triton_backend
+    target = driver.active.get_current_target()
+             ^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 39, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 33, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 21, in _create_driver
+    return active_drivers[0]()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 336, in __init__
+    self.utils = CudaUtils()  # TODO: make static
+                 ^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 66, in __init__
+    mod = compile_module_from_src(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 93, in compile_module_from_src
+    so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 48, in _build
+    subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+torch._inductor.exc.InductorError: CalledProcessError: Command '['/usr/bin/gcc', '${TMPDIR}/tmpr0a3_tcw/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '${TMPDIR}/tmpr0a3_tcw/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/lib/x86_64-linux-gnu', '-I${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/include', '-I/tmp/tmpr0a3_tcw', '-I/usr/include/python3.12']' returned non-zero exit status 1.
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+[run_all] FAILED (exit 1): --variant diffusers_bf16_compile --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+[run_all] 04:59:58 bench --variant mstar_ar_ctx8_eager --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+{"variant": "mstar_ar_ctx8_eager", "n_samples": 150, "median_ms": 657.71, "p90_ms": 658.0, "p10_ms": 657.1, "mean_ms": 657.62, "decoder_fps": 18.2, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": 52.05, "first_timed_call_ms": 212.0, "wall_s": 114.0, "peak_allocated_gib": 4.58, "peak_reserved_gib": 6.52, "decode_dtype": "torch.bfloat16", "steady_decode_latents": 11, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[run_all] 05:01:55 bench --variant mstar_ar_ctx8 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+${TMPDIR}/tmp1c5dozjs/cuda_utils.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+Traceback (most recent call last):
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 398, in <module>
+    main()
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 338, in main
+    res = run_mstar_ar(args, raw, ref, int(m[1]), compiled=not m[2])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 254, in run_mstar_ar
+    sub._decode_pixels(norm[:, :, :1])  # the stream's first window, untimed
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/mstar/model/cosmos3/submodules.py", line 2685, in _decode_pixels
+    self._decode(z)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1062, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1069, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1049, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1836, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1597, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2613, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2619, in _compile_to_module
+    self.codegen_with_cpp_wrapper() if self.cpp_wrapper else self.codegen()
+                                                             ^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2555, in codegen
+    self.scheduler.codegen()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7350, in codegen
+    self._codegen_partitions()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7490, in _codegen_partitions
+    self._codegen(partition)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7641, in _codegen
+    self.get_backend(device).codegen_node(node)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/cuda_combined_scheduling.py", line 152, in codegen_node
+    return self._triton_scheduling.codegen_node(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1864, in codegen_node
+    return self._codegen_nodes(nodes, coalesce_analysis)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1837, in _codegen_nodes
+    return self.codegen_node_schedule(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1961, in codegen_node_schedule
+    src_code = kernel.codegen_kernel()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5760, in codegen_kernel
+    **self.inductor_meta_common(),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5568, in inductor_meta_common
+    "backend_hash": torch.utils._triton.triton_hash_with_backend(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 219, in triton_hash_with_backend
+    backend = triton_backend()
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 193, in triton_backend
+    target = driver.active.get_current_target()
+             ^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 39, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 33, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 21, in _create_driver
+    return active_drivers[0]()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 336, in __init__
+    self.utils = CudaUtils()  # TODO: make static
+                 ^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 66, in __init__
+    mod = compile_module_from_src(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 93, in compile_module_from_src
+    so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 48, in _build
+    subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+torch._inductor.exc.InductorError: CalledProcessError: Command '['/usr/bin/gcc', '${TMPDIR}/tmp1c5dozjs/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '${TMPDIR}/tmp1c5dozjs/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/lib/x86_64-linux-gnu', '-I${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/include', '-I/tmp/tmp1c5dozjs', '-I/usr/include/python3.12']' returned non-zero exit status 1.
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+[run_all] FAILED (exit 1): --variant mstar_ar_ctx8 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+[run_all] 05:02:06 bench --variant mstar_ar_ctx4 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+${TMPDIR}/tmp_n_3opld/cuda_utils.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+Traceback (most recent call last):
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 398, in <module>
+    main()
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 338, in main
+    res = run_mstar_ar(args, raw, ref, int(m[1]), compiled=not m[2])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 254, in run_mstar_ar
+    sub._decode_pixels(norm[:, :, :1])  # the stream's first window, untimed
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/mstar/model/cosmos3/submodules.py", line 2685, in _decode_pixels
+    self._decode(z)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1062, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1069, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1049, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1836, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1597, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2613, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2619, in _compile_to_module
+    self.codegen_with_cpp_wrapper() if self.cpp_wrapper else self.codegen()
+                                                             ^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2555, in codegen
+    self.scheduler.codegen()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7350, in codegen
+    self._codegen_partitions()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7490, in _codegen_partitions
+    self._codegen(partition)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7641, in _codegen
+    self.get_backend(device).codegen_node(node)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/cuda_combined_scheduling.py", line 152, in codegen_node
+    return self._triton_scheduling.codegen_node(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1864, in codegen_node
+    return self._codegen_nodes(nodes, coalesce_analysis)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1837, in _codegen_nodes
+    return self.codegen_node_schedule(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1961, in codegen_node_schedule
+    src_code = kernel.codegen_kernel()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5760, in codegen_kernel
+    **self.inductor_meta_common(),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5568, in inductor_meta_common
+    "backend_hash": torch.utils._triton.triton_hash_with_backend(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 219, in triton_hash_with_backend
+    backend = triton_backend()
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 193, in triton_backend
+    target = driver.active.get_current_target()
+             ^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 39, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 33, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 21, in _create_driver
+    return active_drivers[0]()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 336, in __init__
+    self.utils = CudaUtils()  # TODO: make static
+                 ^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 66, in __init__
+    mod = compile_module_from_src(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 93, in compile_module_from_src
+    so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 48, in _build
+    subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+torch._inductor.exc.InductorError: CalledProcessError: Command '['/usr/bin/gcc', '${TMPDIR}/tmp_n_3opld/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '${TMPDIR}/tmp_n_3opld/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/lib/x86_64-linux-gnu', '-I${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/include', '-I/tmp/tmp_n_3opld', '-I/usr/include/python3.12']' returned non-zero exit status 1.
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+[run_all] FAILED (exit 1): --variant mstar_ar_ctx4 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+[run_all] 05:02:17 bench --variant mstar_ar_ctx2 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+${TMPDIR}/tmp9cp08wlo/cuda_utils.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+Traceback (most recent call last):
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 398, in <module>
+    main()
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 338, in main
+    res = run_mstar_ar(args, raw, ref, int(m[1]), compiled=not m[2])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 254, in run_mstar_ar
+    sub._decode_pixels(norm[:, :, :1])  # the stream's first window, untimed
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/mstar/model/cosmos3/submodules.py", line 2685, in _decode_pixels
+    self._decode(z)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1062, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1069, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1049, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1836, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1597, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2613, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2619, in _compile_to_module
+    self.codegen_with_cpp_wrapper() if self.cpp_wrapper else self.codegen()
+                                                             ^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2555, in codegen
+    self.scheduler.codegen()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7350, in codegen
+    self._codegen_partitions()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7490, in _codegen_partitions
+    self._codegen(partition)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7641, in _codegen
+    self.get_backend(device).codegen_node(node)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/cuda_combined_scheduling.py", line 152, in codegen_node
+    return self._triton_scheduling.codegen_node(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1864, in codegen_node
+    return self._codegen_nodes(nodes, coalesce_analysis)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1837, in _codegen_nodes
+    return self.codegen_node_schedule(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1961, in codegen_node_schedule
+    src_code = kernel.codegen_kernel()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5760, in codegen_kernel
+    **self.inductor_meta_common(),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5568, in inductor_meta_common
+    "backend_hash": torch.utils._triton.triton_hash_with_backend(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 219, in triton_hash_with_backend
+    backend = triton_backend()
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 193, in triton_backend
+    target = driver.active.get_current_target()
+             ^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 39, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 33, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 21, in _create_driver
+    return active_drivers[0]()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 336, in __init__
+    self.utils = CudaUtils()  # TODO: make static
+                 ^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 66, in __init__
+    mod = compile_module_from_src(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 93, in compile_module_from_src
+    so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 48, in _build
+    subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+torch._inductor.exc.InductorError: CalledProcessError: Command '['/usr/bin/gcc', '${TMPDIR}/tmp9cp08wlo/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '${TMPDIR}/tmp9cp08wlo/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/lib/x86_64-linux-gnu', '-I${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/include', '-I/tmp/tmp9cp08wlo', '-I/usr/include/python3.12']' returned non-zero exit status 1.
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+[run_all] FAILED (exit 1): --variant mstar_ar_ctx2 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+[run_all] 05:02:28 bench --variant mstar_ar_ctx1 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+${TMPDIR}/tmpa_ul9bel/cuda_utils.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+Traceback (most recent call last):
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 398, in <module>
+    main()
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 338, in main
+    res = run_mstar_ar(args, raw, ref, int(m[1]), compiled=not m[2])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 254, in run_mstar_ar
+    sub._decode_pixels(norm[:, :, :1])  # the stream's first window, untimed
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/mstar/model/cosmos3/submodules.py", line 2685, in _decode_pixels
+    self._decode(z)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1062, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1069, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1049, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1836, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1597, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2613, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2619, in _compile_to_module
+    self.codegen_with_cpp_wrapper() if self.cpp_wrapper else self.codegen()
+                                                             ^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2555, in codegen
+    self.scheduler.codegen()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7350, in codegen
+    self._codegen_partitions()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7490, in _codegen_partitions
+    self._codegen(partition)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7641, in _codegen
+    self.get_backend(device).codegen_node(node)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/cuda_combined_scheduling.py", line 152, in codegen_node
+    return self._triton_scheduling.codegen_node(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1864, in codegen_node
+    return self._codegen_nodes(nodes, coalesce_analysis)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1837, in _codegen_nodes
+    return self.codegen_node_schedule(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1961, in codegen_node_schedule
+    src_code = kernel.codegen_kernel()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5760, in codegen_kernel
+    **self.inductor_meta_common(),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5568, in inductor_meta_common
+    "backend_hash": torch.utils._triton.triton_hash_with_backend(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 219, in triton_hash_with_backend
+    backend = triton_backend()
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 193, in triton_backend
+    target = driver.active.get_current_target()
+             ^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 39, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 33, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 21, in _create_driver
+    return active_drivers[0]()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 336, in __init__
+    self.utils = CudaUtils()  # TODO: make static
+                 ^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 66, in __init__
+    mod = compile_module_from_src(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 93, in compile_module_from_src
+    so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 48, in _build
+    subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+torch._inductor.exc.InductorError: CalledProcessError: Command '['/usr/bin/gcc', '${TMPDIR}/tmpa_ul9bel/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '${TMPDIR}/tmpa_ul9bel/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/lib/x86_64-linux-gnu', '-I${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/include', '-I/tmp/tmpa_ul9bel', '-I/usr/include/python3.12']' returned non-zero exit status 1.
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+[run_all] FAILED (exit 1): --variant mstar_ar_ctx1 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+[run_all] 05:02:39 bench --variant mstar_wan22_oneshot_81f --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+{"variant": "mstar_wan22_oneshot_81f", "n_samples": 5, "median_ms": 192.23, "p90_ms": 192.25, "p10_ms": 192.18, "mean_ms": 192.22, "decoder_fps": 62.4, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": null, "first_timed_call_ms": null, "wall_s": 10.6, "peak_allocated_gib": 4.62, "peak_reserved_gib": 6.57, "decode_dtype": "torch.bfloat16", "clip_frames": 81, "clip_ms_median": 1297.5244140625, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[run_all] 05:02:52 bench --variant mstar_wan22_oneshot_241f --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+{"variant": "mstar_wan22_oneshot_241f", "n_samples": 5, "median_ms": 192.76, "p90_ms": 192.77, "p10_ms": 192.73, "mean_ms": 192.75, "decoder_fps": 62.3, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": null, "first_timed_call_ms": null, "wall_s": 26.1, "peak_allocated_gib": 5.19, "peak_reserved_gib": 7.17, "decode_dtype": "torch.bfloat16", "clip_frames": 241, "clip_ms_median": 3871.347412109375, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[run_all] 05:03:21 bench --variant mstar_wan22_oneshot_241f_tiled --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+{"variant": "mstar_wan22_oneshot_241f_tiled", "n_samples": 5, "median_ms": 429.54, "p90_ms": 429.96, "p10_ms": 429.51, "mean_ms": 429.69, "decoder_fps": 27.9, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": null, "first_timed_call_ms": null, "wall_s": 54.8, "peak_allocated_gib": 2.96, "peak_reserved_gib": 4.5, "decode_dtype": "torch.bfloat16", "clip_frames": 241, "clip_ms_median": 8626.666015625, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[run_all] 05:04:19 bench --variant rx_cl --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --layout-check
+{"variant": "rx_cl", "n_samples": 150, "median_ms": 162.12, "p90_ms": 162.28, "p10_ms": 162.02, "mean_ms": 162.14, "decoder_fps": 74.0, "psnr_float_db_vs_fp32": 59.75, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 171.9, "wall_s": 32.0, "peak_allocated_gib": 4.01, "peak_reserved_gib": 5.9, "conv_inputs_not_channels_last": "4/100", "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[run_all] 05:04:53 bench --variant rx_cl_chunk --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --layout-check
+{"variant": "rx_cl_chunk", "n_samples": 150, "median_ms": 149.15, "p90_ms": 149.3, "p10_ms": 149.04, "mean_ms": 149.16, "decoder_fps": 80.5, "psnr_float_db_vs_fp32": 59.75, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 177.6, "wall_s": 29.6, "peak_allocated_gib": 8.01, "peak_reserved_gib": 12.16, "conv_inputs_not_channels_last": "1/34", "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[run_all] 05:05:25 bench --variant rx_cl_chunk_compile --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+${TMPDIR}/tmpkpe6xv1s/cuda_utils.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+Traceback (most recent call last):
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 398, in <module>
+    main()
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 342, in main
+    res = run_streaming(args, raw, ref)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 180, in run_streaming
+    sd.first(z[:, :, :1])
+  File "${VM_HOME}/wan-bench/common.py", line 109, in first
+    out = self.step(x, feat_cache=self.feat, feat_idx=[0], first_chunk=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 473, in __call__
+    return super().__call__(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1062, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1069, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1049, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1836, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1597, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2613, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2619, in _compile_to_module
+    self.codegen_with_cpp_wrapper() if self.cpp_wrapper else self.codegen()
+                                                             ^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2555, in codegen
+    self.scheduler.codegen()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7350, in codegen
+    self._codegen_partitions()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7490, in _codegen_partitions
+    self._codegen(partition)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7641, in _codegen
+    self.get_backend(device).codegen_node(node)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/cuda_combined_scheduling.py", line 152, in codegen_node
+    return self._triton_scheduling.codegen_node(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1864, in codegen_node
+    return self._codegen_nodes(nodes, coalesce_analysis)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1837, in _codegen_nodes
+    return self.codegen_node_schedule(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1961, in codegen_node_schedule
+    src_code = kernel.codegen_kernel()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5760, in codegen_kernel
+    **self.inductor_meta_common(),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5568, in inductor_meta_common
+    "backend_hash": torch.utils._triton.triton_hash_with_backend(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 219, in triton_hash_with_backend
+    backend = triton_backend()
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 193, in triton_backend
+    target = driver.active.get_current_target()
+             ^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 39, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 33, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 21, in _create_driver
+    return active_drivers[0]()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 336, in __init__
+    self.utils = CudaUtils()  # TODO: make static
+                 ^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 66, in __init__
+    mod = compile_module_from_src(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 93, in compile_module_from_src
+    so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 48, in _build
+    subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+torch._inductor.exc.InductorError: CalledProcessError: Command '['/usr/bin/gcc', '${TMPDIR}/tmpkpe6xv1s/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '${TMPDIR}/tmpkpe6xv1s/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/lib/x86_64-linux-gnu', '-I${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/include', '-I/tmp/tmpkpe6xv1s', '-I/usr/include/python3.12']' returned non-zero exit status 1.
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+[run_all] FAILED (exit 1): --variant rx_cl_chunk_compile --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+[run_all] 05:05:36 bench --variant rx_full --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --profile
+${TMPDIR}/tmpp5t1gsmv/cuda_utils.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+Traceback (most recent call last):
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 398, in <module>
+    main()
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 342, in main
+    res = run_streaming(args, raw, ref)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 180, in run_streaming
+    sd.first(z[:, :, :1])
+  File "${VM_HOME}/wan-bench/common.py", line 109, in first
+    out = self.step(x, feat_cache=self.feat, feat_idx=[0], first_chunk=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 473, in __call__
+    return super().__call__(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1062, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1069, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1049, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1836, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1597, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2613, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2619, in _compile_to_module
+    self.codegen_with_cpp_wrapper() if self.cpp_wrapper else self.codegen()
+                                                             ^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2555, in codegen
+    self.scheduler.codegen()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7350, in codegen
+    self._codegen_partitions()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7490, in _codegen_partitions
+    self._codegen(partition)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7641, in _codegen
+    self.get_backend(device).codegen_node(node)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/cuda_combined_scheduling.py", line 152, in codegen_node
+    return self._triton_scheduling.codegen_node(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1864, in codegen_node
+    return self._codegen_nodes(nodes, coalesce_analysis)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1837, in _codegen_nodes
+    return self.codegen_node_schedule(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1961, in codegen_node_schedule
+    src_code = kernel.codegen_kernel()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5760, in codegen_kernel
+    **self.inductor_meta_common(),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5568, in inductor_meta_common
+    "backend_hash": torch.utils._triton.triton_hash_with_backend(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 219, in triton_hash_with_backend
+    backend = triton_backend()
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 193, in triton_backend
+    target = driver.active.get_current_target()
+             ^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 39, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 33, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 21, in _create_driver
+    return active_drivers[0]()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 336, in __init__
+    self.utils = CudaUtils()  # TODO: make static
+                 ^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 66, in __init__
+    mod = compile_module_from_src(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 93, in compile_module_from_src
+    so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 48, in _build
+    subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+torch._inductor.exc.InductorError: CalledProcessError: Command '['/usr/bin/gcc', '${TMPDIR}/tmpp5t1gsmv/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '${TMPDIR}/tmpp5t1gsmv/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/lib/x86_64-linux-gnu', '-I${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/include', '-I/tmp/tmpp5t1gsmv', '-I/usr/include/python3.12']' returned non-zero exit status 1.
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+[run_all] FAILED (exit 1): --variant rx_full --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --profile
+[run_all] 05:05:48 bench --variant rx_full_fp16 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+${TMPDIR}/tmpy1hxwtyt/cuda_utils.c:9:10: fatal error: Python.h: No such file or directory
+    9 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+Traceback (most recent call last):
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 398, in <module>
+    main()
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 342, in main
+    res = run_streaming(args, raw, ref)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/wan-bench/bench_wan_decoder.py", line 180, in run_streaming
+    sd.first(z[:, :, :1])
+  File "${VM_HOME}/wan-bench/common.py", line 109, in first
+    out = self.step(x, feat_cache=self.feat, feat_idx=[0], first_chunk=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 473, in __call__
+    return super().__call__(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1062, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1069, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1049, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1836, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1597, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2613, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2619, in _compile_to_module
+    self.codegen_with_cpp_wrapper() if self.cpp_wrapper else self.codegen()
+                                                             ^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2555, in codegen
+    self.scheduler.codegen()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7350, in codegen
+    self._codegen_partitions()
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7490, in _codegen_partitions
+    self._codegen(partition)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/scheduler.py", line 7641, in _codegen
+    self.get_backend(device).codegen_node(node)
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/cuda_combined_scheduling.py", line 152, in codegen_node
+    return self._triton_scheduling.codegen_node(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1864, in codegen_node
+    return self._codegen_nodes(nodes, coalesce_analysis)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1837, in _codegen_nodes
+    return self.codegen_node_schedule(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/simd.py", line 1961, in codegen_node_schedule
+    src_code = kernel.codegen_kernel()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5760, in codegen_kernel
+    **self.inductor_meta_common(),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/_inductor/codegen/triton.py", line 5568, in inductor_meta_common
+    "backend_hash": torch.utils._triton.triton_hash_with_backend(),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 219, in triton_hash_with_backend
+    backend = triton_backend()
+              ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/utils/_triton.py", line 193, in triton_backend
+    target = driver.active.get_current_target()
+             ^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 39, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 33, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/driver.py", line 21, in _create_driver
+    return active_drivers[0]()
+           ^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 336, in __init__
+    self.utils = CudaUtils()  # TODO: make static
+                 ^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py", line 66, in __init__
+    mod = compile_module_from_src(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 93, in compile_module_from_src
+    so = _build(name, src_path, tmpdir, library_dirs or [], include_dirs or [], libraries or [], ccflags or [])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/runtime/build.py", line 48, in _build
+    subprocess.check_call(cc_cmd, stdout=subprocess.DEVNULL)
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+torch._inductor.exc.InductorError: CalledProcessError: Command '['/usr/bin/gcc', '${TMPDIR}/tmpy1hxwtyt/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '${TMPDIR}/tmpy1hxwtyt/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/lib/x86_64-linux-gnu', '-I${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/triton/backends/nvidia/include', '-I/tmp/tmpy1hxwtyt', '-I/usr/include/python3.12']' returned non-zero exit status 1.
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+[run_all] FAILED (exit 1): --variant rx_full_fp16 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+[run_all] 05:05:59 bench --variant diffusers_bf16 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+{"variant": "diffusers_bf16", "n_samples": 150, "median_ms": 192.14, "p90_ms": 192.34, "p10_ms": 191.96, "mean_ms": 192.15, "decoder_fps": 62.5, "psnr_float_db_vs_fp32": 59.75, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 196.0, "wall_s": 36.9, "peak_allocated_gib": 4.44, "peak_reserved_gib": 6.41, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+GPU: NVIDIA B200  torch 2.12.1+cu132  cuDNN 92000  diffusers 0.39.0  mstar 99f5108b
+
+| variant | median ms/chunk | p90 ms | decoder fps (12/median) | peak alloc GiB | PSNR float dB | PSNR u8 dB | note |
+|---|---:|---:|---:|---:|---:|---:|---|
+| ref_fp32 | 2407.46 | 2407.61 | 5.0 | 7.73 |  |  |  |
+| diffusers_bf16 | 192.11 | 192.33 | 62.5 | 4.44 | 59.75 | 54.91 |  |
+| mstar_ar_ctx8_eager | 657.71 | 658.0 | 18.2 | 4.58 |  | 52.05 | decodes 11 latents/chunk |
+| mstar_wan22_oneshot_81f | 192.23 | 192.25 | 62.4 | 4.62 |  |  | whole 81-frame clip 1298 ms, per-12-frame share |
+| mstar_wan22_oneshot_241f | 192.76 | 192.77 | 62.3 | 5.19 |  |  | whole 241-frame clip 3871 ms, per-12-frame share |
+| mstar_wan22_oneshot_241f_tiled | 429.54 | 429.96 | 27.9 | 2.96 |  |  | whole 241-frame clip 8627 ms, per-12-frame share |
+| rx_cl | 162.12 | 162.28 | 74.0 | 4.01 | 59.75 | 54.91 | non-CL conv inputs 4/100 |
+| rx_cl_chunk | 149.15 | 149.3 | 80.5 | 8.01 | 59.75 | 54.91 | non-CL conv inputs 1/34 |
+| diffusers_bf16 (drift) | 192.14 | 192.34 | 62.5 | 4.44 | 59.75 | 54.91 |  |
+
+[run_all] 05:06:38 done -> ${VM_HOME}/wan-bench/results/b200-wan21
+RUN_ALL_EXIT=0
+[rerun] 05:10:55 installed python3.12-dev (Triton needs Python.h)
+[rerun] 05:10:55 bench --variant diffusers_bf16_compile --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+{"variant": "diffusers_bf16_compile", "n_samples": 150, "median_ms": 95.9, "p90_ms": 96.55, "p10_ms": 95.09, "mean_ms": 95.87, "decoder_fps": 125.1, "psnr_float_db_vs_fp32": 59.93, "psnr_u8_db_vs_fp32": 54.98, "first_timed_call_ms": 26975.2, "wall_s": 84.7, "peak_allocated_gib": 6.19, "peak_reserved_gib": 10.61, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:12:23 bench --variant mstar_ar_ctx8 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+{"variant": "mstar_ar_ctx8", "n_samples": 150, "median_ms": 336.2, "p90_ms": 338.39, "p10_ms": 333.73, "mean_ms": 336.07, "decoder_fps": 35.7, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": 52.09, "first_timed_call_ms": 38649.2, "wall_s": 118.5, "peak_allocated_gib": 6.33, "peak_reserved_gib": 10.61, "decode_dtype": "torch.bfloat16", "steady_decode_latents": 11, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:14:25 bench --variant mstar_ar_ctx4 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+{"variant": "mstar_ar_ctx4", "n_samples": 75, "median_ms": 206.55, "p90_ms": 208.07, "p10_ms": 205.02, "mean_ms": 206.51, "decoder_fps": 58.1, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": 49.01, "first_timed_call_ms": 12793.9, "wall_s": 39.2, "peak_allocated_gib": 6.27, "peak_reserved_gib": 10.6, "decode_dtype": "torch.bfloat16", "steady_decode_latents": 7, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:15:08 bench --variant mstar_ar_ctx2 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+{"variant": "mstar_ar_ctx2", "n_samples": 75, "median_ms": 142.14, "p90_ms": 143.05, "p10_ms": 141.24, "mean_ms": 142.15, "decoder_fps": 84.4, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": 38.45, "first_timed_call_ms": 12335.2, "wall_s": 34.4, "peak_allocated_gib": 6.24, "peak_reserved_gib": 10.6, "decode_dtype": "torch.bfloat16", "steady_decode_latents": 5, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:15:46 bench --variant mstar_ar_ctx1 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --repeats 1
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+{"variant": "mstar_ar_ctx1", "n_samples": 75, "median_ms": 110.12, "p90_ms": 110.85, "p10_ms": 109.31, "mean_ms": 110.12, "decoder_fps": 109.0, "psnr_float_db_vs_fp32": null, "psnr_u8_db_vs_fp32": 28.36, "first_timed_call_ms": 12417.0, "wall_s": 27.6, "peak_allocated_gib": 6.23, "peak_reserved_gib": 10.6, "decode_dtype": "torch.bfloat16", "steady_decode_latents": 4, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:16:17 bench --variant rx_cl_chunk_compile --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+{"variant": "rx_cl_chunk_compile", "n_samples": 150, "median_ms": 63.56, "p90_ms": 64.74, "p10_ms": 62.38, "mean_ms": 63.35, "decoder_fps": 188.8, "psnr_float_db_vs_fp32": 59.93, "psnr_u8_db_vs_fp32": 54.98, "first_timed_call_ms": 8736.0, "wall_s": 60.7, "peak_allocated_gib": 20.0, "peak_reserved_gib": 35.91, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:17:21 bench --variant rx_full --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt --profile
+${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/profiler/profiler.py:272: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+USDT:2026-10-13 05:17:50 13123:13123 ActivityProfilerController.cpp:415] profiler_start
+USDT:2026-10-13 05:17:51 13123:13123 ActivityProfilerController.cpp:455] profiler_stop
+{"variant": "rx_full", "n_samples": 150, "median_ms": 63.53, "p90_ms": 64.55, "p10_ms": 62.32, "mean_ms": 63.31, "decoder_fps": 188.9, "psnr_float_db_vs_fp32": 59.93, "psnr_u8_db_vs_fp32": 54.98, "first_timed_call_ms": 2198.3, "wall_s": 27.7, "peak_allocated_gib": 20.0, "peak_reserved_gib": 35.65, "profile": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/rx_full.profile.txt", "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:17:52 bench --variant rx_full_fp16 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+{"variant": "rx_full_fp16", "n_samples": 150, "median_ms": 65.15, "p90_ms": 66.56, "p10_ms": 63.72, "mean_ms": 64.98, "decoder_fps": 184.2, "psnr_float_db_vs_fp32": 80.05, "psnr_u8_db_vs_fp32": 61.83, "first_timed_call_ms": 8720.6, "wall_s": 60.6, "peak_allocated_gib": 20.0, "peak_reserved_gib": 35.91, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:18:56 bench --variant diffusers_bf16 --vae wan21 --latents ${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt --ref ${VM_HOME}/wan-bench/results/b200-wan21/wan21/ref_fp32_outputs.pt
+{"variant": "diffusers_bf16", "n_samples": 150, "median_ms": 192.12, "p90_ms": 192.37, "p10_ms": 191.88, "mean_ms": 192.13, "decoder_fps": 62.5, "psnr_float_db_vs_fp32": 59.75, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 196.4, "wall_s": 36.9, "peak_allocated_gib": 4.44, "peak_reserved_gib": 6.41, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[rerun] 05:19:36 RERUN_DONE
+[phase2] 05:40:48 bench --variant rx_cl_compile
+{"variant": "rx_cl_compile", "n_samples": 150, "median_ms": 68.6, "p90_ms": 70.25, "p10_ms": 66.89, "mean_ms": 68.41, "decoder_fps": 174.9, "psnr_float_db_vs_fp32": 59.92, "psnr_u8_db_vs_fp32": 54.98, "first_timed_call_ms": 18853.0, "wall_s": 45.6, "peak_allocated_gib": 8.63, "peak_reserved_gib": 13.47, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[phase2] 05:41:37 bench --variant rx_chunk_compile
+{"variant": "rx_chunk_compile", "n_samples": 150, "median_ms": 93.22, "p90_ms": 94.67, "p10_ms": 92.24, "mean_ms": 93.29, "decoder_fps": 128.7, "psnr_float_db_vs_fp32": 59.93, "psnr_u8_db_vs_fp32": 54.98, "first_timed_call_ms": 12193.2, "wall_s": 93.4, "peak_allocated_gib": 11.82, "peak_reserved_gib": 25.24, "latents": "${VM_HOME}/wan-bench/results/b200-wan21/wan21/latents.pt", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"}
+[phase2] 05:43:14 PHASE2_DONE

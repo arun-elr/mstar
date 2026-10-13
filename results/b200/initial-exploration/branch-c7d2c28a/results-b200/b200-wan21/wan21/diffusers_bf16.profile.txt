@@ -1,0 +1,55 @@
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+void at::native::elementwise_kernel<128, 4, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us     248.327ms        21.44%     248.327ms      99.730us          2490  
+cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us     111.020ms         9.58%     111.020ms     881.111us           126  
+void cudnn::engines_precompiled::nchwToNhwcKernel<__...         0.00%       0.000us         0.00%       0.000us       0.000us      98.019ms         8.46%      98.019ms      77.793us          1260  
+void at::native::elementwise_kernel<128, 4, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us      87.291ms         7.54%      87.291ms     120.236us           726  
+void at::native::elementwise_kernel<128, 2, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us      85.896ms         7.41%      85.896ms     159.066us           540  
+void at::native::unrolled_elementwise_kernel<at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us      83.928ms         7.24%      83.928ms     141.292us           594  
+void at::native::elementwise_kernel<128, 4, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us      69.490ms         6.00%      69.490ms     128.685us           540  
+cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us      64.516ms         5.57%      64.516ms     597.372us           108  
+void cudnn::engines_precompiled::nhwcToNchwKernel<__...         0.00%       0.000us         0.00%       0.000us       0.000us      46.932ms         4.05%      46.932ms      72.427us           648  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      32.854ms         2.84%      32.854ms      55.310us           594  
+cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us      30.285ms         2.61%      30.285ms     240.357us           126  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      26.499ms         2.29%      26.499ms      50.765us           522  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      24.361ms         2.10%      24.361ms      45.112us           540  
+void at::native::reduce_kernel<128, 4, at::native::R...         0.00%       0.000us         0.00%       0.000us       0.000us      24.149ms         2.08%      24.149ms      44.721us           540  
+void at::native::(anonymous namespace)::upsample_nea...         0.00%       0.000us         0.00%       0.000us       0.000us      23.395ms         2.02%      23.395ms     433.239us            54  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      18.748ms         1.62%      18.748ms      34.337us           546  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      18.533ms         1.60%      18.533ms      33.943us           546  
+cutlass3x_sm100_tensorop_s256x64x16implicit_gemm_fpr...         0.00%       0.000us         0.00%       0.000us       0.000us      12.926ms         1.12%      12.926ms     718.110us            18  
+fmha_cutlassF_bf16_aligned_32x128_gmem_sm80(PyTorchM...         0.00%       0.000us         0.00%       0.000us       0.000us      11.210ms         0.97%      11.210ms     622.752us            18  
+cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us      10.303ms         0.89%      10.303ms      47.701us           216  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us       8.726ms         0.75%       8.726ms      37.290us           234  
+cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_wei...         0.00%       0.000us         0.00%       0.000us       0.000us       7.908ms         0.68%       7.908ms     439.341us            18  
+void at::native::elementwise_kernel<128, 2, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us       6.110ms         0.53%       6.110ms     113.157us            54  
+                         Memcpy DtoD (Device -> Device)         0.00%       0.000us         0.00%       0.000us       0.000us       3.456ms         0.30%       3.456ms       8.348us           414  
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us       1.227ms         0.11%       1.227ms       2.273us           540  
+cutlass3x_sm100_tensorop_s128x256x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us       1.049ms         0.09%       1.049ms      58.276us            18  
+cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us     219.011us         0.02%     219.011us      12.167us            18  
+         nvjet_sm100_tst_256x128_64x5_2x1_2cta_v_bz_NNT         0.00%       0.000us         0.00%       0.000us       0.000us     196.288us         0.02%     196.288us      10.905us            18  
+                                        Memset (Device)         0.00%       0.000us         0.00%       0.000us       0.000us     180.481us         0.02%     180.481us       1.253us           144  
+void tensorTransformGeneric<__nv_bfloat16, __nv_bflo...         0.00%       0.000us         0.00%       0.000us       0.000us     173.601us         0.01%     173.601us       9.645us            18  
+void at::native::unrolled_elementwise_kernel<at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us     169.601us         0.01%     169.601us      28.267us             6  
+              nvjet_sm100_tst_128x192_64x5_1x2_h_bz_NNT         0.00%       0.000us         0.00%       0.000us       0.000us     134.080us         0.01%     134.080us       7.449us            18  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us     123.617us         0.01%     123.617us      10.301us            12  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      54.913us         0.00%      54.913us       9.152us             6  
+         nvjet_sm100_tst_128x16_64x12_2x1_2cta_v_bz_NNT         0.00%       0.000us         0.00%       0.000us       0.000us      17.696us         0.00%      17.696us       2.949us             6  
+                                Activity Buffer Request         0.10%       1.057ms         0.21%       2.257ms     752.392us       0.000us         0.00%       0.000us       0.000us             3  
+                                       cudaLaunchKernel         4.51%      48.128ms        75.05%     801.386ms      72.668us       0.000us         0.00%       0.000us       0.000us         11028  
+                                       cuLaunchKernelEx         0.33%       3.472ms         6.93%      74.034ms     107.296us       0.000us         0.00%       0.000us       0.000us           690  
+                                     cudaGetErrorString         0.01%     159.538us         0.01%     159.538us       0.082us       0.000us         0.00%       0.000us       0.000us          1944  
+                                        cudaMemcpyAsync         0.32%       3.398ms         5.20%      55.481ms     134.013us       0.000us         0.00%       0.000us       0.000us           414  
+                                  cudaStreamIsCapturing         0.00%      14.027us         0.00%      14.027us       0.779us       0.000us         0.00%       0.000us       0.000us            18  
+                                   cudaFuncSetAttribute         0.00%      43.089us         0.00%      43.089us       2.394us       0.000us         0.00%       0.000us       0.000us            18  
+                                        cudaMemsetAsync         0.02%     170.799us         0.29%       3.065ms     170.301us       0.000us         0.00%       0.000us       0.000us            18  
+                                 cudaDeviceGetAttribute         0.00%      26.446us         0.00%      26.446us       0.367us       0.000us         0.00%       0.000us       0.000us            72  
+                                  cudaFuncGetAttributes         0.01%      64.077us         0.01%      64.077us       3.560us       0.000us         0.00%       0.000us       0.000us            18  
+cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFla...         0.00%      22.047us         0.00%      22.047us       1.225us       0.000us         0.00%       0.000us       0.000us            18  
+                                    Command Buffer Full        82.95%     885.790ms        82.95%     885.790ms     167.605us       0.000us         0.00%       0.000us       0.000us          5285  
+                                           Buffer Flush         0.05%     501.184us         0.05%     501.184us     501.184us       0.000us         0.00%       0.000us       0.000us             1  
+                                  cudaDeviceSynchronize        11.70%     124.953ms        11.70%     124.953ms      62.477ms       0.000us         0.00%       0.000us       0.000us             2  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 1.068s
+Self CUDA time total: 1.158s

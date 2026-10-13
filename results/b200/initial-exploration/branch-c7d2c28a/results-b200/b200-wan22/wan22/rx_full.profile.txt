@@ -1,0 +1,66 @@
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us     220.068ms        49.15%     220.068ms       3.057ms            72  
+cutlass3x_sm100_tensorop_s128x128x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us      65.430ms        14.61%      65.430ms       1.558ms            42  
+cutlass3x_sm100_tensorop_s64x256x16_conv3d_fprop_wei...         0.00%       0.000us         0.00%       0.000us       0.000us      22.282ms         4.98%      22.282ms       3.714ms             6  
+cutlass3x_sm100_tensorop_s256x256x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us      21.616ms         4.83%      21.616ms       3.603ms             6  
+cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us      15.622ms         3.49%      15.622ms     236.696us            66  
+void at::native::elementwise_kernel<128, 4, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us      13.834ms         3.09%      13.834ms     256.187us            54  
+triton_per_fused__to_copy_add_clamp_min_constant_pad...         0.00%       0.000us         0.00%       0.000us       0.000us      11.145ms         2.49%      11.145ms     132.676us            84  
+                     triton_poi_fused_constant_pad_nd_5         0.00%       0.000us         0.00%       0.000us       0.000us      10.911ms         2.44%      10.911ms     181.842us            60  
+cutlass3x_sm100_tensorop_s256x64x16implicit_gemm_fpr...         0.00%       0.000us         0.00%       0.000us       0.000us       7.272ms         1.62%       7.272ms     605.982us            12  
+triton_per_fused__to_copy_add_clamp_min_div_expand_l...         0.00%       0.000us         0.00%       0.000us       0.000us       7.120ms         1.59%       7.120ms     237.330us            30  
+                     triton_poi_fused_constant_pad_nd_2         0.00%       0.000us         0.00%       0.000us       0.000us       6.130ms         1.37%       6.130ms      56.757us           108  
+void at::native::elementwise_kernel<128, 4, at::nati...         0.00%       0.000us         0.00%       0.000us       0.000us       5.761ms         1.29%       5.761ms     320.083us            18  
+triton_poi_fused__to_copy__unsafe_index_add_arange_c...         0.00%       0.000us         0.00%       0.000us       0.000us       5.203ms         1.16%       5.203ms     867.130us             6  
+triton_per_fused__to_copy_add_clamp_min_constant_pad...         0.00%       0.000us         0.00%       0.000us       0.000us       4.980ms         1.11%       4.980ms     415.013us            12  
+triton_poi_fused__to_copy__unsafe_index_add_arange_c...         0.00%       0.000us         0.00%       0.000us       0.000us       4.098ms         0.92%       4.098ms     682.942us             6  
+triton_per_fused__to_copy_add_clamp_min_constant_pad...         0.00%       0.000us         0.00%       0.000us       0.000us       3.743ms         0.84%       3.743ms     311.911us            12  
+cutlass3x_sm100_tensorop_s256x128x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us       3.590ms         0.80%       3.590ms     299.140us            12  
+fmha_cutlassF_bf16_aligned_32x128_gmem_sm80(PyTorchM...         0.00%       0.000us         0.00%       0.000us       0.000us       2.083ms         0.47%       2.083ms     347.186us             6  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us       1.999ms         0.45%       1.999ms     333.148us             6  
+triton_poi_fused__to_copy__unsafe_index_add_arange_c...         0.00%       0.000us         0.00%       0.000us       0.000us       1.859ms         0.42%       1.859ms     154.875us            12  
+triton_poi_fused__to_copy_add_cat_clamp_min_constant...         0.00%       0.000us         0.00%       0.000us       0.000us       1.662ms         0.37%       1.662ms      27.699us            60  
+                 triton_poi_fused_cat_constant_pad_nd_0         0.00%       0.000us         0.00%       0.000us       0.000us       1.641ms         0.37%       1.641ms     136.734us            12  
+     triton_poi_fused_add_constant_pad_nd_convolution_8         0.00%       0.000us         0.00%       0.000us       0.000us       1.536ms         0.34%       1.536ms     255.921us             6  
+triton_poi_fused_add_clone_expand_permute_unsqueeze_...         0.00%       0.000us         0.00%       0.000us       0.000us       1.530ms         0.34%       1.530ms     127.462us            12  
+triton_poi_fused__to_copy_add_cat_clamp_min_div_expa...         0.00%       0.000us         0.00%       0.000us       0.000us       1.296ms         0.29%       1.296ms      11.997us           108  
+triton_per_fused__to_copy_add_clamp_min_div_expand_l...         0.00%       0.000us         0.00%       0.000us       0.000us       1.217ms         0.27%       1.217ms     202.780us             6  
+triton_per_fused__to_copy_add_clamp_min_clone_consta...         0.00%       0.000us         0.00%       0.000us       0.000us     567.074us         0.13%     567.074us      47.256us            12  
+triton_per_fused__to_copy_add_clamp_min_constant_pad...         0.00%       0.000us         0.00%       0.000us       0.000us     411.552us         0.09%     411.552us      34.296us            12  
+void nhwcAddPaddingKernel<__nv_bfloat16, __nv_bfloat...         0.00%       0.000us         0.00%       0.000us       0.000us     374.209us         0.08%     374.209us      31.184us            12  
+                     triton_poi_fused_cat_convolution_1         0.00%       0.000us         0.00%       0.000us       0.000us     366.307us         0.08%     366.307us      30.526us            12  
+cutlass3x_sm100_tensorop_s128x256x16implicit_gemm_fp...         0.00%       0.000us         0.00%       0.000us       0.000us     283.169us         0.06%     283.169us      47.195us             6  
+                                 triton_poi_fused_cat_0         0.00%       0.000us         0.00%       0.000us       0.000us     265.027us         0.06%     265.027us      22.086us            12  
+         nvjet_sm100_tst_256x128_64x5_2x1_2cta_v_bz_TNT         0.00%       0.000us         0.00%       0.000us       0.000us     230.722us         0.05%     230.722us      19.227us            12  
+     triton_poi_fused_add_constant_pad_nd_convolution_6         0.00%       0.000us         0.00%       0.000us       0.000us     228.481us         0.05%     228.481us      19.040us            12  
+                         Memcpy DtoD (Device -> Device)         0.00%       0.000us         0.00%       0.000us       0.000us     227.586us         0.05%     227.586us      18.965us            12  
+void at::native::unrolled_elementwise_kernel<at::nat...         0.00%       0.000us         0.00%       0.000us       0.000us     222.401us         0.05%     222.401us      37.067us             6  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us     162.400us         0.04%     162.400us      13.533us            12  
+                                        Memset (Device)         0.00%       0.000us         0.00%       0.000us       0.000us     104.128us         0.02%     104.128us       1.335us            78  
+     triton_poi_fused_cat_constant_pad_nd_convolution_1         0.00%       0.000us         0.00%       0.000us       0.000us     101.600us         0.02%     101.600us       8.467us            12  
+                         triton_poi_fused_clone_slice_0         0.00%       0.000us         0.00%       0.000us       0.000us      88.769us         0.02%      88.769us       7.397us            12  
+triton_per_fused__to_copy_add_clamp_min_constant_pad...         0.00%       0.000us         0.00%       0.000us       0.000us      81.504us         0.02%      81.504us      13.584us             6  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      70.624us         0.02%      70.624us      11.771us             6  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      70.304us         0.02%      70.304us      11.717us             6  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us      70.272us         0.02%      70.272us      11.712us             6  
+triton_per_fused__to_copy_add_clamp_min_constant_pad...         0.00%       0.000us         0.00%       0.000us       0.000us      48.096us         0.01%      48.096us       8.016us             6  
+     triton_poi_fused_add_constant_pad_nd_convolution_9         0.00%       0.000us         0.00%       0.000us       0.000us      37.120us         0.01%      37.120us       6.187us             6  
+triton_poi_fused__scaled_dot_product_efficient_atten...         0.00%       0.000us         0.00%       0.000us       0.000us      33.504us         0.01%      33.504us       5.584us             6  
+triton_poi_fused__scaled_dot_product_efficient_atten...         0.00%       0.000us         0.00%       0.000us       0.000us      33.120us         0.01%      33.120us       5.520us             6  
+triton_poi_fused__scaled_dot_product_efficient_atten...         0.00%       0.000us         0.00%       0.000us       0.000us      32.928us         0.01%      32.928us       5.488us             6  
+               nvjet_sm100_tst_64x24_64x16_1x2_h_bz_NNT         0.00%       0.000us         0.00%       0.000us       0.000us      21.569us         0.00%      21.569us       3.595us             6  
+                                Activity Buffer Request         0.07%     314.822us         0.07%     314.822us     314.822us       0.000us         0.00%       0.000us       0.000us             1  
+                                       cudaLaunchKernel         0.16%     698.692us         0.16%     698.692us       5.293us       0.000us         0.00%       0.000us       0.000us           132  
+                                       cuLaunchKernelEx         0.30%       1.296ms         0.30%       1.296ms       5.022us       0.000us         0.00%       0.000us       0.000us           258  
+                                        cudaMemcpyAsync         0.04%     159.680us         0.04%     159.680us      13.307us       0.000us         0.00%       0.000us       0.000us            12  
+                                         cuLaunchKernel         0.68%       2.890ms         0.68%       2.890ms       4.544us       0.000us         0.00%       0.000us       0.000us           636  
+                                  cudaStreamIsCapturing         0.00%       5.821us         0.00%       5.821us       0.970us       0.000us         0.00%       0.000us       0.000us             6  
+                                   cudaFuncSetAttribute         0.00%      18.588us         0.00%      18.588us       3.098us       0.000us         0.00%       0.000us       0.000us             6  
+                                        cudaMemsetAsync         0.01%      55.286us         0.01%      55.286us       9.214us       0.000us         0.00%       0.000us       0.000us             6  
+                                     cudaGetErrorString         0.00%       2.519us         0.00%       2.519us       0.140us       0.000us         0.00%       0.000us       0.000us            18  
+                                 cudaDeviceGetAttribute         0.00%      13.257us         0.00%      13.257us       0.276us       0.000us         0.00%       0.000us       0.000us            48  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 425.845ms
+Self CUDA time total: 447.757ms
