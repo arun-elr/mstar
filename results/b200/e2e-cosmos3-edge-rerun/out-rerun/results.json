@@ -1,0 +1,368 @@
+{
+ "phases": [
+  {
+   "variant": "before",
+   "phase": "kv_c1",
+   "mode": "kv",
+   "concurrency": 1,
+   "rounds": 3,
+   "requests_ok": 3,
+   "errors": [],
+   "windows": 8,
+   "frames": 241,
+   "ttff_s": 1.3677679499960504,
+   "window_gap_med_s": 1.8899981859867694,
+   "window_gap_p90_s": 1.91032178500609,
+   "total_s": 14.26161911599047,
+   "fps_per_stream": 16.898502059263734,
+   "round_wall_s": 14.2654162789986,
+   "fps_aggregate": 16.894004022497242,
+   "ttff_all_s": [
+    1.361,
+    1.373,
+    1.368
+   ],
+   "total_all_s": [
+    14.262,
+    14.279,
+    14.248
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1,
+     "total_ms": 6.95,
+     "avg_ms": 6.95
+    },
+    "dit/video_gen_ar": {
+     "n": 168,
+     "total_ms": 10297.2,
+     "avg_ms": 61.3
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 9,
+     "total_ms": 4332.4,
+     "avg_ms": 481.4
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1,
+     "total_ms": 10.2,
+     "avg_ms": 10.2
+    }
+   },
+   "dit_ms_per_window": 1287.15,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 541.55,
+   "decoder_ms_per_request": 4332.4,
+   "decoder_share_of_request_wall": 0.3037803747782332,
+   "mem_by_pid": {
+    "266978": {
+     "max_allocated_gib": 33.845890522003174,
+     "max_reserved_gib": 35.984375,
+     "allocated_gib": 28.536802768707275,
+     "resets": 1,
+     "argv": "~/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs/before/config.ya"
+    },
+    "267071": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 1,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 33.845890522003174,
+   "torch_max_reserved_gib": 35.984375,
+   "torch_idle_allocated_gib": 28.536802768707275,
+   "torch_peak_above_idle_gib": 5.309087753295898,
+   "smi_peak_mib": 37998
+  },
+  {
+   "variant": "before",
+   "phase": "ch_c1",
+   "mode": "chained",
+   "concurrency": 1,
+   "rounds": 2,
+   "requests_ok": 2,
+   "errors": [],
+   "windows": 10.0,
+   "frames": 241.0,
+   "ttff_s": 1.3105668674979825,
+   "window_gap_med_s": 1.184040788495622,
+   "window_gap_p90_s": 1.191384586201457,
+   "total_s": 11.89394476999587,
+   "fps_per_stream": 20.262411289885108,
+   "round_wall_s": 11.898825619507988,
+   "fps_aggregate": 20.254099691982283,
+   "ttff_all_s": [
+    1.298,
+    1.324
+   ],
+   "total_all_s": [
+    11.895,
+    11.893
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1.0,
+     "total_ms": 6.715,
+     "avg_ms": 6.715
+    },
+    "dit/video_gen_ar": {
+     "n": 200.0,
+     "total_ms": 7489.95,
+     "avg_ms": 37.45
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 11.0,
+     "total_ms": 4716.4,
+     "avg_ms": 428.8
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1.0,
+     "total_ms": 10.35,
+     "avg_ms": 10.35
+    }
+   },
+   "dit_ms_per_window": 748.995,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 471.64,
+   "decoder_ms_per_request": 4716.4,
+   "decoder_share_of_request_wall": 0.3965379099369769,
+   "mem_by_pid": {
+    "266978": {
+     "max_allocated_gib": 33.828025817871094,
+     "max_reserved_gib": 35.984375,
+     "allocated_gib": 28.53680181503296,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs/before/config.ya"
+    },
+    "267071": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 33.828025817871094,
+   "torch_max_reserved_gib": 35.984375,
+   "torch_idle_allocated_gib": 28.53680181503296,
+   "torch_peak_above_idle_gib": 5.291224002838135,
+   "smi_peak_mib": 37998
+  },
+  {
+   "variant": "default",
+   "phase": "kv_c1",
+   "mode": "kv",
+   "concurrency": 1,
+   "rounds": 3,
+   "requests_ok": 3,
+   "errors": [],
+   "windows": 8,
+   "frames": 241,
+   "ttff_s": 1.344943643998704,
+   "window_gap_med_s": 1.5610144889942603,
+   "window_gap_p90_s": 1.5706236520054517,
+   "total_s": 11.92758552399755,
+   "fps_per_stream": 20.205262793138075,
+   "round_wall_s": 11.931619469993166,
+   "fps_aggregate": 20.19843162163284,
+   "ttff_all_s": [
+    1.343,
+    1.345,
+    1.345
+   ],
+   "total_all_s": [
+    11.906,
+    11.928,
+    11.93
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1,
+     "total_ms": 6.77,
+     "avg_ms": 6.77
+    },
+    "dit/video_gen_ar": {
+     "n": 168,
+     "total_ms": 10344.5,
+     "avg_ms": 61.6
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 9,
+     "total_ms": 1919.9,
+     "avg_ms": 213.3
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1,
+     "total_ms": 10.4,
+     "avg_ms": 10.4
+    }
+   },
+   "dit_ms_per_window": 1293.0625,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 239.9875,
+   "decoder_ms_per_request": 1919.9,
+   "decoder_share_of_request_wall": 0.1609630043010199,
+   "mem_by_pid": {
+    "263352": {
+     "max_allocated_gib": 33.94939422607422,
+     "max_reserved_gib": 36.337890625,
+     "allocated_gib": 29.570685386657715,
+     "resets": 1,
+     "argv": "~/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs/default/config.yam"
+    },
+    "263459": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 1,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 33.94939422607422,
+   "torch_max_reserved_gib": 36.337890625,
+   "torch_idle_allocated_gib": 29.570685386657715,
+   "torch_peak_above_idle_gib": 4.378708839416504,
+   "smi_peak_mib": 38370
+  },
+  {
+   "variant": "default",
+   "phase": "ch_c1",
+   "mode": "chained",
+   "concurrency": 1,
+   "rounds": 2,
+   "requests_ok": 2,
+   "errors": [],
+   "windows": 10.0,
+   "frames": 241.0,
+   "ttff_s": 1.2716528340024524,
+   "window_gap_med_s": 0.869501641493116,
+   "window_gap_p90_s": 0.878289301902987,
+   "total_s": 9.037385056508356,
+   "fps_per_stream": 26.667007474177737,
+   "round_wall_s": 9.042487521495786,
+   "fps_aggregate": 26.651959824283203,
+   "ttff_all_s": [
+    1.268,
+    1.276
+   ],
+   "total_all_s": [
+    9.035,
+    9.04
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1.0,
+     "total_ms": 6.91,
+     "avg_ms": 6.91
+    },
+    "dit/video_gen_ar": {
+     "n": 200.0,
+     "total_ms": 7586.8,
+     "avg_ms": 37.95
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 11.0,
+     "total_ms": 1788.3000000000002,
+     "avg_ms": 162.55
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1.0,
+     "total_ms": 10.2,
+     "avg_ms": 10.2
+    }
+   },
+   "dit_ms_per_window": 758.6800000000001,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 178.83,
+   "decoder_ms_per_request": 1788.3000000000002,
+   "decoder_share_of_request_wall": 0.1978780353850409,
+   "mem_by_pid": {
+    "263352": {
+     "max_allocated_gib": 35.35621881484985,
+     "max_reserved_gib": 36.337890625,
+     "allocated_gib": 29.5706844329834,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs/default/config.yam"
+    },
+    "263459": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 35.35621881484985,
+   "torch_max_reserved_gib": 36.337890625,
+   "torch_idle_allocated_gib": 29.5706844329834,
+   "torch_peak_above_idle_gib": 5.785534381866455,
+   "smi_peak_mib": 38370
+  }
+ ],
+ "startup": {
+  "before": {
+   "startup_s": 59.43269634246826,
+   "mem_after_startup": {
+    "266978": {
+     "max_allocated_gib": 33.87713050842285,
+     "max_reserved_gib": 35.984375,
+     "allocated_gib": 28.57808542251587,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/mstar-main/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs/before/config.ya"
+    },
+    "267071": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   }
+  },
+  "default": {
+   "startup_s": 125.85689282417297,
+   "mem_after_startup": {
+    "263352": {
+     "max_allocated_gib": 35.3558235168457,
+     "max_reserved_gib": 36.337890625,
+     "allocated_gib": 29.68610954284668,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs/default/config.yam"
+    },
+    "263459": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   }
+  }
+ },
+ "equivalence": {
+  "kv": null,
+  "chained": null
+ },
+ "mp4_md5": {
+  "before/ch_c1": {
+   "r0_s0": "89ba520dfbb8b23d2a173820374c57cf",
+   "r1_s0": "89ba520dfbb8b23d2a173820374c57cf"
+  },
+  "before/kv_c1": {
+   "r0_s0": "88e827151af53fd49e1eaee32176e218",
+   "r1_s0": "88e827151af53fd49e1eaee32176e218",
+   "r2_s0": "88e827151af53fd49e1eaee32176e218"
+  },
+  "default/ch_c1": {
+   "r0_s0": "ece74afa7201a017e4ed6630059629b7",
+   "r1_s0": "ece74afa7201a017e4ed6630059629b7"
+  },
+  "default/kv_c1": {
+   "r0_s0": "846ba0b7cc7a6a78a8f506ea18ed392a",
+   "r1_s0": "846ba0b7cc7a6a78a8f506ea18ed392a",
+   "r2_s0": "846ba0b7cc7a6a78a8f506ea18ed392a"
+  }
+ }
+}

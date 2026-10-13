@@ -1,0 +1,4 @@
+{"phase": "kv_c1", "event": "start", "t": 1791934271.255267455, "stats_bytes": 4563}
+{"phase": "kv_c1", "event": "end", "t": 1791934319.078678072, "stats_bytes": 14107}
+{"phase": "ch_c1", "event": "start", "t": 1791934322.613193492, "stats_bytes": 14107}
+{"phase": "ch_c1", "event": "end", "t": 1791934352.444350687, "stats_bytes": 21271}
