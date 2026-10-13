@@ -147,6 +147,50 @@ def test_channels_last_stream_feeds_every_conv_channels_last(kind, monkeypatch) 
     torch.testing.assert_close(torch.cat(parts, dim=2), ref, rtol=0, atol=1e-5)
 
 
+def _storage_bytes(cache: list) -> int:
+    storages = {t.untyped_storage().data_ptr(): t.untyped_storage().nbytes() for t in cache if torch.is_tensor(t)}
+    return sum(storages.values())
+
+
+@pytest.mark.parametrize("kind", KINDS)
+def test_compiled_channels_last_stream_cache_owns_its_storage(kind) -> None:
+    """Compiled on channels-last activations, Inductor drops diffusers' cache
+    clone and returns each slot as a view of a whole conv input; the stream
+    must still hold only ``feat_cache_bytes``, and the same frames. Eager and
+    compiled writes leave the same strides, so a stream's compiled calls are
+    not recompiled for the layout its eager first calls left."""
+    vae = tiny_wan_vae(kind)
+    z = _latents(vae, 8)
+    wan_vae.to_channels_last(vae)
+    outs, strides = {}, {}
+    for compile in (False, True):
+        step, cache = wan_vae.DecoderStep(vae, compile=compile), wan_vae.new_feat_cache(vae)
+        with torch.no_grad():
+            outs[compile] = [wan_vae.decode_causal(vae, z[:, :, a:b], cache, step, clip_start=a == 0)
+                             for a, b in ((0, 2), (2, 5), (5, 8))]
+        slots = [t for t in cache if torch.is_tensor(t)]
+        assert len(slots) > 10
+        assert all(t.untyped_storage().nbytes() == t.numel() * t.element_size() for t in slots)
+        assert _storage_bytes(cache) == wan_vae.feat_cache_bytes(cache)
+        strides[compile] = [t.stride() for t in slots]
+    assert strides[True] == strides[False]
+    torch.testing.assert_close(torch.cat(outs[True], 2), torch.cat(outs[False], 2), rtol=0, atol=1e-5)
+
+
+def test_compact_feat_cache_replaces_only_views() -> None:
+    owned = torch.randn(1, 4, 2, 3, 5).contiguous(memory_format=torch.channels_last_3d)
+    big = torch.randn(1, 4, 6, 3, 5).contiguous(memory_format=torch.channels_last_3d)
+    first = torch.randn(1, 4, 6, 3, 5)
+    cache = [None, "Rep", owned, big[:, :, -2:], first[:, :, -2:]]
+    before = [t.clone() if torch.is_tensor(t) else t for t in cache]
+    wan_vae.compact_feat_cache(cache)
+    assert cache[:3] == [None, "Rep", owned] and cache[2] is owned
+    assert all(torch.equal(cache[i], before[i]) for i in (3, 4))
+    assert cache[3].is_contiguous(memory_format=torch.channels_last_3d) and cache[4].is_contiguous()
+    assert cache[3].stride() == owned.stride()
+    assert _storage_bytes(cache) == wan_vae.feat_cache_bytes(cache)
+
+
 @pytest.mark.parametrize("before", [False, True])
 def test_cudnn_benchmark_is_scoped(before, monkeypatch) -> None:
     monkeypatch.setattr(torch.backends.cudnn, "benchmark", before)

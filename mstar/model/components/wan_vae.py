@@ -84,13 +84,63 @@ def is_channels_last(vae: nn.Module) -> bool:
     return isinstance(getattr(vae, "post_quant_conv", None), ChannelsLastCausalConv3d)
 
 
-def new_feat_cache(vae: nn.Module) -> list:
+class FeatCache(list):
+    """A decoder feature cache that a compiled call writes as compact copies.
+
+    Diffusers caches ``x[:, :, -CACHE_T:].clone()``. On channels-last
+    activations at batch 1 that slice is dense, so the clone has the slice's
+    strides and Inductor removes it as a no-op: a compiled call returns the
+    slot as a view of the conv input it was sliced from (the cached frames
+    plus all of the call's new frames), and the view keeps that buffer alive
+    for as long as the stream holds the cache. Under compile a slot is
+    written as a copy with ``_compact_strides`` instead, at the write, so the
+    buffer can be freed after its conv; ``compact_feat_cache`` catches any
+    slot that still comes back as a view. Eager writes get the same strides
+    (a re-view of their own storage), so the next compiled call's stride
+    guards see one layout whichever kind of call wrote the cache.
+    """
+
+    def __setitem__(self, index, value):
+        if torch.is_tensor(value):
+            value = _compact(value)
+        super().__setitem__(index, value)
+
+
+def _compact_strides(t: torch.Tensor) -> list[int]:
+    """Gap-free strides in ``t``'s dimension order; size-1 dims outermost."""
+    strides, step = [0] * t.dim(), 1
+    for d in sorted((d for d in range(t.dim()) if t.shape[d] != 1), key=t.stride):
+        strides[d] = step
+        step *= t.shape[d]
+    return [step if n == 1 else s for s, n in zip(strides, t.shape, strict=True)]
+
+
+def _compact(t: torch.Tensor) -> torch.Tensor:
+    strides = _compact_strides(t)
+    if torch.compiler.is_compiling():
+        return torch.empty_strided(t.shape, strides, dtype=t.dtype, device=t.device).copy_(t)
+    if list(t.stride()) == strides and t.untyped_storage().nbytes() == t.numel() * t.element_size():
+        return t
+    if t.storage_offset() == 0 and t.untyped_storage().nbytes() == t.numel() * t.element_size():
+        return t.as_strided(t.shape, strides)  # only size-1 dims' strides differ
+    return torch.empty_strided(t.shape, strides, dtype=t.dtype, device=t.device).copy_(t)
+
+
+def compact_feat_cache(feat_cache: list) -> None:
+    """Give every slot compact storage with ``_compact_strides``, in place,
+    so the cache holds only ``feat_cache_bytes``."""
+    for i, t in enumerate(feat_cache):
+        if torch.is_tensor(t):
+            list.__setitem__(feat_cache, i, _compact(t))
+
+
+def new_feat_cache(vae: nn.Module) -> FeatCache:
     """An empty decoder feature cache: one slot per causal conv, as
     ``AutoencoderKLWan.clear_cache`` builds it."""
     counts = getattr(vae, "_cached_conv_counts", None)
     if counts is not None:
-        return [None] * counts["decoder"]
-    return [None] * sum(isinstance(m, WanCausalConv3d) for m in vae.decoder.modules())
+        return FeatCache([None] * counts["decoder"])
+    return FeatCache([None] * sum(isinstance(m, WanCausalConv3d) for m in vae.decoder.modules()))
 
 
 def feat_cache_bytes(feat_cache: list) -> int:
@@ -133,10 +183,12 @@ class DecoderStep:
         if x.dtype == torch.bfloat16:
             key = (tuple(x.shape), x.stride(), _cache_signature(feat_cache))
             if key not in self._warmed:
-                scratch = [t.clone() if torch.is_tensor(t) else t for t in feat_cache]
+                scratch = type(feat_cache)(t.clone() if torch.is_tensor(t) else t for t in feat_cache)
                 self._fn(x, feat_cache=scratch, feat_idx=[0])
                 self._warmed.add(key)
-        return self._fn(x, feat_cache=feat_cache, feat_idx=[0])
+        out = self._fn(x, feat_cache=feat_cache, feat_idx=[0])
+        compact_feat_cache(feat_cache)
+        return out
 
 
 def decode_causal(
