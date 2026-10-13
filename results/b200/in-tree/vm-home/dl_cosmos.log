@@ -1,0 +1,105 @@
+Fetching 54 files:   0%|          | 0/54 [00:00<?, ?it/s]Downloading 'assets/benchmark-overall.png' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/fdc1dbbeda37163b09aab0b69e22c9cae2880eeb53e2287d71eba77e2985a1c1.incomplete'
+Downloading '.gitattributes' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/7faf8d7491ce765a8e1068acf3f50785b8d15c4b.incomplete'
+Downloading 'PRIVACY.md' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/7e2709dadccdd7983634f50e426168d09e3d4970.incomplete'
+Downloading 'assets/benchmark-image2video.png' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/ecc46661b6413d19a6f1ab3070368e462564e9ce.incomplete'
+Downloading 'EXPLAINABILITY.md' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/f11cb8f3552fbc6fa450de8fed0e34b5e841fce0.incomplete'
+Downloading 'BIAS.md' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/0a30eddc040494e434e27b3e39aaf62ce907b3c6.incomplete'
+Downloading 'SAFETY.md' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/44e1a5a58e8a5e76b8f0a6a415be45e59ba9f270.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/7faf8d7491ce765a8e1068acf3f50785b8d15c4b
+Downloading 'README.md' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/d782a3e462169916977d45a5a1526f00841f3a4d.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/7e2709dadccdd7983634f50e426168d09e3d4970
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/0a30eddc040494e434e27b3e39aaf62ce907b3c6
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/44e1a5a58e8a5e76b8f0a6a415be45e59ba9f270
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/f11cb8f3552fbc6fa450de8fed0e34b5e841fce0
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/ecc46661b6413d19a6f1ab3070368e462564e9ce
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/d782a3e462169916977d45a5a1526f00841f3a4d
+Downloading 'assets/diffusers_outputs/edge_action_fd_diffusers_chunk_00.mp4' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b1caf31ac170c43ae498a7b57fae88e6211baf62.incomplete'
+Downloading 'assets/diffusers_outputs/edge_i2v_diffusers.mp4' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/2fe93251039d8640625f660f42514d8fddd0812ae6918a4ea3cf5fc2363e4a16.incomplete'
+Downloading 'assets/diffusers_outputs/edge_action_fd_diffusers_chunk_01.mp4' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/a2a8f547797b37271774316732ec97e389a0bd41.incomplete'
+Downloading 'assets/edge_action_fd_umi_2chunk_output.mp4' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/10037bf0c2a20c46f24e616d7b822932babb45f72113833f320e2bb524c8c57b.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b1caf31ac170c43ae498a7b57fae88e6211baf62
+Fetching 54 files:  15%|█▍        | 8/54 [00:00<00:02, 17.65it/s]Downloading 'assets/diffusers_outputs/edge_action_fd_umi_2chunk_diffusers.mp4' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/8297b1e8cfa7735a53417e23541239eb066f3d68.incomplete'
+Downloading 'assets/diffusers_outputs/edge_action_id_av_inverse_0_diffusers.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b7b0bfe1b9fb327347fb152e5ad16b83cef29bc0.incomplete'
+Downloading 'assets/diffusers_outputs/edge_action_id_av_inverse_1_diffusers.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/c29ae8329b23d8053df18dd29841a96232ca78ea.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/a2a8f547797b37271774316732ec97e389a0bd41
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b7b0bfe1b9fb327347fb152e5ad16b83cef29bc0
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/c29ae8329b23d8053df18dd29841a96232ca78ea
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/8297b1e8cfa7735a53417e23541239eb066f3d68
+Downloading 'assets/edge_action_id_av_0_output.png' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/18b90a143ee04b6be339caa744d5c0debd3d36e90effa20f09c980c0678fec13.incomplete'
+Downloading 'assets/edge_action_id_av_1_output.png' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/660085cebabd54658a108922a9ae842c57cc7762291bb500035b3f8b01c22992.incomplete'
+Downloading 'assets/edge_i2v_output.mp4' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/d4e87cbc2efe25f40ac31d91a11a872f7b51d262ce764cfd0dde53a7be762998.incomplete'
+Downloading 'assets/edge_action_id_av_0_output.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/9a9ee99c0efb12e1e63711f8379e6188526dad36.incomplete'
+Downloading 'assets/edge_action_id_av_1_output.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/d55ea66be74eebc9dd213ca494a4b589878172d8.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/9a9ee99c0efb12e1e63711f8379e6188526dad36
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/d55ea66be74eebc9dd213ca494a4b589878172d8
+Downloading 'assets/example_action_fd_umi_action_chunks.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/a1d70feafb5369bf48d36fc9e45322defd8d52e7.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/a1d70feafb5369bf48d36fc9e45322defd8d52e7
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/fdc1dbbeda37163b09aab0b69e22c9cae2880eeb53e2287d71eba77e2985a1c1
+Fetching 54 files:  30%|██▉       | 16/54 [00:00<00:01, 21.43it/s]Downloading 'assets/example_action_fd_umi_first_frame.png' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/43888061e8a1265c3ec135425d5d4937706e4887.incomplete'
+Downloading 'assets/example_action_id_av_0_input.mp4' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/ff205f86ae169031c0e12c8c6bc8aabe24aeb44b84a16cba977669b29912f5fc.incomplete'
+Downloading 'assets/example_action_id_av_1_input.mp4' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/169e65cee76ef7c6366987a8e4c8e4ec6f803f5e624ba2ef39ba1f0c672925aa.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/43888061e8a1265c3ec135425d5d4937706e4887
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/10037bf0c2a20c46f24e616d7b822932babb45f72113833f320e2bb524c8c57b
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/2fe93251039d8640625f660f42514d8fddd0812ae6918a4ea3cf5fc2363e4a16
+Downloading 'assets/example_i2v_input.jpg' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/1de51eb5c6d51ec97aa3351a6685717b0253e36073eb9cdd3ef65affa115a4e2.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/18b90a143ee04b6be339caa744d5c0debd3d36e90effa20f09c980c0678fec13
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/660085cebabd54658a108922a9ae842c57cc7762291bb500035b3f8b01c22992
+Downloading 'assets/example_reasoning_input.png' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/6686b937bdb28e2c9804c435bd63a7ab56ac1531ffc9b482f2b8a75aed8770f5.incomplete'
+Downloading 'assets/example_i2v_prompt.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/15ff9ea5ad233da518fea09808397a3e6ebf0e5f.incomplete'
+Downloading 'assets/example_reasoning_prompt.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/3371076f17b1ff8bfff60fb24536b160f637809b.incomplete'
+Downloading 'assets/negative_prompt.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b51ecb2195e2f16a89959aa3b757c7d66cac6f22.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/15ff9ea5ad233da518fea09808397a3e6ebf0e5f
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/3371076f17b1ff8bfff60fb24536b160f637809b
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b51ecb2195e2f16a89959aa3b757c7d66cac6f22
+Fetching 54 files:  44%|████▍     | 24/54 [00:01<00:01, 22.31it/s]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/d4e87cbc2efe25f40ac31d91a11a872f7b51d262ce764cfd0dde53a7be762998
+Downloading 'chat_template.jinja' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/0a3d5967de71577bd2bb20994cee54c39bed63ba.incomplete'
+Downloading 'config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/dafc77c4e2d80aecea930d8d1f357f6bf60c729b.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/ff205f86ae169031c0e12c8c6bc8aabe24aeb44b84a16cba977669b29912f5fc
+Downloading 'images/benchmark-reasoning.png' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/75974a959d0eb23edb578dfd2b04656748b8f738f9bc19c2dd97f9d60c886fe1.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/0a3d5967de71577bd2bb20994cee54c39bed63ba
+Downloading 'generation_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/7494902456e3a7ce7a82c235b365fdb583e88ca7.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/dafc77c4e2d80aecea930d8d1f357f6bf60c729b
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/6686b937bdb28e2c9804c435bd63a7ab56ac1531ffc9b482f2b8a75aed8770f5
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/7494902456e3a7ce7a82c235b365fdb583e88ca7
+Downloading 'model.safetensors.index.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b8b757925668e0d356b927c9e026f8b26e1ba7d7.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/169e65cee76ef7c6366987a8e4c8e4ec6f803f5e624ba2ef39ba1f0c672925aa
+Downloading 'model_index.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/70fd5e0775133f2cbf4fc50c61507e4c49b071dc.incomplete'
+Downloading 'modular_model_index.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/2c40cc4651d1f7afeaad5cb3753a747e850902fc.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b8b757925668e0d356b927c9e026f8b26e1ba7d7
+Fetching 54 files:  59%|█████▉    | 32/54 [00:01<00:00, 25.50it/s]Downloading 'preprocessor_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/2155266cdf07aa75319c1603011bc5442df50910.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/1de51eb5c6d51ec97aa3351a6685717b0253e36073eb9cdd3ef65affa115a4e2
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/70fd5e0775133f2cbf4fc50c61507e4c49b071dc
+Downloading 'processor_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/acd64f939fb21c0200e727a17dec183aed0fcb87.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/2c40cc4651d1f7afeaad5cb3753a747e850902fc
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/2155266cdf07aa75319c1603011bc5442df50910
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/acd64f939fb21c0200e727a17dec183aed0fcb87
+Downloading 'scheduler/scheduler_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/27259df12f63f649cfc694ed1c2b9d3ee3ede711.incomplete'
+Downloading 'text_tokenizer/tokenizer.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/4dc692a99dca6d92a44e9529ffb53541eb79bb260eec7281bc51268c05d7311c.incomplete'
+Downloading 'special_tokens_map.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/0451f37912edb7f8a4bf04d77eef13f6130f0515.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/27259df12f63f649cfc694ed1c2b9d3ee3ede711
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/0451f37912edb7f8a4bf04d77eef13f6130f0515
+Fetching 54 files:  74%|███████▍  | 40/54 [00:01<00:00, 29.03it/s]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/75974a959d0eb23edb578dfd2b04656748b8f738f9bc19c2dd97f9d60c886fe1
+Downloading 'text_tokenizer/tokenizer_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/9bf527c33c251e8062bf2cd3c8dd6d2fc0591ea9.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/9bf527c33c251e8062bf2cd3c8dd6d2fc0591ea9
+Downloading 'transformer/diffusion_pytorch_model-00001-of-00002.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/116134e5492c514df79a2f07214e577c397aa961387dbe1c5dda488e7994ff6b.incomplete'
+Downloading 'transformer/diffusion_pytorch_model-00002-of-00002.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/3b4c0aafe2705c900ac7bc743085a8e9e09c906624331bc2baa21e172e5d48e4.incomplete'
+Downloading 'tokenizer_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b3477e373eeb0753858974549bf9a67409acda03.incomplete'
+Downloading 'transformer/config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/a2d137764c75e641bbe23def0c8516fbe4591b4b.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/b3477e373eeb0753858974549bf9a67409acda03
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/a2d137764c75e641bbe23def0c8516fbe4591b4b
+Downloading 'vae/config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/12aeec832f9b85f555b1e2267f84defa2fc91e9e.incomplete'
+Downloading 'transformer/diffusion_pytorch_model.safetensors.index.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/045e07fe2240c4a9cd26364b47eee8376ca3cf32.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/12aeec832f9b85f555b1e2267f84defa2fc91e9e
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/045e07fe2240c4a9cd26364b47eee8376ca3cf32
+Downloading 'video_preprocessor_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/cd3f7bca81b97e3609fa6f372cd55d7654bb0791.incomplete'
+Downloading 'vision_encoder/model.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/2180ad739ecc96b5c1e9386892d3c5c08bfa42b9cdab9aabc53b028671db89b3.incomplete'
+Downloading 'vae/diffusion_pytorch_model.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/230496cb59ff85bc9c040487737c4062480cb61c71e697b197b4c30142f2a0da.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/cd3f7bca81b97e3609fa6f372cd55d7654bb0791
+Fetching 54 files:  89%|████████▉ | 48/54 [00:01<00:00, 29.68it/s]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/4dc692a99dca6d92a44e9529ffb53541eb79bb260eec7281bc51268c05d7311c
+Fetching 54 files:  93%|█████████▎| 50/54 [00:20<00:01,  2.50it/s]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/2180ad739ecc96b5c1e9386892d3c5c08bfa42b9cdab9aabc53b028671db89b3
+Fetching 54 files:  94%|█████████▍| 51/54 [00:36<00:02,  1.39it/s]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/230496cb59ff85bc9c040487737c4062480cb61c71e697b197b4c30142f2a0da
+Fetching 54 files:  96%|█████████▋| 52/54 [00:47<00:01,  1.09it/s]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/3b4c0aafe2705c900ac7bc743085a8e9e09c906624331bc2baa21e172e5d48e4
+Fetching 54 files:  98%|█████████▊| 53/54 [01:02<00:01,  1.18s/it]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/blobs/116134e5492c514df79a2f07214e577c397aa961387dbe1c5dda488e7994ff6b
+Fetching 54 files: 100%|██████████| 54/54 [01:33<00:00,  1.73s/it]Fetching 54 files: 100%|██████████| 54/54 [01:33<00:00,  1.73s/it]
+${VM_HOME}/.cache/huggingface/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29
+DL_DONE

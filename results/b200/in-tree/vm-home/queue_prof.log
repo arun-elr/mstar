@@ -1,0 +1,29 @@
+[prof] 09:55:22 profile wan21 mstar_warm
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/profiler/profiler.py:272: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+USDT:2026-10-13 09:55:42 118565:118565 ActivityProfilerController.cpp:415] profiler_start
+USDT:2026-10-13 09:55:43 118565:118565 ActivityProfilerController.cpp:455] profiler_stop
+{"variant": "mstar_warm", "kernels_per_chunk": 149.0, "gpu_ms_per_chunk": 54.85, "category_ms_per_chunk": {"convolution": 37.94, "layout conversion": 0.0, "norm / SiLU": 9.31, "concat / pad": 1.09, "upsample": 3.62, "attention": 1.34, "copies": 0.8, "other elementwise": 0.71, "other": 0.03}}
+[prof] 09:55:45 profile wan21 px_nopad_bench
+${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/profiler/profiler.py:272: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+USDT:2026-10-13 09:56:18 118882:118882 ActivityProfilerController.cpp:415] profiler_start
+USDT:2026-10-13 09:56:18 118882:118882 ActivityProfilerController.cpp:455] profiler_stop
+{"variant": "px_nopad_bench", "kernels_per_chunk": 139.0, "gpu_ms_per_chunk": 55.05, "category_ms_per_chunk": {"convolution": 37.92, "layout conversion": 0.0, "norm / SiLU": 9.21, "concat / pad": 1.08, "upsample": 3.58, "attention": 1.29, "copies": 0.73, "other elementwise": 1.19, "other": 0.05}}
+[prof] 09:56:20 profile wan22 mstar_warm
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/profiler/profiler.py:272: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+USDT:2026-10-13 09:56:41 119410:119410 ActivityProfilerController.cpp:415] profiler_start
+USDT:2026-10-13 09:56:42 119410:119410 ActivityProfilerController.cpp:455] profiler_stop
+{"variant": "mstar_warm", "kernels_per_chunk": 164.0, "gpu_ms_per_chunk": 70.26, "category_ms_per_chunk": {"convolution": 58.46, "layout conversion": 0.0, "norm / SiLU": 5.2, "concat / pad": 0.86, "upsample": 3.33, "attention": 0.36, "copies": 0.64, "other elementwise": 0.9, "other": 0.52}}
+[prof] 09:56:44 profile wan22 px_nopad_bench
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+${VM_HOME}/mstar/.venv/lib/python3.12/site-packages/torch/profiler/profiler.py:272: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+USDT:2026-10-13 09:57:21 119727:119727 ActivityProfilerController.cpp:415] profiler_start
+USDT:2026-10-13 09:57:21 119727:119727 ActivityProfilerController.cpp:455] profiler_stop
+{"variant": "px_nopad_bench", "kernels_per_chunk": 154.0, "gpu_ms_per_chunk": 71.71, "category_ms_per_chunk": {"convolution": 59.19, "layout conversion": 0.0, "norm / SiLU": 5.24, "concat / pad": 0.85, "upsample": 3.37, "attention": 0.35, "copies": 0.61, "other elementwise": 1.62, "other": 0.48}}
+[prof] 09:57:23 PROF_DONE

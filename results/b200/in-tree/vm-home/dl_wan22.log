@@ -1,0 +1,56 @@
+Fetching 29 files:   0%|          | 0/29 [00:00<?, ?it/s]Downloading 'assets/comp_effic.png' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/75ee012dcfb08365bec67a3ec7afc126fc2817f79b9f80e38711792d4770e32b.incomplete'
+Downloading 'README.md' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/f940f55ea91f0d5713b7fa7b42be2590ea17a9e7.incomplete'
+Downloading 'assets/moe_2.png' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/4ea471ccb64349bd08bc9a78f336ae000e9ca3b40da9a652b8028b214a8c6093.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/f940f55ea91f0d5713b7fa7b42be2590ea17a9e7
+Downloading 'assets/vae.png' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/4aaea5e187f1c5908e15ade5bef24c9fb59882986bc3d2ad75f7fe820f3d772f.incomplete'
+Downloading 'assets/performance.png' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/97ef99c13c8ae717a8a11c8d8ec927b69077c647cc6689755d08fc38e7fbb830.incomplete'
+Downloading 'assets/moe_arch.png' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/7822af1e65215ee2a9449c9b7616afd713f67a01.incomplete'
+Downloading '.gitattributes' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/75b8d68701da756cee0d6c9fe3bc7b5ed74955a6.incomplete'
+Downloading 'assets/logo.png' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/0c55854cbd9692975f217714ffd83fd4b37f5dca.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/75b8d68701da756cee0d6c9fe3bc7b5ed74955a6
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/0c55854cbd9692975f217714ffd83fd4b37f5dca
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/7822af1e65215ee2a9449c9b7616afd713f67a01
+Downloading 'model_index.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/fe52bfbdc8e5bbc8a6a607dd301f6e1ab0889cd1.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/fe52bfbdc8e5bbc8a6a607dd301f6e1ab0889cd1
+Downloading 'examples/i2v_input.JPG' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/077e3d965090c9028c69c00931675f42e1acc815c6eb450ab291b3b72d211a8e.incomplete'
+Downloading 'scheduler/scheduler_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/950d26faea717c8902ee197982026cb9c1b6463e.incomplete'
+Downloading 'text_encoder/config.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/ab4a73bce055c6e32e66133032dcb3adfb26ee8d.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/950d26faea717c8902ee197982026cb9c1b6463e
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/ab4a73bce055c6e32e66133032dcb3adfb26ee8d
+Downloading 'text_encoder/model-00001-of-00003.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/a8e861969c7433e707cc5a74065d795d36cca07ec96eb6763eb4083df7248f58.incomplete'
+Downloading 'text_encoder/model-00002-of-00003.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/d57d948ece4837d850b7a859a4415121d57cacf8b9ee1d4db200c67f592902d7.incomplete'
+Downloading 'text_encoder/model-00003-of-00003.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/0da9ee284e21d1406df708788db1d502d95d75f69faa25cd26151bf8829b7c5f.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/4aaea5e187f1c5908e15ade5bef24c9fb59882986bc3d2ad75f7fe820f3d772f
+Fetching 29 files:  28%|██▊       | 8/29 [00:00<00:01, 11.20it/s]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/75ee012dcfb08365bec67a3ec7afc126fc2817f79b9f80e38711792d4770e32b
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/97ef99c13c8ae717a8a11c8d8ec927b69077c647cc6689755d08fc38e7fbb830
+Downloading 'text_encoder/model.safetensors.index.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/f3d3d4da90eb33e14c92d88ea346370fa3c0b5b2.incomplete'
+Downloading 'tokenizer/special_tokens_map.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/2ed25bf989a28d20b5d4b5822fbc24666d12a6f7.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/077e3d965090c9028c69c00931675f42e1acc815c6eb450ab291b3b72d211a8e
+Downloading 'tokenizer/spiece.model' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/e3909a67b780650b35cf529ac782ad2b6b26e6d1f849d3fbb6a872905f452458.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/4ea471ccb64349bd08bc9a78f336ae000e9ca3b40da9a652b8028b214a8c6093
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/f3d3d4da90eb33e14c92d88ea346370fa3c0b5b2
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/2ed25bf989a28d20b5d4b5822fbc24666d12a6f7
+Downloading 'tokenizer/tokenizer.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/20a46ac256746594ed7e1e3ef733b83fbc5a6f0922aa7480eda961743de080ef.incomplete'
+Downloading 'transformer/config.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/8180887e8ed86e4fd842824fb15fcabf43d19512.incomplete'
+Downloading 'transformer/diffusion_pytorch_model-00001-of-00005.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/511bec832a201caa410d09c5ce7dbbf8ad2708c345d82038f684fc74cce982be.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/8180887e8ed86e4fd842824fb15fcabf43d19512
+Downloading 'tokenizer/tokenizer_config.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/09d434f9457238f697f4c208aab47f58caa15bfe.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/09d434f9457238f697f4c208aab47f58caa15bfe
+Fetching 29 files:  55%|█████▌    | 16/29 [00:00<00:00, 18.28it/s]Downloading 'transformer/diffusion_pytorch_model-00002-of-00005.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/7c42724912b1911429125dc50c0e9a49ccbada5a601b657d4ed2e15e7597c193.incomplete'
+Downloading 'transformer/diffusion_pytorch_model-00003-of-00005.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/e9c3d0c76de786566382f8258101fea973ae37681c6e9fe0e5fe1fb93b806424.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/e3909a67b780650b35cf529ac782ad2b6b26e6d1f849d3fbb6a872905f452458
+Downloading 'transformer/diffusion_pytorch_model-00004-of-00005.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/a331121771790939678db6f585553fd5184609f7d02593c699a4d241b0d834c5.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/20a46ac256746594ed7e1e3ef733b83fbc5a6f0922aa7480eda961743de080ef
+Downloading 'transformer/diffusion_pytorch_model-00005-of-00005.safetensors' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/78b655685c47efdb2349f36826bb101264e9f212a16325d584aeb5f53c88e719.incomplete'
+Fetching 29 files:  62%|██████▏   | 18/29 [00:20<00:12,  1.11s/it]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/78b655685c47efdb2349f36826bb101264e9f212a16325d584aeb5f53c88e719
+Fetching 29 files:  66%|██████▌   | 19/29 [00:34<00:18,  1.81s/it]Downloading 'transformer/diffusion_pytorch_model.safetensors.index.json' to '${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/4ced518ff3eb023a0477eeab55f2a4d45d6fd43a.incomplete'
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/4ced518ff3eb023a0477eeab55f2a4d45d6fd43a
+Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/0da9ee284e21d1406df708788db1d502d95d75f69faa25cd26151bf8829b7c5f
+Fetching 29 files:  79%|███████▉  | 23/29 [01:58<00:30,  5.14s/it]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/511bec832a201caa410d09c5ce7dbbf8ad2708c345d82038f684fc74cce982be
+Fetching 29 files:  83%|████████▎ | 24/29 [04:12<00:52, 10.53s/it]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/a331121771790939678db6f585553fd5184609f7d02593c699a4d241b0d834c5
+Fetching 29 files:  86%|████████▌ | 25/29 [04:31<00:43, 10.87s/it]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/7c42724912b1911429125dc50c0e9a49ccbada5a601b657d4ed2e15e7597c193
+Fetching 29 files:  90%|████████▉ | 26/29 [04:32<00:31, 10.48s/it]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/e9c3d0c76de786566382f8258101fea973ae37681c6e9fe0e5fe1fb93b806424
+Fetching 29 files:  93%|█████████▎| 27/29 [04:42<00:20, 10.46s/it]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/d57d948ece4837d850b7a859a4415121d57cacf8b9ee1d4db200c67f592902d7
+Fetching 29 files:  97%|█████████▋| 28/29 [04:47<00:10, 10.25s/it]Download complete. Moving file to ${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/blobs/a8e861969c7433e707cc5a74065d795d36cca07ec96eb6763eb4083df7248f58
+Fetching 29 files: 100%|██████████| 29/29 [05:00<00:00, 10.35s/it]Fetching 29 files: 100%|██████████| 29/29 [05:00<00:00, 10.35s/it]
+${VM_HOME}/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B-Diffusers/snapshots/b8fff7315c768468a5333511427288870b2e9635

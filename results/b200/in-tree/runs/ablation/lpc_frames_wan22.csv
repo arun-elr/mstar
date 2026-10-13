@@ -1,0 +1,5 @@
+vae,variant,md5_u8_stream,frames,identical_to_previous,pct_values_diff_vs_previous,pct_pixels_diff_vs_previous,identical_to_ref,pct_values_diff_vs_ref,pct_pixels_diff_vs_ref,previous,ref
+wan22,mstar_warm_lpc1,6be1596260c1010bd8e31e2aeaa7dfb1,1021,,,,False,9.1034,23.8746,,diffusers_bf16_node_input
+wan22,mstar_warm_lpc2,6635c9d9ded3320be2824347f86ecd02,1021,False,3.5708,10.138,False,9.0825,23.8225,mstar_warm_lpc1,diffusers_bf16_node_input
+wan22,mstar_warm_lpc3,abbdb05d7b8e32618edfdb0d681d6643,1021,False,3.7709,10.667,False,9.0663,23.7846,mstar_warm_lpc2,diffusers_bf16_node_input
+wan22,mstar_warm_lpc0,3a0e616e286b28fa9fbc82a35c6e9ce4,1021,False,2.1554,6.2914,False,9.0661,23.7837,mstar_warm_lpc3,diffusers_bf16_node_input

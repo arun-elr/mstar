@@ -1,0 +1,21 @@
+tag,node,vae,size,window_latents,overlap,latents_per_call,median_ms_per_window,p90_ms_per_window,median_ms_per_12_frames,peak_allocated_gib,cache_mib_per_stream,psnr_u8_vs_fp32,gpu
+wan21_default,cosmos3_ar,wan21,832x480,8,2,default,112.43,113.66,56.21,35.25,1801.08,54.39,NVIDIA B200
+wan21_lpc0_run1,cosmos3_ar,wan21,832x480,8,2,0,112.83,114.82,56.42,35.14,1801.08,,NVIDIA B200
+wan21_lpc0_run2,cosmos3_ar,wan21,832x480,8,2,0,112.69,114.58,56.34,35.14,1801.08,,NVIDIA B200
+wan21_lpc1_run1,cosmos3_ar,wan21,832x480,8,2,1,119.98,120.82,59.99,8.22,1801.08,,NVIDIA B200
+wan21_lpc1_run2,cosmos3_ar,wan21,832x480,8,2,1,119.95,120.9,59.98,8.22,1801.08,,NVIDIA B200
+wan21_lpc2_run1,cosmos3_ar,wan21,832x480,8,2,2,114.89,116.17,57.44,13.65,1801.08,,NVIDIA B200
+wan21_lpc2_run2,cosmos3_ar,wan21,832x480,8,2,2,117.47,119.21,58.74,13.66,1801.08,,NVIDIA B200
+wan21_lpc3_run1,cosmos3_ar,wan21,832x480,8,2,3,112.08,113.72,56.04,19.01,1801.08,,NVIDIA B200
+wan21_lpc3_run2,cosmos3_ar,wan21,832x480,8,2,3,112.15,113.57,56.08,19.01,1801.08,,NVIDIA B200
+wan21_per_call_1,cosmos3_ar,wan21,832x480,8,2,1,120.06,120.62,60.03,8.22,1801.08,,NVIDIA B200
+wan22_default,cosmos3_ar,wan22,832x480,8,2,default,142.81,144.53,71.41,28.82,1359.19,55.23,NVIDIA B200
+wan22_lpc0_run1,cosmos3_ar,wan22,832x480,8,2,0,144.34,145.66,72.17,28.7,1359.19,,NVIDIA B200
+wan22_lpc0_run2,cosmos3_ar,wan22,832x480,8,2,0,143.95,146.0,71.98,28.7,1359.19,,NVIDIA B200
+wan22_lpc1_run1,cosmos3_ar,wan22,832x480,8,2,1,153.74,154.58,76.87,7.41,1359.19,,NVIDIA B200
+wan22_lpc1_run2,cosmos3_ar,wan22,832x480,8,2,1,152.75,154.06,76.38,7.41,1359.19,,NVIDIA B200
+wan22_lpc2_run1,cosmos3_ar,wan22,832x480,8,2,2,148.26,149.8,74.13,11.67,1359.19,,NVIDIA B200
+wan22_lpc2_run2,cosmos3_ar,wan22,832x480,8,2,2,150.56,152.22,75.28,11.68,1359.19,,NVIDIA B200
+wan22_lpc3_run1,cosmos3_ar,wan22,832x480,8,2,3,146.26,147.89,73.13,15.93,1359.19,,NVIDIA B200
+wan22_lpc3_run2,cosmos3_ar,wan22,832x480,8,2,3,144.59,146.34,72.29,15.95,1359.19,,NVIDIA B200
+wan22_per_call_1,cosmos3_ar,wan22,832x480,8,2,1,152.65,153.65,76.33,7.38,1359.19,,NVIDIA B200
