@@ -1,0 +1,7 @@
+vae,variant,run1_ms,run2_ms,run3_ms,mean_ms,spread_ms,spread_pct,p90_mean_ms,peak_allocated_gib,psnr_float_db_peak1,psnr_u8_db
+wan21,vllm_omni_best,63.99,64.03,64.22,64.08,0.23,0.36,65.96,3.82,53.88,54.88
+wan21,vllm_omni_best_cudnnbench,62.73,62.5,62.56,62.6,0.23,0.37,64.25,3.82,53.88,54.88
+wan21,vllm_omni_default,97.22,97.44,97.31,97.32,0.22,0.23,97.87,4.53,53.73,54.91
+wan22,vllm_omni_best,77.8,77.86,77.88,77.85,0.08,0.1,78.72,4.66,56.42,55.16
+wan22,vllm_omni_best_cudnnbench,77.52,77.5,78.14,77.72,0.64,0.82,78.74,4.69,56.42,55.16
+wan22,vllm_omni_default,106.01,105.85,105.9,105.92,0.16,0.15,107.02,5.42,56.17,55.27

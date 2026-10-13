@@ -1,0 +1,39 @@
+vae,group,variant,settings,samples,median_ms,p90_ms,decoder_fps,peak_allocated_gib,psnr_float_db_peak1,psnr_u8_db,conv_inputs_not_channels_last,first_timed_call_ms
+wan21,screen,sglang_compile,stage quality=lossless decode=bfloat16 compile(default),150,101.87,103.02,117.8,7.38,53.91,55.29,n/a (compiled),25849.6
+wan21,screen,sglang_compile_maxat,stage quality=lossless decode=bfloat16 compile(max-autotune-no-cudagraphs),150,101.13,102.38,118.7,7.41,53.89,55.28,n/a (compiled),57384.4
+wan21,screen,sglang_compile_xhigh,stage quality=extra-high decode=bfloat16 compile(default),150,102.12,103.43,117.5,7.38,53.91,55.29,n/a (compiled),25979.1
+wan21,screen,sglang_default,stage quality=lossless decode=bfloat16,150,107.64,108.27,111.5,6.81,53.88,55.27,6/115,824.0
+wan21,screen,sglang_high,stage quality=high decode=bfloat16,150,92.5,92.94,129.7,3.8,53.73,55.23,0/115,475.5
+wan21,screen,sglang_realtime,realtime quality=lossless decode=fp32,150,145.14,146.34,82.7,7.45,80.0,68.25,6/115,796.6
+wan21,screen,sglang_xhigh,stage quality=extra-high decode=bfloat16,150,92.46,93.04,129.8,3.8,53.73,55.23,0/115,474.6
+wan21,wan21/run1,sglang_best,stage quality=extra-high decode=bfloat16,150,92.5,93.03,129.7,3.8,53.73,55.23,,472.2
+wan21,wan21/run1,sglang_compile,stage quality=lossless decode=bfloat16 compile(default),150,102.03,103.13,117.6,7.38,53.91,55.29,,26045.5
+wan21,wan21/run1,sglang_default,stage quality=lossless decode=bfloat16,150,107.63,108.14,111.5,6.81,53.88,55.27,,826.2
+wan21,wan21/run1,sglang_realtime,realtime quality=lossless decode=fp32,150,145.0,145.97,82.8,7.45,80.0,68.25,,795.9
+wan21,wan21/run2,sglang_best,stage quality=extra-high decode=bfloat16,150,92.49,93.02,129.7,3.8,53.73,55.23,,474.5
+wan21,wan21/run2,sglang_compile,stage quality=lossless decode=bfloat16 compile(default),150,102.08,103.18,117.5,7.38,53.91,55.29,,25841.9
+wan21,wan21/run2,sglang_default,stage quality=lossless decode=bfloat16,150,107.58,108.0,111.5,6.81,53.88,55.27,,825.7
+wan21,wan21/run2,sglang_realtime,realtime quality=lossless decode=fp32,150,145.14,146.21,82.7,7.45,80.0,68.25,,789.6
+wan21,wan21/run3,sglang_best,stage quality=extra-high decode=bfloat16,150,92.52,92.98,129.7,3.8,53.73,55.23,,470.7
+wan21,wan21/run3,sglang_compile,stage quality=lossless decode=bfloat16 compile(default),150,102.37,103.51,117.2,7.38,53.91,55.29,,25881.5
+wan21,wan21/run3,sglang_default,stage quality=lossless decode=bfloat16,150,107.71,108.32,111.4,6.81,53.88,55.27,,825.7
+wan21,wan21/run3,sglang_realtime,realtime quality=lossless decode=fp32,150,144.97,146.25,82.8,7.45,80.0,68.25,,797.5
+wan22,screen,sglang_compile_bf16,stage quality=lossless decode=bfloat16 compile(default),150,110.37,111.8,108.7,7.57,56.43,56.79,n/a (compiled),27619.2
+wan22,screen,sglang_compile_maxat_bf16,stage quality=lossless decode=bfloat16 compile(max-autotune-no-cudagraphs),150,110.43,111.47,108.7,7.6,56.42,56.78,n/a (compiled),65280.3
+wan22,screen,sglang_default,stage quality=lossless decode=float32,150,170.89,171.97,70.2,9.33,82.04,69.4,6/118,1048.3
+wan22,screen,sglang_default_bf16,stage quality=lossless decode=bfloat16,150,115.67,116.66,103.7,7.76,56.42,56.79,6/118,1058.2
+wan22,screen,sglang_realtime,realtime quality=lossless decode=fp32,150,171.02,172.13,70.2,9.33,82.04,69.4,6/118,1051.0
+wan22,screen,sglang_xhigh,stage quality=extra-high decode=float32,150,157.63,158.63,76.1,9.33,82.04,69.4,0/118,746.1
+wan22,screen,sglang_xhigh_bf16,stage quality=extra-high decode=bfloat16,150,94.29,94.94,127.3,4.73,56.16,56.85,0/118,698.8
+wan22,wan22/run1,sglang_best,stage quality=extra-high decode=bfloat16,150,94.45,95.16,127.1,4.73,56.16,56.85,,710.2
+wan22,wan22/run1,sglang_compile_bf16,stage quality=lossless decode=bfloat16 compile(default),150,111.81,113.01,107.3,7.57,56.43,56.79,,27538.2
+wan22,wan22/run1,sglang_default,stage quality=lossless decode=float32,150,170.76,172.11,70.3,9.33,82.04,69.4,,1053.2
+wan22,wan22/run1,sglang_default_bf16,stage quality=lossless decode=bfloat16,150,115.72,116.71,103.7,7.76,56.42,56.79,,1066.0
+wan22,wan22/run2,sglang_best,stage quality=extra-high decode=bfloat16,150,94.29,94.88,127.3,4.73,56.16,56.85,,706.9
+wan22,wan22/run2,sglang_compile_bf16,stage quality=lossless decode=bfloat16 compile(default),150,110.42,111.59,108.7,7.57,56.43,56.79,,27890.2
+wan22,wan22/run2,sglang_default,stage quality=lossless decode=float32,150,171.1,172.28,70.1,9.33,82.04,69.4,,1066.1
+wan22,wan22/run2,sglang_default_bf16,stage quality=lossless decode=bfloat16,150,115.74,116.77,103.7,7.76,56.42,56.79,,1069.2
+wan22,wan22/run3,sglang_best,stage quality=extra-high decode=bfloat16,150,94.33,95.17,127.2,4.73,56.16,56.85,,709.6
+wan22,wan22/run3,sglang_compile_bf16,stage quality=lossless decode=bfloat16 compile(default),150,110.65,111.77,108.4,7.57,56.43,56.79,,27399.1
+wan22,wan22/run3,sglang_default,stage quality=lossless decode=float32,150,171.05,172.05,70.2,9.33,82.04,69.4,,1055.7
+wan22,wan22/run3,sglang_default_bf16,stage quality=lossless decode=bfloat16,150,115.7,116.51,103.7,7.76,56.42,56.79,,1065.2

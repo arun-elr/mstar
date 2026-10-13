@@ -1,0 +1,14 @@
+vae,stream,md5_uint8_thwc,frames,path,quality,decode_dtype,diffusers,vs_diffusers_bf16_identical_bytes_pct,vs_diffusers_bf16_max_abs_u8,vs_diffusers_bf16_psnr_u8_db,md5_equal_to_streamed
+wan21,diffusers_bf16,ac03880592696422f09abbbc9c3d1899,1021,"diffusers AutoencoderKLWan, eager bf16, per-frame, warm cache",,,0.39.0,,,,
+wan21,sglang_best,3f713e0d38bb2f2548a7032faf927404,1021,stage,extra-high,bfloat16,,94.1971,8,60.49,
+wan21,sglang_best_whole,3f713e0d38bb2f2548a7032faf927404,1021,DecodingStage.decode -> AutoencoderKLWan.decode (whole clip),extra-high,bfloat16,,,,,True
+wan21,sglang_compile,6bed787a5d50be7337db4e26ce8202ab,1021,stage,lossless,bfloat16,,92.3355,11,59.28,
+wan21,sglang_default,d5f5e738699ad986d00e3db17f158ceb,1021,stage,lossless,bfloat16,,92.3919,11,59.31,
+wan21,sglang_default_whole,d5f5e738699ad986d00e3db17f158ceb,1021,DecodingStage.decode -> AutoencoderKLWan.decode (whole clip),lossless,bfloat16,,,,,True
+wan21,sglang_realtime,eae4d4fc3782b27dc97d58ba77aba296,1021,realtime,lossless,fp32,,80.3762,14,55.18,
+wan22,diffusers_bf16,8844f3b715430e73fb25c0f89f13f4c8,1021,"diffusers AutoencoderKLWan, eager bf16, per-frame, warm cache",,,0.39.0,,,,
+wan22,sglang_best,b0b0eb98e9f88ad0fe6e3dfc51071152,1021,stage,extra-high,bfloat16,,95.5842,27,61.66,
+wan22,sglang_best_whole,b0b0eb98e9f88ad0fe6e3dfc51071152,1021,DecodingStage.decode -> AutoencoderKLWan.decode (whole clip),extra-high,bfloat16,,,,,True
+wan22,sglang_default,a7fe5de0f8c258d99194da52f4b86771,1021,stage,lossless,float32,,86.0146,42,56.63,
+wan22,sglang_default_bf16,e6a627674ebf2063bc6dfff08e4ce033,1021,stage,lossless,bfloat16,,93.7412,24,60.14,
+wan22,sglang_default_whole,a7fe5de0f8c258d99194da52f4b86771,1021,DecodingStage.decode -> AutoencoderKLWan.decode (whole clip),lossless,float32,,,,,True

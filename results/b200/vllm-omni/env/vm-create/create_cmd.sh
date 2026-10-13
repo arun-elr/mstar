@@ -1,0 +1,17 @@
+nebius compute instance create \
+  --parent-id <project-id> \
+  --name wan-bench-b200-vllm \
+  --labels purpose=wan-bench-vllm \
+  --resources-platform gpu-b200-sxm \
+  --resources-preset 1gpu-20vcpu-224gb \
+  --follows-spot-price \
+  --preemptible-on-preemption stop \
+  --recovery-policy fail \
+  --boot-disk-attach-mode read_write \
+  --boot-disk-managed-disk-name wan-bench-b200-vllm-boot \
+  --boot-disk-managed-disk-type network_ssd \
+  --boot-disk-managed-disk-size-gibibytes 200 \
+  --boot-disk-managed-disk-source-image-family-image-family ubuntu24.04-cuda13.0 \
+  --network-interfaces '[{"name":"eth0","ip_address":{},"public_ip_address":{},"subnet_id":"<subnet-id>"}]' \
+  --cloud-init-user-data "$(cat cloud-init.yaml)" \
+  --format yaml

@@ -1,0 +1,79 @@
+=== vllm_omni_default wan21 -> main/wan21/run1 08:55:10
+{"variant": "vllm_omni_default", "n_samples": 150, "median_ms": 97.22, "p90_ms": 97.84, "p10_ms": 96.64, "mean_ms": 97.22, "decoder_fps": 123.4, "psnr_float_db_vs_fp32": 59.75, "psnr_float_db_vs_fp32_peak1": 53.73, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 515.1, "wall_s": 36.2, "peak_allo
+=== vllm_omni_best wan21 -> main/wan21/run1 08:55:53
+{"variant": "vllm_omni_best", "n_samples": 150, "median_ms": 63.99, "p90_ms": 66.0, "p10_ms": 62.42, "mean_ms": 63.98, "decoder_fps": 187.5, "psnr_float_db_vs_fp32": 59.9, "psnr_float_db_vs_fp32_peak1": 53.88, "psnr_u8_db_vs_fp32": 54.88, "first_timed_call_ms": 460.7, "wall_s": 30.8, "peak_allocated
+=== vllm_omni_best_cudnnbench wan21 -> main/wan21/run1 08:56:32
+{"variant": "vllm_omni_best_cudnnbench", "n_samples": 150, "median_ms": 62.73, "p90_ms": 64.13, "p10_ms": 61.3, "mean_ms": 62.61, "decoder_fps": 191.3, "psnr_float_db_vs_fp32": 59.9, "psnr_float_db_vs_fp32_peak1": 53.88, "psnr_u8_db_vs_fp32": 54.88, "first_timed_call_ms": 1025.9, "wall_s": 32.5, "pe
+=== vllm_omni_best_cudnnbench wan21 -> main/wan21/run2 08:57:11
+{"variant": "vllm_omni_best_cudnnbench", "n_samples": 150, "median_ms": 62.5, "p90_ms": 64.25, "p10_ms": 60.59, "mean_ms": 62.44, "decoder_fps": 192.0, "psnr_float_db_vs_fp32": 59.9, "psnr_float_db_vs_fp32_peak1": 53.88, "psnr_u8_db_vs_fp32": 54.88, "first_timed_call_ms": 1021.9, "wall_s": 32.5, "pe
+=== vllm_omni_best wan21 -> main/wan21/run2 08:57:51
+{"variant": "vllm_omni_best", "n_samples": 150, "median_ms": 64.03, "p90_ms": 65.9, "p10_ms": 62.39, "mean_ms": 63.96, "decoder_fps": 187.4, "psnr_float_db_vs_fp32": 59.9, "psnr_float_db_vs_fp32_peak1": 53.88, "psnr_u8_db_vs_fp32": 54.88, "first_timed_call_ms": 464.3, "wall_s": 30.9, "peak_allocated
+=== vllm_omni_default wan21 -> main/wan21/run2 08:58:29
+{"variant": "vllm_omni_default", "n_samples": 150, "median_ms": 97.44, "p90_ms": 98.0, "p10_ms": 96.77, "mean_ms": 97.43, "decoder_fps": 123.2, "psnr_float_db_vs_fp32": 59.75, "psnr_float_db_vs_fp32_peak1": 53.73, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 525.3, "wall_s": 36.3, "peak_alloc
+=== vllm_omni_best wan21 -> main/wan21/run3 08:59:13
+{"variant": "vllm_omni_best", "n_samples": 150, "median_ms": 64.22, "p90_ms": 65.97, "p10_ms": 62.4, "mean_ms": 64.08, "decoder_fps": 186.9, "psnr_float_db_vs_fp32": 59.9, "psnr_float_db_vs_fp32_peak1": 53.88, "psnr_u8_db_vs_fp32": 54.88, "first_timed_call_ms": 463.8, "wall_s": 30.8, "peak_allocated
+=== vllm_omni_best_cudnnbench wan21 -> main/wan21/run3 08:59:51
+{"variant": "vllm_omni_best_cudnnbench", "n_samples": 150, "median_ms": 62.56, "p90_ms": 64.37, "p10_ms": 60.61, "mean_ms": 62.54, "decoder_fps": 191.8, "psnr_float_db_vs_fp32": 59.9, "psnr_float_db_vs_fp32_peak1": 53.88, "psnr_u8_db_vs_fp32": 54.88, "first_timed_call_ms": 1030.4, "wall_s": 32.5, "p
+=== vllm_omni_default wan21 -> main/wan21/run3 09:00:31
+{"variant": "vllm_omni_default", "n_samples": 150, "median_ms": 97.31, "p90_ms": 97.76, "p10_ms": 96.69, "mean_ms": 97.29, "decoder_fps": 123.3, "psnr_float_db_vs_fp32": 59.75, "psnr_float_db_vs_fp32_peak1": 53.73, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 519.3, "wall_s": 36.1, "peak_allo
+=== vllm_omni_default wan22 -> main/wan22/run1 09:01:14
+{"variant": "vllm_omni_default", "n_samples": 150, "median_ms": 106.01, "p90_ms": 107.12, "p10_ms": 104.62, "mean_ms": 105.8, "decoder_fps": 113.2, "psnr_float_db_vs_fp32": 62.19, "psnr_float_db_vs_fp32_peak1": 56.17, "psnr_u8_db_vs_fp32": 55.27, "first_timed_call_ms": 1238.0, "wall_s": 39.4, "peak_
+=== vllm_omni_best wan22 -> main/wan22/run1 09:02:01
+{"variant": "vllm_omni_best", "n_samples": 150, "median_ms": 77.8, "p90_ms": 78.83, "p10_ms": 76.4, "mean_ms": 77.47, "decoder_fps": 154.2, "psnr_float_db_vs_fp32": 62.44, "psnr_float_db_vs_fp32_peak1": 56.42, "psnr_u8_db_vs_fp32": 55.16, "first_timed_call_ms": 750.7, "wall_s": 34.3, "peak_allocated
+=== vllm_omni_best_cudnnbench wan22 -> main/wan22/run1 09:02:42
+{"variant": "vllm_omni_best_cudnnbench", "n_samples": 150, "median_ms": 77.52, "p90_ms": 78.63, "p10_ms": 76.32, "mean_ms": 77.15, "decoder_fps": 154.8, "psnr_float_db_vs_fp32": 62.44, "psnr_float_db_vs_fp32_peak1": 56.42, "psnr_u8_db_vs_fp32": 55.16, "first_timed_call_ms": 1651.7, "wall_s": 36.2, "
+=== vllm_omni_best_cudnnbench wan22 -> main/wan22/run2 09:03:26
+{"variant": "vllm_omni_best_cudnnbench", "n_samples": 150, "median_ms": 77.5, "p90_ms": 78.45, "p10_ms": 76.43, "mean_ms": 77.19, "decoder_fps": 154.8, "psnr_float_db_vs_fp32": 62.44, "psnr_float_db_vs_fp32_peak1": 56.42, "psnr_u8_db_vs_fp32": 55.16, "first_timed_call_ms": 1738.9, "wall_s": 36.3, "p
+=== vllm_omni_best wan22 -> main/wan22/run2 09:04:10
+{"variant": "vllm_omni_best", "n_samples": 150, "median_ms": 77.86, "p90_ms": 78.62, "p10_ms": 76.2, "mean_ms": 77.47, "decoder_fps": 154.1, "psnr_float_db_vs_fp32": 62.44, "psnr_float_db_vs_fp32_peak1": 56.42, "psnr_u8_db_vs_fp32": 55.16, "first_timed_call_ms": 749.4, "wall_s": 34.1, "peak_allocate
+=== vllm_omni_default wan22 -> main/wan22/run2 09:04:51
+{"variant": "vllm_omni_default", "n_samples": 150, "median_ms": 105.85, "p90_ms": 106.88, "p10_ms": 104.42, "mean_ms": 105.68, "decoder_fps": 113.4, "psnr_float_db_vs_fp32": 62.19, "psnr_float_db_vs_fp32_peak1": 56.17, "psnr_u8_db_vs_fp32": 55.27, "first_timed_call_ms": 1251.7, "wall_s": 39.4, "peak
+=== vllm_omni_best wan22 -> main/wan22/run3 09:05:38
+{"variant": "vllm_omni_best", "n_samples": 150, "median_ms": 77.88, "p90_ms": 78.7, "p10_ms": 76.7, "mean_ms": 77.51, "decoder_fps": 154.1, "psnr_float_db_vs_fp32": 62.44, "psnr_float_db_vs_fp32_peak1": 56.42, "psnr_u8_db_vs_fp32": 55.16, "first_timed_call_ms": 754.3, "wall_s": 34.2, "peak_allocated
+=== vllm_omni_best_cudnnbench wan22 -> main/wan22/run3 09:06:19
+{"variant": "vllm_omni_best_cudnnbench", "n_samples": 150, "median_ms": 78.14, "p90_ms": 79.14, "p10_ms": 76.71, "mean_ms": 77.71, "decoder_fps": 153.6, "psnr_float_db_vs_fp32": 62.44, "psnr_float_db_vs_fp32_peak1": 56.42, "psnr_u8_db_vs_fp32": 55.16, "first_timed_call_ms": 1649.1, "wall_s": 36.5, "
+=== vllm_omni_default wan22 -> main/wan22/run3 09:07:03
+{"variant": "vllm_omni_default", "n_samples": 150, "median_ms": 105.9, "p90_ms": 107.05, "p10_ms": 104.19, "mean_ms": 105.72, "decoder_fps": 113.3, "psnr_float_db_vs_fp32": 62.19, "psnr_float_db_vs_fp32_peak1": 56.17, "psnr_u8_db_vs_fp32": 55.27, "first_timed_call_ms": 1245.5, "wall_s": 39.3, "peak_
+=== vllm_omni_off wan21 -> screen/wan21 09:07:50
+{"variant": "vllm_omni_off", "n_samples": 150, "median_ms": 191.92, "p90_ms": 192.07, "p10_ms": 191.81, "mean_ms": 191.93, "decoder_fps": 62.5, "psnr_float_db_vs_fp32": 59.75, "psnr_float_db_vs_fp32_peak1": 53.73, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 196.8, "wall_s": 50.1, "peak_alloc
+=== vllm_omni_channels_last wan21 -> screen/wan21 09:08:48
+{"variant": "vllm_omni_channels_last", "n_samples": 150, "median_ms": 64.06, "p90_ms": 65.65, "p10_ms": 62.37, "mean_ms": 63.9, "decoder_fps": 187.3, "psnr_float_db_vs_fp32": 59.9, "psnr_float_db_vs_fp32_peak1": 53.88, "psnr_u8_db_vs_fp32": 54.88, "first_timed_call_ms": 463.2, "wall_s": 31.0, "peak_
+=== vllm_omni_lingbot_exact wan21 -> screen/wan21 09:09:26
+{"variant": "vllm_omni_lingbot_exact", "n_samples": 150, "median_ms": 191.87, "p90_ms": 191.98, "p10_ms": 191.77, "mean_ms": 191.88, "decoder_fps": 62.5, "psnr_float_db_vs_fp32": 59.75, "psnr_float_db_vs_fp32_peak1": 53.73, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 196.5, "wall_s": 49.9, "
+=== vllm_omni_lingbot_fused wan21 -> screen/wan21 09:10:23
+{"variant": "vllm_omni_lingbot_fused", "n_samples": 150, "median_ms": 110.07, "p90_ms": 110.18, "p10_ms": 109.94, "mean_ms": 110.07, "decoder_fps": 109.0, "psnr_float_db_vs_fp32": 59.75, "psnr_float_db_vs_fp32_peak1": 53.73, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 118.5, "wall_s": 37.0, 
+=== diffusers_bf16 wan21 -> controls/wan21 09:11:07
+{"variant": "diffusers_bf16", "n_samples": 150, "median_ms": 191.88, "p90_ms": 192.09, "p10_ms": 191.73, "mean_ms": 191.9, "decoder_fps": 62.5, "psnr_float_db_vs_fp32": 59.75, "psnr_float_db_vs_fp32_peak1": 53.73, "psnr_u8_db_vs_fp32": 54.91, "first_timed_call_ms": 198.6, "wall_s": 42.0, "peak_alloc
+=== px_nopad_bench wan21 -> controls/wan21 09:12:05
+{"variant": "px_nopad_bench", "n_samples": 150, "median_ms": 53.45, "p90_ms": 54.52, "p10_ms": 51.9, "mean_ms": 53.21, "decoder_fps": 224.5, "psnr_float_db_vs_fp32": 60.7, "psnr_float_db_vs_fp32_peak1": 54.68, "psnr_u8_db_vs_fp32": 55.25, "first_timed_call_ms": 9590.2, "wall_s": 47.5, "peak_allocate
+=== vllm_omni_off wan22 -> controls/wan22 09:13:07
+{"variant": "vllm_omni_off", "n_samples": 150, "median_ms": 184.31, "p90_ms": 184.47, "p10_ms": 184.12, "mean_ms": 184.3, "decoder_fps": 65.1, "psnr_float_db_vs_fp32": 62.19, "psnr_float_db_vs_fp32_peak1": 56.17, "psnr_u8_db_vs_fp32": 55.27, "first_timed_call_ms": 184.4, "wall_s": 49.1, "peak_alloca
+=== diffusers_bf16 wan22 -> controls/wan22 09:14:04
+{"variant": "diffusers_bf16", "n_samples": 150, "median_ms": 184.3, "p90_ms": 184.41, "p10_ms": 184.16, "mean_ms": 184.29, "decoder_fps": 65.1, "psnr_float_db_vs_fp32": 62.19, "psnr_float_db_vs_fp32_peak1": 56.17, "psnr_u8_db_vs_fp32": 55.27, "first_timed_call_ms": 187.2, "wall_s": 40.8, "peak_alloc
+=== px_nopad_bench wan22 -> controls/wan22 09:15:00
+{"variant": "px_nopad_bench", "n_samples": 150, "median_ms": 72.04, "p90_ms": 73.4, "p10_ms": 70.71, "mean_ms": 71.75, "decoder_fps": 166.6, "psnr_float_db_vs_fp32": 13.87, "psnr_float_db_vs_fp32_peak1": 7.85, "psnr_u8_db_vs_fp32": 13.86, "first_timed_call_ms": 11769.7, "wall_s": 55.8, "peak_allocat
+=== vllm_omni_oneshot_241f wan21 -> oneshot/wan21 09:16:10
+{"variant": "vllm_omni_oneshot_241f", "n_samples": 5, "median_ms": 96.97, "p90_ms": 97.1, "p10_ms": 96.87, "mean_ms": 96.98, "decoder_fps": 123.7, "psnr_float_db_vs_fp32": 59.75, "psnr_float_db_vs_fp32_peak1": 53.73, "psnr_u8_db_vs_fp32": 55.23, "first_timed_call_ms": null, "wall_s": 30.8, "peak_all
+=== vllm_omni_oneshot_241f_tiled wan22 -> oneshot/wan22 09:16:48
+{"variant": "vllm_omni_oneshot_241f_tiled", "n_samples": 5, "median_ms": 328.13, "p90_ms": 328.31, "p10_ms": 327.68, "mean_ms": 328.04, "decoder_fps": 36.6, "psnr_float_db_vs_fp32": 53.47, "psnr_float_db_vs_fp32_peak1": 47.45, "psnr_u8_db_vs_fp32": 51.81, "first_timed_call_ms": null, "wall_s": 63.3,
+=== vllm_omni_oneshot_241f wan22 -> oneshot/wan22 09:17:59
+{"variant": "vllm_omni_oneshot_241f", "n_samples": 5, "median_ms": 106.05, "p90_ms": 106.11, "p10_ms": 105.5, "mean_ms": 105.86, "decoder_fps": 113.2, "psnr_float_db_vs_fp32": 62.19, "psnr_float_db_vs_fp32_peak1": 56.17, "psnr_u8_db_vs_fp32": 56.85, "first_timed_call_ms": null, "wall_s": 33.6, "peak
+=== profile vllm_omni_default wan21 09:18:40
+{"variant": "vllm_omni_default", "kernels_per_chunk": 999.0, "gpu_ms_per_chunk": 96.06, "category_ms_per_chunk": {"convolution": 39.48, "layout conversion": 22.87, "norm / SiLU": 2.92, "concat / pad": 0.0, "upsample": 0.76, "attention": 1.84, "copies": 0.63, "other elementwise": 11.27, "other": 16.29}}
+{"variant": "vllm_omni_default", "refined": {"convolution": 39.48, "layout conversion": 22.87, "norm / SiLU": 11.58, "concat / pad": 5.75, "upsample": 0.76, "attention": 1.84, "copies": 0.63, "other elementwise": 13.09, "other": 0.06}}
+=== profile vllm_omni_best wan21 09:19:08
+{"variant": "vllm_omni_best", "kernels_per_chunk": 444.0, "gpu_ms_per_chunk": 61.38, "category_ms_per_chunk": {"convolution": 41.37, "layout conversion": 0.0, "norm / SiLU": 0.0, "concat / pad": 0.0, "upsample": 0.54, "attention": 2.05, "copies": 0.41, "other elementwise": 2.31, "other": 14.7}}
+{"variant": "vllm_omni_best", "refined": {"convolution": 41.37, "layout conversion": 0.0, "norm / SiLU": 6.37, "concat / pad": 5.63, "upsample": 0.54, "attention": 2.05, "copies": 0.41, "other elementwise": 4.97, "other": 0.05}}
+=== profile vllm_omni_best_cudnnbench wan21 09:19:35
+{"variant": "vllm_omni_best_cudnnbench", "kernels_per_chunk": 423.0, "gpu_ms_per_chunk": 60.82, "category_ms_per_chunk": {"convolution": 40.41, "layout conversion": 0.0, "norm / SiLU": 0.0, "concat / pad": 0.0, "upsample": 0.55, "attention": 2.11, "copies": 0.39, "other elementwise": 2.36, "other": 14.99}}
+{"variant": "vllm_omni_best_cudnnbench", "refined": {"convolution": 40.41, "layout conversion": 0.0, "norm / SiLU": 6.55, "concat / pad": 5.64, "upsample": 0.55, "attention": 2.11, "copies": 0.39, "other elementwise": 5.1, "other": 0.07}}
+=== profile vllm_omni_default wan22 09:20:04
+{"variant": "vllm_omni_default", "kernels_per_chunk": 1078.0, "gpu_ms_per_chunk": 103.79, "category_ms_per_chunk": {"convolution": 56.5, "layout conversion": 19.77, "norm / SiLU": 2.51, "concat / pad": 0.0, "upsample": 1.26, "attention": 0.85, "copies": 2.88, "other elementwise": 4.53, "other": 15.5}}
+{"variant": "vllm_omni_default", "refined": {"convolution": 56.5, "layout conversion": 19.77, "norm / SiLU": 10.0, "concat / pad": 4.59, "upsample": 1.26, "attention": 0.85, "copies": 2.88, "other elementwise": 7.39, "other": 0.54}}
+=== profile vllm_omni_best wan22 09:20:33
+{"variant": "vllm_omni_best", "kernels_per_chunk": 463.0, "gpu_ms_per_chunk": 74.53, "category_ms_per_chunk": {"convolution": 60.74, "layout conversion": 0.0, "norm / SiLU": 0.0, "concat / pad": 0.0, "upsample": 0.38, "attention": 0.95, "copies": 0.4, "other elementwise": 0.44, "other": 11.62}}
+{"variant": "vllm_omni_best", "refined": {"convolution": 60.74, "layout conversion": 0.0, "norm / SiLU": 4.14, "concat / pad": 4.24, "upsample": 0.38, "attention": 0.95, "copies": 0.4, "other elementwise": 3.6, "other": 0.07}}
+=== profile vllm_omni_best_cudnnbench wan22 09:21:02
+{"variant": "vllm_omni_best_cudnnbench", "kernels_per_chunk": 499.0, "gpu_ms_per_chunk": 74.31, "category_ms_per_chunk": {"convolution": 59.56, "layout conversion": 0.0, "norm / SiLU": 0.0, "concat / pad": 0.0, "upsample": 0.38, "attention": 0.97, "copies": 0.45, "other elementwise": 0.45, "other": 12.5}}
+{"variant": "vllm_omni_best_cudnnbench", "refined": {"convolution": 59.56, "layout conversion": 0.0, "norm / SiLU": 4.22, "concat / pad": 4.52, "upsample": 0.38, "attention": 0.97, "copies": 0.45, "other elementwise": 3.66, "other": 0.55}}
+=== done 09:21:32

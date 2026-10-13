@@ -1,0 +1,8 @@
+#cloud-config
+users:
+  - name: bench
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 <public-key> <user-email>
+package_update: false

@@ -1,0 +1,11 @@
+[qc] 19:07:04 decode wan21 diffusers_bf16
+{"variant": "diffusers_bf16", "tag": "", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers", "frames": 1021}
+[qc] 19:08:00 decode wan21 ref_fp32
+{"variant": "ref_fp32", "tag": "", "vae": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers", "frames": 1021}
+[qc] 19:11:37 decode wan22 diffusers_bf16
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+{"variant": "diffusers_bf16", "tag": "", "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers", "frames": 1021}
+[qc] 19:12:34 decode wan22 ref_fp32
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+{"variant": "ref_fp32", "tag": "", "vae": "Wan-AI/Wan2.2-TI2V-5B-Diffusers", "frames": 1021}
+QC_REGEN_DONE
