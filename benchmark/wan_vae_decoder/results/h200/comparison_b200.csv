@@ -1,0 +1,16 @@
+vae,variant,change,h200_ms,h200_source,h200_speedup_vs_mstar_before,b200_ms,b200_source,b200_speedup_vs_mstar_before,h200_over_b200,h200_fps
+wan21,mstar_ar_ctx8,"M* before (re-decode 8 context latents, compiled)",577.81,3-run mean,1.0,335.83,in-tree session 3-run mean,1.0,1.72,20.8
+wan21,diffusers_bf16,"stock diffusers, eager",270.41,single run,2.14,191.98,variance 3-run mean,1.75,1.41,44.4
+wan21,diffusers_bf16_compile,1. keep conv cache (+ compile),167.43,single run,3.45,95.9,variance 3-run mean,3.5,1.75,71.7
+wan21,channels_last_compile,2. + channels-last,135.8,single run,4.25,68.35,variance 3-run mean,4.91,1.99,88.4
+wan21,channels_last_one_call_compile,3. + one decoder call per chunk,131.36,single run,4.4,63.26,variance 3-run mean,5.31,2.08,91.4
+wan21,px_nopad,4. + H/W padding inside the conv,125.4,single run,4.61,59.11,single run (ablation/px),5.68,2.12,95.7
+wan21,px_nopad_bench,5. + cudnn.benchmark (prototype best),102.58,3-run mean,5.63,55.85,in-tree session 3-run mean,6.01,1.84,117.0
+wan21,mstar_warm,"in-tree node, this change's defaults",103.27,3-run mean,5.6,56.3,in-tree session 3-run mean,5.97,1.83,116.2
+wan21,mstar_warm_eager,"in-tree node, eager",191.07,3-run mean,3.02,129.03,in-tree session 3-run mean,2.6,1.48,62.8
+wan21,mstar_warm_nobench,"in-tree node, cudnn.benchmark off",125.83,single run,4.59,58.8,control 3-run mean,5.71,2.14,95.4
+wan22,mstar_ar_ctx8,"M* before (re-decode 8 context latents, compiled)",619.09,3-run mean,1.0,368.85,in-tree session 3-run mean,1.0,1.68,19.4
+wan22,px_nopad_bench,prototype best,139.68,3-run mean,4.43,72.29,in-tree session 3-run mean,5.1,1.93,85.9
+wan22,mstar_warm,"in-tree node, this change's defaults",139.97,3-run mean,4.42,73.76,in-tree session 3-run mean,5.0,1.9,85.7
+wan22,mstar_warm_eager,"in-tree node, eager",222.46,3-run mean,2.78,142.72,in-tree session 3-run mean,2.58,1.56,53.9
+wan22,mstar_warm_nobench,"in-tree node, cudnn.benchmark off",140.17,single run,4.42,,,,,85.6

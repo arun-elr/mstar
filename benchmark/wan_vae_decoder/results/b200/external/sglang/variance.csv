@@ -1,0 +1,9 @@
+vae,variant,settings,run1_ms,run2_ms,run3_ms,mean_ms,spread_ms,spread_pct,p90_mean_ms,peak_allocated_gib,psnr_float_db_peak1,psnr_u8_db
+wan21,sglang_best,stage quality=extra-high decode=bfloat16,92.5,92.49,92.52,92.5,0.03,0.03,93.01,3.8,53.73,55.23
+wan21,sglang_compile,stage quality=lossless decode=bfloat16 compile(default),102.03,102.08,102.37,102.16,0.34,0.33,103.27,7.38,53.91,55.29
+wan21,sglang_default,stage quality=lossless decode=bfloat16,107.63,107.58,107.71,107.64,0.13,0.12,108.15,6.81,53.88,55.27
+wan21,sglang_realtime,realtime quality=lossless decode=fp32,145.0,145.14,144.97,145.04,0.17,0.12,146.14,7.45,80.0,68.25
+wan22,sglang_best,stage quality=extra-high decode=bfloat16,94.45,94.29,94.33,94.36,0.16,0.17,95.07,4.73,56.16,56.85
+wan22,sglang_compile_bf16,stage quality=lossless decode=bfloat16 compile(default),111.81,110.42,110.65,110.96,1.39,1.25,112.12,7.57,56.43,56.79
+wan22,sglang_default,stage quality=lossless decode=float32,170.76,171.1,171.05,170.97,0.34,0.2,172.15,9.33,82.04,69.4
+wan22,sglang_default_bf16,stage quality=lossless decode=bfloat16,115.72,115.74,115.7,115.72,0.04,0.03,116.66,7.76,56.42,56.79

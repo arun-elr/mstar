@@ -1,0 +1,9 @@
+vae,variant,kernels_per_chunk,gpu_ms_per_chunk,wall_ms_per_chunk,wall_source,ms_convolution,ms_layout_conversion,ms_norm_SiLU,ms_concat_pad,ms_upsample,ms_attention,ms_copies,ms_other_elementwise,ms_other,useful_tflop,conv_tflop,intensity_flop_per_byte,roof_tflops,achieved_tflops,pct_of_roof,conv_kernel_tflops
+wan21,sglang_best,567.0,91.94,92.5,3-run mean,39.07,0.03,21.99,12.47,1.0,1.82,0.63,14.91,0.03,40.65,40.47,1548,2250.0,439,19.5,1036
+wan21,sglang_compile,843.0,95.23,102.16,3-run mean,39.36,0.03,7.96,13.27,8.67,1.87,2.36,21.69,0.02,40.65,40.47,1548,2250.0,398,17.7,1028
+wan21,sglang_default,891.0,106.09,107.64,3-run mean,39.11,1.11,20.49,13.84,2.04,1.82,8.91,18.74,0.03,40.65,40.47,1548,2250.0,378,16.8,1035
+wan21,sglang_realtime,829.0,143.67,145.04,3-run mean,75.2,1.4,20.73,14.51,2.46,5.08,1.5,22.79,0.0,40.65,40.47,1548,2250.0,280,12.5,538
+wan22,sglang_best,604.0,92.41,94.36,3-run mean,56.68,0.07,7.5,10.7,0.74,0.86,0.75,15.11,0.0,88.18,88.15,3774,2250.0,935,41.5,1555
+wan22,sglang_compile_bf16,874.0,102.65,110.96,3-run mean,56.38,0.03,4.77,10.68,6.17,0.83,1.86,21.9,0.04,88.18,88.15,3774,2250.0,795,35.3,1564
+wan22,sglang_default,863.0,167.91,170.97,3-run mean,110.32,1.53,12.81,12.54,1.79,2.21,2.68,24.02,0.0,88.18,88.15,3774,2250.0,516,22.9,799
+wan22,sglang_default_bf16,937.0,112.75,115.72,3-run mean,56.2,1.29,12.53,11.75,1.47,0.83,8.15,20.53,0.0,88.18,88.15,3774,2250.0,762,33.9,1569

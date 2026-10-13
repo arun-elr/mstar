@@ -1,0 +1,13 @@
+engine,version,stack,setting,wan21_ms,wan21_kernels,wan21_tflops,wan21_u8_vs_stock,wan22_ms,wan22_kernels,wan22_tflops,wan22_u8_vs_stock,source,chart
+M* before,upstream main,"torch 2.12.1, cuDNN 9.20","stateless context re-decode, compiled",338.37,3432,120,30.0% ≠,372.08,3536,237,30.4% ≠,ladder step 0,wan21+wan22
+diffusers,0.39.0,"torch 2.12.1, cuDNN 9.20","stock, eager bf16",191.98,2046,212,identical,184.57,2173,478,identical,variance.csv / runs.csv,wan21+wan22
+diffusers,0.39.0,"torch 2.12.1, cuDNN 9.20","stock + torch.compile, warm cache",95.90,,424,10.2% ≠,105.18,,838,9.9% ≠,variance.csv / runs.csv,wan21
+vLLM-Omni,f69b1f2b,"torch 2.13.0, cuDNN 9.20",default (vae_fast_path=lossless),97.32,999,418,not hashed,105.92,1078,833,not hashed,external/vllm_omni,wan21+wan22
+vLLM-Omni,f69b1f2b,"torch 2.13.0, cuDNN 9.20",best (--vae-fast-path channels_last),64.08,444,634,not hashed,77.85,463,1133,not hashed,external/vllm_omni,wan21+wan22
+vLLM-Omni,f69b1f2b,"torch 2.13.0, cuDNN 9.20",best + cudnn.benchmark,62.60,423,649,not hashed,77.72,499,1135,not hashed,external/vllm_omni,
+SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20","default (quality=lossless, bf16)",107.64,891,378,7.6% ≠,,,,,external/sglang,wan21
+SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20",default as served (fp32 decode),,,,,170.97,863,516,14.0% ≠,external/sglang,
+SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20","default, bf16 decode",,,,,115.72,937,762,6.3% ≠,external/sglang,wan22
+SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20","best (--quality extra-high, bf16)",92.50,567,439,5.8% ≠,94.36,604,935,4.4% ≠,external/sglang,wan21+wan22
+SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20","--enable-torch-compile, bf16",102.16,843,398,7.7% ≠,110.96,874,795,,external/sglang,
+M* this PR,in-tree node,"torch 2.12.1, cuDNN 9.20",Cosmos3VAEDecoderARSubmodule defaults,55.88,149,727,15.7% ≠,72.78,165,1212,13.1% ≠,ladder step 5,wan21+wan22

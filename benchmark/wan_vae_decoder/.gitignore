@@ -1,3 +1,4 @@
 runs/
 *.pt
 *.mp4
+!results/*/samples/*.mp4

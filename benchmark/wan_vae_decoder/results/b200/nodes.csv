@@ -1,0 +1,5 @@
+tag,node,vae,size,window_latents,overlap,latents_per_call,median_ms_per_window,p90_ms_per_window,median_ms_per_12_frames,peak_allocated_gib,cache_mib_per_stream,psnr_u8_vs_fp32,gpu
+wan21_default,cosmos3_ar,wan21,832x480,8,2,default,112.43,113.66,56.21,35.25,1801.08,54.39,NVIDIA B200
+wan21_per_call_1,cosmos3_ar,wan21,832x480,8,2,1,120.06,120.62,60.03,8.22,1801.08,,NVIDIA B200
+wan22_default,cosmos3_ar,wan22,832x480,8,2,default,142.81,144.53,71.41,28.82,1359.19,55.23,NVIDIA B200
+wan22_per_call_1,cosmos3_ar,wan22,832x480,8,2,1,152.65,153.65,76.33,7.38,1359.19,,NVIDIA B200
