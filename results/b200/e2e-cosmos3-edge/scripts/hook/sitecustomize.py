@@ -18,6 +18,11 @@ import sys
 import threading
 import time
 
+if os.environ.get("E2E_NO_FA3") == "1":
+    # The fa3-fwd wheel ships only sm90 kernels; hiding it makes the DiT take
+    # M*'s documented dense -> flashinfer fallback, as uninstalling it would.
+    sys.modules["fa3_fwd_interface"] = None
+
 _MEM = os.environ.get("E2E_MEM_DIR")
 _DUMP = os.environ.get("E2E_DUMP_DIR")
 

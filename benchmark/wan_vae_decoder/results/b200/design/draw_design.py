@@ -5,9 +5,7 @@ Draws, with matplotlib only:
   design_before_after.png  per-window decode before (re-decoded context, empty
                            cache) and after (new latents only, cache carried)
   design_cache_lifecycle.png  when a stream's decoder cache is created, used
-                           and freed, and the stateless fallback
-  design_multi_pod.png     one generator and two decoder copies: sticky
-                           windows and what a lost copy does
+                           and freed, and the stateless fallbacks
 
 Each figure is written as PNG and SVG.
 
@@ -34,6 +32,10 @@ ORANGE = "#E69F00"
 RED = "#D55E00"
 INK = "#222222"
 MUTED = "#666666"
+
+# Wan 2.2 VAE, B200, 3-latent chunk at 832x480: M* before (ladder_wan22.csv,
+# step 0) and the in-tree node at the PR defaults (retime.csv).
+BEFORE_MS, AFTER_MS = 372.08, 79.53
 
 plt.rcParams.update({
     "font.family": "DejaVu Sans",
@@ -119,13 +121,13 @@ def before_after(out: Path) -> None:
 
     # Cost per window.
     mx = 86.0
-    ax.text(mx, top + h / 2 + 1.4, "335 ms", fontsize=16, fontweight="bold", va="center", color=INK)
+    ax.text(mx, top + h / 2 + 1.4, f"{BEFORE_MS:.0f} ms", fontsize=16, fontweight="bold", va="center", color=INK)
     ax.text(mx, top + h / 2 - 1.8, "3.4× FLOPs", fontsize=12, va="center", color=MUTED)
-    ax.text(mx, bot + h / 2 + 1.4, "56 ms", fontsize=16, fontweight="bold", va="center", color=GREEN)
-    ax.text(mx, bot + h / 2 - 1.8, "6.0× faster", fontsize=12, va="center", color=MUTED)
+    ax.text(mx, bot + h / 2 + 1.4, f"{AFTER_MS:.0f} ms", fontsize=16, fontweight="bold", va="center", color=GREEN)
+    ax.text(mx, bot + h / 2 - 1.8, f"{BEFORE_MS / AFTER_MS:.1f}× faster", fontsize=12, va="center", color=MUTED)
 
-    ax.text(50, 2.2, "Wan 2.1 VAE, B200, bf16, per 3 new latents (12 frames at 480×832).  "
-            "Cache: 1.76 GiB per live stream.",
+    ax.text(50, 2.2, "Wan 2.2 VAE, B200, bf16, per 3 new latents (12 frames at 480×832), PR defaults.  "
+            "Cache: 1.33 GiB per live stream.",
             ha="center", fontsize=12, color=MUTED)
     _save(fig, out, "design_before_after")
 
@@ -151,36 +153,13 @@ def cache_lifecycle(out: Path) -> None:
     _arrow(ax, (33.0, 32.0), (33.0, y + h), color=ORANGE, lw=2.2)
     ax.text(34.0, 28.6, "stateless, one window", fontsize=12, color=ORANGE)
 
-    # Not handled: a window arriving on a copy without the stream's state.
+    # The cap: a stream that starts while the copy is at the cap never warms.
     _box(ax, 37.0, 1.5, 44.0, 9.0,
-         "Window lands on another copy: not handled yet\n(cannot happen today: routing is sticky,\n"
-         "a lost copy fails the request)",
-         "white", ec=RED, tc=RED, fs=12, ls="--", lw=2.2)
-    _arrow(ax, (59.0, y), (59.0, 10.5), color=RED, ls="--", lw=2.0)
+         "Starts at windowed_decode_max_warm_streams:\nno cache, stateless re-decode\nfor the stream's whole life",
+         "white", ec=ORANGE, tc=INK, fs=12, ls="--", lw=2.2)
+    _arrow(ax, (12.0, y), (37.0, 6.0), color=ORANGE, ls="--", lw=2.0)
     ax.text(1.0, 4.0, "Sessions store 8 latents,\nnever the cache.", fontsize=12, color=MUTED, linespacing=1.3)
     _save(fig, out, "design_cache_lifecycle")
-
-
-def multi_pod(out: Path) -> None:
-    fig, ax = _canvas(10, 4.2)
-    _box(ax, 1.0, 14.0, 20.0, 14.0, "Generator pod\nDiT\nwindow latents", GREY, tc=INK, fs=13)
-    _box(ax, 46.0, 25.0, 24.0, 12.0, "Decoder copy 1\ncache A", BLUE, bold=True)
-    _box(ax, 46.0, 4.0, 24.0, 12.0, "Decoder copy 2\ncache B", "white", ec=RED, tc=RED, ls="--", lw=2.2)
-    ax.text(58.0, 18.0, "pod lost", ha="center", fontsize=13, color=RED, fontweight="bold")
-
-    _arrow(ax, (21.0, 24.0), (46.0, 31.0), color=BLUE, lw=2.4)
-    ax.text(24.0, 31.0, "stream A: every\nwindow, same copy", fontsize=12, color=BLUE, linespacing=1.2)
-    _arrow(ax, (21.0, 18.0), (46.0, 10.0), color=RED, lw=2.4)
-    ax.text(30.0, 10.0, "stream B", fontsize=12, color=RED)
-
-    _box(ax, 76.0, 25.0, 23.0, 12.0, "Whole-stream frames\n6× faster decode", GREEN, fs=12)
-    _arrow(ax, (70.0, 31.0), (76.0, 31.0), color=GREEN)
-    _box(ax, 76.0, 4.0, 23.0, 12.0, "Request fails (503)\nclient retries\nor resumes", "white",
-         ec=RED, tc=RED, fs=12, lw=2.2)
-    _arrow(ax, (70.0, 10.0), (76.0, 10.0), color=RED)
-    ax.text(50.0, 40.0, "Decoder copy picked once per request, kept for the whole rollout",
-            ha="center", fontsize=12, color=MUTED)
-    _save(fig, out, "design_multi_pod")
 
 
 def main() -> None:
@@ -190,7 +169,6 @@ def main() -> None:
     args.out.mkdir(parents=True, exist_ok=True)
     before_after(args.out)
     cache_lifecycle(args.out)
-    multi_pod(args.out)
 
 
 if __name__ == "__main__":

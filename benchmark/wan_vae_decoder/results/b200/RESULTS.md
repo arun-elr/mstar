@@ -25,6 +25,37 @@ Input: a 6.5 s 4K natural video clip (hands drawing on a tablet), cropped to
 832×480 and ping-ponged to 1,021 frames, encoded to 256 latent frames (1 + 85
 chunks) with each VAE's own encoder.
 
+## 0. At the PR defaults
+
+Re-timed on one B200 (`wan-bench-b200`) after the defaults changed to
+`windowed_decode_latents_per_call=1` with `cudnn.benchmark` off: 2 fresh-process
+runs per row (fresh Inductor/Triton caches), alternating order. M* before is main's
+path (`mstar_step0` for the chunk, main `99f5108b` for the served window); the PR rows
+are the final head with the compact cache (`913295e4`; `dd8d2512` only makes an
+import lazy). Chunk: `bench_wan_decoder.py` (3 latents, 12 frames at 480×832, median
+ms per chunk, PSNR vs fp32 over the first 10 steady chunks). Served window:
+`bench_decode_nodes.py` (8-latent windows, 2 re-pinned, ms per 12 frames). Data:
+`retime.csv`; raw runs in `results/b200/retime-defaults/`.
+
+| VAE | bench | configuration | runs (ms) | mean ms | × vs before | peak GiB | PSNR vs fp32 |
+|---|---|---|---|---:|---:|---:|---:|
+| Wan 2.2 | chunk | M* before (stateless re-decode) | 372.06 / 372.49 | 372.27 | 1.0× | 6.44 | 51.08 |
+| Wan 2.2 | chunk | PR defaults (=1, cudnn.benchmark off) | 79.52 / 79.53 | 79.53 | 4.7× | 5.48 | 55.4 |
+| Wan 2.2 | chunk | opt-in =0 (cudnn.benchmark off) | 73.45 / 73.31 | 73.38 | 5.1× | 9.61 | 55.4 |
+| Wan 2.2 | served window | M* before (main 99f5108b) | 239.05 / 238.84 | 238.94 | 1.0× | 6.44 | — |
+| Wan 2.2 | served window | PR defaults (=1, cudnn.benchmark off) | 79.49 / 79.30 | 79.39 | 3.0× | 5.48 | — |
+| Wan 2.2 | served window | opt-in =0 (cudnn.benchmark off) | 74.49 / 74.18 | 74.33 | 3.2× | 15.86 | — |
+| Wan 2.1 | chunk | M* before (stateless re-decode) | 338.88 / 339.03 | 338.95 | 1.0× | 6.33 | 52.09 |
+| Wan 2.1 | chunk | PR defaults (=1, cudnn.benchmark off) | 64.50 / 64.54 | 64.52 | 5.3× | 5.53 | 54.42 |
+| Wan 2.1 | chunk | opt-in =0 (cudnn.benchmark off) | 59.79 / 59.85 | 59.82 | 5.7× | 9.88 | 54.42 |
+| Wan 2.1 | served window | M* before (main 99f5108b) | 217.46 / 217.30 | 217.38 | 1.0× | 6.31 | — |
+| Wan 2.1 | served window | PR defaults (=1, cudnn.benchmark off) | 64.43 / 64.75 | 64.59 | 3.4× | 5.51 | — |
+| Wan 2.1 | served window | opt-in =0 (cudnn.benchmark off) | 60.03 / 60.02 | 60.02 | 3.6× | 16.69 | — |
+| Wan 2.2 | chunk | opt-in cudnn.benchmark (=1), before the compact cache (`663b7e9b`) | 77.93 / 76.55 | 77.24 | — | 7.41 | 55.4 |
+| Wan 2.1 | chunk | opt-in cudnn.benchmark (=1), before the compact cache (`663b7e9b`) | 60.37 / 60.21 | 60.29 | — | 8.24 | 54.42 |
+
+`cudnn.benchmark` against the default on the same code (`663b7e9b`): Wan 2.2 77.24 vs 77.83 ms; Wan 2.1 60.29 vs 62.34 ms.
+
 ## 1. Per-change gains, in-tree
 
 Each step turns on one more switch in M*'s `Cosmos3VAEDecoderARSubmodule`,

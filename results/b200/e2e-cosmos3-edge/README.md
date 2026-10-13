@@ -29,6 +29,9 @@ E2E_DIR=$E2E_DIR PHASES=c8 bash scripts/run_variant.sh default # 8 streams
 python scripts/analyze.py $E2E_DIR/runs out/                   # results.csv
 ```
 
+On a GPU the `fa3-fwd` wheel has no kernels for (anything but sm90), either uninstall it or set
+`E2E_NO_FA3=1`, which hides it from the server so the DiT falls back to flashinfer.
+
 `run_variant.sh` overlays a variant's decoder switches into `configs/cosmos3_edge.yaml` (`before`: none,
 on main; `after0` / `after1`: the switches of these runs; `default`: none, on the PR), serves it, and runs
 `stream_client.py` against it. `hook/sitecustomize.py` records peak memory per process.
