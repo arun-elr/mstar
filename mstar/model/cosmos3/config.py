@@ -353,18 +353,20 @@ class Cosmos3Config:
     # the Wan 2.1 VAE and 1.33 GiB for Wan 2.2 at 832x480 in bf16, outside any
     # engine resource pool; max_concurrent_requests also bounds it.
     windowed_decode_max_warm_streams: int = 0
-    # Latent frames per VAE decoder call in the streaming decode (0: a
-    # window's new latents in one call — the warm-path default). 1 is the
-    # stock per-frame decode (the same calls as ``vae.decode``, bit-exact in
-    # fp32). 0 is the same math to float rounding (uint8 can differ by one
-    # level); fewer, larger kernels, and a transient activation peak that
+    # Latent frames per VAE decoder call in the streaming decode. 1 (default)
+    # issues the same decoder calls as ``vae.decode`` (bit-exact against it in
+    # fp32 and eagerly in the default layout). N > 1 groups N latents per call
+    # and 0 puts a window's new latents in one call: the same math to float
+    # rounding, fewer and larger kernels, and a transient activation peak that
     # grows with the latents per call, on the GPU the DiT may share. Served
-    # 8-latent windows (6 new latents) at 832x480 on a B200: 0 takes 56.2 ms
-    # per 12 frames at a 35.3 GiB peak (Wan 2.1; Wan 2.2: 71.4 ms, 28.8 GiB),
-    # 1 takes 60.0 ms at 8.2 GiB (76.3 ms, 7.4 GiB). At 1280x704 (Wan 2.2,
-    # 3-latent windows) 0 saves about 3 ms per window for 15.5 -> 34.7 GiB.
-    # The stateless fallback still goes through ``vae.decode``.
-    windowed_decode_latents_per_call: int = 0
+    # 8-latent windows (6 new latents) at 832x480 on a B200, Wan 2.1 VAE, ms
+    # per 12 frames / peak allocated: 1: 60.0 ms / 8.2 GiB, 2: 58.1 / 13.7,
+    # 3: 56.1 / 19.0, 0: 56.4 / 35.1 (Wan 2.2: 76.6 / 7.4, 74.7 / 11.7,
+    # 72.7 / 15.9, 72.1 / 28.7). Served end to end (cosmos3_edge.yaml on one
+    # B200), 0 is no faster than 1, adds about 0.2 s to the first frame, and
+    # ran out of memory at 8 concurrent streams where 1 completed all 8. The
+    # stateless fallback still goes through ``vae.decode``.
+    windowed_decode_latents_per_call: int = 1
     # Run the VAE decode (both decoder nodes) on channels-last weights and
     # activations, cuDNN's native conv3d layout: no per-conv layout conversion
     # kernels. Same math; bf16 output differs from the default layout only by

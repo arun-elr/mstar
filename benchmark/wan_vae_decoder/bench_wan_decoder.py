@@ -14,7 +14,8 @@ Variants:
   mstar_step{0,1,2,3,5}[_eager]  M*'s Cosmos3VAEDecoderARSubmodule with this change's
                       switches turned on one at a time (STEPS below): 0 is the
                       stateless context re-decode, 5 all switches on
-  mstar_warm[_eager]  the node at this change's defaults (= mstar_step5)
+  mstar_warm[_eager]  the node at its config defaults (warm cache, channels-last,
+                      one latent per decoder call, cudnn.benchmark)
   mstar_warm_nobench  the same with vae_decode_cudnn_benchmark off
   mstar_warm_lpc{N}   mstar_warm with windowed_decode_latents_per_call=N
 
@@ -239,16 +240,16 @@ def node_overrides(variant: str) -> tuple[dict, bool] | None:
         return None
     if m[2] is not None:
         over = dict(STEPS[int(m[2])])
-    else:
-        over = dict(STEPS[5], vae_decode_cudnn_benchmark=m[1] == "warm")
+    else:  # the node's config defaults, cudnn.benchmark on or off
+        over = {"vae_decode_cudnn_benchmark": m[1] == "warm"}
     if m[3] is not None:
         over["windowed_decode_latents_per_call"] = int(m[3])
     return over, not m[4]
 
 
 def mstar_warm_node(raw, device, compiled, n_steady, cudnn_benchmark=True, overrides=None):
-    """``Cosmos3VAEDecoderARSubmodule`` with the serving defaults this change
-    lands (or ``overrides``), and ``(start, chunk)`` closures streaming ``raw``
+    """``Cosmos3VAEDecoderARSubmodule`` at its config defaults (or with
+    ``overrides``), and ``(start, chunk)`` closures streaming ``raw``
     through it as one request of ``1 + n_steady`` windows."""
     sys.path.insert(0, mstar_path())
     os.environ["COSMOS3_COMPILE_VAE"] = "1" if compiled else "0"
@@ -260,9 +261,6 @@ def mstar_warm_node(raw, device, compiled, n_steady, cudnn_benchmark=True, overr
 
     vae = load_vae(REPO, torch.float32, device)
     cfg = Cosmos3Config()
-    cfg.windowed_decode_warm_cache = True
-    cfg.windowed_decode_latents_per_call = 0
-    cfg.vae_decode_channels_last = True
     cfg.vae_decode_cudnn_benchmark = cudnn_benchmark
     for k, val in (overrides or {}).items():
         setattr(cfg, k, val)

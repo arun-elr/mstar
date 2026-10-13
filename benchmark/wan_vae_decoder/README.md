@@ -27,10 +27,11 @@ and samples.
 | Processes | one variant per process, fresh Inductor/Triton caches |
 | Accuracy | PSNR against diffusers fp32, eager, **TF32 off**, over the first 10 steady chunks. M*'s node variants return uint8 frames and take the normalized latents the DiT hands the node. |
 
-`mstar_step0` is the stateless context re-decode (before this change). Each
-later step turns on one more switch: 1 warm cache, 2 channels-last with
-conv-internal padding, 3 one decoder call per window, 5 `cudnn.benchmark`.
-`bench_wan_decoder.py`'s docstring lists every variant.
+`mstar_step0` is the stateless context re-decode (before this change); step 1
+adds the warm cache, step 2 channels-last with conv-internal padding.
+`mstar_warm` is the node at this change's defaults (adds `cudnn.benchmark`, one
+latent per decoder call), and `mstar_warm_lpc0` the opt-in one decoder call per
+window. `bench_wan_decoder.py`'s docstring lists every variant.
 
 ## Reproduce
 

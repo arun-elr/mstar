@@ -93,11 +93,11 @@ def test_warm_windows_are_the_whole_stream_decode(monkeypatch, vae) -> None:
     chunks = _run(sub, "r", _windows(stream), 77)
     whole = sub._decode_pixels(stream)
     assert [c.shape[2] for c in chunks] == [29, 24, 24]
-    _u8_close(torch.cat(chunks, dim=2), whole)
-    # Per-frame warm path is bit-exact against ``vae.decode``.
-    per_frame = _decoder(monkeypatch, vae)
-    per_frame.config.windowed_decode_latents_per_call = 1
-    assert torch.equal(torch.cat(_run(per_frame, "r1", _windows(stream), 77), dim=2), whole)
+    # One latent per decoder call (the default) is bit-exact against ``vae.decode``.
+    assert torch.equal(torch.cat(chunks, dim=2), whole)
+    one_call = _decoder(monkeypatch, vae)
+    one_call.config.windowed_decode_latents_per_call = 0
+    _u8_close(torch.cat(_run(one_call, "r1", _windows(stream), 77), dim=2), whole)
     redecode = torch.cat(_run(_decoder(monkeypatch, vae, warm=False), "r", _windows(stream), 77), dim=2)
     assert not torch.equal(redecode, whole)
     # Context covering the whole stream makes the re-decode path exact too.
@@ -198,13 +198,12 @@ def test_channels_last_decoder(monkeypatch) -> None:
 
 
 def test_window_in_one_decoder_call(monkeypatch, vae) -> None:
-    """The warm path (default ``windowed_decode_latents_per_call=0``) decodes
-    a window's new latents in one decoder call (the clip-start latent
-    alone), same frames to 8-bit rounding. ``=1`` is the stock per-frame
-    opt-out."""
+    """``windowed_decode_latents_per_call=0`` (opt-in) decodes a window's new
+    latents in one decoder call (the clip-start latent alone), same frames to
+    8-bit rounding. The default ``=1`` is the stock per-frame decode."""
     stream = _stream(20)
     sub = _decoder(monkeypatch, vae)
-    assert sub.config.windowed_decode_latents_per_call == 0
+    sub.config.windowed_decode_latents_per_call = 0
     assert sub.config.vae_decode_cudnn_benchmark
     calls = []
     decoder = sub._step._decoder
@@ -214,7 +213,7 @@ def test_window_in_one_decoder_call(monkeypatch, vae) -> None:
     assert (video.int() - sub._decode_pixels(stream).int()).abs().max() <= 1
 
     per_frame = _decoder(monkeypatch, vae)
-    per_frame.config.windowed_decode_latents_per_call = 1
+    assert per_frame.config.windowed_decode_latents_per_call == 1
     frame_calls = []
     decoder = per_frame._step._decoder
     per_frame._step._decoder = lambda x, **kw: frame_calls.append(x.shape[2]) or decoder(x, **kw)

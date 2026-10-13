@@ -55,7 +55,9 @@ suite() {  # suite <wan21|wan22>
   run "$vae" --variant ref_fp32 "${c[@]}" --repeats 1 --save-ref "$ref"
   c+=(--ref "$ref")
   run "$vae" --variant diffusers_bf16 "${c[@]}"
-  for step in 0 1 2 3 5; do run "$vae" --variant "mstar_step$step" "${c[@]}"; done
+  for step in 0 1 2; do run "$vae" --variant "mstar_step$step" "${c[@]}"; done
+  run "$vae" --variant mstar_warm "${c[@]}"        # this change's defaults (one latent per decoder call)
+  run "$vae" --variant mstar_warm_lpc0 "${c[@]}"   # opt-in: a window's new latents in one decoder call
   python - "$dir" <<'EOF'
 import json, pathlib, sys
 for p in sorted(pathlib.Path(sys.argv[1]).glob("*.json")):
