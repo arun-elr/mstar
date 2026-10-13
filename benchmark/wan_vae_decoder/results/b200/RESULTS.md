@@ -15,6 +15,12 @@ M*'s node), `comparison.csv` (all engines; built by
 | Software | torch 2.12.1+cu132, CUDA 13.2, cuDNN 9.20.0, Triton 3.7.1, diffusers 0.39.0 |
 | M* model code | ladder, variance, profiles: `upstream/main` 99f5108b (M* before) with the prototype harness; in-tree node, output equivalence: this branch (4b8b4789) |
 
+**Defaults.** The PR's defaults are now `windowed_decode_latents_per_call=1`
+and `vae_decode_cudnn_benchmark=False` (see [§0](#0-at-the-pr-defaults)). Most
+sections below were measured earlier, when the node ran one decoder call per
+window (`=0`) with `cudnn.benchmark` on; those rows are labelled `=0` and
+`cudnn.benchmark` explicitly.
+
 Input: a 6.5 s 4K natural video clip (hands drawing on a tablet), cropped to
 832×480 and ping-ponged to 1,021 frames, encoded to 256 latent frames (1 + 85
 chunks) with each VAE's own encoder.
@@ -117,8 +123,8 @@ p90 is within 1–2 ms of the median for every variant. The single-run suite
 
 ## 2b. The in-tree node
 
-M*'s own `Cosmos3VAEDecoderARSubmodule` at this branch's defaults (warm cache,
-channels-last, one decoder call per chunk, `cudnn.benchmark`), fed the
+M*'s own `Cosmos3VAEDecoderARSubmodule` with the warm cache, channels-last,
+one decoder call per chunk (`=0`) and `cudnn.benchmark` on, fed the
 normalized latents the DiT hands it, against the prototype and M* before in the
 same session (`intree.csv`): 3 fresh-process runs per variant, orders
 ABC / CBA / BCA, median ms per chunk.
@@ -151,14 +157,14 @@ picking different algorithms in each fresh process.
 
 `bench_decode_nodes.py`, M*'s node driven with the served window: 8 latents, 2
 re-pinned, so 6 new latents per decoder call, 832×480, 30 timed windows
-(`nodes.csv`).
+(`nodes.csv`), `cudnn.benchmark` on.
 
 | VAE | latents per decoder call | ms per window | ms per 12 frames | peak GiB | cache per stream |
 |---|---|---:|---:|---:|---:|
-| Wan 2.1 | all 6 (default) | 112.43 | 56.21 | 35.3 | 1.76 GiB |
-| Wan 2.1 | 1 | 120.06 | 60.03 | 8.2 | 1.76 GiB |
-| Wan 2.2 | all 6 (default) | 142.81 | 71.41 | 28.8 | 1.33 GiB |
-| Wan 2.2 | 1 | 152.65 | 76.33 | 7.4 | 1.33 GiB |
+| Wan 2.1 | all 6 (`=0`, opt-in) | 112.43 | 56.21 | 35.3 | 1.76 GiB |
+| Wan 2.1 | 1 (default) | 120.06 | 60.03 | 8.2 | 1.76 GiB |
+| Wan 2.2 | all 6 (`=0`, opt-in) | 142.81 | 71.41 | 28.8 | 1.33 GiB |
+| Wan 2.2 | 1 (default) | 152.65 | 76.33 | 7.4 | 1.33 GiB |
 
 One call per window costs 27 GiB (Wan 2.1) and 21 GiB (Wan 2.2) of peak
 activation memory at served window size for 6% less decode time;
@@ -167,16 +173,16 @@ activation memory at served window size for 6% less decode time;
 ## 2c. Memory and the warm-stream cap
 
 - **Per-stream cache:** 1.76 GiB (Wan 2.1) and 1.33 GiB (Wan 2.2) in bf16 at 832×480, one per live warm stream on the decoder copy serving it. It is outside any engine resource pool and grows linearly with live streams. `windowed_decode_max_warm_streams` caps it per copy, and `max_concurrent_requests` also bounds it.
-- **Transient decode peak**, one decode at a time, set by `windowed_decode_latents_per_call`. The default stays at 0 (one call per window); the table shows `=1` next to it.
+- **Transient decode peak**, one decode at a time, set by `windowed_decode_latents_per_call`. The default is 1 (one call per latent); the table shows the opt-in `=0` next to it.
 
-| `windowed_decode_latents_per_call` | 0 (default, one call per window) | 1 (one call per latent) |
+| `windowed_decode_latents_per_call` | 0 (opt-in, one call per window) | 1 (default, one call per latent) |
 |---|---|---|
 | served window, 832×480, Wan 2.1 (6 new latents) | 56.21 ms per 12 frames, 35.3 GiB peak | 60.03 ms per 12 frames, 8.2 GiB peak |
 | served window, 832×480, Wan 2.2 | 71.41 ms, 28.8 GiB | 76.33 ms, 7.4 GiB |
 | 3-latent window, 1280×704, Wan 2.2 (samples) | 159.4 ms, 34.7 GiB | 162.2 ms, 15.5 GiB |
 | output vs one `vae.decode` of the stream | within bf16 rounding | the same decoder calls (bit for bit eagerly, in fp32 or the default layout) |
 
-At 832×480, one call per window is about 6% faster for +21–27 GiB of transient peak. At 1280×704 it saves 3 ms per window for +19 GiB, and the stream's first 3-latent window then runs eagerly as one call (409 vs 236 ms), so a 10-chunk clip takes longer in total (1.87 vs 1.74 s). The trade-off is in the config comment; the default is an open question below.
+At 832×480, one call per window is about 6% faster for +21–27 GiB of transient peak. At 1280×704 it saves 3 ms per window for +19 GiB, and the stream's first 3-latent window then runs eagerly as one call (409 vs 236 ms), so a 10-chunk clip takes longer in total (1.87 vs 1.74 s). Served end to end, `=0` is no faster and runs out of memory at 8 streams, so the default is 1.
 
 ## 3. Where the time goes, Wan 2.1
 
@@ -292,7 +298,7 @@ Same latents, same fp32 reference, same stream protocol and timing (3-latent chu
 | SGLang | v0.5.21 | default, bf16 decode | — | 115.72 | — / 937 | — / 762 | — / 6.3% ≠ |
 | SGLang | v0.5.21 | best (--quality extra-high, bf16) | 92.50 | 94.36 | 567 / 604 | 439 / 935 | 5.8% ≠ / 4.4% ≠ |
 | SGLang | v0.5.21 | --enable-torch-compile, bf16 | 102.16 | 110.96 | 843 / 874 | 398 / 795 | 7.7% ≠ / — |
-| **M* this PR** | in-tree node | Cosmos3VAEDecoderARSubmodule defaults | **55.88** | **72.78** | 149 / 165 | 727 / 1,212 | 15.7% ≠ / 13.1% ≠ |
+| M* this PR | in-tree node | `=0` + `cudnn.benchmark` (opt-in) | 55.88 | 72.78 | 149 / 165 | 727 / 1,212 | 15.7% ≠ / 13.1% ≠ |
 
 Kernels per chunk come from one profiled run; TFLOP/s is useful work (40.65 / 88.18 TFLOP per chunk) over wall time. The uint8 column compares each engine with stock diffusers bf16 run on that engine's own stack. M*'s rows also carry the node's bf16 input de-normalization.
 
@@ -354,7 +360,7 @@ fp32 reference (TF32 off), on uint8 frames unless noted. Data: `quality.csv`,
 | tier | configuration | evidence |
 |---|---|---|
 | bit-exact | the warm conv cache alone (eager, default layout, one latent per decoder call, no `cudnn.benchmark`) | through M*'s node, byte-identical uint8 frames to one stock decode of the same input on both VAEs, for every window pattern tried, including the clip-start latent alone and ragged tails (table below); on CPU in fp32, bit for bit with `vae.decode` (`test_wan_vae_decode.py`, `check_equivalence.py`) |
-| within bf16 rounding | `torch.compile`, channels-last, one call per chunk, conv-internal padding, `cudnn.benchmark`, and so the in-tree defaults | 9–16% of uint8 values differ from stock, ≤ 0.12% by two or more levels; PSNR vs fp32 within 0.45 dB of stock; worst-frame SSIM ≥ 0.9978; no drift, no seam at chunk boundaries (in-tree node on both VAEs, prototype on Wan 2.1; the harness's Wan 2.2 rows are discussed below the tables) |
+| within bf16 rounding | `torch.compile`, channels-last, one call per chunk, conv-internal padding, `cudnn.benchmark`, in any combination (the in-tree node at every setting) | 9–16% of uint8 values differ from stock, ≤ 0.12% by two or more levels; PSNR vs fp32 within 0.45 dB of stock; worst-frame SSIM ≥ 0.9978; no drift, no seam at chunk boundaries (in-tree node on both VAEs, prototype on Wan 2.1; the harness's Wan 2.2 rows are discussed below the tables) |
 | approximation | M* before: the stateless context re-decode (8 latents of context, empty cache) | 30% of values differ from the whole-stream decode, up to 207 levels; worst frame 34.8 dB (Wan 2.2), on a chunk boundary; boundary frames 0.6 / 2.3 dB below the rest |
 
 No step is byte-identical to stock eager bf16 over the full stream: change 1
@@ -429,18 +435,18 @@ the node's own VAE input.
 | Wan 2.1 | warm cache only | 1+2+5+4+3 | yes | 0 | 0 | inf |
 | Wan 2.1 | warm cache only | 8+6+1 | yes | 0 | 0 | inf |
 | Wan 2.1 | warm cache only | 1 | yes | 0 | 0 | inf |
-| Wan 2.1 | this change's defaults | 1+3+3+3+3+2 | no | 6,341,418 | 3 | 58.44 |
-| Wan 2.1 | this change's defaults | 1+2+5+4+3 | no | 6,565,789 | 3 | 58.29 |
-| Wan 2.1 | this change's defaults | 8+6+1 | no | 5,423,820 | 3 | 59.12 |
-| Wan 2.1 | this change's defaults | 1 | no | 70,021 | 2 | 60.46 |
+| Wan 2.1 | `=0`, `cudnn.benchmark` on | 1+3+3+3+3+2 | no | 6,341,418 | 3 | 58.44 |
+| Wan 2.1 | `=0`, `cudnn.benchmark` on | 1+2+5+4+3 | no | 6,565,789 | 3 | 58.29 |
+| Wan 2.1 | `=0`, `cudnn.benchmark` on | 8+6+1 | no | 5,423,820 | 3 | 59.12 |
+| Wan 2.1 | `=0`, `cudnn.benchmark` on | 1 | no | 70,021 | 2 | 60.46 |
 | Wan 2.2 | warm cache only | 1+3+3+3+3+2 | yes | 0 | 0 | inf |
 | Wan 2.2 | warm cache only | 1+2+5+4+3 | yes | 0 | 0 | inf |
 | Wan 2.2 | warm cache only | 8+6+1 | yes | 0 | 0 | inf |
 | Wan 2.2 | warm cache only | 1 | yes | 0 | 0 | inf |
-| Wan 2.2 | this change's defaults | 1+3+3+3+3+2 | no | 5,399,225 | 4 | 59.13 |
-| Wan 2.2 | this change's defaults | 1+2+5+4+3 | no | 5,625,984 | 4 | 58.95 |
-| Wan 2.2 | this change's defaults | 8+6+1 | no | 4,492,752 | 4 | 59.93 |
-| Wan 2.2 | this change's defaults | 1 | no | 56,107 | 3 | 61.41 |
+| Wan 2.2 | `=0`, `cudnn.benchmark` on | 1+3+3+3+3+2 | no | 5,399,225 | 4 | 59.13 |
+| Wan 2.2 | `=0`, `cudnn.benchmark` on | 1+2+5+4+3 | no | 5,625,984 | 4 | 58.95 |
+| Wan 2.2 | `=0`, `cudnn.benchmark` on | 8+6+1 | no | 4,492,752 | 4 | 59.93 |
+| Wan 2.2 | `=0`, `cudnn.benchmark` on | 1 | no | 56,107 | 3 | 61.41 |
 
 **Encode + decode vs the source clip** (`recon.csv`): uint8 PSNR against the
 clip itself over its first encoded piece (frames 0–120; the encoder runs in

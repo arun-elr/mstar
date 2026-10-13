@@ -3,7 +3,11 @@
 # variant's decoder switches overlaid (as benchmark/wan_vae_decoder/e2e_stream.sh
 # does), then run the phases against it and stop the server.
 #
-#   run_variant.sh before|after0|after1
+#   run_variant.sh before|after0|after1|default
+#
+# Layout under $E2E_DIR (default ~/e2e-cosmos3): venv/ (the M* environment),
+# hf/ (HF_HOME with nvidia/Cosmos3-Edge), mstar-main/ and mstar-pr/ (checkouts,
+# each with a REV file naming its commit), scripts/ (this directory).
 #
 # Phases (peak-memory counters reset between them):
 #   kv_c1    kv rollout, 241 frames (8 windows), concurrency 1: 1 warm-up + 3 timed
@@ -11,9 +15,10 @@
 #   kv_c4    kv rollout, concurrency 4 (seeds 0..3): 1 warm-up round + 2 timed
 #   ch_c1    chained rollout, 241 frames (10 windows), concurrency 1: 1 warm-up + 2 timed
 #   ch_dump  the same chained request with the raw-frame dump on (not timed)
+# PHASES=c1 runs only kv_c1 and ch_c1; PHASES=c8 and PHASES=dump as below.
 set -u
 V="$1"
-E=$HOME/e2e-cosmos3
+E=${E2E_DIR:-$HOME/e2e-cosmos3}
 R=$E/${RUNS:-runs}/$V
 PHASES=${PHASES:-all}   # all | dump (only the two untimed dump requests)
 PORT=8100
@@ -26,6 +31,7 @@ case "$V" in
   before) MSTAR=$E/mstar-main; OV='{}' ;;
   after0) MSTAR=$E/mstar-pr; OV='{"windowed_decode_warm_cache": true, "vae_decode_channels_last": true, "windowed_decode_latents_per_call": 0, "vae_decode_cudnn_benchmark": true}' ;;
   after1) MSTAR=$E/mstar-pr; OV='{"windowed_decode_warm_cache": true, "vae_decode_channels_last": true, "windowed_decode_latents_per_call": 1, "vae_decode_cudnn_benchmark": true}' ;;
+  default) MSTAR=$E/mstar-pr; OV='{}' ;;  # the PR checkout's own defaults
   *) echo "unknown variant $V" >&2; exit 2 ;;
 esac
 rm -rf "$R"; mkdir -p "$R"/mem "$R"/dump
@@ -111,6 +117,10 @@ if [ "$PHASES" = c8 ]; then
   log "variant $V c8 done"; exit 0
 fi
 client kv_c1 --mode kv --frames 241 --concurrency 1 --warmup 1 --rounds 3 --save-dir "$R/mp4/kv_c1"
+if [ "$PHASES" = c1 ]; then
+  client ch_c1 --mode chained --frames 241 --concurrency 1 --warmup 1 --rounds 2 --save-dir "$R/mp4/ch_c1"
+  log "variant $V c1 done"; exit 0
+fi
 if grep -q "ERROR" <(sed -n '/'"$V"'\/kv_c1/,/DONE/p' "$R/client.log"); then log "kv_c1 had errors; aborting $V"; exit 1; fi
 dump_on kv; client kv_dump --mode kv --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir "$R/mp4/kv_dump"; dump_off
 client kv_c4 --mode kv --frames 241 --concurrency 4 --warmup 1 --rounds 2 --save-dir "$R/mp4/kv_c4"

@@ -69,7 +69,7 @@ has the full list):
 | `channels_last_one_call_compile` | + one decoder call per chunk (change 3) | `windowed_decode_latents_per_call=0` |
 | `px_nopad` | + H/W padding inside the conv, channels-last at every conv (change 4) | `ChannelsLastCausalConv3d` (part of `vae_decode_channels_last`) |
 | `px_nopad_bench` | + `cudnn.benchmark` (change 5) | `vae_decode_cudnn_benchmark` |
-| `mstar_warm` | the in-tree `Cosmos3VAEDecoderARSubmodule` with this change's defaults | all of the above |
+| `mstar_warm` | the in-tree `Cosmos3VAEDecoderARSubmodule` at the checkout's config defaults (`=1`, `cudnn.benchmark` off since 663b7e9b; the archived runs before that used `=0` + `cudnn.benchmark`) | all of the above |
 | `mstar_warm_nobench` | the same with `cudnn.benchmark` off (control) | `vae_decode_cudnn_benchmark=False` |
 | `mstar_step{0,1,2,3,5}[_eager]` | the in-tree ladder: M*'s node with the switches turned on one at a time (`STEPS` in `bench_wan_decoder.py`); step 4 (conv-internal padding) has no switch of its own and comes with step 2 | the four switches above |
 

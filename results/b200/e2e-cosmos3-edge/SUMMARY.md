@@ -1,5 +1,13 @@
 # End-to-end Cosmos3 streaming rollout through the M* server: before vs after the Wan VAE decoder change (mstar-project/mstar#425)
 
+> **Note on settings.** These runs set every decoder switch explicitly:
+> `after0` is `windowed_decode_latents_per_call=0` and `after1` is `=1`, both
+> with `vae_decode_cudnn_benchmark: true`. When they ran, `=0` with
+> `cudnn.benchmark` on was the PR's default; the PR now defaults to `=1` with
+> `cudnn.benchmark` off (on the Wan 2.2 VAE served here, `cudnn.benchmark`
+> changes the decoder's time by less than the run-to-run spread). "PR default"
+> below refers to the defaults at the time of these runs.
+
 ## TL;DR
 
 - **Speed.** Measured through the M* server on one B200, with the shipped `configs/cosmos3_edge.yaml` (every node co-located on one GPU), the PR cuts the streaming decoder from about 530 ms to about 240 ms per window. The rollout gets faster as a result:
@@ -13,7 +21,7 @@
   - **upstream main's stateless context re-decode:** 46.5 dB, worst frame 34.5 dB, max error 138 levels (kv). In chained mode it gets 41.3 dB, worst frame 31.3 dB, max error 236 levels.
 
   No new seams appear at window boundaries.
-- **Key finding: `windowed_decode_latents_per_call=0` (the PR default) runs out of memory at concurrency 8; `=1` does not.**
+- **Key finding: `windowed_decode_latents_per_call=0` (the PR default at the time) runs out of memory at concurrency 8; `=1` does not.**
   - At concurrency 8 with `=0`, 7 of 8 streams fail with `torch.OutOfMemoryError` in `decode_causal`, at 175.6 GiB allocated on the 178 GiB B200. With `=1`, all 8 complete at a 60.2 GiB peak; upstream main peaks at 34.1 GiB.
   - Concurrency 4 completes with `=0`, but at a 120.9 GiB peak (142 GB in nvidia-smi), against 45.4 GiB with `=1` and 34.0 GiB on upstream main.
   - **Cause:** under `torch.compile` (the serving default), each warm stream's decoder cache tensors are slices of much larger compiled-graph output buffers, and they keep those buffers alive. The cache adds up to the documented 1.33 GiB per stream, but the storage held per stream is 18.7 GiB with `=0` and 3.47 GiB with `=1`. Eager mode holds exactly 1.33 GiB with either setting.
@@ -60,7 +68,7 @@ Medians over the timed rollouts. "Window gap" is the time between consecutive st
 
 ### kv mode, 241 frames, 8 windows
 
-| | before | after (=0, PR default) | after (=1) |
+| | before | after (=0) | after (=1) |
 |---|---|---|---|
 | **c=1** time to first frame | 1.43 s | 1.61 s (+0.18 s) | **1.38 s** |
 | c=1 window gap (median / p90) | 1.89 / 1.90 s | 1.53 / 1.56 s | 1.55 / 1.57 s |
@@ -128,7 +136,7 @@ The worker survived: one stream finished, and the other 7 returned the OOM as re
 
 | decoder step | cache tensor bytes per stream | storage kept alive per stream (after window 1) | peak allocated, 4 streams |
 |---|---|---|---|
-| `=0`, compiled (served default) | 1.33 GiB | **18.70 GiB** | 82.6 GiB |
+| `=0`, compiled | 1.33 GiB | **18.70 GiB** | 82.6 GiB |
 | `=1`, compiled | 1.33 GiB | 3.47 GiB | 17.8 GiB |
 | `=0`, eager | 1.33 GiB | 1.33 GiB | 26.2 GiB |
 | `=1`, eager | 1.33 GiB | 1.33 GiB | 8.9 GiB |

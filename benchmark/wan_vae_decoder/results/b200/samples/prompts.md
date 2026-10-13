@@ -63,7 +63,7 @@ and its frames are kept. Both passes produce the same md5 for every step.
 | + channels-last | True | True | 1 | False |
 | + one call per chunk | True | True | 0 | False |
 | + native padding | no separate switch: `ChannelsLastCausalConv3d` always pads inside the conv, so this lands with channels-last | | | |
-| + cudnn.benchmark (= PR defaults) | True | True | 0 | True |
+| + cudnn.benchmark (`=0`, opt-in) | True | True | 0 | True |
 | control: warm cache, eager | True (`COSMOS3_COMPILE_VAE=0`) | False | 1 | False |
 
 There are two references:

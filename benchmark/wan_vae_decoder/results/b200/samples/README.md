@@ -69,9 +69,9 @@ Metrics are on the raw uint8 frames, not the mp4s:
 | stock diffusers `vae.decode` (reference) | `260894c1f61432dfc086a1d89bf8ef93` | 0 | 0 | 0 | ∞ / ∞ | 1.0000 |
 | M* before: stateless re-decode, `windowed_decode_warm_cache=False` | `8d9ade325279a8548eb26d6004b58350` | 49.59 % | 16.298 % | 160 | 47.1 / 35.8 (49) | 0.9707 |
 | + warm cache | `d41f77847dcb4e2ac124d5452caf3691` | 24.76 % | 0.446 % | 33 | 57.5 / 56.7 (52) | 0.9991 |
-| + channels-last (with native padding) | `bb9534952cde3a5ea6ff369ab43c6d93` | 25.36 % | 0.449 % | 28 | 57.6 / 56.7 (52) | 0.9991 |
+| + channels-last (with native padding) (= this PR's defaults) | `bb9534952cde3a5ea6ff369ab43c6d93` | 25.36 % | 0.449 % | 28 | 57.6 / 56.7 (52) | 0.9991 |
 | + one decoder call per chunk (`latents_per_call=0`) | `f8f62793c8c94ae17eefb519715f5faa` | 24.61 % | 0.427 % | 30 | 57.8 / 56.7 (52) | 0.9991 |
-| + `cudnn.benchmark` (= this PR's defaults) | `de0b5aa77705e5ec8610fa51ece7098c` | 24.65 % | 0.430 % | 27 | 57.8 / 56.7 (52) | 0.9991 |
+| + `cudnn.benchmark` (`=0`, opt-in) | `de0b5aa77705e5ec8610fa51ece7098c` | 24.65 % | 0.430 % | 27 | 57.8 / 56.7 (52) | 0.9991 |
 | *control: warm cache only, eager* | `260894c1f61432dfc086a1d89bf8ef93` | 0 | 0 | 0 | ∞ / ∞ (identical to stock) | 1.0000 |
 | *context: model-card pipeline decode, fp32 VAE* | `b3b2814cd4ef5a29695564a1c1e972e3` | 61.95 % | 1.867 % | 29 | 52.9 / 52.4 (52) | 0.9981 |
 
@@ -82,9 +82,9 @@ Metrics are on the raw uint8 frames, not the mp4s:
 | stock diffusers `vae.decode` (reference) | `b034ca5bff80f50ce0e74c2e9d599e5b` | 0 | 0 | 0 | ∞ / ∞ | 1.0000 |
 | M* before: stateless re-decode, `windowed_decode_warm_cache=False` | `e10cfff5e7c22b89ce1e80fdbb748267` | 63.57 % | 33.572 % | 238 | 38.0 / 27.0 (49) | 0.9261 |
 | + warm cache | `d0cef71a19aaee4a4945240b0887fa4d` | 40.01 % | 4.197 % | 46 | 52.1 / 50.0 (95) | 0.9989 |
-| + channels-last (with native padding) | `a6ddcc6e6e62052b58bdb3a2a025abcf` | 41.17 % | 4.254 % | 48 | 52.3 / 50.1 (95) | 0.9989 |
+| + channels-last (with native padding) (= this PR's defaults) | `a6ddcc6e6e62052b58bdb3a2a025abcf` | 41.17 % | 4.254 % | 48 | 52.3 / 50.1 (95) | 0.9989 |
 | + one decoder call per chunk (`latents_per_call=0`) | `ad3da2186b2c3d5123d1f4a1e38feef2` | 40.31 % | 4.127 % | 40 | 52.5 / 50.1 (95) | 0.9989 |
-| + `cudnn.benchmark` (= this PR's defaults) | `b8d53ea7e2b6684610593963dc60cf1d` | 40.36 % | 4.135 % | 39 | 52.5 / 50.1 (95) | 0.9989 |
+| + `cudnn.benchmark` (`=0`, opt-in) | `b8d53ea7e2b6684610593963dc60cf1d` | 40.36 % | 4.135 % | 39 | 52.5 / 50.1 (95) | 0.9989 |
 | *control: warm cache only, eager* | `b034ca5bff80f50ce0e74c2e9d599e5b` | 0 | 0 | 0 | ∞ / ∞ (identical to stock) | 1.0000 |
 | *context: model-card pipeline decode, fp32 VAE* | `5e642643a5074710ce36efe65ed09a89` | 71.87 % | 8.275 % | 67 | 48.9 / 47.3 (99) | 0.9977 |
 
@@ -108,7 +108,7 @@ ms/chunk is the median over windows 4–10. That skips the clip-start window, th
 | stock diffusers `vae.decode` (whole clip, eager, not streamed) | – | – | 3978 / 3980 | 11.6 |
 | M* before | 783.5 / 784.8 | 1.00× | 6964 / 6961 | 13.8 |
 | + warm cache | 227.0 / 227.6 | 3.45× | 2354 / 2355 | 13.1 |
-| + channels-last (with native padding) | 162.2 / 163.6 | 4.8× | 1744 / 1752 | 15.5 |
+| + channels-last (with native padding) (= this PR's defaults) | 162.2 / 163.6 | 4.8× | 1744 / 1752 | 15.5 |
 | + one decoder call per chunk | 159.4 / 158.0 | 4.9× / 5.0× | 1884 / 1881 | 34.7 |
 | + `cudnn.benchmark` (= this PR) | 159.5 / 158.2 | 4.9× / 5.0× | 1874 / 1876 | 34.7 |
 | *control: warm cache only, eager* | 394.1 / 394.2 | 2.0× | 3974 / 3975 | 11.3 |

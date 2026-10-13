@@ -2,7 +2,7 @@
 # The three variants back to back, one GPU job at a time. Before each variant,
 # waits (re-checking every 5 min) until no other process or container is on the GPU.
 set -u
-E=$HOME/e2e-cosmos3
+E=${E2E_DIR:-$HOME/e2e-cosmos3}
 gpu_busy() {
   [ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ] || [ -n "$(docker ps -q)" ]
 }

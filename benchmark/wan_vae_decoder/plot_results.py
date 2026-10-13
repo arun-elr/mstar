@@ -19,6 +19,7 @@ from matplotlib.patches import Patch  # noqa: E402
 BEFORE = "#b5473f"
 STEP = "#5b8db8"
 AFTER = "#2f9e5b"
+OPT_IN = "#e0a33a"
 STOCK = "#8f8f8f"
 CATEGORY_COLORS = {
     "convolution": "#4c72b0",
@@ -88,14 +89,14 @@ LADDER_LABELS = {
     0: "M* before\n(stateless\nre-decode)",
     1: "1. warm\nconv cache",
     2: "2 + 4. channels-last,\nconv-internal\npadding",
-    3: "3. one decoder\ncall per chunk",
-    5: "5. cudnn.\nbenchmark",
+    3: "3. one decoder\ncall per chunk\n(opt-in =0)",
+    5: "5. cudnn.\nbenchmark\n(opt-in)",
 }
 
 
 def ladder(res: Results, out: Path):
     """The change ladder through M*'s decoder node, compiled and eager, one panel per VAE."""
-    vaes = [v for v in ("wan21", "wan22") if v in res.ladder]
+    vaes = [v for v in ("wan22", "wan21") if v in res.ladder]
     if not vaes:
         return
     fig, axes = plt.subplots(1, len(vaes), figsize=(7.2 * len(vaes), 5.8), squeeze=False)
@@ -108,7 +109,7 @@ def ladder(res: Results, out: Path):
         base = float(by[("compiled", steps[0])]["mean_ms"])
         for off, mode, color in ((-w / 2, "compiled", None), (w / 2, "eager", "#c9d7e6")):
             vals = [float(by[(mode, st)]["mean_ms"]) if (mode, st) in by else 0.0 for st in steps]
-            colors = color or [BEFORE] + [STEP] * (len(steps) - 2) + [AFTER]
+            colors = color or [{0: BEFORE, 1: STEP, 2: AFTER}.get(st, OPT_IN) for st in steps]
             ax.bar([x + off for x in xs], vals, w, color=colors, label=mode)
             for x, v in zip(xs, vals, strict=True):
                 if not v:
@@ -123,12 +124,14 @@ def ladder(res: Results, out: Path):
         ax.set_title("Wan 2.1 VAE" if vae == "wan21" else "Wan 2.2 VAE", fontsize=11)
     axes[0][0].legend(handles=[Patch(color=BEFORE, label="M* before: stateless re-decode (compiled)"),
                                Patch(color=STEP, label="intermediate step (compiled)"),
-                               Patch(color=AFTER, label="all changes on (compiled)"),
+                               Patch(color=AFTER, label="this PR's defaults (compiled)"),
+                               Patch(color=OPT_IN, label="opt-in switch added (compiled)"),
                                Patch(color="#c9d7e6", label="eager, same step")],
                       frameon=False, loc="upper right", fontsize=9)
     fig.suptitle(f"One change at a time, through M*'s decoder node\n{SETUP}", fontsize=11)
     footnote(fig, "n = 3 fresh-process runs per bar (fresh compile each). Speedup vs M* before (compiled). "
-                  "Each step adds its switch to the one before; step 4 (conv-internal padding) comes with step 2.")
+                  "Each step adds its switch to the one before; step 4 (conv-internal padding) comes with step 2; "
+                  "steps 3 and 5 are opt-in.")
     fig.tight_layout(rect=(0, 0.04, 1, 0.93))
     fig.savefig(out / "ladder.png", dpi=150)
     plt.close(fig)

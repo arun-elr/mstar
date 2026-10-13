@@ -10,7 +10,28 @@ Checkpoint: `nvidia/Cosmos3-Edge@344d602b`. Date: 2026-10-13.
 - `logs/runs/`, `logs/runs-c8/`, `logs/runs-latents/`: per-variant server and client logs, `stats.txt`,
   memory snapshots, `smi.csv` GPU traces. `logs/probe/`: the decoder-only cache probe.
 - `logs/attempts/`: two failed environment attempts (the fa3 sm90-only wheel; a missing ninja), kept for the record.
-- `scripts/`: the scripts as run.
+- `scripts/`: the scripts as run, since parameterized by `E2E_DIR` and with a `default` variant (no
+  overrides: the PR checkout's own defaults) and `PHASES=c1` (one stream, kv and chained only).
+
+## Reproduce the served numbers
+
+On one GPU with the M* environment (flashinfer, as `pip install -e ".[cosmos3]"`):
+
+```bash
+E2E_DIR=~/e2e-cosmos3; mkdir -p $E2E_DIR && cd $E2E_DIR
+ln -s /path/to/mstar/.venv venv                      # the M* environment
+ln -s ~/.cache/huggingface hf                        # HF_HOME with nvidia/Cosmos3-Edge@344d602b
+git -C /path/to/mstar worktree add $E2E_DIR/mstar-main 99f5108b && echo 99f5108b > mstar-main/REV
+git -C /path/to/mstar worktree add $E2E_DIR/mstar-pr perf/wan-vae-decode && git -C mstar-pr rev-parse HEAD > mstar-pr/REV
+cp -r /path/to/this/folder/scripts scripts
+E2E_DIR=$E2E_DIR bash scripts/run_all.sh before default        # all phases: 1 and 4 streams, kv and chained
+E2E_DIR=$E2E_DIR PHASES=c8 bash scripts/run_variant.sh default # 8 streams
+python scripts/analyze.py $E2E_DIR/runs out/                   # results.csv
+```
+
+`run_variant.sh` overlays a variant's decoder switches into `configs/cosmos3_edge.yaml` (`before`: none,
+on main; `after0` / `after1`: the switches of these runs; `default`: none, on the PR), serves it, and runs
+`stream_client.py` against it. `hook/sitecustomize.py` records peak memory per process.
 
 Not committed: the code snapshots each variant ran from (`git archive` tarballs in `${WAN_BENCH}/e2e-cosmos3-stage/`)
 

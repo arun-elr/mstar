@@ -188,7 +188,7 @@ def coverage(args):
     ragged tail, served-size windows) against one stock decode of the same
     stream, both fed the node's own VAE input: with the warm cache only
     (eager, default layout, one latent per call, no cudnn.benchmark) and with
-    this change's defaults (compiled)."""
+    one call per window and cudnn.benchmark (compiled)."""
     from types import SimpleNamespace
 
     sys.path.insert(0, mstar_path())
@@ -203,7 +203,7 @@ def coverage(args):
         "warm cache only (eager, default layout, 1 latent per call, no cudnn.benchmark)": dict(
             windowed_decode_warm_cache=True, vae_decode_channels_last=False, windowed_decode_latents_per_call=1,
             vae_decode_cudnn_benchmark=False),
-        "this change's defaults (compiled)": dict(
+        "=0 + cudnn.benchmark (compiled)": dict(
             compiled=True, windowed_decode_warm_cache=True, vae_decode_channels_last=True,
             windowed_decode_latents_per_call=0, vae_decode_cudnn_benchmark=True),
     }

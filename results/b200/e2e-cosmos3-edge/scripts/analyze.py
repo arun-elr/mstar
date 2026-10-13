@@ -19,7 +19,7 @@ import numpy as np
 
 RUNS, OUT = Path(sys.argv[1]), Path(sys.argv[2])
 OUT.mkdir(parents=True, exist_ok=True)
-VARIANTS = [v for v in ("before", "after0", "after1") if (RUNS / v).is_dir()]
+VARIANTS = [v for v in ("before", "after0", "after1", "default") if (RUNS / v).is_dir()]
 med = statistics.median
 
 

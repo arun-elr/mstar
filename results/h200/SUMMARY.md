@@ -7,6 +7,11 @@ fresh Inductor/Triton caches. Each process decodes an untimed first latent and
 10 untimed warm-up chunks, then 75 timed chunks, and the stream is replayed twice (150 samples).
 3-run sessions use the orders ABC / CBA / BCA, as in `run_ablation.sh intree`.
 
+**Settings.** The in-tree rows (`mstar_warm`) ran with one decoder call per
+window (`windowed_decode_latents_per_call=0`) and `cudnn.benchmark` on, the
+PR's defaults at the time. The PR now defaults to `=1` with `cudnn.benchmark`
+off; `mstar_warm_nobench` is the `cudnn.benchmark`-off control.
+
 **Headline.** The in-tree node (`mstar_warm`) is **5.6×** faster than M* before
 on Wan 2.1 (577.81 → 103.27 ms per chunk) and **4.4×** faster on Wan 2.2
 (619.09 → 139.97 ms). On the B200 it was 6.0× and 5.0×. The optimized decoders
@@ -46,12 +51,12 @@ session's M* before (335.25 ms), so its × differs by ≤ 0.2%.
 | Wan 2.1 | `channels_last_one_call_compile` | 3. + one decoder call per chunk | 131.36\* | 4.4× | 63.26 | 5.3× | 2.08 |
 | Wan 2.1 | `px_nopad` | 4. + H/W padding inside the conv | 125.40\* | 4.6× | 59.11\* | 5.7× | 2.12 |
 | Wan 2.1 | `px_nopad_bench` | 5. + `cudnn.benchmark` (prototype best) | 102.58 | 5.6× | 55.85 | 6.0× | 1.84 |
-| Wan 2.1 | `mstar_warm` | in-tree node, this change's defaults | **103.27** | **5.6×** | 56.30 | 6.0× | 1.83 |
+| Wan 2.1 | `mstar_warm` | in-tree node, `=0` + `cudnn.benchmark` | **103.27** | **5.6×** | 56.30 | 6.0× | 1.83 |
 | Wan 2.1 | `mstar_warm_eager` | in-tree node, eager | 191.07 | 3.0× | 129.03 | 2.6× | 1.48 |
 | Wan 2.1 | `mstar_warm_nobench` | in-tree node, `cudnn.benchmark` off | 125.83\* | 4.6× | 58.80 | 5.7× | 2.14 |
 | Wan 2.2 | `mstar_ar_ctx8` | M* before (re-decode 8 context latents, compiled) | 619.09 | 1.0× | 368.85 | 1.0× | 1.68 |
 | Wan 2.2 | `px_nopad_bench` | prototype best | 139.68 | 4.4× | 72.29 | 5.1× | 1.93 |
-| Wan 2.2 | `mstar_warm` | in-tree node, this change's defaults | **139.97** | **4.4×** | 73.76 | 5.0× | 1.90 |
+| Wan 2.2 | `mstar_warm` | in-tree node, `=0` + `cudnn.benchmark` | **139.97** | **4.4×** | 73.76 | 5.0× | 1.90 |
 | Wan 2.2 | `mstar_warm_eager` | in-tree node, eager | 222.46 | 2.8× | 142.72 | 2.6× | 1.56 |
 | Wan 2.2 | `mstar_warm_nobench` | in-tree node, `cudnn.benchmark` off | 140.17\* | 4.4× | — | — | — |
 
