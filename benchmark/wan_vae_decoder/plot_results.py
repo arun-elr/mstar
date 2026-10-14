@@ -244,8 +244,10 @@ def comparison(res: Results, out: Path):
                 for r in res.comparison if vae in r.get("chart", "").split("+") and r[f"{vae}_ms"]]
         rows.sort(key=lambda t: t[1])
         ys = list(range(len(rows)))
-        for y, (_, v, engine) in zip(ys, rows, strict=True):
-            ax.barh(y, v, color=FAMILY_COLORS[engine], height=0.62)
+        for y, (label, v, engine) in zip(ys, rows, strict=True):
+            opt_in = "opt-in" in label
+            ax.barh(y, v, color=OPT_IN if opt_in else FAMILY_COLORS[engine], height=0.62,
+                    hatch="//" if opt_in else None, edgecolor="white" if opt_in else None, linewidth=0)
             ax.text(v + 4, y, f"{ms1(v)} ms", va="center", fontsize=9)
         ax.set_yticks(ys, [r[0] for r in rows], fontsize=8.5)
         ax.invert_yaxis()
@@ -258,10 +260,11 @@ def comparison(res: Results, out: Path):
     fig.suptitle("Wan VAE streaming decode across engines, one B200\n"
                  "same latents, same B200, measured with this benchmark; "
                  "each engine via its own loader and documented flags", fontsize=11)
-    footnote(fig, "3-run means. vLLM-Omni and SGLang ran on torch 2.13 / cuDNN 9.20, M* and stock diffusers on "
-                  "torch 2.12.1 / cuDNN 9.20; M*'s prototype harness runs 53.45 ms (Wan 2.1) on the torch 2.13 stack. "
-                  "SGLang's Wan 2.2 default decodes fp32 as served: 171.0 ms.")
-    fig.tight_layout(rect=(0, 0.04, 1, 0.92))
+    footnote(fig, "Orange hatched: M*'s opt-in switches, not the defaults. 3-run means, except M*'s defaults: 2 runs "
+                  "re-timed at the final code (RESULTS.md section 0). SGLang's Wan 2.2 default decodes fp32 as served: "
+                  "171.0 ms.\nvLLM-Omni and SGLang ran on torch 2.13 / cuDNN 9.20, M* and stock diffusers on "
+                  "torch 2.12.1 / cuDNN 9.20; M*'s prototype harness runs 53.45 ms (Wan 2.1) on the torch 2.13 stack.")
+    fig.tight_layout(rect=(0, 0.06, 1, 0.92))
     fig.savefig(out / "comparison.png", dpi=150)
     plt.close(fig)
 

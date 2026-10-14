@@ -10,4 +10,5 @@ SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20",default as served (fp32 decode),,,,,17
 SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20","default, bf16 decode",,,,,115.72,937,762,6.3% ≠,external/sglang,wan22
 SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20","best (--quality extra-high, bf16)",92.50,567,439,5.8% ≠,94.36,604,935,4.4% ≠,external/sglang,wan21+wan22
 SGLang,v0.5.21,"torch 2.13.0, cuDNN 9.20","--enable-torch-compile, bf16",102.16,843,398,7.7% ≠,110.96,874,795,,external/sglang,
-M* this PR,in-tree node,"torch 2.12.1, cuDNN 9.20",Cosmos3VAEDecoderARSubmodule defaults,55.88,149,727,15.7% ≠,72.78,165,1212,13.1% ≠,ladder step 5,wan21+wan22
+M* this PR,in-tree node,"torch 2.12.1, cuDNN 9.20","defaults (=1, cudnn.benchmark off)",64.52,,630,,79.53,,1109,,"retime.csv (final code, 2 runs)",wan21+wan22
+M* this PR,in-tree node,"torch 2.12.1, cuDNN 9.20",=0 + cudnn.benchmark (opt-in),55.88,149,727,15.7% ≠,72.78,165,1212,13.1% ≠,ladder step 5,wan21+wan22

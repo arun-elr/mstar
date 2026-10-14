@@ -329,9 +329,10 @@ Same latents, same fp32 reference, same stream protocol and timing (3-latent chu
 | SGLang | v0.5.21 | default, bf16 decode | — | 115.72 | — / 937 | — / 762 | — / 6.3% ≠ |
 | SGLang | v0.5.21 | best (--quality extra-high, bf16) | 92.50 | 94.36 | 567 / 604 | 439 / 935 | 5.8% ≠ / 4.4% ≠ |
 | SGLang | v0.5.21 | --enable-torch-compile, bf16 | 102.16 | 110.96 | 843 / 874 | 398 / 795 | 7.7% ≠ / — |
+| M* this PR | in-tree node | defaults (`=1`, `cudnn.benchmark` off) | 64.52 | 79.53 | — / — | 630 / 1,109 | — / — |
 | M* this PR | in-tree node | `=0` + `cudnn.benchmark` (opt-in) | 55.88 | 72.78 | 149 / 165 | 727 / 1,212 | 15.7% ≠ / 13.1% ≠ |
 
-Kernels per chunk come from one profiled run; TFLOP/s is useful work (40.65 / 88.18 TFLOP per chunk) over wall time. The uint8 column compares each engine with stock diffusers bf16 run on that engine's own stack. M*'s rows also carry the node's bf16 input de-normalization.
+M*'s defaults row is the 2-run re-time at the final code (section 0, `retime.csv`), not profiled or hashed; the other rows are 3-run means. Kernels per chunk come from one profiled run; TFLOP/s is useful work (40.65 / 88.18 TFLOP per chunk) over wall time. The uint8 column compares each engine with stock diffusers bf16 run on that engine's own stack. M*'s rows also carry the node's bf16 input de-normalization.
 
 **Output quality, same streams.** Every engine's full 1,021-frame stream was compared with M*'s stock diffusers bf16 stream and fp32 reference, using `quality.py`'s metrics.
 

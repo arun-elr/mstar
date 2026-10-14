@@ -132,7 +132,13 @@ def main():
             [pick(sg["variance"], v, n, "mean_ms") if n else None for v, n in zip(VAES, names, strict=True)],
             [pick(sg["profile"], v, n, "kernels_per_chunk") if n else None for v, n in zip(VAES, names, strict=True)],
             [sg_u8(v, n) if n else None for v, n in zip(VAES, names, strict=True)], "external/sglang", chart=chart)
-    add("M* this PR", "in-tree node", STACK_MSTAR, "Cosmos3VAEDecoderARSubmodule defaults",
+    retime = read(d / "retime.csv") if (d / "retime.csv").exists() else []
+    defaults = [next((r["mean_ms"] for r in retime if r["code"] == "final" and r["vae"] == v
+                      and r["bench"].startswith("chunk") and r["variant"] == "mstar_warm"), None) for v in VAES]
+    if any(defaults):
+        add("M* this PR", "in-tree node", STACK_MSTAR, "defaults (=1, cudnn.benchmark off)",
+            defaults, [None, None], [None, None], "retime.csv (final code, 2 runs)")
+    add("M* this PR", "in-tree node", STACK_MSTAR, "=0 + cudnn.benchmark (opt-in)",
         [mstar_step(v, 5, "mean_ms") for v in VAES], [mstar_step(v, 5, "kernels_per_chunk") for v in VAES],
         [u8(v, "mstar_warm") for v in VAES], "ladder step 5" if args.mstar == "ladder" else "intree.csv")
     out = d / "comparison.csv"
