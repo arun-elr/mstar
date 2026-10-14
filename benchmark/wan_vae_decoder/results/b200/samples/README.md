@@ -32,8 +32,12 @@ Setup:
 - Hardware and stack: 1× B200, torch 2.12.1+cu130, cuDNN 9.20.0, diffusers 0.39.0.
 - M* code: the samples were made at `c56b572b`. Later commits changed how the decoder cache is
   written (`913295e4`, compact buffers) and the defaults (`30896775`, `b9a63ca3`: one latent per call,
-  `cudnn.benchmark` opt-in). Output equivalence at the later code was re-checked by the later quality
-  and end-to-end runs; see [`results/INDEX.md`](../../../../../results/INDEX.md).
+  `cudnn.benchmark` opt-in). Output equivalence at the later code was re-checked by the later runs:
+  the in-tree quality run ([`RESULTS.md`](../RESULTS.md) §8, `quality.csv`); the re-timing at
+  `913295e4` (§0, `retime.csv`: PSNR vs fp32 55.40 dB on Wan 2.2 and 54.42 dB on Wan 2.1, the same as
+  before the compact cache); and the served Cosmos3-Edge re-run with the compact cache
+  ([`e2e-cosmos3-edge-memfix`](../../../../../results/b200/e2e-cosmos3-edge-memfix/SUMMARY.md): the
+  same latents give 53.46 dB vs fp32, as before the fix). Index: [`results/INDEX.md`](../../../../../results/INDEX.md).
 
 Prompts, settings and commands: [`prompts.md`](prompts.md). Scripts: [`../../../samples/`](../../../samples/).
 

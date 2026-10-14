@@ -13,6 +13,8 @@ and [`benchmark/wan_vae_decoder/samples/`](../../../benchmark/wan_vae_decoder/sa
   `decode_step.py`, `tables.py` and `run_all.sh`, which differ from the committed, edited copies.
 
 Run on one B200 (VM `wan-bench-b200-vllm`) with torch 2.12.1+cu130 and cuDNN 9.20, using PR code at `c56b572b`.
+The decoder's cache writes and defaults changed after that; the published samples README says which commits
+changed what and which later runs re-checked the output.
 Date: 2026-10-13. One run per step per prompt.
 
 Not committed: `${WAN_BENCH}/samples-work/gif_frame20.png`, a preview frame

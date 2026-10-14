@@ -274,7 +274,8 @@ QUALITY_LINES = [  # (label, variant, color, linestyle)
 ]
 
 
-def per_frame_psnr(res_dir: Path, out: Path):
+def per_frame_psnr_full(res_dir: Path, out: Path):
+    """Every VAE and variant vs the fp32 reference (and stock), whole stream."""
     path = res_dir / "quality_frames.csv"
     if not path.exists():
         return
@@ -311,7 +312,7 @@ def per_frame_psnr(res_dir: Path, out: Path):
     footnote(fig, "Axis cut at 40 dB: M* before reaches 34.8 dB on Wan 2.2; the prototype harness's frames 1-20 on "
                   "Wan 2.2 (its compiled 2nd decoder call) drop to 12-23 dB. The in-tree node runs that call eagerly.")
     fig.tight_layout(rect=(0, 0.03, 1, 0.96))
-    fig.savefig(out / "per_frame_psnr.png", dpi=130)
+    fig.savefig(out / "per_frame_psnr_full.png", dpi=130)
     plt.close(fig)
 
 
@@ -322,7 +323,7 @@ WAN22_LINES = [  # (label, variant, color, linewidth); drawn in this order
 ]
 
 
-def per_frame_psnr_wan22(res_dir: Path, out: Path):
+def per_frame_psnr(res_dir: Path, out: Path):
     """Wan 2.2 (the VAE M* serves) vs the fp32 reference, one panel, whole stream."""
     path = res_dir / "quality_frames.csv"
     if not path.exists():
@@ -358,7 +359,7 @@ def per_frame_psnr_wan22(res_dir: Path, out: Path):
     ax.legend(frameon=False, loc="upper left", ncol=3, fontsize=10)
     ax.set_title("Per-frame PSNR vs exact fp32 decode — Wan 2.2 VAE, 85 streamed chunks, one B200", fontsize=12)
     fig.tight_layout()
-    fig.savefig(out / "per_frame_psnr_wan22.png", dpi=100, facecolor="white")
+    fig.savefig(out / "per_frame_psnr.png", dpi=100, facecolor="white")
     plt.close(fig)
 
 
@@ -373,7 +374,7 @@ def main():
     for chart in (ladder, breakdown, kernels_tflops, wan21_vs_wan22, comparison):
         chart(res, out)
     per_frame_psnr(d, out)
-    per_frame_psnr_wan22(d, out)
+    per_frame_psnr_full(d, out)
     print(f"wrote {', '.join(sorted(p.name for p in out.glob('*.png')))} to {out}")
 
 

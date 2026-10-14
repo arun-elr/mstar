@@ -112,8 +112,8 @@ python plot_results.py --results results/b200
 
 `quality.py decode` / `analyze` / `coverage` (driven by `run_ablation.sh
 quality`) write `quality.csv`, `quality_frames.csv` (per-frame PSNR, for
-`charts/per_frame_psnr.png`), `coverage.csv` (M*'s node over irregular
-windows) and, with `VIDEO=<source clip>`, `recon.csv` (encode + decode PSNR
+`charts/per_frame_psnr.png`, Wan 2.2, and `charts/per_frame_psnr_full.png`,
+every variant), `coverage.csv` (M*'s node over irregular windows) and, with `VIDEO=<source clip>`, `recon.csv` (encode + decode PSNR
 against the clip). `profile_kernels.py` writes the kernel-time breakdown (categories from kernel
 names, `kernel_categories.py`) and, with `--flops`, the FLOP and minimum-traffic
 count per chunk. `bench_decode_nodes.py` drives M*'s decoder nodes directly with

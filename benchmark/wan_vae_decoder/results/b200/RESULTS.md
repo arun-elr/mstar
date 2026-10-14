@@ -454,7 +454,7 @@ drift).
   node's second process is byte-identical on both VAEs. Turning it off costs
   2.2 ms per chunk (section 2b).
 
-![per-frame PSNR](charts/per_frame_psnr.png)
+![per-frame PSNR, both VAEs and every variant](charts/per_frame_psnr_full.png)
 
 **Window coverage** (`quality.py coverage`): M*'s node over irregular windows
 of the first 15 latents against one stock bf16 decode of the same stream, fed

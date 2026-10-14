@@ -27,7 +27,7 @@ input. Worst frame (minimum PSNR / SSIM) and where it sits in its chunk.
 Determinism: ``<variant>.run2`` files (a second fresh process) compared bit for
 bit with the first. With ``--source-video``, the PSNR against the clip the
 latents were encoded from (encode + decode), over the first encoded piece. Writes ``quality.csv`` and
-``quality_frames.csv`` (for ``plot_results.py``'s ``per_frame_psnr.png``).
+``quality_frames.csv`` (for ``plot_results.py``'s ``per_frame_psnr.png`` and ``per_frame_psnr_full.png``).
 
 ``coverage`` drives the in-tree node over irregular windows (the clip-start
 latent alone, ragged tails, served-size windows) and compares each stream
