@@ -364,7 +364,8 @@ class Cosmos3Config:
     # cuDNN's native conv3d layout: no per-conv layout conversion kernels.
     # Same math; bf16 output differs from the default layout only by rounding.
     # The streaming node then loads its own copy of the VAE decoder instead of
-    # sharing the whole-clip decoder's, which keeps the default layout.
+    # sharing the whole-clip decoder's, which keeps the default layout: a fixed
+    # ~1.03 GiB of bf16 weights (Wan2.2 VAE) in a process hosting both nodes.
     vae_decode_channels_last: bool = True
     # Let cuDNN time its conv algorithms for each new streaming-decode shape
     # (once, then cached) instead of its heuristic pick. Same math, but the
