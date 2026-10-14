@@ -2891,13 +2891,16 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
         ``feat_cache`` (updated in place)."""
         wan_vae = _wan_vae()
         z = self._vae_input(latents)
+        # Only steady windows group latents per call: a stream's first window
+        # (the clip start, or a resumed session's context ahead of its new
+        # latents) runs one latent per call, so its peak stays the default's.
+        per_call = 1 if clip_start else int(self.config.windowed_decode_latents_per_call)
         with (
             torch.autocast(device_type="cuda", enabled=False),
             wan_vae.cudnn_benchmark(self.config.vae_decode_cudnn_benchmark),
         ):
             decoded = wan_vae.decode_causal(
-                self.vae, z, feat_cache, self._step, clip_start=clip_start,
-                latents_per_call=int(self.config.windowed_decode_latents_per_call),
+                self.vae, z, feat_cache, self._step, clip_start=clip_start, latents_per_call=per_call,
             )
         return self._to_uint8(decoded)
 

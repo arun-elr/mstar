@@ -364,7 +364,9 @@ class Cosmos3Config:
     # eagerly in the default layout). N > 1 groups N latents per call and 0
     # puts a window's new latents in one call: the same math to float
     # rounding, fewer and larger kernels, and a transient activation peak that
-    # grows with the latents per call, on the GPU the DiT may share.
+    # grows with the latents per call, on the GPU the DiT may share. Grouping
+    # applies to steady windows; a stream's first window, which re-decodes
+    # its context (fresh or resumed), always runs one latent per call.
     windowed_decode_latents_per_call: int = 1
     # Run the streaming decode on channels-last weights and activations,
     # cuDNN's native conv3d layout: no per-conv layout conversion kernels.

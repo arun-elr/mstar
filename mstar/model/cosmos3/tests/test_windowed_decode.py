@@ -202,29 +202,47 @@ def test_channels_last_decoder(monkeypatch) -> None:
     assert (video.int() - plain.int()).abs().max() <= 1
 
 
-def test_window_in_one_decoder_call(monkeypatch, vae) -> None:
-    """``windowed_decode_latents_per_call=0`` (opt-in) decodes a window's new
-    latents in one decoder call (the clip-start latent alone), same frames to
-    8-bit rounding. The default ``=1`` is the stock per-frame decode."""
-    stream = _stream(20)
-    sub = _decoder(monkeypatch, vae)
-    sub.config.windowed_decode_latents_per_call = 0
+def _record_calls(sub) -> list:
     calls = []
     decoder = sub._step._decoder
     sub._step._decoder = lambda x, **kw: calls.append(x.shape[2]) or decoder(x, **kw)
+    return calls
+
+
+def test_window_in_one_decoder_call(monkeypatch, vae) -> None:
+    """``windowed_decode_latents_per_call=0`` (opt-in) decodes a steady
+    window's new latents in one decoder call, same frames to 8-bit rounding;
+    the stream's first window runs one latent per call. The default ``=1`` is
+    the stock per-frame decode."""
+    stream = _stream(20)
+    sub = _decoder(monkeypatch, vae)
+    sub.config.windowed_decode_latents_per_call = 0
+    calls = _record_calls(sub)
     video = torch.cat(_run(sub, "r", _windows(stream), 77), dim=2)
-    assert calls == [1, 7, 6, 6]
+    assert calls == [1] * WINDOW + [6, 6]
     assert (video.int() - sub._decode_pixels(stream).int()).abs().max() <= 1
 
     per_frame = _decoder(monkeypatch, vae)
     assert per_frame.config.windowed_decode_latents_per_call == 1
-    frame_calls = []
-    decoder = per_frame._step._decoder
-    per_frame._step._decoder = lambda x, **kw: frame_calls.append(x.shape[2]) or decoder(x, **kw)
+    frame_calls = _record_calls(per_frame)
     per_frame_video = torch.cat(_run(per_frame, "r2", _windows(stream), 77), dim=2)
     assert frame_calls == [1] + [1] * (7 + 6 + 6)
     assert torch.equal(per_frame_video, per_frame._decode_pixels(stream))
     _u8_close(per_frame_video, video)
+
+
+def test_resumed_first_window_is_not_grouped(monkeypatch, vae) -> None:
+    """At ``=0`` a resumed session's first window re-decodes its stored
+    context ahead of the new latents one latent per call, so it peaks no
+    higher than the default; the windows after it are grouped."""
+    stream = _stream(26)
+    sub = _decoder(monkeypatch, vae)
+    sub.config.windowed_decode_latents_per_call = 0
+    _run(sub, "r1", _windows(stream)[:2], 53, session_id="s")
+    calls = _record_calls(sub)
+    _run(sub, "r2", _windows(stream, start=12), 48, session_id="s", resume_latent_units=OVERLAP)
+    # 3 stored context latents + 6 new, then one 6-latent call.
+    assert calls == [1] * 9 + [6]
 
 
 def test_warm_cache_switch_off_keeps_no_cache(monkeypatch, vae) -> None:
