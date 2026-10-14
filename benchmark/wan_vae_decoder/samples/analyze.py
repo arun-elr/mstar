@@ -34,7 +34,7 @@ STEPS = [
     ("stock_fp32", "diffusers pipeline decode (fp32 VAE, model card; context)"),
     ("s0_mstar_before", "M* before: stateless re-decode of 8 context latents"),
     ("s1_warm_cache", "+ warm conv cache"),
-    ("s2_channels_last", "+ channels-last (with native conv padding) (= this PR's defaults)"),
+    ("s2_channels_last", "+ channels-last (with native conv padding): this PR (defaults)"),
     ("s3_one_call", "+ one decoder call per chunk (=0, opt-in)"),
     ("s4_cudnn_benchmark", "+ cudnn.benchmark (=0, opt-in)"),
     ("c1_warm_cache_eager", "control: warm conv cache only, eager (COSMOS3_COMPILE_VAE=0)"),

@@ -315,6 +315,53 @@ def per_frame_psnr(res_dir: Path, out: Path):
     plt.close(fig)
 
 
+WAN22_LINES = [  # (label, variant, color, linewidth); drawn in this order
+    ("M* before (stateless context re-decode)", "mstar_ar_ctx8", "#CC3311", 1.1),
+    ("stock diffusers bf16", "diffusers_bf16", "#999999", 0.7),
+    ("M* this PR (in-tree node)", "mstar_warm_nobench", "#009E73", 1.1),
+]
+
+
+def per_frame_psnr_wan22(res_dir: Path, out: Path):
+    """Wan 2.2 (the VAE M* serves) vs the fp32 reference, one panel, whole stream."""
+    path = res_dir / "quality_frames.csv"
+    if not path.exists():
+        return
+    rows = [r for r in read(path) if r["vae"] == "wan22"]
+    series = {v: [float(r["psnr_u8_vs_fp32"]) for r in rows if r["variant"] == v] for _, v, _, _ in WAN22_LINES}
+    if not all(series.values()):
+        return
+    fig, ax = plt.subplots(figsize=(11, 4.5), facecolor="white")
+    n = len(series["mstar_warm_nobench"])
+    for b in range(FRAMES_PER_CHUNK, n, FRAMES_PER_CHUNK):
+        ax.axvline(b, color="#000000", alpha=0.07, linewidth=0.6, zorder=0)
+    for label, v, color, lw in WAN22_LINES:
+        ax.plot(range(len(series[v])), series[v], color=color, linewidth=lw, label=label)
+
+    red = series["mstar_ar_ctx8"]
+    worst = min(range(len(red)), key=red.__getitem__)
+    ax.annotate(f"dips at chunk boundaries (worst {red[worst]:.1f} dB)", xy=(worst, red[worst]),
+                xytext=(worst - 420, 33.0), color="#CC3311", fontsize=11, va="center",
+                arrowprops={"arrowstyle": "->", "color": "#CC3311", "lw": 1.2})
+    green = series["mstar_warm_nobench"]
+    gx = 960
+    ax.annotate("no drift over 1,021 frames", xy=(gx, green[gx]), xytext=(gx - 330, 59.3),
+                color="#009E73", fontsize=11, va="center",
+                arrowprops={"arrowstyle": "->", "color": "#009E73", "lw": 1.2})
+
+    style(ax)
+    ax.set_ylabel("PSNR uint8 vs fp32 (dB)", fontsize=11)
+    ax.tick_params(labelsize=10.5)
+    ax.set_xlim(0, n)
+    ax.set_ylim(30, 65)
+    ax.set_xlabel("output frame (faint lines: chunk boundaries, every 12 frames)", fontsize=11)
+    ax.legend(frameon=False, loc="upper left", ncol=3, fontsize=10)
+    ax.set_title("Per-frame PSNR vs exact fp32 decode — Wan 2.2 VAE, 85 streamed chunks, one B200", fontsize=12)
+    fig.tight_layout()
+    fig.savefig(out / "per_frame_psnr_wan22.png", dpi=100, facecolor="white")
+    plt.close(fig)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default=str(Path(__file__).parent / "results" / "b200"))
@@ -326,6 +373,7 @@ def main():
     for chart in (ladder, breakdown, kernels_tflops, wan21_vs_wan22, comparison):
         chart(res, out)
     per_frame_psnr(d, out)
+    per_frame_psnr_wan22(d, out)
     print(f"wrote {', '.join(sorted(p.name for p in out.glob('*.png')))} to {out}")
 
 

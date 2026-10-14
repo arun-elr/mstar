@@ -24,7 +24,7 @@ NAMES = {
     "s1_warm_cache": "+ warm cache",
     "s2_channels_last": "+ channels-last (incl. native padding)",
     "s3_one_call": "+ one decoder call per chunk",
-    "s4_cudnn_benchmark": "+ cudnn.benchmark (= this PR)",
+    "s4_cudnn_benchmark": "+ cudnn.benchmark (opt-in)",
     "c1_warm_cache_eager": "control: warm cache only, eager",
 }
 

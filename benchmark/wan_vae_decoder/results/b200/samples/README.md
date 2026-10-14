@@ -17,15 +17,23 @@ snow and waves on a rocky beach, at 1280×704, 121 frames, 24 fps (5 s).
   chunk 3 on, once the context window is truncated. That is a seam every 0.5 s, visible in the
   contact sheets' `|M* before - stock|` row. With the warm cache there is no seam.
 
-**Speed:** decode time per 3-latent chunk falls from 784 ms to 159 ms (4.9×). For the whole 5 s clip,
-streamed decode time falls from 6.96 s to 1.87 s.
+**Speed** (fox; waves within 1.5 ms per chunk):
+
+- At this PR's defaults (one latent per decoder call, `cudnn.benchmark` off), decode time per
+  3-latent chunk falls from 784 ms to 162 ms (4.8×). Streamed decode time for the whole 5 s clip
+  falls from 6.96 s to 1.74 s.
+- With the opt-in switches (`latents_per_call=0` and `cudnn.benchmark`), it is 159 ms per chunk
+  (4.9×) but 1.87 s for the whole clip, because the first 3-latent window runs eagerly as one call.
 
 Setup:
 
 - Model and generation: `Wan-AI/Wan2.2-TI2V-5B-Diffusers` @ `b8fff731`, diffusers `WanPipeline`,
   model-card settings (50 steps, guidance 5.0, seed 42).
 - Hardware and stack: 1× B200, torch 2.12.1+cu130, cuDNN 9.20.0, diffusers 0.39.0.
-- M* code: this branch at `c56b572b` (the decoder code is unchanged since).
+- M* code: the samples were made at `c56b572b`. Later commits changed how the decoder cache is
+  written (`913295e4`, compact buffers) and the defaults (`30896775`, `b9a63ca3`: one latent per call,
+  `cudnn.benchmark` opt-in). Output equivalence at the later code was re-checked by the later quality
+  and end-to-end runs; see [`results/INDEX.md`](../../../../../results/INDEX.md).
 
 Prompts, settings and commands: [`prompts.md`](prompts.md). Scripts: [`../../../samples/`](../../../samples/).
 
@@ -69,8 +77,8 @@ Metrics are on the raw uint8 frames, not the mp4s:
 | stock diffusers `vae.decode` (reference) | `260894c1f61432dfc086a1d89bf8ef93` | 0 | 0 | 0 | ∞ / ∞ | 1.0000 |
 | M* before: stateless re-decode, `windowed_decode_warm_cache=False` | `8d9ade325279a8548eb26d6004b58350` | 49.59 % | 16.298 % | 160 | 47.1 / 35.8 (49) | 0.9707 |
 | + warm cache | `d41f77847dcb4e2ac124d5452caf3691` | 24.76 % | 0.446 % | 33 | 57.5 / 56.7 (52) | 0.9991 |
-| + channels-last (with native padding) (= this PR's defaults) | `bb9534952cde3a5ea6ff369ab43c6d93` | 25.36 % | 0.449 % | 28 | 57.6 / 56.7 (52) | 0.9991 |
-| + one decoder call per chunk (`latents_per_call=0`) | `f8f62793c8c94ae17eefb519715f5faa` | 24.61 % | 0.427 % | 30 | 57.8 / 56.7 (52) | 0.9991 |
+| + channels-last (with native padding): this PR (defaults) | `bb9534952cde3a5ea6ff369ab43c6d93` | 25.36 % | 0.449 % | 28 | 57.6 / 56.7 (52) | 0.9991 |
+| + one decoder call per chunk (`latents_per_call=0`, opt-in) | `f8f62793c8c94ae17eefb519715f5faa` | 24.61 % | 0.427 % | 30 | 57.8 / 56.7 (52) | 0.9991 |
 | + `cudnn.benchmark` (`=0`, opt-in) | `de0b5aa77705e5ec8610fa51ece7098c` | 24.65 % | 0.430 % | 27 | 57.8 / 56.7 (52) | 0.9991 |
 | *control: warm cache only, eager* | `260894c1f61432dfc086a1d89bf8ef93` | 0 | 0 | 0 | ∞ / ∞ (identical to stock) | 1.0000 |
 | *context: model-card pipeline decode, fp32 VAE* | `b3b2814cd4ef5a29695564a1c1e972e3` | 61.95 % | 1.867 % | 29 | 52.9 / 52.4 (52) | 0.9981 |
@@ -82,8 +90,8 @@ Metrics are on the raw uint8 frames, not the mp4s:
 | stock diffusers `vae.decode` (reference) | `b034ca5bff80f50ce0e74c2e9d599e5b` | 0 | 0 | 0 | ∞ / ∞ | 1.0000 |
 | M* before: stateless re-decode, `windowed_decode_warm_cache=False` | `e10cfff5e7c22b89ce1e80fdbb748267` | 63.57 % | 33.572 % | 238 | 38.0 / 27.0 (49) | 0.9261 |
 | + warm cache | `d0cef71a19aaee4a4945240b0887fa4d` | 40.01 % | 4.197 % | 46 | 52.1 / 50.0 (95) | 0.9989 |
-| + channels-last (with native padding) (= this PR's defaults) | `a6ddcc6e6e62052b58bdb3a2a025abcf` | 41.17 % | 4.254 % | 48 | 52.3 / 50.1 (95) | 0.9989 |
-| + one decoder call per chunk (`latents_per_call=0`) | `ad3da2186b2c3d5123d1f4a1e38feef2` | 40.31 % | 4.127 % | 40 | 52.5 / 50.1 (95) | 0.9989 |
+| + channels-last (with native padding): this PR (defaults) | `a6ddcc6e6e62052b58bdb3a2a025abcf` | 41.17 % | 4.254 % | 48 | 52.3 / 50.1 (95) | 0.9989 |
+| + one decoder call per chunk (`latents_per_call=0`, opt-in) | `ad3da2186b2c3d5123d1f4a1e38feef2` | 40.31 % | 4.127 % | 40 | 52.5 / 50.1 (95) | 0.9989 |
 | + `cudnn.benchmark` (`=0`, opt-in) | `b8d53ea7e2b6684610593963dc60cf1d` | 40.36 % | 4.135 % | 39 | 52.5 / 50.1 (95) | 0.9989 |
 | *control: warm cache only, eager* | `b034ca5bff80f50ce0e74c2e9d599e5b` | 0 | 0 | 0 | ∞ / ∞ (identical to stock) | 1.0000 |
 | *context: model-card pipeline decode, fp32 VAE* | `5e642643a5074710ce36efe65ed09a89` | 71.87 % | 8.275 % | 67 | 48.9 / 47.3 (99) | 0.9977 |
@@ -108,9 +116,9 @@ ms/chunk is the median over windows 4–10. That skips the clip-start window, th
 | stock diffusers `vae.decode` (whole clip, eager, not streamed) | – | – | 3978 / 3980 | 11.6 |
 | M* before | 783.5 / 784.8 | 1.00× | 6964 / 6961 | 13.8 |
 | + warm cache | 227.0 / 227.6 | 3.45× | 2354 / 2355 | 13.1 |
-| + channels-last (with native padding) (= this PR's defaults) | 162.2 / 163.6 | 4.8× | 1744 / 1752 | 15.5 |
-| + one decoder call per chunk | 159.4 / 158.0 | 4.9× / 5.0× | 1884 / 1881 | 34.7 |
-| + `cudnn.benchmark` (= this PR) | 159.5 / 158.2 | 4.9× / 5.0× | 1874 / 1876 | 34.7 |
+| + channels-last (with native padding): this PR (defaults) | 162.2 / 163.6 | 4.8× | 1744 / 1752 | 15.5 |
+| + one decoder call per chunk (`=0`, opt-in) | 159.4 / 158.0 | 4.9× / 5.0× | 1884 / 1881 | 34.7 |
+| + `cudnn.benchmark` (`=0`, opt-in) | 159.5 / 158.2 | 4.9× / 5.0× | 1874 / 1876 | 34.7 |
 | *control: warm cache only, eager* | 394.1 / 394.2 | 2.0× | 3974 / 3975 | 11.3 |
 
 Notes on the timing:
@@ -125,7 +133,8 @@ Notes on the timing:
 - **The per-chunk speedup matches the 832×480 Wan 2.2 number.** That run measured 368.85 → 73.76 ms (5.0×)
   at 832×480; here it is 4.9× at 1280×704.
 - **First (cold) pass**, which includes compile: M* before took 34.1 s / 30.6 s, because it compiles
-  `vae.decode` for every input length (1, 4, 7, 10 and 11 latents). This PR's defaults took 6.9 s.
+  `vae.decode` for every input length (1, 4, 7, 10 and 11 latents). This PR's defaults took 4.8 s /
+  4.9 s, and the opt-in `=0` with `cudnn.benchmark` 6.9 s.
 
 ### End-to-end (optional item, composed rather than a server run)
 
@@ -134,10 +143,10 @@ none of these switches, so a served before/after run would not exercise this cod
 the diffusers pipeline's measured time to latents plus the streamed decode measured above. Both
 numbers are warm, pass 2.
 
-| prompt | text encode + 50 denoise steps | + M* before decode | + this PR's decode | decode share before → after |
-|---|---|---|---|---|
-| fox | 72.6 s | 79.6 s | 74.5 s | 8.8 % → 2.5 % |
-| waves | 71.6 s | 78.5 s | 73.4 s | 8.9 % → 2.6 % |
+| prompt | text encode + 50 denoise steps | + M* before decode | + this PR's decode (defaults) | + opt-in `=0` and `cudnn.benchmark` | decode share: before → defaults (opt-in) |
+|---|---|---|---|---|---|
+| fox | 72.6 s | 79.6 s | 74.3 s | 74.5 s | 8.8 % → 2.3 % (2.5 %) |
+| waves | 71.6 s | 78.5 s | 73.3 s | 73.4 s | 8.9 % → 2.4 % (2.6 %) |
 
 ## Media
 
@@ -145,10 +154,12 @@ Per prompt (`fox_*`, `waves_*`):
 
 - `<prompt>_<i>_<step>.mp4`: one per ladder step, at the original 1280×704, H.264 CRF 20 (preset
   slow, yuv420p), 24 fps. Steps: 0 stock, 1 M* before, 2 warm cache, 3 channels-last, 4 one call per
-  chunk, 5 cudnn.benchmark = this PR.
+  chunk (opt-in), 5 cudnn.benchmark (opt-in). Step 3 is this PR's defaults.
   - **Trimmed to keep the total under 20 MB:** each clip is frames 37–60 (1 s). That is chunks 3 and
     4, which contain M* before's worst seam at frame 49. The full-length clips at CRF 20 came to
     about 1.5 MB (fox) and 5.1 MB (waves) each, about 64 MB in all.
+- In the side-by-side and contact-sheet media below, "this PR" is step 5 (the opt-in `=0` with
+  `cudnn.benchmark`). The defaults (step 3) differ from it only by bf16 rounding; see the per-step tables.
 - `<prompt>_side_by_side.mp4`: stock | M* before | this PR | `|this PR - stock|` ×10 heatmap
   (inferno colormap, max over RGB). Whole clip, panels at 480×264 (1920×292 total), CRF 20.
 - `<prompt>_side_by_side.gif`: the same four panels as a 2×2 grid, 480×296, 8 fps, whole clip. It is
