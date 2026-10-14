@@ -253,6 +253,109 @@ def test_bad_session_update_is_an_error_and_changes_nothing(client_and_stub):
         assert session["mstar"]["chunk_seconds"] == serving_realtime.DEFAULT_CHUNK_SECONDS
 
 
+def _step_seconds(stub) -> list[float]:
+    # 44-byte WAV header, 16-bit mono
+    return [(size - 44) / 2 / serving_realtime.SAMPLE_RATE for size in stub.audio_sizes]
+
+
+def _update(mstar=None, **session) -> str:
+    # json.dumps writes NaN and Infinity, which the server's json.loads accepts
+    return json.dumps({"type": "transcription_session.update",
+                       "session": {**session, **({"mstar": mstar} if mstar is not None else {})}})
+
+
+@pytest.mark.parametrize("session", [
+    {"mstar": {"chunk_seconds": float("nan")}},
+    {"mstar": {"chunk_seconds": float("inf")}},
+    {"mstar": {"chunk_seconds": float("-inf")}},
+    {"mstar": {"chunk_seconds": 0.1}},
+    {"mstar": {"chunk_seconds": 1e9}},
+    {"mstar": {"chunk_seconds": 10**400}},
+    {"mstar": {"chunk_seconds": True}},
+    {"mstar": {"unfixed_chunks": float("inf")}},
+    {"mstar": {"unfixed_chunks": float("nan")}},
+    {"mstar": {"unfixed_tokens": float("inf")}},
+    {"mstar": {"unfixed_tokens": -1}},
+    {"mstar": {"unfixed_tokens": 2.5}},
+    {"mstar": {"unfixed_chunks": 10**400}},
+    {"mstar": [1]},
+    {"input_audio_transcription": "en"},
+])
+def test_invalid_session_update_is_an_error_and_the_session_survives(client_and_stub, session):
+    client, stub = client_and_stub
+    stub.answers = ["language English<asr_text> hi"]
+    with client.websocket_connect("/v1/realtime") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": session}))
+        assert json.loads(ws.receive_text())["type"] == "error"
+        # nothing changed, and the next append decodes a default 2 s chunk
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(2.0)}))
+        assert _recv_until(ws, "mstar.transcription.partial")[-1]["text"] == "hi"
+    assert len(stub.submits) == 1 and _step_seconds(stub) == [2.0]
+
+
+def test_non_object_events_are_errors(client_and_stub):
+    client, stub = client_and_stub
+    with client.websocket_connect("/v1/realtime") as ws:
+        ws.receive_text()
+        for message in ("[1]", "3", json.dumps({"type": "transcription_session.update", "session": "x"})):
+            ws.send_text(message)
+            assert json.loads(ws.receive_text())["type"] == "error"
+        ws.send_text(_update())
+        assert json.loads(ws.receive_text())["type"] == "transcription_session.updated"
+
+
+def test_engine_requests_per_audio_second_are_bounded(client_and_stub):
+    """The chunk floor caps a session at 2 engine requests per audio second,
+    and an append that completes several chunks is one step."""
+    client, stub = client_and_stub
+    floor = serving_realtime.MIN_CHUNK_SECONDS
+    with client.websocket_connect("/v1/realtime") as ws:
+        ws.receive_text()
+        ws.send_text(_update({"chunk_seconds": floor}))
+        assert json.loads(ws.receive_text())["session"]["mstar"]["chunk_seconds"] == floor
+        for _ in range(4):   # 4 s in 1 s appends
+            ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(1.0)}))
+            _recv_until(ws, "mstar.transcription.partial")
+        assert len(stub.submits) == 4 and _step_seconds(stub) == [1.0, 2.0, 3.0, 4.0]
+        # a 10 s burst is one step over the whole item, not 20
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(10.0)}))
+        _recv_until(ws, "mstar.transcription.partial")
+    assert len(stub.submits) == 5 and _step_seconds(stub)[-1] == 14.0
+
+
+def test_item_length_is_capped(client_and_stub, monkeypatch):
+    client, stub = client_and_stub
+    monkeypatch.setattr(serving_realtime, "MAX_ITEM_SECONDS", 5.0)
+    stub.answers = ["language English<asr_text> one", "language English<asr_text> one two", ""]
+    with client.websocket_connect("/v1/realtime") as ws:
+        created = json.loads(ws.receive_text())
+        assert created["session"]["mstar"]["max_item_seconds"] == 5.0
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(4.0)}))
+        _recv_until(ws, "mstar.transcription.partial")
+        # 4 s heard + 1.5 s would pass the cap: refused, and nothing is buffered
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(1.5)}))
+        error = json.loads(ws.receive_text())
+        assert error["type"] == "error" and "commit" in error["error"]["message"]
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(1.0)}))
+        ws.send_text(json.dumps({"type": "input_audio_buffer.commit"}))
+        done = _recv_until(ws, "conversation.item.input_audio_transcription.completed")[-1]
+        assert done["transcript"] == "one two"
+        # a committed item starts the budget over
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(4.0)}))
+        _recv_until(ws, "mstar.transcription.partial")
+    assert _step_seconds(stub) == [4.0, 5.0, 4.0]
+
+
+def test_item_cap_follows_a_shorter_model_limit(client_and_stub, monkeypatch):
+    client, stub = client_and_stub
+    monkeypatch.setattr(adapters.ADAPTER_REGISTRY["rt_test"], "max_audio_seconds", 3.0, raising=False)
+    with client.websocket_connect("/v1/realtime") as ws:
+        assert json.loads(ws.receive_text())["session"]["mstar"]["max_item_seconds"] == 3.0
+        ws.send_text(_update({"chunk_seconds": 4.0}))
+        assert "between 0.5 and 3" in json.loads(ws.receive_text())["error"]["message"]
+
+
 def test_failed_step_does_not_reuse_its_request_id(client_and_stub):
     client, stub = client_and_stub
     submit = stub.submit_request
