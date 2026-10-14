@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import base64
-import logging
 import os
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import HTTPException
 
-from mstar.api_server.openai._util import now, rid
-
-logger = logging.getLogger(__name__)
+from mstar.api_server.openai._util import now, release_unread, rid
 
 
 async def create_images(api, model_name, adapter, req, raw_request=None):  # noqa: ARG001
@@ -44,7 +41,7 @@ async def create_images(api, model_name, adapter, req, raw_request=None):  # noq
                 request_id=request_id,
             )
         except BaseException:
-            _release_unread(api, request_ids, 0)
+            release_unread(api, request_ids, 0)
             raise
 
     data = []
@@ -66,22 +63,8 @@ async def create_images(api, model_name, adapter, req, raw_request=None):  # noq
         # One failed, timed-out or cancelled image fails the whole request, so
         # nothing will read the others: abort the ones still running and drop
         # the finished ones, which would otherwise hold their bytes forever.
-        _release_unread(api, request_ids, read)
+        release_unread(api, request_ids, read)
     return {"created": now(), "data": data}
-
-
-def _release_unread(api, request_ids: list[str], read: int) -> None:
-    """Release every submitted image from ``request_ids[read]`` on (not yet read).
-
-    Runs while the request's own exception is propagating, so a release that
-    raises is logged and skipped: it must neither stop the others nor replace
-    that exception.
-    """
-    for request_id in request_ids[read:]:
-        try:
-            api.release_request(request_id)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to release image request %s: %r", request_id, exc)
 
 
 async def create_image_edit(
