@@ -11,6 +11,10 @@ Client events
     ``input_audio_buffer.commit``      end of the utterance: flush and finish
     ``input_audio_buffer.clear``       drop buffered audio and start over
 
+``chunk_seconds`` must be between ``MIN_CHUNK_SECONDS`` and the item cap, and
+the unfixed counts non-negative integers; any other value is an ``error`` and
+the update changes nothing.
+
 Server events
     ``transcription_session.created`` / ``.updated``
     ``conversation.item.input_audio_transcription.delta``      append-only text
@@ -26,6 +30,12 @@ chunks are in), so the tail can still be revised while the head is fixed.
 The adapter decides how that prefix reaches its model
 (``realtime_step_request``). Each step is an ordinary request, so sessions
 batch on the engine like any other traffic.
+
+Since every step decodes the whole item again, an item's work grows with the
+square of its length. An item is capped at ``MAX_ITEM_SECONDS`` (or the
+adapter's ``max_audio_seconds`` if shorter): an append past the cap is an
+``error`` and the client commits or clears. An append that completes several
+chunks at once is decoded as one step.
 """
 
 from __future__ import annotations
@@ -34,6 +44,7 @@ import asyncio
 import base64
 import json
 import logging
+import math
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -51,6 +62,12 @@ SAMPLE_RATE = 16000
 DEFAULT_CHUNK_SECONDS = 2.0
 DEFAULT_UNFIXED_CHUNKS = 2
 DEFAULT_UNFIXED_TOKENS = 5
+# Each chunk is one engine request over the whole item, so this floor bounds a
+# session at 2 requests per second of audio. A shorter chunk is under a word
+# and adds little to the hypothesis.
+MIN_CHUNK_SECONDS = 0.5
+# Longest uncommitted item: the most audio one step decodes.
+MAX_ITEM_SECONDS = 300.0
 
 
 @dataclass
@@ -61,6 +78,7 @@ class RealtimeSession:
     chunk_seconds: float = DEFAULT_CHUNK_SECONDS
     unfixed_chunks: int = DEFAULT_UNFIXED_CHUNKS
     unfixed_tokens: int = DEFAULT_UNFIXED_TOKENS
+    max_item_seconds: float = MAX_ITEM_SECONDS
     pending: list[np.ndarray] = field(default_factory=list)   # audio not yet in a chunk
     pending_samples: int = 0
     heard: list[np.ndarray] = field(default_factory=list)     # every chunk decoded so far
@@ -78,12 +96,17 @@ class RealtimeSession:
             self.pending.append(audio)
             self.pending_samples += int(audio.size)
 
+    def item_samples(self) -> int:
+        return self.pending_samples + sum(int(a.size) for a in self.heard)
+
     def take_chunk(self) -> np.ndarray | None:
-        """A full chunk of pending audio, or None until enough arrived."""
+        """Every full chunk of pending audio as one array, or None until
+        enough arrived."""
         if self.pending_samples < self.chunk_samples:
             return None
         buf = np.concatenate(self.pending)
-        chunk, rest = buf[: self.chunk_samples], buf[self.chunk_samples:]
+        n = self.pending_samples // self.chunk_samples * self.chunk_samples
+        chunk, rest = buf[:n], buf[n:]
         self.pending = [rest] if rest.size else []
         self.pending_samples = int(rest.size)
         return chunk
@@ -109,6 +132,31 @@ def pcm16_to_float(payload: str) -> np.ndarray:
     decoding: a malformed payload is an error, not silence."""
     raw = base64.b64decode(payload, validate=True)
     return np.frombuffer(raw[: len(raw) - len(raw) % 2], dtype="<i2").astype(np.float32) / 32768.0
+
+
+def _object(value, name: str) -> dict:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} must be an object")
+    return value
+
+
+def _number(knobs: dict, name: str, default, lo: float, hi: float = math.inf, integer: bool = False):
+    """``knobs[name]`` (or ``default``) checked to be a finite number in
+    ``[lo, hi]``, and integral when ``integer``. JSON allows NaN, Infinity and
+    integers too big for a float, so each is checked before any conversion."""
+    value = knobs.get(name, default)
+    kind = "an integer" if integer else "a number"
+    ok = isinstance(value, (int, float)) and not isinstance(value, bool)
+    try:
+        ok = ok and lo <= value <= hi and math.isfinite(value) and (not integer or value == int(value))
+    except OverflowError:
+        ok = False
+    if not ok:
+        bound = f">= {lo:g}" if hi == math.inf else f"between {lo:g} and {hi:g}"
+        raise ValueError(f"mstar.{name} must be {kind} {bound}; got {value!r}")
+    return int(value) if integer else float(value)
 
 
 def stable_prefix(raw_text: str, tokenizer, unfixed_tokens: int) -> str:
@@ -188,6 +236,7 @@ class RealtimeTranscription:
         self.session = RealtimeSession(
             session_id=uuid.uuid4().hex[:16],
             request=TranscriptionRequest(model=model_name),
+            max_item_seconds=min(MAX_ITEM_SECONDS, getattr(adapter, "max_audio_seconds", None) or math.inf),
         )
 
     async def send(self, event: dict) -> None:
@@ -208,6 +257,7 @@ class RealtimeTranscription:
                 "chunk_seconds": s.chunk_seconds,
                 "unfixed_chunks": s.unfixed_chunks,
                 "unfixed_tokens": s.unfixed_tokens,
+                "max_item_seconds": s.max_item_seconds,
                 "sample_rate": SAMPLE_RATE,
             },
         }
@@ -223,6 +273,9 @@ class RealtimeTranscription:
                 except json.JSONDecodeError:
                     await self.send(_error("not JSON"))
                     continue
+                if not isinstance(event, dict):
+                    await self.send(_error("an event must be a JSON object"))
+                    continue
                 await self.handle(event)
         except WebSocketDisconnect:
             return
@@ -231,7 +284,7 @@ class RealtimeTranscription:
         kind = event.get("type")
         if kind == "transcription_session.update":
             try:
-                self.update(event.get("session") or {})
+                self.update(_object(event.get("session"), "session"))
             except (TypeError, ValueError) as exc:
                 await self.send(_error(str(exc)))
                 return
@@ -242,8 +295,15 @@ class RealtimeTranscription:
             except Exception:  # noqa: BLE001 — bad base64
                 await self.send(_error("audio is not base64"))
                 return
-            self.session.append(audio)
-            while (chunk := self.session.take_chunk()) is not None:
+            s = self.session
+            if s.item_samples() + audio.size > s.max_item_seconds * SAMPLE_RATE:
+                await self.send(_error(
+                    f"the item would pass {s.max_item_seconds:g} s of audio; "
+                    "commit or clear the input audio buffer first",
+                ))
+                return
+            s.append(audio)
+            if (chunk := s.take_chunk()) is not None:
                 await self.step(chunk)
         elif kind == "input_audio_buffer.commit":
             tail = self.session.flush()
@@ -270,11 +330,11 @@ class RealtimeTranscription:
         fmt = session.get("input_audio_format")
         if fmt not in (None, "pcm16"):
             raise ValueError(f"only pcm16 input is supported; got {fmt!r}")
-        knobs = session.get("mstar") or {}
-        chunk_seconds = max(float(knobs.get("chunk_seconds", s.chunk_seconds)), 0.1)
-        unfixed_chunks = int(knobs.get("unfixed_chunks", s.unfixed_chunks))
-        unfixed_tokens = int(knobs.get("unfixed_tokens", s.unfixed_tokens))
-        transcription = session.get("input_audio_transcription") or {}
+        knobs = _object(session.get("mstar"), "mstar")
+        chunk_seconds = _number(knobs, "chunk_seconds", s.chunk_seconds, MIN_CHUNK_SECONDS, s.max_item_seconds)
+        unfixed_chunks = _number(knobs, "unfixed_chunks", s.unfixed_chunks, 0, integer=True)
+        unfixed_tokens = _number(knobs, "unfixed_tokens", s.unfixed_tokens, 0, integer=True)
+        transcription = _object(session.get("input_audio_transcription"), "input_audio_transcription")
         fields = {k: v for k, v in transcription.items() if k in ("language", "prompt")}
         if fields:
             s.request = s.request.model_copy(update=fields)
