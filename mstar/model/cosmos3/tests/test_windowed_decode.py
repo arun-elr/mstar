@@ -401,3 +401,35 @@ def test_warm_slot_check_survives_concurrent_request_removal(monkeypatch, vae) -
         stop.set()
         thread.join()
         sys.setswitchinterval(interval)
+
+
+@pytest.mark.parametrize("key, value", [
+    ("windowed_decode_max_warm_streams", -1),
+    ("windowed_decode_max_warm_streams", 1.5),
+    ("windowed_decode_latents_per_call", -1),
+    ("windowed_decode_latents_per_call", 9),  # the default window holds 8 latents
+    ("windowed_decode_latents_per_call", True),
+    ("windowed_decode_warm_cache", "false"),
+    ("vae_decode_channels_last", 1),
+    ("vae_decode_cudnn_benchmark", None),
+])
+def test_streaming_decode_settings_are_checked(key, value) -> None:
+    cfg = Cosmos3Config()
+    setattr(cfg, key, value)
+    with pytest.raises(ValueError, match=key):
+        cfg.check_streaming_decode()
+
+
+def test_streaming_decode_settings_accept_the_documented_range() -> None:
+    cfg = Cosmos3Config()
+    cfg.check_streaming_decode()
+    for cap, per_call in ((0, 0), (4, 1), (1, 8)):
+        cfg.windowed_decode_max_warm_streams, cfg.windowed_decode_latents_per_call = cap, per_call
+        cfg.check_streaming_decode()
+
+
+def test_model_load_checks_the_streaming_decode_overrides() -> None:
+    from mstar.model.cosmos3.cosmos3_model import Cosmos3Model
+
+    with pytest.raises(ValueError, match="windowed_decode_max_warm_streams"):
+        Cosmos3Model(model_path_hf="unused", skip_weight_loading=True, windowed_decode_max_warm_streams=-2)

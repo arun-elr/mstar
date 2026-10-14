@@ -253,6 +253,7 @@ class Cosmos3Model(Model):
                         "Cosmos3Model: yaml model_kwargs key %r is not a Cosmos3Config "
                         "field; ignored.", k,
                     )
+        cfg.check_streaming_decode()
         return cfg
 
     def _load_tokenizer(self):

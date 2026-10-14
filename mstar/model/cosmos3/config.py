@@ -521,6 +521,27 @@ class Cosmos3Config:
     # ----- provenance -----
     local_dir: str = ""
 
+    def check_streaming_decode(self) -> None:
+        """Reject streaming-decoder settings the decoder would otherwise
+        reinterpret silently: a non-boolean switch (a yaml ``"false"`` is
+        truthy), a negative warm-stream cap (read as no cap), or more latents
+        per call than the default window holds (read as one call per window)."""
+        for name in ("windowed_decode_warm_cache", "vae_decode_channels_last", "vae_decode_cudnn_benchmark"):
+            value = getattr(self, name)
+            if not isinstance(value, bool):
+                raise ValueError(f"Cosmos3 {name} must be true or false, got {value!r}.")
+        for name in ("windowed_decode_max_warm_streams", "windowed_decode_latents_per_call"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"Cosmos3 {name} must be an integer >= 0, got {value!r}.")
+        window = 1 + (self.window_frames_default - 1) // self.vae.scale_factor_temporal
+        if self.windowed_decode_latents_per_call > window:
+            raise ValueError(
+                f"Cosmos3 windowed_decode_latents_per_call={self.windowed_decode_latents_per_call} is more "
+                f"than the {window} latent frames of the default window (window_frames_default="
+                f"{self.window_frames_default}); 0 decodes each window's new latents in one call."
+            )
+
     @property
     def nemotron_norm(self) -> bool:
         """Whether every RMSNorm uses the Nemotron ordering (fp32 weight
