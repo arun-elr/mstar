@@ -469,7 +469,7 @@ class APIServer:
         workers' latest reports and this process's data worker."""
         quarantines = list(self.worker_read_quarantine.values())
         own = self.preprocess_worker.tensor_manager.read_quarantine()
-        if own.reads:
+        if own.reads or own.registration_failures:
             quarantines.append(own)
         return quarantines
 

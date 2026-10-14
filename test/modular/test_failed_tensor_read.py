@@ -133,19 +133,27 @@ class _Engine:
     """Copies like a transfer engine; session "timed-out" returns -1 the way
     Mooncake's sync read does when it gives up on a batch it could not free."""
 
-    def __init__(self):
+    def __init__(self, refuse_registrations=()):
         self.unregistered = []
+        self.registered = []
+        self.reads = []
+        # indices of register_memory calls that fail, the way Mooncake
+        # returns nonzero for a buffer it cannot pin
+        self.refuse_registrations = set(refuse_registrations)
         self.started = threading.Event()
         self.release = threading.Event()
 
     def register_memory(self, ptr, nbytes):
-        return 0
+        call = len(self.registered)
+        self.registered.append(ptr)
+        return -1 if call in self.refuse_registrations else 0
 
     def unregister_memory(self, ptr):
         self.unregistered.append(ptr)
         return 0
 
     def batch_transfer_sync_read(self, session, local, remote, lengths):
+        self.reads.append(list(local))
         if session == "timed-out":
             return -1
         if session == "slow-timeout":
@@ -165,12 +173,15 @@ def _mooncake_manager(engine):
     return mgr
 
 
-def _remote_edge(uuid, src, session):
-    info = TensorPointerInfo(
+def _pointer(uuid, src, session):
+    return TensorPointerInfo(
         list(src.shape), src.dtype, src.nbytes, src.data_ptr(),
         list(src.stride()), uuid, session, "producer",
     )
-    return GraphEdge(next_node="node", name="x", tensor_info=[info])
+
+
+def _remote_edge(uuid, src, session):
+    return GraphEdge(next_node="node", name="x", tensor_info=[_pointer(uuid, src, session)])
 
 
 def test_a_failed_transfer_keeps_its_buffers_through_teardown():
@@ -340,3 +351,91 @@ def test_teardown_during_a_running_transfer_keeps_its_buffers():
     finally:
         engine.release.set()
         mgr._async_reader._executor.shutdown(wait=True)
+
+
+def test_a_refused_registration_fails_only_its_read_and_keeps_nothing():
+    """A receive buffer Mooncake will not register is never read into, so its
+    read fails at once, nothing is kept, and cleanup does not unregister it."""
+    engine = _Engine(refuse_registrations={1})
+    mgr = _mooncake_manager(engine)
+    src = torch.tensor([42, 43])
+    try:
+        good_edge = _remote_edge(61, src, "peer")
+        (good,) = mgr.start_read_tensors("good", [good_edge])
+        (bad,) = mgr.start_read_tensors("bad", [_remote_edge(62, src, "peer")])
+        refused = mgr.get_tensor(62).data_ptr()
+        assert bad.done() and "registration failed" in str(bad.exception())
+        good.result(timeout=5)
+
+        assert mgr.get_ready_tensors() == {"good": [good_edge]}
+        (failed,) = mgr.take_failed_reads()
+        assert failed.request_id == "bad" and failed.error is bad.exception()
+        assert engine.reads == [[mgr.get_tensor(61).data_ptr()]]
+        assert mgr._quarantined_buffers == []
+        assert mgr.read_quarantine() == ReadQuarantine(
+            "receiver", 0, 0, mgr.quarantine_budget_bytes, registration_failures=1,
+        )
+        assert not mgr.quarantine_over_budget()
+
+        mgr.force_cleanup_request("bad")
+        assert refused not in engine.unregistered
+        assert not mgr.tensor_store.get_all_uuids("bad")
+    finally:
+        mgr._async_reader._executor.shutdown(wait=True)
+
+
+def test_a_registration_refused_partway_through_a_read_unregisters_only_what_registered():
+    engine = _Engine(refuse_registrations={1})
+    mgr = _mooncake_manager(engine)
+    srcs = [torch.tensor([i, i]) for i in range(3)]
+    edge = GraphEdge(next_node="node", name="x", tensor_info=[
+        _pointer(70 + i, src, "peer") for i, src in enumerate(srcs)
+    ])
+    try:
+        (future,) = mgr.start_read_tensors("r", [edge])
+        ptrs = [mgr.get_tensor(70 + i).data_ptr() for i in range(3)]
+        assert "registration failed" in str(future.exception())
+        # the third buffer is not offered once the second is refused, and no read is posted
+        assert engine.registered == ptrs[:2] and engine.reads == []
+        assert [mgr.tensor_store.is_registered(70 + i) for i in range(3)] == [True, False, False]
+
+        assert mgr.get_ready_tensors() == {}
+        assert [f.request_id for f in mgr.take_failed_reads()] == ["r"]
+        assert mgr.read_quarantine().reads == 0 and mgr.registration_failures == 1
+
+        mgr.force_cleanup_request("r")
+        assert engine.unregistered == ptrs[:1]
+        assert not mgr.tensor_store.get_all_uuids("r")
+    finally:
+        mgr._async_reader._executor.shutdown(wait=True)
+
+
+def test_log_stats_report_shows_registration_failures(tmp_path):
+    from mstar.profile.display import pretty_print_profile
+    from mstar.profile.format import RequestProfile
+
+    out = tmp_path / "stats.txt"
+    pretty_print_profile(RequestProfile(rid="r", read_quarantine=[
+        ReadQuarantine("worker_0", 0, 0, 1 << 30, registration_failures=3),
+        ReadQuarantine("worker_1", 1, 2048, 1 << 30),
+    ]), str(out))
+    text = out.read_text()
+    assert "worker_0" in text and "0 B  (x0)  budget 1.0 GiB  registration failures 3\n" in text
+    assert "2.0 KiB  (x1)  budget 1.0 GiB\n" in text
+
+
+def test_the_api_server_reports_its_own_registration_failures():
+    from mstar.api_server.entrypoint import APIServer
+
+    server = APIServer.__new__(APIServer)
+    server.worker_read_quarantine = {}
+    own = ReadQuarantine("api_server_preprocess_worker", 0, 0, 1 << 30)
+    server.preprocess_worker = SimpleNamespace(
+        tensor_manager=SimpleNamespace(read_quarantine=lambda: own),
+    )
+    assert server.read_quarantines() == []
+    own.registration_failures = 2
+    assert server.read_quarantines() == [own]
+    # they keep nothing, so they never fail /health
+    server.fatal_error = None
+    assert server.health_problem() is None

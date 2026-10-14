@@ -162,9 +162,13 @@ def pretty_print_profile(prof: RequestProfile, filename=None):
         lines.append(" Read quarantine (buffers kept from failed reads, process totals):")
         for q in sorted(prof.read_quarantine, key=lambda q: q.entity_id):
             flag = "  OVER BUDGET" if q.over_budget else ""
+            extra = (
+                f"  registration failures {q.registration_failures}"
+                if q.registration_failures else ""
+            )
             lines.append(
                 f"   {q.entity_id:<28} {_human_bytes(q.nbytes):>10}  (x{q.reads})"
-                f"  budget {_human_bytes(q.budget_bytes)}{flag}"
+                f"  budget {_human_bytes(q.budget_bytes)}{flag}{extra}"
             )
     lines.append(sep)
 

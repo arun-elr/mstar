@@ -87,7 +87,7 @@ def _worker(known_rids=("r1", "r2")):
     w.scheduler.held_until = {}
     w.scheduler.admit_errors = {}
     w.scheduler.backlog = {}
-    w._reported_quarantine_reads = 0
+    w._reported_quarantine_changes = 0
     return w
 
 
@@ -199,7 +199,7 @@ def test_failed_input_read_fails_only_its_request_once():
     w.tensor_manager = SimpleNamespace(
         get_ready_tensors=lambda: {"r2": [healthy]},
         take_failed_reads=lambda: list(failed),
-        quarantined_reads=0,
+        quarantine_changes=0,
     )
 
     w._check_ready_tensors()
@@ -212,24 +212,25 @@ def test_failed_input_read_fails_only_its_request_once():
     assert ingested == [[("r2", [healthy])]] * 2
 
 
-def test_worker_reports_its_read_quarantine_to_the_api_server_when_it_grows():
+def test_worker_reports_its_read_quarantine_to_the_api_server_when_it_changes():
     """Kept buffers live in the worker, /health in the API server: the worker
-    sends its totals each time they grow, and only then."""
+    sends its totals each time they change, and only then."""
     w = _worker()
     w.enable_nvtx = False
     w.wakeup_event = SimpleNamespace(drain=lambda: None)
     tm = SimpleNamespace(
         get_ready_tensors=lambda: {},
         take_failed_reads=lambda: [],
-        quarantined_reads=0,
+        quarantine_changes=0,
+        reads=0,
     )
-    tm.read_quarantine = lambda: ReadQuarantine("w0", tm.quarantined_reads, 64 * tm.quarantined_reads, 100)
+    tm.read_quarantine = lambda: ReadQuarantine("w0", tm.reads, 64 * tm.reads, 100)
     w.tensor_manager = tm
 
     w._check_ready_tensors()
     assert w.sent == []
     # a teardown quarantined two reads between polls
-    tm.quarantined_reads = 2
+    tm.reads, tm.quarantine_changes = 2, 2
     w._check_ready_tensors()
     w._check_ready_tensors()
 

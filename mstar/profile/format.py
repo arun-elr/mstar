@@ -71,12 +71,15 @@ class GraphTiming:
 class ReadQuarantine:
     """A process's buffers kept from failed reads, which a transfer that did
     not stop may still write into. Workers send it to the API server whenever
-    it grows; the API server shows it under ``--log-stats`` and fails
+    it changes; the API server shows it under ``--log-stats`` and fails
     ``/health`` once ``nbytes`` passes ``budget_bytes``."""
     entity_id: str
     reads: int
     nbytes: int
     budget_bytes: int
+    # receive buffers that failed to register; nothing is kept for them, so
+    # they do not count toward the budget
+    registration_failures: int = 0
 
     @property
     def over_budget(self) -> bool:

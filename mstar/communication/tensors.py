@@ -532,6 +532,10 @@ class TensorCommunicationManager(ABC):
         self.quarantined_reads = 0
         self.quarantined_bytes = 0
         self.quarantine_budget_bytes = read_quarantine_budget_bytes()
+        # receive buffers Mooncake refused to register; their reads fail before posting
+        self.registration_failures = 0
+        # bumped whenever read_quarantine() would report something new
+        self.quarantine_changes = 0
         self.read_finished: dict[Rid, set[int]] = {}
 
         self.req_rx_info: dict[Rid, SourceAndEdgeToRxInfo] = {}
@@ -1393,6 +1397,7 @@ class TensorCommunicationManager(ABC):
         was_over_budget = self.quarantine_over_budget()
         self.quarantined_reads += 1
         self.quarantined_bytes += nbytes
+        self.quarantine_changes += 1
         logger.warning(
             "Keeping %d bytes of read buffers for request %s: the transfer "
             "may still write into them (%d reads, %d bytes kept so far; "
@@ -1418,6 +1423,7 @@ class TensorCommunicationManager(ABC):
             reads=self.quarantined_reads,
             nbytes=self.quarantined_bytes,
             budget_bytes=self.quarantine_budget_bytes,
+            registration_failures=self.registration_failures,
         )
 
     def take_failed_reads(self) -> list[FailedRead]:
@@ -1842,6 +1848,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
 
             read_info = []
             transfer_uuids = []
+            registration_error: RuntimeError | None = None
             for info in graph_edge.tensor_info:
                 if info.source_entity == self.my_entity_id:
                     self._slice_existing_tensor(
@@ -1860,8 +1867,6 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 self.tensor_store.put_tensor(
                     request_id=request_id, uuid=info.uuid, tensor=buffer, info=info,
                 )
-                self.tensor_store.set_metadata(info.uuid, mem_registered=True
-                )
                 # +1 for transit (released by get_ready_tensors)
                 # +1 for graph-node usage (released by _cleanup_consumed_inputs)
                 self.tensor_store.increment_ref(info.uuid, 2
@@ -1869,11 +1874,20 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 # Nothing to read, and Mooncake rejects a 0-byte region: the
                 # empty buffer is the whole tensor. With no reads, the edge
                 # gets no future and is ready once earlier reads are.
-                if info.nbytes == 0:
+                if info.nbytes == 0 or registration_error is not None:
                     continue
 
                 if self.protocol in (CommProtocol.RDMA, CommProtocol.TCP):
-                    self.transfer_engine.register_memory(buffer.data_ptr(), info.nbytes)
+                    ret_value = self.transfer_engine.register_memory(buffer.data_ptr(), info.nbytes)
+                    if ret_value != 0:
+                        self.registration_failures += 1
+                        self.quarantine_changes += 1
+                        registration_error = RuntimeError(
+                            f"Mooncake memory registration failed for request id "
+                            f"{self.rid_to_str(request_id)}, uuid {info.uuid}: {ret_value}"
+                        )
+                        continue
+                self.tensor_store.set_metadata(info.uuid, mem_registered=True)
 
                 read_info.append(TransferReadInfo(
                     source_session_id=info.source_session_id,
@@ -1883,6 +1897,17 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 ))
                 transfer_uuids.append(info.uuid)
                 logger.debug("Started transfer read for uuid %s", info.uuid)
+            if registration_error is not None:
+                # Nothing was posted, so nothing can still write into these
+                # buffers: fail the read as it stands, keep none of them, and
+                # leave the ones that did register to the request's cleanup.
+                failed = Future()
+                failed.set_exception(registration_error)
+                futures.append(failed)
+                self.pending.append(FutureAndPointers(
+                    future=failed, graph_edges=[graph_edge], request_id=request_id,
+                ))
+                continue
             # Create the FutureAndPointers before submit and point each read at
             # it, so the async reader can stamp ``rx_time`` on it when the read
             # completes (the reader runs on another thread; the object identity

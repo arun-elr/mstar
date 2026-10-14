@@ -422,7 +422,7 @@ class Worker:
             tcp_transfer_device=tcp_transfer_device,
             enable_prof=enable_prof
         )
-        self._reported_quarantine_reads = 0
+        self._reported_quarantine_changes = 0
         kv_shm_dir_factory = None
         if (
             isinstance(
@@ -1332,7 +1332,7 @@ class Worker:
         if failed:
             self._fail_requests(failed)
         # teardown can quarantine too, so compare totals rather than hook each path
-        if self.tensor_manager.quarantined_reads != self._reported_quarantine_reads:
+        if self.tensor_manager.quarantine_changes != self._reported_quarantine_changes:
             self._report_read_quarantine()
         for request_id, edges in ready.items():
             # Separate streaming edges from normal edges
@@ -4081,8 +4081,8 @@ class Worker:
     def _report_read_quarantine(self) -> None:
         """Send the API server this worker's buffers kept from failed reads;
         it fails ``/health`` once they pass the budget."""
+        self._reported_quarantine_changes = self.tensor_manager.quarantine_changes
         quarantine = self.tensor_manager.read_quarantine()
-        self._reported_quarantine_reads = quarantine.reads
         self.communicator.send(
             "api_server",
             APIServerMessage(message_type="read_quarantine", body=quarantine),
