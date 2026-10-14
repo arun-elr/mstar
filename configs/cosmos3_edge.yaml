@@ -51,7 +51,8 @@ model_kwargs:
   # windowed_decode_max_warm_streams: 0   # 0: no cap
   # Latents per decoder call in the streaming decode (default 1). 0 decodes a
   # window's new latents in one call: the decoder alone is ~6% faster at
-  # 832x480 for ~21 GiB more peak, and served end to end no faster.
+  # 832x480 for ~10 GiB more peak on the served window, and served end to
+  # end no faster.
   # windowed_decode_latents_per_call: 1
 node_groups:
   # The DiT and the reasoner share one transformer instance and one KV pool;

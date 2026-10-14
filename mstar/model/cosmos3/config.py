@@ -341,8 +341,11 @@ class Cosmos3Config:
     # the decoder copy it was admitted to.
     windowed_decode_context_latents: int = 8
     # Keep each live stream's VAE decoder cache (the last frames every causal
-    # conv saw) in its request state, so a window decodes only its new latents,
-    # exactly as one decode of the whole stream would. Costs the cache per live
+    # conv saw) in its request state, so a window decodes only its new latents.
+    # Without compile, at windowed_decode_latents_per_call=1 and the contiguous
+    # layout, the frames are bit-identical to one decode of the whole stream
+    # (the CPU tests assert it); under compile, channels-last or =0 they match
+    # it to bf16 rounding. Costs the cache per live
     # stream (1.33 GiB of tensors at 832x480 in bf16), freed when the stream's
     # last window is decoded or the request goes away. Sessions still store
     # only latents. False re-decodes the context ahead of every window.
