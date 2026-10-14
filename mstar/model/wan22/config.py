@@ -79,6 +79,25 @@ class Wan22Config:
     # "tiled"/"untiled" force a path. WAN22_VAE_DECODE_TILING overrides at runtime.
     vae_decode_tiling: str = "auto"
 
+    # Untiled VAE decode through the shared Wan VAE decoder
+    # (``mstar/model/components/wan_vae.py``, the one the Cosmos3 streaming
+    # decoder runs): channels-last weights and activations, one latent per
+    # compiled decoder call against a decoder cache the node owns. Same calls
+    # and math as ``vae.decode``; the frames match it to bf16 rounding (55.2 dB
+    # against an fp32 decode, as stock). 2.3x faster decode at 1280x704 x 121
+    # frames on a B200, at the same peak memory. The compile is per output
+    # resolution (not frame count): the first request at each new size pays it,
+    # about 11 s on a B200. The tiled fallback keeps ``tiled_decode``, on the
+    # channels-last weights. False decodes with stock ``vae.decode`` and leaves
+    # the VAE as loaded. Settable from the yaml's ``model_kwargs``.
+    vae_decode_fast: bool = True
+
+    def __post_init__(self):
+        # A yaml "false" is a truthy string, so a non-boolean is rejected here
+        # rather than read as on.
+        if not isinstance(self.vae_decode_fast, bool):
+            raise ValueError(f"Wan2.2 vae_decode_fast must be true or false, got {self.vae_decode_fast!r}.")
+
     @property
     def hidden_size(self) -> int:
         """DiT hidden width (num_attention_heads * attention_head_dim)."""
