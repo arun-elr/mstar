@@ -27,15 +27,6 @@ from types import SimpleNamespace
 
 import pytest
 import torch
-from safetensors.torch import load_file
-
-from mstar.model.qwen3_omni.components.code2wav import Qwen3OmniMoeCode2Wav
-from mstar.model.qwen3_omni.config import Code2WavConfig, Qwen3OmniModelConfig
-from mstar.model.qwen3_omni.submodules import Code2WavSubmodule
-from mstar.model.submodule_base import InputMetadata, ModelInputsFromEngine
-from mstar.model.utils import ModuleAndPrefix, load_weights_from_hf_shards
-from mstar.streaming.chunk_policy import LeftContextChunkPolicy
-from mstar.streaming.stream_buffer import StreamBuffer
 
 HF_REPO = "Qwen/Qwen3-Omni-30B-A3B-Instruct"
 CODES = Path(__file__).parent / "data" / "qwen3_omni_talker_codes.safetensors"
@@ -69,27 +60,46 @@ def _find_cached_snapshot() -> Path | None:
     return None
 
 
+# Skip before importing the model: the GPU stack it needs isn't installed in
+# CPU environments.
+if not torch.cuda.is_available():
+    pytest.skip("requires CUDA", allow_module_level=True)
+pytest.importorskip("flashinfer")
+pytest.importorskip("triton")
+pytest.importorskip("safetensors")
 SNAPSHOT = _find_cached_snapshot()
-pytestmark = [
-    pytest.mark.skipif(not torch.cuda.is_available(), reason="requires CUDA"),
-    pytest.mark.skipif(SNAPSHOT is None, reason=f"{HF_REPO} Code2Wav weights are not in the local Hugging Face cache"),
-]
+if SNAPSHOT is None:
+    pytest.skip(f"{HF_REPO} Code2Wav weights are not in the local Hugging Face cache", allow_module_level=True)
+
+from safetensors.torch import load_file  # noqa: E402
+
+from mstar.model.qwen3_omni.components.code2wav import Qwen3OmniMoeCode2Wav  # noqa: E402
+from mstar.model.qwen3_omni.config import Code2WavConfig, Qwen3OmniModelConfig  # noqa: E402
+from mstar.model.qwen3_omni.submodules import Code2WavSubmodule  # noqa: E402
+from mstar.model.submodule_base import InputMetadata, ModelInputsFromEngine  # noqa: E402
+from mstar.model.utils import ModuleAndPrefix, load_weights_from_hf_shards  # noqa: E402
+from mstar.streaming.chunk_policy import LeftContextChunkPolicy  # noqa: E402
+from mstar.streaming.stream_buffer import StreamBuffer  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def code2wav():
     """Built and loaded the way ``Qwen3OmniModel`` builds the Code2Wav node."""
-    assert SNAPSHOT is not None
     config = Code2WavConfig.from_dict(json.loads((SNAPSHOT / "config.json").read_text())["code2wav_config"])
     model = Qwen3OmniMoeCode2Wav(config)
     load_weights_from_hf_shards(repo_dir=SNAPSHOT, modules=[ModuleAndPrefix(model, prefix="code2wav")], device="cuda:0")
+    benchmark = torch.backends.cudnn.benchmark
+    # what _create_code2wav_submodule sets before the warm-up and capture
     torch.backends.cudnn.benchmark = True
     model.eval()
     eager_forward = type(model).forward.__get__(model)
     model.consolidate()
     # what the engine manager does with a disable_autocast node: device only
     model.to(device="cuda:0")
-    return model, eager_forward, config
+    try:
+        yield model, eager_forward, config
+    finally:
+        torch.backends.cudnn.benchmark = benchmark
 
 
 def stream(submodule: Code2WavSubmodule, frames: torch.Tensor) -> list[torch.Tensor]:
