@@ -14,32 +14,20 @@ every chunk boundary.
 
 from __future__ import annotations
 
-import importlib.util
 import math
-import sys
-import types
 from types import SimpleNamespace
 
 import pytest
 import torch
 import torch.nn.functional as F
 
+from mstar.model.qwen3_omni.components import code2wav as code2wav_module
+from mstar.model.qwen3_omni.components.code2wav import Qwen3OmniMoeCode2Wav
+from mstar.model.qwen3_omni.config import Code2WavConfig, Qwen3OmniModelConfig
+from mstar.model.qwen3_omni.submodules import Code2WavSubmodule
 from mstar.model.submodule_base import InputMetadata, ModelInputsFromEngine
 from mstar.streaming.chunk_policy import LeftContextChunkPolicy
 from mstar.streaming.stream_buffer import StreamBuffer, StreamChunkInfo
-
-# The qwen3_omni package imports flashinfer for the Talker. CPU CI doesn't
-# install it, and nothing on the Code2Wav path calls it.
-_STUB_FLASHINFER = importlib.util.find_spec("flashinfer") is None
-if _STUB_FLASHINFER:
-    sys.modules["flashinfer"] = types.ModuleType("flashinfer")
-from mstar.model.qwen3_omni.components import code2wav as code2wav_module  # noqa: E402
-from mstar.model.qwen3_omni.components.code2wav import Qwen3OmniMoeCode2Wav  # noqa: E402
-from mstar.model.qwen3_omni.config import Code2WavConfig, Qwen3OmniModelConfig  # noqa: E402
-from mstar.model.qwen3_omni.submodules import Code2WavSubmodule  # noqa: E402
-
-if _STUB_FLASHINFER:
-    del sys.modules["flashinfer"]
 
 UPSAMPLE = 1920
 
@@ -49,42 +37,62 @@ def _to_pcm(wav: torch.Tensor) -> torch.Tensor:
     return (wav.clamp(-1, 1) * 32767).to(torch.int16)
 
 
-def _stream(submodule: Code2WavSubmodule, frames: torch.Tensor) -> list[tuple]:
-    """Stream ``frames`` ``[T, 16]`` through the edge's policy and the
-    submodule, one request per step. Returns ``(chunk_info, audio, decoded)``
-    per step; ``decoded`` is whether the step ran the vocoder."""
+def _stream_batched(submodule: Code2WavSubmodule, frames: dict[str, torch.Tensor]) -> tuple[dict, list]:
+    """Stream each request's ``frames`` ``[T, 16]`` through its own buffer
+    with the edge's policy. Every step batches the requests that still have a
+    chunk, the way the scheduler batches Code2Wav. Returns, per request, its
+    ``(chunk_info, audio, decoded)`` per step (``decoded``: whether the step
+    ran the vocoder), and each step's ``cg_key_info``."""
     cfg = submodule.config.code2wav
-    stream = StreamBuffer(
-        request_id="r", edge_name="codec_tokens", from_partition="Talker",
-        policy=LeftContextChunkPolicy(chunk=cfg.codec_chunk_frames, left_context=cfg.codec_left_context_frames),
-    )
-    for i, frame in enumerate(frames):
-        stream.pre_read_register(f"t{i}")
-        stream.put(f"t{i}", frame)
-    stream.signal_done()
+    buffers = {}
+    for rid, request_frames in frames.items():
+        buffers[rid] = StreamBuffer(
+            request_id=rid, edge_name="codec_tokens", from_partition="Talker",
+            policy=LeftContextChunkPolicy(chunk=cfg.codec_chunk_frames, left_context=cfg.codec_left_context_frames),
+        )
+        for i, frame in enumerate(request_frames):
+            buffers[rid].pre_read_register(f"t{i}")
+            buffers[rid].put(f"t{i}", frame)
+        buffers[rid].signal_done()
 
-    fwd_info = SimpleNamespace(request_id="r", rid_handle="r")
-    steps = []
-    while stream.has_chunk_ready():
-        chunk = stream.pop_chunk()
-        meta = {"r": InputMetadata(stream_chunks={"codec_tokens": chunk.info})}
+    fwd_infos = {rid: SimpleNamespace(request_id=rid, rid_handle=rid) for rid in frames}
+    steps = {rid: [] for rid in frames}
+    keys = []
+    while rids := [rid for rid, buffer in buffers.items() if buffer.has_chunk_ready()]:
+        chunks = {rid: buffers[rid].pop_chunk() for rid in rids}
+        meta = {rid: InputMetadata(stream_chunks={"codec_tokens": chunk.info}) for rid, chunk in chunks.items()}
         # The engine replays the captured 50-frame graph when the batch's key
         # names a capture (None), and runs the eager forward otherwise.
-        key = submodule.cg_key_info("code2wav_chunk", {"r": fwd_info}, per_request_input_metadata=meta)
+        key = submodule.cg_key_info(
+            "code2wav_chunk", {rid: fwd_infos[rid] for rid in rids}, per_request_input_metadata=meta,
+        )
+        keys.append(key)
         engine_inputs = ModelInputsFromEngine(
-            request_ids=["r"], per_request_info={}, per_request_input_metadata=meta, captured=key is None,
+            request_ids=rids, per_request_info={}, per_request_input_metadata=meta, captured=key is None,
         )
-        item = submodule.prepare_inputs(
-            "code2wav_chunk", fwd_info, {"codec_tokens": [chunk.data["data"]]}, input_metadata=meta["r"],
-        )
-        packed = submodule.preprocess("code2wav_chunk", engine_inputs, [item])
+        items = [
+            submodule.prepare_inputs(
+                "code2wav_chunk", fwd_infos[rid], {"codec_tokens": [chunks[rid].data["data"]]},
+                input_metadata=meta[rid],
+            )
+            for rid in rids
+        ]
+        assert submodule.can_batch(None, items)
+        packed = submodule.preprocess("code2wav_chunk", engine_inputs, items)
         decoded = packed["codec_tokens"].shape[-1] > 0
         with torch.no_grad():
-            outputs = submodule.forward_batched("code2wav_chunk", engine_inputs, **packed)["r"]
-        submodule.postprocess("r", fwd_info, outputs, inputs=item)
-        steps.append((chunk.info, outputs["audio_chunk"][0], decoded))
-    submodule.cleanup_request("r")
-    return steps
+            outputs = submodule.forward_batched("code2wav_chunk", engine_inputs, **packed)
+        for rid, item in zip(rids, items, strict=True):
+            submodule.postprocess(rid, fwd_infos[rid], outputs[rid], inputs=item)
+            steps[rid].append((chunks[rid].info, outputs[rid]["audio_chunk"][0], decoded))
+            if chunks[rid].is_final:
+                submodule.cleanup_request(rid)
+    return steps, keys
+
+
+def _stream(submodule: Code2WavSubmodule, frames: torch.Tensor) -> list[tuple]:
+    """``_stream_batched`` for a single request."""
+    return _stream_batched(submodule, {"r": frames})[0]["r"]
 
 
 def _expected_samples_per_step(steps: list[tuple], tail: int) -> list[int]:
@@ -179,6 +187,32 @@ def test_a_batch_with_any_new_frames_keeps_the_capture():
     assert submodule.cg_key_info("code2wav_chunk", infos, {"a": flush, "b": steady}) is None
     assert submodule.cg_key_info("code2wav_chunk", infos, {"a": flush}) is None
     assert submodule.cg_key_info("code2wav_chunk", infos, None) is None
+
+
+def test_mixed_batch_of_a_terminal_flush_and_a_live_window():
+    """Request a (50 frames) reaches its context-only flush in the same step
+    as request b (76 frames, distinct codes) decodes a full window; b ends a
+    step later. The mixed step keeps the capture and decodes both rows; a's
+    row emits nothing and both streams stitch into their own full decodes."""
+    decoder = _LookaheadDecoder()
+    submodule = Code2WavSubmodule(decoder, Qwen3OmniModelConfig())
+    codes = {"a": _codes(50), "b": _codes(76) + 200}
+
+    steps, keys = _stream_batched(submodule, codes)
+
+    assert [len(steps["a"]), len(steps["b"])] == [3, 4]
+    flush_info, flush_audio, flush_decoded = steps["a"][2]
+    live_info, live_audio, live_decoded = steps["b"][2]
+    assert flush_info.is_final and flush_info.context_items == flush_info.num_items
+    assert not live_info.is_final and live_info.num_items - live_info.context_items == 25
+    assert keys == [None, None, None, None]   # the mixed step replays the capture
+    assert flush_decoded and live_decoded and decoder.calls == 4
+    assert flush_audio.numel() == 0 and live_audio.numel() == 25 * UPSAMPLE
+    for rid, request_codes in codes.items():
+        full = _to_pcm(decoder(request_codes.t()[None], torch.arange(request_codes.shape[0])[None]))[0, 0]
+        streamed = torch.cat([audio for _, audio, _ in steps[rid]])
+        assert torch.equal(streamed, full), rid
+    assert not submodule._first_chunk_emitted and not submodule._latest_seq_len
 
 
 # ---------------------------------------------------------------------------
