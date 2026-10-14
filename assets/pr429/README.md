@@ -12,6 +12,7 @@ The Qwen3-Omni Code2Wav chunk-boundary trim, heard and measured on one real utte
 | `spectrogram.png` | Spectrograms of main and the fix on one scale |
 | `metrics.json` | Every number below |
 | `make_audio_evidence.py` | Regenerates all of the above |
+| `long/` | A 72 s before/after listening test of one real 897-frame reply (35 boundaries); see `long/README.md` |
 
 All WAVs are 24 kHz, mono, 16-bit PCM.
 

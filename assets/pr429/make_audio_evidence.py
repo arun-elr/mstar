@@ -376,11 +376,12 @@ def main() -> None:
     parser.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float32"])
     parser.add_argument("--out", type=Path, default=Path("assets/pr429"))
     parser.add_argument("--_worker", nargs=2, metavar=("SRC", "OUT"), help=argparse.SUPPRESS)
+    parser.add_argument("--_codes", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     if args._worker:
         src, npz = map(Path, args._worker)
-        decode_worker(src, src / CODES, args.utt, args.dtype, npz)
+        decode_worker(src, args._codes or src / CODES, args.utt, args.dtype, npz)
         return
 
     args.out.mkdir(parents=True, exist_ok=True)
