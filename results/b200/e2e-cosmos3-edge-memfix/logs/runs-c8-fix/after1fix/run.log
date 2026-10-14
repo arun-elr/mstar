@@ -1,0 +1,17 @@
+[23:04:41] variant after1fix MSTAR=~/e2e-cosmos3/mstar-fix rev=913295e492ee1628b74947f46aec0ea519a38f9e overrides={}
+[23:04:41] gpu apps at start:  docker: 
+[23:04:41] image ~/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg md5 1dd31d4d20b8f25fe724d3326f3b1135
+[23:05:32] server ready after 50.345690876 s
+  pid 244683 resets=0 max_alloc=35.36 GiB max_reserved=36.26 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 244770 resets=0 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+[23:05:34] phase kv_warm: --mode kv --frames 241 --concurrency 1 --warmup 1 --rounds 0
+  pid 244683 resets=1 max_alloc=33.95 GiB max_reserved=36.26 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 244770 resets=1 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:05:49] phase kv_c8: --mode kv --frames 241 --concurrency 8 --warmup 0 --rounds 1 --save-dir ~/e2e-cosmos3/runs-c8-fix/after1fix/mp4/kv_c8
+  pid 244683 resets=2 max_alloc=44.19 GiB max_reserved=46.38 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 244770 resets=2 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:07:31] variant after1fix c8 done
+[23:07:31] stopping server pgid 244604
+[23:07:37] server stopped; gpu apps: 

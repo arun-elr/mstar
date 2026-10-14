@@ -1,0 +1,580 @@
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py:1443: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+[e2e-dump] patched mstar.model.cosmos3.submodules.Cosmos3VAEDecoderARSubmodule.forward in pid 254138
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 254138
+2026-10-13 23:13:40,827 INFO [api_server] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 23:13:40,844 INFO [api_server] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 23:13:40,845 INFO [api_server] __main__: Conductor process started (pid=254180, model=cosmos3_edge)
+2026-10-13 23:13:40,846 INFO [api_server] __main__: Waiting for workers to finish setup (loading weights, capturing CUDA graphs)...
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+2026-10-13 23:13:42,628 INFO [conductor] __mp_main__: yaml model_kwargs from ~/e2e-cosmos3/runs-c8-fix/after0fix/config.yaml: {'cuda_graph': True, 'graph_max_latent_area': 2000, 'gen_capture_video': [], 'image_size_default': [640, 640], 'video_size_default': [832, 480], 'num_frames_video': 121, 'num_inference_steps_video': 20, 'guidance_scale': 6.0, 'flow_shift_video': 12.0, 'conditioning_resize': 'aspect_crop', 'num_inference_steps_action': 30, 'guidance_scale_action': 1.0, 'flow_shift_action': 10.0, 'enable_windowed_video': True, 'windowed_decode_latents_per_call': 0} (forwarded to cosmos3_edge.__init__)
+[e2e-dump] patched mstar.model.cosmos3.submodules.Cosmos3VAEDecoderARSubmodule.forward in pid 254180
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 254180
+2026-10-13 23:13:44,904 INFO [conductor] mstar.conductor.conductor: Detected worker device type: cuda
+[e2e-mem] AttributeError("partially initialized module 'torch' has no attribute 'cuda' (most likely due to a circular import)")
+[e2e-dump] patched mstar.model.cosmos3.submodules.Cosmos3VAEDecoderARSubmodule.forward in pid 254217
+[e2e-dump] patched mstar.model.cosmos3.cosmos3_model.Cosmos3Model.postprocess in pid 254217
+2026-10-13 23:13:48,083 INFO [conductor] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 23:13:48,099 INFO [conductor] mstar.conductor.conductor: Conductor waiting for 1 worker(s) to finish setup
+2026-10-13 23:13:48,540 INFO [worker_0] mstar.communication.communicator: control mesh transport: pyzmq (MSTAR_RUST_ZMQ=AUTO)
+2026-10-13 23:13:48,701 INFO [worker_0] mstar.graph.runtime.utils: graph runtime: python (MSTAR_RUST_GRAPH=AUTO)
+2026-10-13 23:13:48,701 INFO [worker_0] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='kv', nodes={'reasoner', 'dit'}, config=PagedKVConfig(num_layers=28, num_kv_heads=8, head_dim=128, num_qo_heads=16, max_seq_len=262144, max_num_pages=1024, page_size=128, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True)), AttentionSpec(resource_key='attn', nodes={'reasoner', 'dit'}, config=AttentionConfig(kv_cache='kv', backend=<AttnBackend.FLASHINFER: 'flashinfer'>, flashinfer_backend='auto')), SamplerSpec(resource_key='sampler', nodes={'reasoner'}, vocab_size=131072, enable_repetion_penalty=True, enable_min_p=False), AttentionSpec(resource_key='attn_gen', nodes={'dit'}, config=AttentionConfig(kv_cache='kv', backend=<AttnBackend.DENSE: 'dense'>, flashinfer_backend='auto'))]
+2026-10-13 23:13:50,013 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for reasoner
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-10-13 23:13:51,067 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode torch.compile enabled
+2026-10-13 23:13:51,068 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode dtype = torch.bfloat16 (cuDNN 92000)
+2026-10-13 23:13:51,068 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_decoder
+2026-10-13 23:13:51,077 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 denoise compute torch.compile enabled
+2026-10-13 23:13:51,077 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for dit
+2026-10-13 23:13:51,324 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vision_encoder
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-10-13 23:13:51,813 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode torch.compile enabled
+2026-10-13 23:13:51,813 INFO [worker_0] mstar.model.cosmos3.submodules: Cosmos3 VAE decode dtype = torch.bfloat16 (cuDNN 92000)
+2026-10-13 23:13:51,815 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_decoder_ar
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-10-13 23:13:52,380 INFO [worker_0] mstar.model.cosmos3.cosmos3_model: Loaded Cosmos3 submodule for vae_encoder
+2026-10-13 23:13:52,465 WARNING [worker_0] mstar.engine.resources.attn.dense: Attention backend 'dense' requested but the fa3-fwd kernel is unavailable (ModuleNotFoundError: No module named 'fa3_fwd_interface'); using the paged 'flashinfer' backend instead.
+2026-10-13 23:13:52,472 INFO [worker_0] mstar.worker.engine_manager: Engine loaded on device cuda:0 for nodes ['dit', 'reasoner', 'vae_decoder', 'vae_decoder_ar', 'vae_encoder', 'vision_encoder']
+2026-10-13 23:13:55,596 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=32,tokens=32] (2 slots)
+2026-10-13 23:13:56,737 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=16,tokens=16] (2 slots)
+2026-10-13 23:13:57,727 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=8,tokens=8] (2 slots)
+2026-10-13 23:13:58,764 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=4,tokens=4] (2 slots)
+2026-10-13 23:13:59,995 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=2,tokens=2] (2 slots)
+2026-10-13 23:14:01,029 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for reasoner: reasoner_decode[bs=1,tokens=1] (2 slots)
+2026-10-13 23:14:01,030 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[reasoner]: warmup_and_capture done. shared_static_buffers: 2 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 1197.62 MB.
+2026-10-13 23:14:01,030 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_decoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 23:14:02,102 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: image_gen[bs=1,tokens=800,key=(1, 48, 1, 40, 40)] (2 slots)
+2026-10-13 23:14:02,916 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: image_gen[bs=1,tokens=780,key=(1, 48, 1, 30, 52)] (2 slots)
+2026-10-13 23:14:03,101 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=256,key=True] (2 slots)
+2026-10-13 23:14:03,233 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=128,key=True] (2 slots)
+2026-10-13 23:14:04,334 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: image_gen[bs=1,tokens=120,key=(1, 48, 1, 12, 20)] (2 slots)
+2026-10-13 23:14:04,460 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=64,key=True] (2 slots)
+2026-10-13 23:14:04,586 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=32,key=True] (2 slots)
+2026-10-13 23:14:04,713 INFO [worker_0] mstar.engine.cuda_graph_runner: Captured CUDA graph for dit: prefill[bs=1,tokens=16,key=True] (2 slots)
+2026-10-13 23:14:04,714 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[dit]: warmup_and_capture done. shared_static_buffers: 17 entries, 0.36 MB resident (would have been 0.73 MB with per-capture clones — saved 0.37 MB). Total cuda alloc delta during warmup: 1165.26 MB.
+2026-10-13 23:14:04,714 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vision_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 23:14:04,714 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_decoder_ar]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 23:14:04,714 INFO [worker_0] mstar.engine.cuda_graph_runner: CudaGraphRunner[vae_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total cuda alloc delta during warmup: 0.00 MB.
+2026-10-13 23:14:04,714 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for reasoner (submodule opt-out)
+2026-10-13 23:14:04,715 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder (submodule opt-out)
+2026-10-13 23:14:04,715 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for dit (submodule opt-out)
+2026-10-13 23:14:04,715 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vision_encoder (submodule opt-out)
+2026-10-13 23:14:04,715 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder_ar (submodule opt-out)
+2026-10-13 23:14:04,715 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_encoder (submodule opt-out)
+2026-10-13 23:14:05,283 INFO [worker_0] mstar.worker.worker: Worker worker_0: gc.freeze() after warmup — 1028612 objects moved to the permanent generation
+2026-10-13 23:14:05,283 INFO [worker_0] mstar.worker.worker: Worker worker_0: engine runs on dedicated GPU thread
+2026-10-13 23:14:05,283 INFO [worker_0] mstar.worker.worker: Worker worker_0: plan_executor enabled — speculative plan() pre-runs on a dedicated thread
+2026-10-13 23:14:05,289 INFO [conductor] mstar.conductor.conductor: Conductor: all 1 worker(s) ready
+2026-10-13 23:14:05,296 INFO [api_server] __main__: All workers ready
+2026-10-13 23:14:05,296 INFO [api_server] __main__: Running 2 warmup request(s) before binding
+2026-10-13 23:14:05,297 INFO [api_server] __main__: Request warmup-0 submitted  in=['text']  out=['video']
+2026-10-13 23:14:20,838 INFO [conductor] mstar.conductor.conductor: Request warmup-0 done
+2026-10-13 23:14:20,839 INFO [api_server] __main__: API server received warmup-0 done
+2026-10-13 23:14:20,975 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:21,393 INFO [conductor] mstar.conductor.conductor: Tore down request warmup-0; freed worker resources
+2026-10-13 23:14:21,394 INFO [worker_0] mstar.worker.worker: Request cleanup complete: warmup-0
+2026-10-13 23:14:21,396 INFO [api_server] __main__: warmup request 1/2 (video) done in 16.1 s
+2026-10-13 23:14:21,397 INFO [api_server] __main__: Request warmup-1 submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:26,455 INFO [conductor] mstar.conductor.conductor: Request warmup-1 done
+2026-10-13 23:14:26,456 INFO [api_server] __main__: API server received warmup-1 done
+2026-10-13 23:14:26,522 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:26,699 INFO [api_server] __main__: warmup request 2/2 (video) done in 5.3 s
+2026-10-13 23:14:26,699 INFO [api_server] __main__: Starting mstar API server on 0.0.0.0:8100
+2026-10-13 23:14:26,702 INFO [conductor] mstar.conductor.conductor: Tore down request warmup-1; freed worker resources
+2026-10-13 23:14:26,703 INFO [worker_0] mstar.worker.worker: Request cleanup complete: warmup-1
+INFO:     Started server process [254138]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8100 (Press CTRL+C to quit)
+2026-10-13 23:14:28,920 INFO [api_server] __main__: Request 6147f491-64eb-4b11-896e-46cb0c7f5e39 submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:30,369 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:31,624 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:33,162 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:34,705 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:36,252 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:37,786 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:39,330 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:40,778 INFO [conductor] mstar.conductor.conductor: Request 6147f491-64eb-4b11-896e-46cb0c7f5e39 done
+2026-10-13 23:14:40,779 INFO [api_server] __main__: API server received 6147f491-64eb-4b11-896e-46cb0c7f5e39 done
+2026-10-13 23:14:40,800 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:40,877 INFO [api_server] __main__: Async stream results received finish for 6147f491-64eb-4b11-896e-46cb0c7f5e39
+2026-10-13 23:14:40,879 INFO [conductor] mstar.conductor.conductor: Tore down request 6147f491-64eb-4b11-896e-46cb0c7f5e39; freed worker resources
+2026-10-13 23:14:40,880 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 6147f491-64eb-4b11-896e-46cb0c7f5e39
+2026-10-13 23:14:44,487 INFO [api_server] __main__: Request 679de28f-cccb-4d07-9b02-f04f7d8840ec submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:44,497 INFO [api_server] __main__: Request ec9ebe7b-eda8-41eb-a3aa-513d5113c1ab submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:44,499 INFO [api_server] __main__: Request 452bafe7-7112-4e97-a36e-00f4d58003bd submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:44,501 INFO [api_server] __main__: Request f4825c6f-e09e-4979-aab7-ed6c968eb2e6 submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:44,502 INFO [api_server] __main__: Request 08a6e18e-2788-4cd1-8a96-776f57263c07 submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:44,503 INFO [api_server] __main__: Request 9db07159-d036-486b-8abb-52f4c725b39a submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:44,504 INFO [api_server] __main__: Request 8c5ac49b-b91d-40ae-a3af-ab4e583f3065 submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:44,505 INFO [api_server] __main__: Request 606d6520-8aff-4ebd-895a-1aa32e713744 submitted  in=['image', 'text']  out=['video']
+2026-10-13 23:14:52,494 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:53,621 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:55,275 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:55,384 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:57,396 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:57,501 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:57,603 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:14:58,592 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:05,203 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:06,360 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:07,846 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:07,966 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:08,254 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:08,260 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 5 of 8 requests so the retry is smaller (0 earlier holds not logged)
+2026-10-13 23:15:08,655 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:08,772 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:08,885 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:08,901 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:08,919 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:08,921 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:09,023 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:09,614 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 4, label main.
+2026-10-13 23:15:09,817 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:09,832 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:09,833 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:09,835 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:09,871 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:10,449 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:10,451 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:10,453 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:10,454 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:11,062 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:11,065 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:11,066 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:11,067 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:11,675 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:11,677 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:11,678 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:11,679 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:12,287 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:12,290 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:12,291 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:12,292 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:12,901 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:12,904 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:12,905 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:12,907 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:13,515 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:13,517 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 4 of 8 requests so the retry is smaller (29 earlier holds not logged)
+2026-10-13 23:15:13,518 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 5, label uncond.
+2026-10-13 23:15:13,519 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 6, label uncond.
+2026-10-13 23:15:13,520 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 7, label uncond.
+2026-10-13 23:15:14,299 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:14,315 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 5, label uncond.
+2026-10-13 23:15:14,317 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 6, label uncond.
+2026-10-13 23:15:14,318 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 7, label uncond.
+2026-10-13 23:15:14,355 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:15,105 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:15,124 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 5, label uncond.
+2026-10-13 23:15:15,125 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 6, label uncond.
+2026-10-13 23:15:15,126 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 7, label uncond.
+2026-10-13 23:15:15,165 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:16,144 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:16,192 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:16,194 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:16,195 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:16,265 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:16,382 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:16,808 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:16,810 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:16,812 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:16,813 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:17,424 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:17,426 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:17,427 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:17,429 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:18,038 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:18,041 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:18,042 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:18,043 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:18,653 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:18,655 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 5 of 8 requests so the retry is smaller (27 earlier holds not logged)
+2026-10-13 23:15:18,656 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:18,657 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:18,659 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:19,268 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:19,271 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:19,272 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:19,273 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:19,883 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:19,886 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:19,887 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:19,888 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:20,498 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 5, label main.
+2026-10-13 23:15:20,501 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 6, label main.
+2026-10-13 23:15:20,502 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 11 for request 7, label main.
+2026-10-13 23:15:20,504 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 11 for request 4, label uncond.
+2026-10-13 23:15:21,083 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 10 for request 6, label main.
+2026-10-13 23:15:21,284 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 10 for request 7, label main.
+2026-10-13 23:15:21,300 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 10 for request 6, label main.
+2026-10-13 23:15:21,302 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 10 for request 0, label uncond.
+2026-10-13 23:15:21,303 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 10 for request 5, label uncond.
+2026-10-13 23:15:21,341 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:21,891 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 6, label main.
+2026-10-13 23:15:22,092 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:22,108 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 6, label main.
+2026-10-13 23:15:22,109 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:22,110 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 5, label uncond.
+2026-10-13 23:15:22,145 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:22,721 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 5 for request 7, label main.
+2026-10-13 23:15:23,114 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 0, label uncond.
+2026-10-13 23:15:23,163 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 2, label uncond.
+2026-10-13 23:15:23,165 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 5, label uncond.
+2026-10-13 23:15:23,167 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 7, label uncond.
+2026-10-13 23:15:23,239 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:23,348 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:23,778 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label main.
+2026-10-13 23:15:23,780 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 2 of 8 requests so the retry is smaller (30 earlier holds not logged)
+2026-10-13 23:15:23,781 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 5, label main.
+2026-10-13 23:15:23,782 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 7, label main.
+2026-10-13 23:15:23,784 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:24,392 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label main.
+2026-10-13 23:15:24,395 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 5, label main.
+2026-10-13 23:15:24,397 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 7, label main.
+2026-10-13 23:15:24,398 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:25,008 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label main.
+2026-10-13 23:15:25,011 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 5, label main.
+2026-10-13 23:15:25,012 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 7, label main.
+2026-10-13 23:15:25,013 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:25,624 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label main.
+2026-10-13 23:15:25,626 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 5, label main.
+2026-10-13 23:15:25,628 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 7, label main.
+2026-10-13 23:15:25,629 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:26,240 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label main.
+2026-10-13 23:15:26,242 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 5, label main.
+2026-10-13 23:15:26,243 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 7, label main.
+2026-10-13 23:15:26,245 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:26,854 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label main.
+2026-10-13 23:15:26,857 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 5, label main.
+2026-10-13 23:15:26,858 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 7, label main.
+2026-10-13 23:15:26,859 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:27,471 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label main.
+2026-10-13 23:15:27,473 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 5, label main.
+2026-10-13 23:15:27,474 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 7, label main.
+2026-10-13 23:15:27,475 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:28,086 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:28,088 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label uncond.
+2026-10-13 23:15:28,090 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 5, label uncond.
+2026-10-13 23:15:28,091 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 7, label uncond.
+2026-10-13 23:15:28,873 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:28,889 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 0 of 8 requests so the retry is smaller (31 earlier holds not logged)
+2026-10-13 23:15:28,891 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 2, label uncond.
+2026-10-13 23:15:28,892 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 5, label uncond.
+2026-10-13 23:15:28,893 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 7, label uncond.
+2026-10-13 23:15:28,932 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:29,683 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:29,700 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 2, label uncond.
+2026-10-13 23:15:29,701 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 7 for request 5, label uncond.
+2026-10-13 23:15:29,702 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 7 for request 7, label uncond.
+2026-10-13 23:15:29,741 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:30,709 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 2, label main.
+2026-10-13 23:15:30,760 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:30,761 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:30,761 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:30,837 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:30,959 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:31,372 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 2, label main.
+2026-10-13 23:15:31,375 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:31,376 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:31,377 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:31,987 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 2, label main.
+2026-10-13 23:15:31,990 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:31,991 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:31,992 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:32,602 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 2, label main.
+2026-10-13 23:15:32,606 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:32,607 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:32,608 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:33,218 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 2, label main.
+2026-10-13 23:15:33,221 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:33,222 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:33,223 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:33,832 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 2, label main.
+2026-10-13 23:15:33,835 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:33,836 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:33,837 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:34,447 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 2, label main.
+2026-10-13 23:15:34,448 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 2 of 8 requests so the retry is smaller (31 earlier holds not logged)
+2026-10-13 23:15:34,449 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:34,450 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:34,451 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:35,060 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 2, label main.
+2026-10-13 23:15:35,063 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:35,064 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:35,065 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:35,643 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:35,847 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:35,865 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:35,866 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:35,867 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 4, label uncond.
+2026-10-13 23:15:35,917 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:36,459 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 5 for request 5, label main.
+2026-10-13 23:15:36,664 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 5 for request 7, label main.
+2026-10-13 23:15:36,682 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 5 for request 5, label main.
+2026-10-13 23:15:36,684 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 0, label uncond.
+2026-10-13 23:15:36,685 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 4, label uncond.
+2026-10-13 23:15:36,722 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:37,305 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 4 for request 7, label main.
+2026-10-13 23:15:37,699 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:37,748 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 5 for request 3, label uncond.
+2026-10-13 23:15:37,750 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 5, label uncond.
+2026-10-13 23:15:37,751 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 3 for request 7, label uncond.
+2026-10-13 23:15:37,824 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:37,946 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:38,362 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 3, label main.
+2026-10-13 23:15:38,364 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 5, label main.
+2026-10-13 23:15:38,366 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 7, label main.
+2026-10-13 23:15:38,367 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:38,978 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 3, label main.
+2026-10-13 23:15:38,982 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 5, label main.
+2026-10-13 23:15:38,983 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 7, label main.
+2026-10-13 23:15:38,984 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:39,596 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 3, label main.
+2026-10-13 23:15:39,598 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 3 of 8 requests so the retry is smaller (30 earlier holds not logged)
+2026-10-13 23:15:39,599 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 5, label main.
+2026-10-13 23:15:39,600 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 7, label main.
+2026-10-13 23:15:39,602 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:40,213 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 3, label main.
+2026-10-13 23:15:40,215 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 5, label main.
+2026-10-13 23:15:40,216 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 7, label main.
+2026-10-13 23:15:40,217 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:40,828 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 3, label main.
+2026-10-13 23:15:40,831 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 5, label main.
+2026-10-13 23:15:40,832 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 7, label main.
+2026-10-13 23:15:40,834 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:41,445 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 3, label main.
+2026-10-13 23:15:41,447 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 5, label main.
+2026-10-13 23:15:41,449 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 7, label main.
+2026-10-13 23:15:41,450 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:42,062 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 3, label main.
+2026-10-13 23:15:42,064 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 5, label main.
+2026-10-13 23:15:42,066 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 2 for request 7, label main.
+2026-10-13 23:15:42,067 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:42,680 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:42,683 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 3 for request 3, label uncond.
+2026-10-13 23:15:42,684 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 3 for request 5, label uncond.
+2026-10-13 23:15:42,685 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 3 for request 7, label uncond.
+2026-10-13 23:15:43,466 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 4 for request 0, label uncond.
+2026-10-13 23:15:43,484 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 5 for request 3, label uncond.
+2026-10-13 23:15:43,487 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 5, label uncond.
+2026-10-13 23:15:43,488 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 5 for request 7, label uncond.
+2026-10-13 23:15:43,528 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:44,259 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 2 for request 0, label uncond.
+2026-10-13 23:15:44,294 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 3 for request 3, label uncond.
+2026-10-13 23:15:44,296 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 3 for request 5, label uncond.
+2026-10-13 23:15:44,297 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 3 for request 7, label uncond.
+2026-10-13 23:15:44,338 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:45,302 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 3, label main.
+2026-10-13 23:15:45,353 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 3 of 8 requests so the retry is smaller (31 earlier holds not logged)
+2026-10-13 23:15:45,354 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:45,355 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:45,356 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:45,430 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:45,557 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:45,966 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 3, label main.
+2026-10-13 23:15:45,968 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:45,970 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:45,971 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:46,580 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 3, label main.
+2026-10-13 23:15:46,582 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:46,583 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:46,585 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:47,194 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 3, label main.
+2026-10-13 23:15:47,197 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:47,199 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:47,200 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:47,810 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 3, label main.
+2026-10-13 23:15:47,813 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:47,814 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:47,815 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:48,424 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 3, label main.
+2026-10-13 23:15:48,427 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:48,428 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:48,429 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:49,039 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 3, label main.
+2026-10-13 23:15:49,042 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:49,043 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:49,044 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:49,654 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 3, label main.
+2026-10-13 23:15:49,657 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:49,658 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:49,659 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:50,238 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:50,441 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 7, label main.
+2026-10-13 23:15:50,458 WARNING [worker_0] mstar.worker.worker: OOM on node=dit walk=video_gen_ar: no offload possible, holding 7 of 7 requests so the retry is smaller (32 earlier holds not logged)
+2026-10-13 23:15:50,459 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 6 for request 5, label main.
+2026-10-13 23:15:50,460 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 6 for request 0, label uncond.
+2026-10-13 23:15:50,461 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 7 for request 3, label uncond.
+2026-10-13 23:15:50,501 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:51,041 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:51,229 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 5, label main.
+2026-10-13 23:15:51,244 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 8 for request 7, label main.
+2026-10-13 23:15:51,245 INFO [conductor] mstar.conductor.conductor: Request ec9ebe7b-eda8-41eb-a3aa-513d5113c1ab done
+2026-10-13 23:15:51,246 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 8 for request 0, label uncond.
+2026-10-13 23:15:51,247 INFO [api_server] __main__: API server received ec9ebe7b-eda8-41eb-a3aa-513d5113c1ab done
+2026-10-13 23:15:51,247 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 24, available 9 for request 3, label uncond.
+2026-10-13 23:15:51,270 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:51,353 INFO [api_server] __main__: Async stream results received finish for ec9ebe7b-eda8-41eb-a3aa-513d5113c1ab
+2026-10-13 23:15:51,356 INFO [conductor] mstar.conductor.conductor: Tore down request ec9ebe7b-eda8-41eb-a3aa-513d5113c1ab; freed worker resources
+2026-10-13 23:15:51,555 ERROR [worker_0] mstar.worker.worker: Worker worker_0 error in main loop: AssertionError: 
+Traceback (most recent call last):
+  File "~/e2e-cosmos3/mstar-fix/mstar/worker/worker.py", line 3719, in run
+    outputs = pending.future.result()
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/mstar-fix/mstar/worker/worker.py", line 1797, in _execute_on_gpu_thread
+    outputs = engine.exec_and_postprocess(node_batch)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/mstar-fix/mstar/engine/engine.py", line 1317, in exec_and_postprocess
+    outputs = self.exec(batch)
+              ^^^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/mstar-fix/mstar/engine/engine.py", line 826, in exec
+    batch.outputs = self._exec_single(batch)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/mstar-fix/mstar/engine/engine.py", line 881, in _exec_single
+    raw, batch.step = self._drive_step(
+                      ^^^^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/mstar-fix/mstar/engine/engine.py", line 1206, in _drive_step
+    raw = self._forward(
+          ^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/mstar-fix/mstar/engine/engine.py", line 1255, in _forward
+    submodule_mgmt.forward_batched(
+  File "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/amp/autocast_mode.py", line 44, in decorate_autocast
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/mstar-fix/mstar/model/cosmos3/submodules.py", line 1942, in forward_batched
+    new_latents = self._scheduler_step(st, velocity, t, lat)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/mstar-fix/mstar/model/cosmos3/submodules.py", line 474, in _scheduler_step
+    return st["scheduler"].step(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "~/e2e-cosmos3/venv/lib/python3.12/site-packages/diffusers/schedulers/scheduling_unipc_multistep.py", line 1214, in step
+    assert self.this_order > 0
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError
+2026-10-13 23:15:51,556 ERROR [worker_0] mstar.worker.worker: Worker worker_0 failing request ec9ebe7b-eda8-41eb-a3aa-513d5113c1ab: Error in worker: AssertionError: 
+2026-10-13 23:15:51,556 ERROR [worker_0] mstar.worker.worker: Worker worker_0 failing request 452bafe7-7112-4e97-a36e-00f4d58003bd: Error in worker: AssertionError: 
+2026-10-13 23:15:51,556 ERROR [worker_0] mstar.worker.worker: Worker worker_0 failing request 08a6e18e-2788-4cd1-8a96-776f57263c07: Error in worker: AssertionError: 
+2026-10-13 23:15:51,556 ERROR [worker_0] mstar.worker.worker: Worker worker_0 failing request 8c5ac49b-b91d-40ae-a3af-ab4e583f3065: Error in worker: AssertionError: 
+2026-10-13 23:15:51,558 INFO [conductor] mstar.conductor.conductor: Failure for request ec9ebe7b-eda8-41eb-a3aa-513d5113c1ab ignored; already finished, aborted, or failed by another worker (Error in worker: AssertionError: )
+2026-10-13 23:15:51,558 ERROR [conductor] mstar.conductor.conductor: Request 452bafe7-7112-4e97-a36e-00f4d58003bd failed on a worker: Error in worker: AssertionError: 
+2026-10-13 23:15:51,558 INFO [conductor] mstar.conductor.conductor: Draining request 452bafe7-7112-4e97-a36e-00f4d58003bd (2 participants) before teardown
+2026-10-13 23:15:51,558 ERROR [conductor] mstar.conductor.conductor: Request 08a6e18e-2788-4cd1-8a96-776f57263c07 failed on a worker: Error in worker: AssertionError: 
+2026-10-13 23:15:51,558 INFO [conductor] mstar.conductor.conductor: Draining request 08a6e18e-2788-4cd1-8a96-776f57263c07 (2 participants) before teardown
+2026-10-13 23:15:51,558 ERROR [conductor] mstar.conductor.conductor: Request 8c5ac49b-b91d-40ae-a3af-ab4e583f3065 failed on a worker: Error in worker: AssertionError: 
+2026-10-13 23:15:51,558 INFO [conductor] mstar.conductor.conductor: Draining request 8c5ac49b-b91d-40ae-a3af-ab4e583f3065 (2 participants) before teardown
+2026-10-13 23:15:51,569 INFO [worker_0] mstar.worker.worker: Request cleanup complete: ec9ebe7b-eda8-41eb-a3aa-513d5113c1ab
+2026-10-13 23:15:51,570 INFO [conductor] mstar.conductor.conductor: Tore down request 452bafe7-7112-4e97-a36e-00f4d58003bd; freed worker resources
+2026-10-13 23:15:51,570 INFO [conductor] mstar.conductor.conductor: Tore down request 08a6e18e-2788-4cd1-8a96-776f57263c07; freed worker resources
+2026-10-13 23:15:51,570 INFO [conductor] mstar.conductor.conductor: Tore down request 8c5ac49b-b91d-40ae-a3af-ab4e583f3065; freed worker resources
+2026-10-13 23:15:51,570 WARNING [worker_0] mstar.engine.resources.runner: Admit for resource kv failed with error: Not enough free pages: requested 25, available 10 for request 7, label uncond.
+2026-10-13 23:15:51,570 ERROR [api_server] __main__: Request 452bafe7-7112-4e97-a36e-00f4d58003bd failed in the engine: Error in worker: AssertionError: 
+2026-10-13 23:15:51,570 ERROR [api_server] __main__: Request 08a6e18e-2788-4cd1-8a96-776f57263c07 failed in the engine: Error in worker: AssertionError: 
+2026-10-13 23:15:51,570 ERROR [api_server] __main__: Request 8c5ac49b-b91d-40ae-a3af-ab4e583f3065 failed in the engine: Error in worker: AssertionError: 
+2026-10-13 23:15:51,571 INFO [api_server] __main__: Async stream results received finish for 08a6e18e-2788-4cd1-8a96-776f57263c07
+2026-10-13 23:15:51,571 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 452bafe7-7112-4e97-a36e-00f4d58003bd
+2026-10-13 23:15:51,571 INFO [api_server] __main__: Async stream results received finish for 8c5ac49b-b91d-40ae-a3af-ab4e583f3065
+2026-10-13 23:15:51,571 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 08a6e18e-2788-4cd1-8a96-776f57263c07
+2026-10-13 23:15:51,571 INFO [api_server] __main__: Async stream results received finish for 452bafe7-7112-4e97-a36e-00f4d58003bd
+2026-10-13 23:15:51,571 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 8c5ac49b-b91d-40ae-a3af-ab4e583f3065
+2026-10-13 23:15:58,920 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:59,033 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:59,155 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:15:59,573 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:06,001 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:06,119 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:06,206 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:06,522 INFO [conductor] mstar.conductor.conductor: Request f4825c6f-e09e-4979-aab7-ed6c968eb2e6 done
+2026-10-13 23:16:06,524 INFO [api_server] __main__: API server received f4825c6f-e09e-4979-aab7-ed6c968eb2e6 done
+2026-10-13 23:16:06,525 INFO [api_server] __main__: Async stream results received finish for f4825c6f-e09e-4979-aab7-ed6c968eb2e6
+2026-10-13 23:16:06,546 INFO [conductor] mstar.conductor.conductor: Tore down request f4825c6f-e09e-4979-aab7-ed6c968eb2e6; freed worker resources
+2026-10-13 23:16:06,549 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:06,748 INFO [worker_0] mstar.worker.worker: Request cleanup complete: f4825c6f-e09e-4979-aab7-ed6c968eb2e6
+2026-10-13 23:16:11,353 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:11,471 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:11,953 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:16,634 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:16,712 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:17,091 INFO [conductor] mstar.conductor.conductor: Request 679de28f-cccb-4d07-9b02-f04f7d8840ec done
+2026-10-13 23:16:17,093 INFO [api_server] __main__: API server received 679de28f-cccb-4d07-9b02-f04f7d8840ec done
+2026-10-13 23:16:17,095 INFO [api_server] __main__: Async stream results received finish for 679de28f-cccb-4d07-9b02-f04f7d8840ec
+2026-10-13 23:16:17,116 INFO [conductor] mstar.conductor.conductor: Tore down request 679de28f-cccb-4d07-9b02-f04f7d8840ec; freed worker resources
+2026-10-13 23:16:17,120 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:17,242 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 679de28f-cccb-4d07-9b02-f04f7d8840ec
+2026-10-13 23:16:20,309 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:20,835 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:23,884 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:24,166 INFO [conductor] mstar.conductor.conductor: Request 9db07159-d036-486b-8abb-52f4c725b39a done
+2026-10-13 23:16:24,167 INFO [api_server] __main__: API server received 9db07159-d036-486b-8abb-52f4c725b39a done
+2026-10-13 23:16:24,167 INFO [conductor] mstar.conductor.conductor: Request 606d6520-8aff-4ebd-895a-1aa32e713744 done
+2026-10-13 23:16:24,168 INFO [api_server] __main__: API server received 606d6520-8aff-4ebd-895a-1aa32e713744 done
+2026-10-13 23:16:24,169 INFO [api_server] __main__: Async stream results received finish for 9db07159-d036-486b-8abb-52f4c725b39a
+2026-10-13 23:16:24,173 INFO [conductor] mstar.conductor.conductor: Tore down request 9db07159-d036-486b-8abb-52f4c725b39a; freed worker resources
+2026-10-13 23:16:24,175 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 9db07159-d036-486b-8abb-52f4c725b39a
+2026-10-13 23:16:24,178 WARNING [api_server] mstar.model.cosmos3.cosmos3_model: Cosmos3 video encode: torchcodec unavailable (Could not load libtorchcodec. Likely causes:); encoding with PyAV
+2026-10-13 23:16:24,255 INFO [api_server] __main__: Async stream results received finish for 606d6520-8aff-4ebd-895a-1aa32e713744
+2026-10-13 23:16:24,262 INFO [conductor] mstar.conductor.conductor: Tore down request 606d6520-8aff-4ebd-895a-1aa32e713744; freed worker resources
+2026-10-13 23:16:24,263 INFO [worker_0] mstar.worker.worker: Request cleanup complete: 606d6520-8aff-4ebd-895a-1aa32e713744
+2026-10-13 23:16:25,819 INFO [conductor] mstar.conductor.conductor: Shutting down conductor...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [254138]
+[W1013 23:16:26.452563834 CudaIPCTypes.cpp:16] Producer process has been terminated before all shared CUDA tensors released. See Note [Sharing CUDA tensors]
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py", line 144, in _conductor_process_target
+    conductor.shutdown()
+  File "~/e2e-cosmos3/mstar-fix/mstar/conductor/conductor.py", line 552, in shutdown
+    p.join(timeout=5)
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/popen_fork.py", line 40, in wait
+    if not wait([self.sentinel], timeout):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/connection.py", line 1136, in wait
+    ready = selector.select(timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+2026-10-13 23:16:27,022 INFO [conductor] mstar.conductor.conductor: Shutting down conductor...
+~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+~/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:292: UserWarning: resource_tracker: '/mp-yfay43jg': [Errno 2] No such file or directory
+  warnings.warn('resource_tracker: %r: %s' % (name, e))

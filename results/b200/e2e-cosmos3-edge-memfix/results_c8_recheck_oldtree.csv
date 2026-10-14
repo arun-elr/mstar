@@ -1,0 +1,2 @@
+variant,phase,mode,concurrency,rounds,requests_ok,windows,frames,ttff_s,window_gap_med_s,window_gap_p90_s,total_s,fps_per_stream,fps_aggregate,round_wall_s,dit_ms_per_window,decoder_ms_per_window,decoder_ms_per_request,decoder_share_of_request_wall,decoder_share_of_round_wall,torch_max_allocated_gib,torch_idle_allocated_gib,torch_peak_above_idle_gib,torch_max_reserved_gib,smi_peak_mib
+after1,kv_c8,kv,8,1,5,8,241,10.4962,7.1178,17.6481,91.7876,2.6256,12.1226,99.4013,6621.625,439.4375,3515.5,0.0383,0.2829,60.2314,28.5368,31.6946,63.7266,66412

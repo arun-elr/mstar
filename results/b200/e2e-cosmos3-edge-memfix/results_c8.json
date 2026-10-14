@@ -1,0 +1,240 @@
+{
+ "phases": [
+  {
+   "variant": "after1fix",
+   "phase": "kv_c8",
+   "mode": "kv",
+   "concurrency": 8,
+   "rounds": 1,
+   "requests_ok": 5,
+   "errors": [
+    "RuntimeError: Error in worker: AssertionError: ",
+    "RuntimeError: Error in worker: AssertionError: ",
+    "RuntimeError: Error in worker: AssertionError: "
+   ],
+   "windows": 8,
+   "frames": 241,
+   "ttff_s": 10.995329700002912,
+   "window_gap_med_s": 7.141676078004821,
+   "window_gap_p90_s": 17.663401330601495,
+   "total_s": 92.16154047700547,
+   "fps_per_stream": 2.6149736511851174,
+   "round_wall_s": 99.7941630580026,
+   "fps_aggregate": 12.074854511276648,
+   "ttff_all_s": [
+    8.223,
+    12.552,
+    9.215,
+    10.995,
+    12.736
+   ],
+   "total_all_s": [
+    92.162,
+    99.482,
+    66.553,
+    81.546,
+    99.773
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1,
+     "total_ms": 63.4,
+     "avg_ms": 63.4
+    },
+    "dit/video_gen_ar": {
+     "n": 168,
+     "total_ms": 53102.9,
+     "avg_ms": 316.1
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 9,
+     "total_ms": 3602.6,
+     "avg_ms": 400.3
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1,
+     "total_ms": 41.3,
+     "avg_ms": 41.3
+    }
+   },
+   "dit_ms_per_window": 6637.8625,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 450.325,
+   "decoder_ms_per_request": 3602.6,
+   "decoder_share_of_request_wall": 0.039090058405641094,
+   "decoder_share_of_round_wall": 0.28880246215651617,
+   "mem_by_pid": {
+    "244683": {
+     "max_allocated_gib": 44.189144134521484,
+     "max_reserved_gib": 46.384765625,
+     "allocated_gib": 29.570685386657715,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs-c8-fix/after1fix/"
+    },
+    "244770": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 44.189144134521484,
+   "torch_max_reserved_gib": 46.384765625,
+   "torch_idle_allocated_gib": 29.570685386657715,
+   "torch_peak_above_idle_gib": 14.61845874786377,
+   "smi_peak_mib": 48652
+  },
+  {
+   "variant": "after0fix",
+   "phase": "kv_c8",
+   "mode": "kv",
+   "concurrency": 8,
+   "rounds": 1,
+   "requests_ok": 5,
+   "errors": [
+    "RuntimeError: Error in worker: AssertionError: ",
+    "RuntimeError: Error in worker: AssertionError: ",
+    "RuntimeError: Error in worker: AssertionError: "
+   ],
+   "windows": 8,
+   "frames": 241,
+   "ttff_s": 11.014694523997605,
+   "window_gap_med_s": 7.040810373997374,
+   "window_gap_p90_s": 17.829650799997047,
+   "total_s": 92.23198089299694,
+   "fps_per_stream": 2.612976514942214,
+   "round_wall_s": 99.79455125200184,
+   "fps_aggregate": 12.074807540916,
+   "ttff_all_s": [
+    14.231,
+    11.015,
+    13.132,
+    8.132,
+    9.248
+   ],
+   "total_all_s": [
+    99.787,
+    81.742,
+    99.481,
+    92.232,
+    66.877
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1,
+     "total_ms": 84.7,
+     "avg_ms": 84.7
+    },
+    "dit/video_gen_ar": {
+     "n": 168,
+     "total_ms": 52840.1,
+     "avg_ms": 314.5
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 9,
+     "total_ms": 3482.1,
+     "avg_ms": 386.9
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1,
+     "total_ms": 71.5,
+     "avg_ms": 71.5
+    }
+   },
+   "dit_ms_per_window": 6605.0125,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 435.2625,
+   "decoder_ms_per_request": 3482.1,
+   "decoder_share_of_request_wall": 0.03775371586174391,
+   "decoder_share_of_round_wall": 0.2791414927018994,
+   "mem_by_pid": {
+    "254217": {
+     "max_allocated_gib": 57.909464836120605,
+     "max_reserved_gib": 61.482421875,
+     "allocated_gib": 29.570685386657715,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs-c8-fix/after0fix/"
+    },
+    "254276": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 57.909464836120605,
+   "torch_max_reserved_gib": 61.482421875,
+   "torch_idle_allocated_gib": 29.570685386657715,
+   "torch_peak_above_idle_gib": 28.33877944946289,
+   "smi_peak_mib": 64114
+  }
+ ],
+ "startup": {
+  "after1fix": {
+   "startup_s": 50.345690965652466,
+   "mem_after_startup": {
+    "244683": {
+     "max_allocated_gib": 35.3558235168457,
+     "max_reserved_gib": 36.259765625,
+     "allocated_gib": 29.61196804046631,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs-c8-fix/after1fix/"
+    },
+    "244770": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   }
+  },
+  "after0fix": {
+   "startup_s": 50.343271017074585,
+   "mem_after_startup": {
+    "254217": {
+     "max_allocated_gib": 49.86096382141113,
+     "max_reserved_gib": 53.564453125,
+     "allocated_gib": 29.68610954284668,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs-c8-fix/after0fix/"
+    },
+    "254276": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   }
+  }
+ },
+ "equivalence": {
+  "kv": null,
+  "chained": null
+ },
+ "mp4_md5": {
+  "after1fix/kv_c8": {
+   "r0_s0": "8702169619b83921d591689fa14e50aa",
+   "r0_s1": "3994a320e7ed9a3665025852b8f58cf6",
+   "r0_s2": "bd6ef6dbbd26d7d742d7be99c9e4db9d",
+   "r0_s3": "0ed8227be96fa1e6245132ae94b7c1e9",
+   "r0_s4": "788b00e12a0cf3d79a1ebe399caf15fb",
+   "r0_s5": "122c55277cbbeb72fa04cfc9934de998",
+   "r0_s6": "6d765ac4819abf97bb81784a17f020ea",
+   "r0_s7": "d9e8469b487e0c9be10445b44f30a827"
+  },
+  "after0fix/kv_c8": {
+   "r0_s0": "a386ae42fcb13e32270d87852f0cc83f",
+   "r0_s1": "f4454f319b760bc342962a654f6651b1",
+   "r0_s2": "52565636076eeb3c4d2a968c28dd9add",
+   "r0_s3": "432242d1154d38536614b2682de7c0b7",
+   "r0_s4": "5f29efa580f31ab5de4254f0f6990ee6",
+   "r0_s5": "a8efaf58cdbaa7c93ce57994e6ac564c",
+   "r0_s6": "1e435eb5a470718162f34d13144e2451",
+   "r0_s7": "00d20263b234572dcb3d9a7b0ee54b55"
+  }
+ }
+}

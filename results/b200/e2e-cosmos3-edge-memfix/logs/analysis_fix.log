@@ -1,0 +1,87 @@
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 767.27it/s]
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+== kv: latents md5 {'before': '111b540f60fe6af5152f11eafd2a12b6', 'after0': '111b540f60fe6af5152f11eafd2a12b6', 'after1': '111b540f60fe6af5152f11eafd2a12b6', 'after1fix': '111b540f60fe6af5152f11eafd2a12b6', 'after0fix': 'd349b69719c0699864ffb86cb620e74b'}
+   latents max|diff| vs old after1 {'before': 0.0, 'after0': 0.0, 'after1': 0.0, 'after1fix': 0.0, 'after0fix': 9.21875}
+   after1fix vs after1: same latents True psnr 57.81 min 54.13 max|d| 19 identical False
+   after0fix vs after0: same latents False psnr 13.56 min 10.13 max|d| 255 identical False
+   after0fix vs after1fix: same latents False psnr 13.56 min 10.13 max|d| 255 identical False
+   after1fix vs after0: same latents True psnr 57.09 min 52.89 max|d| 19 identical False
+   after1fix vs before: same latents True psnr 46.92 min 34.49 max|d| 143 identical False
+   decoded references for latents 111b540f (from before)
+   decoded references for latents d349b697 (from after0fix)
+   vs fp32 (111b540f) before     psnr 46.52 worst 34.46 (#127) median 51.25 max|d| 138 >1: 5.4% window min [52.68, 50.66, 37.48, 47.72, 34.46, 41.6, 38.75, 40.25]
+   vs fp32 (111b540f) after0     psnr 53.36 worst 49.48 (#64) median 53.94 max|d| 36 >1: 1.3% window min [52.04, 50.7, 49.48, 55.54, 51.44, 51.66, 52.32, 53.46]
+   vs fp32 (111b540f) after1     psnr 53.46 worst 49.52 (#64) median 53.92 max|d| 39 >1: 1.2% window min [52.74, 50.69, 49.52, 55.54, 51.44, 51.63, 52.26, 53.47]
+   vs fp32 (111b540f) after1fix  psnr 53.46 worst 49.43 (#64) median 53.92 max|d| 36 >1: 1.2% window min [52.75, 50.66, 49.43, 55.56, 51.37, 51.54, 52.4, 53.45]
+   vs fp32 (d349b697) after0fix  psnr 53.60 worst 49.85 (#66) median 53.83 max|d| 29 >1: 1.1% window min [51.95, 51.26, 49.85, 55.26, 51.18, 52.75, 51.84, 54.04]
+   vs bf16 (111b540f) before     psnr 46.16 worst 34.40 (#127) median 50.02 max|d| 145 >1: 6.2% window min [51.09, 48.73, 37.36, 47.59, 34.4, 41.48, 38.73, 40.14]
+   vs bf16 (111b540f) after0     psnr 52.15 worst 47.52 (#80) median 52.93 max|d| 51 >1: 2.2% window min [51.54, 48.75, 47.52, 54.62, 49.27, 49.75, 50.7, 52.25]
+   vs bf16 (111b540f) after1     psnr 52.11 worst 47.60 (#64) median 52.91 max|d| 53 >1: 2.2% window min [51.11, 48.7, 47.6, 54.61, 49.11, 49.77, 50.73, 52.22]
+   vs bf16 (111b540f) after1fix  psnr 52.11 worst 47.54 (#64) median 52.91 max|d| 48 >1: 2.2% window min [51.12, 48.69, 47.54, 54.61, 49.2, 49.71, 50.71, 52.25]
+   vs bf16 (d349b697) after0fix  psnr 52.52 worst 47.68 (#66) median 52.92 max|d| 41 >1: 1.9% window min [51.41, 49.52, 47.68, 54.7, 49.45, 51.25, 50.2, 53.06]
+== chained: latents md5 {'before': '41f13f25fe7ddfcfd69d1509b7400e76', 'after0': '41f13f25fe7ddfcfd69d1509b7400e76', 'after1': '41f13f25fe7ddfcfd69d1509b7400e76', 'after1fix': '41f13f25fe7ddfcfd69d1509b7400e76', 'after0fix': 'a00abf27218ca2c8f5a2afd8d0392b4f'}
+   latents max|diff| vs old after1 {'before': 0.0, 'after0': 0.0, 'after1': 0.0, 'after1fix': 0.0, 'after0fix': 8.765625}
+   after1fix vs after1: same latents True psnr 57.41 min 53.09 max|d| 18 identical False
+   after0fix vs after0: same latents False psnr 10.49 min 6.37 max|d| 255 identical False
+   after0fix vs after1fix: same latents False psnr 10.49 min 6.37 max|d| 255 identical False
+   after1fix vs after0: same latents True psnr 56.51 min 52.55 max|d| 19 identical False
+   after1fix vs before: same latents True psnr 41.49 min 31.26 max|d| 235 identical False
+   decoded references for latents 41f13f25 (from before)
+   decoded references for latents a00abf27 (from after0fix)
+   vs fp32 (41f13f25) before     psnr 41.34 worst 31.25 (#53) median 46.14 max|d| 236 >1: 15.5% window min [52.68, 51.14, 31.25, 36.36, 48.03, 43.38, 34.04, 34.05, 31.63, 36.01]
+   vs fp32 (41f13f25) after0     psnr 52.25 worst 47.87 (#207) median 53.01 max|d| 32 >1: 2.1% window min [52.04, 51.15, 53.1, 53.32, 54.79, 53.63, 48.49, 51.06, 47.87, 52.11]
+   vs fp32 (41f13f25) after1     psnr 52.33 worst 47.94 (#207) median 53.11 max|d| 32 >1: 2.0% window min [52.74, 51.1, 53.2, 53.43, 54.82, 53.52, 48.45, 51.09, 47.94, 52.09]
+   vs fp32 (41f13f25) after1fix  psnr 52.33 worst 47.91 (#207) median 53.10 max|d| 38 >1: 2.0% window min [52.75, 51.15, 53.18, 53.54, 54.81, 53.52, 48.47, 51.1, 47.91, 52.18]
+   vs fp32 (a00abf27) after0fix  psnr 53.40 worst 50.92 (#53) median 53.93 max|d| 36 >1: 1.0% window min [51.95, 51.07, 50.92, 51.42, 53.94, 53.12, 52.55, 54.19, 52.65, 52.67]
+   vs bf16 (41f13f25) before     psnr 41.18 worst 31.25 (#53) median 45.93 max|d| 235 >1: 16.2% window min [51.09, 49.37, 31.25, 36.33, 47.8, 43.32, 33.93, 33.98, 31.55, 35.99]
+   vs bf16 (41f13f25) after0     psnr 50.90 worst 45.63 (#199) median 52.00 max|d| 52 >1: 3.4% window min [51.54, 49.4, 52.6, 52.39, 54.57, 52.08, 46.57, 49.35, 45.63, 50.44]
+   vs bf16 (41f13f25) after1     psnr 50.87 worst 45.76 (#207) median 51.85 max|d| 50 >1: 3.5% window min [51.11, 49.36, 52.59, 52.38, 54.62, 52.01, 46.55, 49.28, 45.76, 50.47]
+   vs bf16 (41f13f25) after1fix  psnr 50.86 worst 45.59 (#199) median 51.88 max|d| 46 >1: 3.5% window min [51.12, 49.42, 52.51, 52.44, 54.57, 51.97, 46.53, 49.28, 45.59, 50.48]
+   vs bf16 (a00abf27) after0fix  psnr 52.87 worst 49.23 (#53) median 53.89 max|d| 37 >1: 1.6% window min [51.41, 49.34, 49.23, 49.7, 53.84, 52.36, 51.62, 54.28, 51.51, 51.92]

@@ -1,0 +1,5 @@
+{'variant': 'after1', 'phase': 'kv_c8', 'mode': 'kv', 'concurrency': 8, 'rounds': 1, 'requests_ok': 5, 'errors': ['RuntimeError: Error in worker: AssertionError: ', 'RuntimeError: Error in worker: AssertionError: ', 'RuntimeError: Error in worker: AssertionError: '], 'windows': 8, 'frames': 241, 'ttff_s': 10.496, 'window_gap_med_s': 7.118, 'window_gap_p90_s': 17.648, 'total_s': 91.788, 'fps_per_stream': 2.626, 'round_wall_s': 99.401, 'fps_aggregate': 12.123, 'dit_ms_per_window': 6621.625, 'decoder_node': 'vae_decoder_ar/video_decode_ar', 'decoder_ms_per_window': 439.438, 'decoder_ms_per_request': 3515.5, 'decoder_share_of_request_wall': 0.038, 'decoder_share_of_round_wall': 0.283, 'torch_max_allocated_gib': 60.231, 'torch_max_reserved_gib': 63.727, 'torch_idle_allocated_gib': 28.537, 'torch_peak_above_idle_gib': 31.695, 'smi_peak_mib': 66412}
+    dit/prefill_cond                         n=1 total=79.5 ms avg=79.5 ms
+    dit/video_gen_ar                         n=168 total=52973.0 ms avg=315.3 ms
+    vae_decoder_ar/video_decode_ar           n=9 total=3515.5 ms avg=390.6 ms
+    vae_encoder/prefill_cond                 n=1 total=73.5 ms avg=73.5 ms

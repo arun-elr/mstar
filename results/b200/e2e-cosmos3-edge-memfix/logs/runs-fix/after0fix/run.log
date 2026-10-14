@@ -1,0 +1,29 @@
+[23:07:37] variant after0fix MSTAR=~/e2e-cosmos3/mstar-fix rev=913295e492ee1628b74947f46aec0ea519a38f9e overrides={"windowed_decode_latents_per_call": 0}
+[23:07:37] gpu apps at start:  docker: 
+[23:07:37] image ~/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg md5 1dd31d4d20b8f25fe724d3326f3b1135
+[23:08:38] server ready after 61.415524623 s
+  pid 247456 resets=0 max_alloc=49.86 GiB max_reserved=53.56 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 247515 resets=0 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+[23:08:40] phase kv_c1: --mode kv --frames 241 --concurrency 1 --warmup 1 --rounds 3 --save-dir ~/e2e-cosmos3/runs-fix/after0fix/mp4/kv_c1
+  pid 247456 resets=1 max_alloc=48.50 GiB max_reserved=53.82 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 247515 resets=1 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:09:32] phase kv_dump: --mode kv --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir ~/e2e-cosmos3/runs-fix/after0fix/mp4/kv_dump
+  pid 247456 resets=2 max_alloc=48.50 GiB max_reserved=53.82 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 247515 resets=2 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:09:47] phase kv_c4: --mode kv --frames 241 --concurrency 4 --warmup 1 --rounds 2 --save-dir ~/e2e-cosmos3/runs-fix/after0fix/mp4/kv_c4
+  pid 247456 resets=3 max_alloc=52.51 GiB max_reserved=57.84 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 247515 resets=3 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:12:36] phase ch_c1: --mode chained --frames 241 --concurrency 1 --warmup 1 --rounds 2 --save-dir ~/e2e-cosmos3/runs-fix/after0fix/mp4/ch_c1
+  pid 247456 resets=4 max_alloc=47.84 GiB max_reserved=57.84 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 247515 resets=4 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:13:19] phase ch_dump: --mode chained --frames 241 --concurrency 1 --warmup 0 --rounds 1 --save-dir ~/e2e-cosmos3/runs-fix/after0fix/mp4/ch_dump
+  pid 247456 resets=5 max_alloc=47.84 GiB max_reserved=57.84 GiB  ~/e2e-cosmos3/mstar-fix/mstar/api_server/entrypoint.py --config ~/
+  pid 247515 resets=5 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:13:30] variant after0fix done
+[23:13:30] stopping server pgid 247377
+[23:13:36] server stopped; gpu apps: 

@@ -1,0 +1,126 @@
+{
+ "phases": [
+  {
+   "variant": "after1",
+   "phase": "kv_c8",
+   "mode": "kv",
+   "concurrency": 8,
+   "rounds": 1,
+   "requests_ok": 5,
+   "errors": [
+    "RuntimeError: Error in worker: AssertionError: ",
+    "RuntimeError: Error in worker: AssertionError: ",
+    "RuntimeError: Error in worker: AssertionError: "
+   ],
+   "windows": 8,
+   "frames": 241,
+   "ttff_s": 10.496233760000905,
+   "window_gap_med_s": 7.117763870002818,
+   "window_gap_p90_s": 17.648090735798192,
+   "total_s": 91.78763502500078,
+   "fps_per_stream": 2.625625989103623,
+   "round_wall_s": 99.40130976500222,
+   "fps_aggregate": 12.122576682830221,
+   "ttff_all_s": [
+    10.496,
+    9.006,
+    12.201,
+    8.02,
+    13.104
+   ],
+   "total_all_s": [
+    81.2,
+    66.204,
+    99.095,
+    91.788,
+    99.38
+   ],
+   "graph": {
+    "dit/prefill_cond": {
+     "n": 1,
+     "total_ms": 79.5,
+     "avg_ms": 79.5
+    },
+    "dit/video_gen_ar": {
+     "n": 168,
+     "total_ms": 52973.0,
+     "avg_ms": 315.3
+    },
+    "vae_decoder_ar/video_decode_ar": {
+     "n": 9,
+     "total_ms": 3515.5,
+     "avg_ms": 390.6
+    },
+    "vae_encoder/prefill_cond": {
+     "n": 1,
+     "total_ms": 73.5,
+     "avg_ms": 73.5
+    }
+   },
+   "dit_ms_per_window": 6621.625,
+   "decoder_node": "vae_decoder_ar/video_decode_ar",
+   "decoder_ms_per_window": 439.4375,
+   "decoder_ms_per_request": 3515.5,
+   "decoder_share_of_request_wall": 0.03830036582860492,
+   "decoder_share_of_round_wall": 0.28293389761652876,
+   "mem_by_pid": {
+    "258079": {
+     "max_allocated_gib": 60.23144865036011,
+     "max_reserved_gib": 63.7265625,
+     "allocated_gib": 28.536802768707275,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs-c8-recheck/after1/"
+    },
+    "258140": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 2,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   },
+   "torch_max_allocated_gib": 60.23144865036011,
+   "torch_max_reserved_gib": 63.7265625,
+   "torch_idle_allocated_gib": 28.536802768707275,
+   "torch_peak_above_idle_gib": 31.694645881652832,
+   "smi_peak_mib": 66412
+  }
+ ],
+ "startup": {
+  "after1": {
+   "startup_s": 47.331549406051636,
+   "mem_after_startup": {
+    "258079": {
+     "max_allocated_gib": 36.91199493408203,
+     "max_reserved_gib": 38.052734375,
+     "allocated_gib": 28.57808542251587,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ~/e2e-cosmos3/runs-c8-recheck/after1/"
+    },
+    "258140": {
+     "max_allocated_gib": 0.0,
+     "max_reserved_gib": 0.0,
+     "allocated_gib": 0.0,
+     "resets": 0,
+     "argv": "~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._in"
+    }
+   }
+  }
+ },
+ "equivalence": {
+  "kv": null,
+  "chained": null
+ },
+ "mp4_md5": {
+  "after1/kv_c8": {
+   "r0_s0": "c25bf0cbdbefde47264e2845a41627e2",
+   "r0_s1": "59afb0411c6edee4dc4dd5bf86196e24",
+   "r0_s2": "9d8e8258f4cc02f3be38a42eab4f23a1",
+   "r0_s3": "3cc17aaaddf577b419d388c0dd9426f4",
+   "r0_s4": "ff5220b59fe639134cdb8072daa2c064",
+   "r0_s5": "71270b80038cc95b55d108de378eb2d7",
+   "r0_s6": "d7d8ea615bd9271fad2d67b37dbb3be1",
+   "r0_s7": "265fa4cf440c2ef97cd39739eae7ad39"
+  }
+ }
+}

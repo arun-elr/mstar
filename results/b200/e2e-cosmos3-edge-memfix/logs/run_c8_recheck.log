@@ -1,0 +1,33 @@
+[23:29:12] start after1
+[23:29:12] variant after1 MSTAR=~/e2e-cosmos3/mstar-pr rev=60fbc5cdd4f648e058acb20cd37e6d0ca8c84d56 overrides={"windowed_decode_warm_cache": true, "vae_decode_channels_last": true, "windowed_decode_latents_per_call": 1, "vae_decode_cudnn_benchmark": true}
+[23:29:12] gpu apps at start:  docker: 
+[23:29:12] image ~/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg md5 1dd31d4d20b8f25fe724d3326f3b1135
+[23:30:00] server ready after 47.331549414 s
+  pid 258079 resets=0 max_alloc=36.91 GiB max_reserved=38.05 GiB  ~/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ~
+  pid 258140 resets=0 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+[23:30:02] phase kv_warm: --mode kv --frames 241 --concurrency 1 --warmup 1 --rounds 0
+=== after1/kv_warm mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ~/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+DONE
+  pid 258079 resets=1 max_alloc=34.84 GiB max_reserved=38.13 GiB  ~/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ~
+  pid 258140 resets=1 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:30:17] phase kv_c8: --mode kv --frames 241 --concurrency 8 --warmup 0 --rounds 1 --save-dir ~/e2e-cosmos3/runs-c8-recheck/after1/mp4/kv_c8
+=== after1/kv_c8 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=8 i2v ~/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=10.50s gap_med=7.56s total=81.20s fps=2.97
+  round 0 seed 1: chunks=8 frames=241 TTFF=9.01s gap_med=7.67s total=66.20s fps=3.64
+  round 0 seed 2: chunks=8 frames=241 TTFF=12.20s gap_med=5.34s total=99.09s fps=2.43
+  round 0 seed 3: chunks=8 frames=241 TTFF=8.02s gap_med=7.16s total=91.79s fps=2.63
+  round 0 seed 4: ERROR RuntimeError: Error in worker: AssertionError: 
+  round 0 seed 5: ERROR RuntimeError: Error in worker: AssertionError: 
+  round 0 seed 6: ERROR RuntimeError: Error in worker: AssertionError: 
+  round 0 seed 7: chunks=8 frames=241 TTFF=13.10s gap_med=5.46s total=99.38s fps=2.43
+  round 0 wall=99.40s
+DONE
+  pid 258079 resets=2 max_alloc=60.23 GiB max_reserved=63.73 GiB  ~/e2e-cosmos3/mstar-pr/mstar/api_server/entrypoint.py --config ~
+  pid 258140 resets=2 max_alloc=0.00 GiB max_reserved=0.00 GiB  ~/e2e-cosmos3/venv/lib/python3.12/site-packages/torch/_inductor/compil
+  'out of memory' lines in server.log so far: 0
+[23:31:58] variant after1 c8 done
+[23:31:58] stopping server pgid 257925
+[23:32:04] server stopped; gpu apps: 
+[23:32:04] end after1 rc=0
+ALL_DONE

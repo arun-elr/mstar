@@ -1,0 +1,4 @@
+{"phase": "kv_warm", "event": "start", "t": 1791932734.238260733, "stats_bytes": 4563}
+{"phase": "kv_warm", "event": "end", "t": 1791932746.241030606, "stats_bytes": 6949}
+{"phase": "kv_c8", "event": "start", "t": 1791932749.769329129, "stats_bytes": 6949}
+{"phase": "kv_c8", "event": "end", "t": 1791932849.623167278, "stats_bytes": 21027}

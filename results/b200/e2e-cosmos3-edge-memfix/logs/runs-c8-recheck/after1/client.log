@@ -1,0 +1,13 @@
+=== after1/kv_warm mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=1 i2v ~/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+DONE
+=== after1/kv_c8 mode=kv size=832x480 frames=241 window=29 steps=20 gs=6.0 seed=0 c=8 i2v ~/e2e-cosmos3/hf/hub/models--nvidia--Cosmos3-Edge/snapshots/344d602b128d1bbdacb43b08d0a3626f46343e29/assets/example_i2v_input.jpg ===
+  round 0 seed 0: chunks=8 frames=241 TTFF=10.50s gap_med=7.56s total=81.20s fps=2.97
+  round 0 seed 1: chunks=8 frames=241 TTFF=9.01s gap_med=7.67s total=66.20s fps=3.64
+  round 0 seed 2: chunks=8 frames=241 TTFF=12.20s gap_med=5.34s total=99.09s fps=2.43
+  round 0 seed 3: chunks=8 frames=241 TTFF=8.02s gap_med=7.16s total=91.79s fps=2.63
+  round 0 seed 4: ERROR RuntimeError: Error in worker: AssertionError: 
+  round 0 seed 5: ERROR RuntimeError: Error in worker: AssertionError: 
+  round 0 seed 6: ERROR RuntimeError: Error in worker: AssertionError: 
+  round 0 seed 7: chunks=8 frames=241 TTFF=13.10s gap_med=5.46s total=99.38s fps=2.43
+  round 0 wall=99.40s
+DONE
