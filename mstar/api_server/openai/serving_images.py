@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -10,6 +11,8 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from mstar.api_server.openai._util import now, rid
+
+logger = logging.getLogger(__name__)
 
 
 async def create_images(api, model_name, adapter, req, raw_request=None):  # noqa: ARG001
@@ -68,9 +71,17 @@ async def create_images(api, model_name, adapter, req, raw_request=None):  # noq
 
 
 def _release_unread(api, request_ids: list[str], read: int) -> None:
-    """Release every submitted image from ``request_ids[read]`` on (not yet read)."""
+    """Release every submitted image from ``request_ids[read]`` on (not yet read).
+
+    Runs while the request's own exception is propagating, so a release that
+    raises is logged and skipped: it must neither stop the others nor replace
+    that exception.
+    """
     for request_id in request_ids[read:]:
-        api.release_request(request_id)
+        try:
+            api.release_request(request_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to release image request %s: %r", request_id, exc)
 
 
 async def create_image_edit(

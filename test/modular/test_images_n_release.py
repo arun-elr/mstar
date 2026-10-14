@@ -178,3 +178,59 @@ def test_client_disconnect_releases_every_image(how):
 
     asyncio.run(disconnect())
     _assert_nothing_left(api, engine, aborted=engine.ids(RUNNING), reads_done=engine.ids(OK))
+
+
+async def _cancel_while_waiting(api, n):
+    task = asyncio.ensure_future(_create(api, n=n))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    await task
+
+
+@pytest.mark.parametrize(
+    "plan, run, original",
+    [
+        # handler cancelled while all three run: nothing has been read
+        ([RUNNING, RUNNING, RUNNING], _cancel_while_waiting, asyncio.CancelledError),
+        # the 3rd submit raises; the first two are already on the engine
+        ([RUNNING, RUNNING, RAISE], lambda api, n: _create(api, n=n), RuntimeError),
+        # the 1st image fails at collect; the other three are still running
+        ([FAIL, RUNNING, RUNNING, RUNNING], lambda api, n: _create(api, n=n), HTTPException),
+    ],
+    ids=["cancelled", "submit", "http"],
+)
+def test_failed_release_still_releases_the_rest(plan, run, original, caplog):
+    """One release raising must not stop the others or replace the request's
+    own exception."""
+    api, engine = _api(plan)
+    client_ids, attempted = [], []
+    real_submit, real_release = api.submit_request, api.release_request
+
+    def submit(**kwargs):
+        client_ids.append(kwargs["request_id"])
+        return real_submit(**kwargs)
+
+    def release(request_id):
+        attempted.append(request_id)
+        if len(attempted) == 1:
+            raise RuntimeError("release failed")
+        real_release(request_id)
+
+    api.submit_request, api.release_request = submit, release
+    with caplog.at_level("WARNING"), pytest.raises(original) as exc:
+        asyncio.run(run(api, len(plan)))
+    if original is RuntimeError:
+        assert str(exc.value) == "injected submit failure"
+    if original is HTTPException:
+        assert exc.value.detail == "injected image failure"
+
+    unread = [rid for rid, o in zip(client_ids, plan, strict=False) if o != FAIL]
+    assert attempted == unread
+    failed, rest = attempted[0], attempted[1:]
+    # the engine may key a submit by its own id; engine.submitted is in submit order
+    engine_id = dict(zip(client_ids, engine.submitted, strict=True))
+    # nothing but the image whose release raised is left; every other one was aborted
+    assert set(api.pending_requests) <= {engine_id[failed]}
+    assert {engine_id[rid] for rid in rest} <= set(engine.aborted)
+    warnings = [r for r in caplog.records if r.levelname == "WARNING" and failed in r.getMessage()]
+    assert len(warnings) == 1
