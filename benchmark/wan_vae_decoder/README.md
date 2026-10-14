@@ -14,6 +14,10 @@ charts, served-window and end-to-end drivers, and the vLLM-Omni / SGLang
 harnesses. It also holds the data: B200 and H200 CSVs, `RESULTS.md`, charts
 and samples.
 
+The full data stays archived on that branch after this change merges; nothing
+here depends on it, and [Reproduce](#reproduce) below gets the headline from
+this directory alone.
+
 ## Method
 
 | | |
