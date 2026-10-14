@@ -345,14 +345,17 @@ class Cosmos3Config:
     # Without compile, at windowed_decode_latents_per_call=1 and the contiguous
     # layout, the frames are bit-identical to one decode of the whole stream
     # (the CPU tests assert it); under compile, channels-last or =0 they match
-    # it to bf16 rounding. Costs the cache per live
-    # stream (1.33 GiB of tensors at 832x480 in bf16), freed when the stream's
-    # last window is decoded or the request goes away. Sessions still store
-    # only latents. False re-decodes the context ahead of every window.
+    # it to bf16 rounding. Costs the cache per live stream, freed when the
+    # stream's last window is decoded or the request goes away: 1.33 GiB of
+    # tensors at 832x480 in bf16 (the Wan2.2 VAE), growing with the frame
+    # area, and twice that when the decode runs in fp32 (cuDNN before 9.16,
+    # or COSMOS3_VAE_DECODE_FP32). Sessions still store only latents. False
+    # re-decodes the context ahead of every window.
     windowed_decode_warm_cache: bool = True
     # At most this many streams per decoder copy hold a warm cache (0: no cap).
     # A stream that starts while the cap is reached takes the stateless
-    # re-decode for its whole life. The caches sit outside any engine resource
+    # re-decode for its whole life. The cap counts streams, not bytes: size it
+    # from the per-stream cache at the served resolution and decode dtype. The caches sit outside any engine resource
     # pool, and the shipped configs set no max_concurrent_requests, so with no
     # cap their total is bounded only by how many streams are admitted.
     windowed_decode_max_warm_streams: int = 0
