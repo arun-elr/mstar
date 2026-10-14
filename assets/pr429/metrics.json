@@ -1,0 +1,186 @@
+{
+  "utterance": "utt5_T83",
+  "frames": 83,
+  "refs": {
+    "main": {
+      "ref": "upstream/main",
+      "sha": "99f5108b50ccd2289b875cc67b2cf776bc7c445b"
+    },
+    "fix": {
+      "ref": "00bec2ba33f60b3d8491d7426c53eda80880f883",
+      "sha": "00bec2ba33f60b3d8491d7426c53eda80880f883"
+    }
+  },
+  "decoder_tail_samples": 555,
+  "samples": {
+    "full": 158805,
+    "main": 158250,
+    "fix": 158805
+  },
+  "chunk_samples": {
+    "main": [
+      48000,
+      47445,
+      47445,
+      15360
+    ],
+    "fix": [
+      47445,
+      48000,
+      48000,
+      15360
+    ]
+  },
+  "windows_frames_context": {
+    "main": [
+      [
+        25,
+        0
+      ],
+      [
+        50,
+        25
+      ],
+      [
+        50,
+        25
+      ],
+      [
+        33,
+        25
+      ]
+    ],
+    "fix": [
+      [
+        25,
+        0
+      ],
+      [
+        50,
+        25
+      ],
+      [
+        50,
+        25
+      ],
+      [
+        33,
+        25
+      ]
+    ]
+  },
+  "main_chunk_measured_lag_vs_full": [
+    0,
+    0,
+    555,
+    1110
+  ],
+  "main_chunk_trim_lag_vs_full": [
+    0,
+    0,
+    555,
+    1110
+  ],
+  "boundaries_s": {
+    "main": [
+      2.0,
+      3.976875,
+      5.95375
+    ],
+    "fix": [
+      1.976875,
+      3.976875,
+      5.976875
+    ]
+  },
+  "snr_vs_full_db": {
+    "main": 3.9139534973565167,
+    "fix": 26.986758183095496
+  },
+  "snr_last_tail_of_first_chunk_db": {
+    "main": -8.48062731598683,
+    "fix": 28.226691071844154
+  },
+  "boundary_jumps": {
+    "main": [
+      {
+        "step": 49.0,
+        "local_median": 94.0,
+        "local_max": 742.0,
+        "step_over_median": 0.5212765957446809
+      },
+      {
+        "step": 4608.0,
+        "local_median": 240.0,
+        "local_max": 2493.0,
+        "step_over_median": 19.2
+      },
+      {
+        "step": 2776.0,
+        "local_median": 110.0,
+        "local_max": 2196.0,
+        "step_over_median": 25.236363636363638
+      }
+    ],
+    "fix": [
+      {
+        "step": 51.0,
+        "local_median": 62.0,
+        "local_max": 542.0,
+        "step_over_median": 0.8225806451612904
+      },
+      {
+        "step": 224.0,
+        "local_median": 272.0,
+        "local_max": 3236.0,
+        "step_over_median": 0.8235294117647058
+      },
+      {
+        "step": 706.0,
+        "local_median": 160.0,
+        "local_max": 2196.0,
+        "step_over_median": 4.4125
+      }
+    ],
+    "full": [
+      {
+        "step": 53.0,
+        "local_median": 63.0,
+        "local_max": 546.0,
+        "step_over_median": 0.8412698412698413
+      },
+      {
+        "step": 400.0,
+        "local_median": 272.0,
+        "local_max": 3072.0,
+        "step_over_median": 1.4705882352941178
+      },
+      {
+        "step": 728.0,
+        "local_median": 160.0,
+        "local_max": 2086.0,
+        "step_over_median": 4.55
+      }
+    ]
+  },
+  "decode": {
+    "main": {
+      "param_dtypes": [
+        "torch.bfloat16",
+        "torch.int64"
+      ],
+      "t_full_s": 5.877713680267334,
+      "t_stream_s": 4.206435203552246,
+      "torch": "2.12.1+cu132"
+    },
+    "fix": {
+      "param_dtypes": [
+        "torch.bfloat16",
+        "torch.int64"
+      ],
+      "t_full_s": 3.3921635150909424,
+      "t_stream_s": 2.022756338119507,
+      "torch": "2.12.1+cu132"
+    }
+  }
+}
