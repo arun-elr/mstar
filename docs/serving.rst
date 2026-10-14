@@ -431,7 +431,10 @@ RDMA-read or SHM file-read time on ``rx``; the registration / serialize-and-writ
 **Read quarantine** — shown only once some process has kept buffers from a failed
 Mooncake/RDMA read. These are process totals, not per request: bytes kept, ``(xN)`` reads,
 and the ``MSTAR_READ_QUARANTINE_BUDGET_MB`` budget, flagged ``OVER BUDGET`` once past it
-(``/health`` then answers 503).
+(``/health`` then answers 503). Non-zero counts follow: ``drained`` (kept reads freed once
+their transfer stopped, with ``MSTAR_READ_ASYNC_DRAIN=1``), ``parked`` (kept for the life of
+the process) and ``registration failures`` (receive buffers Mooncake refused; their reads
+fail before posting and keep nothing).
 
 .. note::
 

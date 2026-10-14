@@ -147,16 +147,32 @@ Communication
        it, so Gloo does not listen on the address the hostname resolves to.
    * - ``MSTAR_READ_QUARANTINE_BUDGET_MB``
      - ``1024``
-     - Per process: the buffers of a failed Mooncake/RDMA read are kept for
-       the life of the process (the transfer may still write into them), and
-       counted (reads, bytes). Past this many MB ``/health`` answers 503, on
-       the Python and the Rust frontend. What one failed read keeps depends
-       on its tensor: about 190 B for a text read, about 600 KB for an image
-       input read, so the default lasts about 1,700 failed image reads. The
-       memory keeps accumulating until
-       a restart, so a liveness probe on ``/health`` has to be configured to
-       act on it. The counts appear in the ``--log-stats`` report and in each
-       kept-buffer warning. Must be a finite, non-negative number.
+     - Per process: the buffers of a failed Mooncake/RDMA read are kept (the
+       transfer may still write into them) and counted (reads, bytes). Past
+       this many MB ``/health`` answers 503, on the Python and the Rust
+       frontend. What one failed read keeps depends on its tensor: about
+       190 B for a text read, about 600 KB for an image input read, so the
+       default lasts about 1,700 failed image reads. Unless
+       ``MSTAR_READ_ASYNC_DRAIN`` frees them, the memory keeps accumulating
+       until a restart, so a liveness probe on ``/health`` has to be
+       configured to act on it. The counts appear in the ``--log-stats``
+       report and in each kept-buffer warning. Must be a finite,
+       non-negative number.
+   * - ``MSTAR_READ_ASYNC_DRAIN``
+     - ``0``
+     - ``1``: Mooncake reads go through the async API, one batch per tensor
+       (Mooncake's status call reports on a batch's first task only), and a
+       failed read's kept buffers are unregistered and freed once its
+       transfer reports it stopped, checked about once a second. ``/health``
+       recovers once the kept bytes fall back under the budget. A failed
+       tensor is retried as often as the sync read retries a batch (local
+       HCAs + 1).
+   * - ``MSTAR_READ_DRAIN_CAP_S``
+     - ``600``
+     - With ``MSTAR_READ_ASYNC_DRAIN=1``: seconds a kept read waits for its
+       transfer to report before it is parked, logged once, and kept for the
+       life of the process (still counted against the budget). A read whose
+       submit failed is parked at once: Mooncake leaves no handle to ask.
 
 Models
 ------

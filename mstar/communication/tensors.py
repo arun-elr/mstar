@@ -1,5 +1,6 @@
 import errno
 import hashlib
+import json
 import logging
 import math
 import os
@@ -11,7 +12,7 @@ import sys
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from contextlib import nullcontext as _nullcontext
 from dataclasses import dataclass, field
 from typing import NamedTuple
@@ -64,6 +65,98 @@ def read_quarantine_budget_bytes() -> int:
             f"{READ_QUARANTINE_BUDGET_ENV} must be a finite, non-negative number of MB, got {raw!r}"
         )
     return int(megabytes * (1 << 20))
+
+
+READ_ASYNC_DRAIN_ENV = "MSTAR_READ_ASYNC_DRAIN"
+READ_DRAIN_CAP_ENV = "MSTAR_READ_DRAIN_CAP_S"
+_DEFAULT_READ_DRAIN_CAP_S = 600.0
+# how often a manager polls the transfers of its kept reads
+_DRAIN_CHECK_INTERVAL_S = 1.0
+# between status polls of a running async read: only yield the GIL, since
+# any real sleep costs ~50 us of timer slack against reads of ~100 us
+_ASYNC_READ_POLL_S = 0.0
+
+
+def read_async_drain_enabled() -> bool:
+    """Whether Mooncake reads go through the async API, one tensor per batch,
+    so a failed read's buffers can be freed once its transfer has drained
+    (``MSTAR_READ_ASYNC_DRAIN``, default off)."""
+    raw = os.environ.get(READ_ASYNC_DRAIN_ENV, "0").strip().lower()
+    if raw in ("", "0", "false", "no", "off"):
+        return False
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    raise ValueError(f"{READ_ASYNC_DRAIN_ENV} must be 0 or 1, got {raw!r}")
+
+
+def read_drain_cap_seconds() -> float:
+    """Seconds a kept read may wait for its transfer to report before it is
+    parked for the life of the process (``MSTAR_READ_DRAIN_CAP_S``, default 600)."""
+    raw = os.environ.get(READ_DRAIN_CAP_ENV, str(_DEFAULT_READ_DRAIN_CAP_S))
+    try:
+        seconds = float(raw)
+    except ValueError:
+        raise ValueError(f"{READ_DRAIN_CAP_ENV} must be a number of seconds, got {raw!r}") from None
+    if not math.isfinite(seconds) or seconds < 0:
+        raise ValueError(
+            f"{READ_DRAIN_CAP_ENV} must be a finite, non-negative number of seconds, got {raw!r}"
+        )
+    return seconds
+
+
+def _mooncake_transfer_timeout_s() -> int:
+    """The timeout Mooncake's sync read applies, before its 1 ns per byte:
+    ``MC_TRANSFER_TIMEOUT`` (read with atoi, at least 5), else 30."""
+    raw = os.environ.get("MC_TRANSFER_TIMEOUT")
+    if raw is None:
+        return 30
+    try:
+        return max(5, int(raw.strip()))
+    except ValueError:
+        return 5
+
+
+def _local_hca_count(engine) -> int:
+    """HCAs in the engine's local topology, which is what Mooncake's sync read
+    retries a failed batch against (``numContexts() + 1`` attempts)."""
+    try:
+        topology = json.loads(engine.get_local_topology())
+        return len({hca for tiers in topology.values() for tier in tiers for hca in tier})
+    except Exception:  # noqa: BLE001 — a topology we can't read means no retries
+        return 0
+
+
+class AsyncReadError(RuntimeError):
+    """An async read that failed while some of its transfers were still
+    running or never reported. ``in_flight`` maps each such buffer's local
+    pointer to its Mooncake batch id; ``unknown`` holds the pointers whose
+    submit failed, so whether anything is still writing into them is unknown.
+    The reader stops polling these ids when it raises; from then on they
+    belong to the manager that keeps the buffers."""
+
+    def __init__(self, message: str, in_flight: dict[int, int], unknown: set[int]):
+        super().__init__(message)
+        self.in_flight = in_flight
+        self.unknown = unknown
+
+
+@dataclass
+class KeptRead:
+    """The local buffers of a read that failed or was torn down mid-transfer,
+    kept registered until its transfer is known to have stopped.
+
+    ``future`` is set while the read is still running in the async reader,
+    which owns its batch ids until it finishes. ``in_flight`` then holds the
+    ids it handed over (local pointer -> batch id), polled by the drain check.
+    A parked read is never polled again: it stays kept and counted.
+    ``request`` is the request id as a string, since the read outlives it."""
+    request: str
+    buffers: list[torch.Tensor]
+    nbytes: int
+    kept_at: float
+    future: Future | None = None
+    in_flight: dict[int, int] = field(default_factory=dict)
+    parked: bool = False
 
 
 class StoredOutputs(NamedTuple):
@@ -260,11 +353,16 @@ class AsyncMooncakeReader:
         self, engine, device,
         max_workers: int = 3,
         max_batch_size=500,
-        enable_prof: bool=False
+        enable_prof: bool=False,
+        async_drain: bool = False,
     ):
         self._engine = engine
         self.enable_prof = enable_prof
         self.max_batch_size = max_batch_size
+        self.async_drain = async_drain
+        if async_drain:
+            self._read_attempts = _local_hca_count(engine) + 1
+            self._transfer_timeout_s = _mooncake_transfer_timeout_s()
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._pending: list[Future] = []
         # none on the host: host buffers have no GPU work to wait for, and a stream or event would
@@ -294,6 +392,14 @@ class AsyncMooncakeReader:
 
         start_time = time.perf_counter()
 
+        if self.async_drain:
+            self._read_async(read_info)
+            if self.enable_prof:
+                for info in read_info:
+                    if info.fp is not None:
+                        info.fp.rx_time = time.perf_counter() - start_time
+            return
+
         # group read_info by session id for batch read
         grouped_read = {}
         for info in read_info:
@@ -316,6 +422,75 @@ class AsyncMooncakeReader:
             for info in read_info:
                 if info.fp is not None:
                     info.fp.rx_time = (end_time - start_time)
+
+    def _read_deadline(self, nbytes: int) -> float:
+        """When to give up on a read, the way the sync read does: its timeout
+        plus 1 ns per byte."""
+        return time.monotonic() + self._transfer_timeout_s + nbytes * 1e-9
+
+    def _read_async(self, read_info: list["TransferReadInfo"]) -> None:
+        """One batch per tensor, because ``transfer_check_status`` reports on a
+        batch's first task only. A FAILED tensor is resubmitted as often as
+        the sync read would retry its batch.
+
+        ``transfer_check_status`` frees a batch when it reports COMPLETED (1)
+        or FAILED (-1), so an id is never polled after either. On failure the
+        ids still running are handed to the caller in an ``AsyncReadError``
+        and this thread stops polling them.
+        """
+        engine = self._engine
+
+        def submit(info):
+            return engine.batch_transfer_async_read(
+                info.source_session_id, [info.local_ptr], [info.remote_ptr], [info.nbytes],
+            )
+
+        deadline = self._read_deadline(sum(info.nbytes for info in read_info))
+        running: dict[int, tuple[int, TransferReadInfo]] = {}
+        attempts: dict[int, int] = {}
+        unknown: set[int] = set()
+        error: str | None = None
+        for info in read_info:
+            batch_id = submit(info)
+            if batch_id == 0:
+                # a failed submit may have posted part of the transfer
+                unknown.add(info.local_ptr)
+                error = "Mooncake read submit failed"
+                break
+            running[info.local_ptr] = (batch_id, info)
+            attempts[info.local_ptr] = 1
+        while running and error is None:
+            for ptr, (batch_id, info) in list(running.items()):
+                status = engine.transfer_check_status(batch_id)
+                if status == 1:
+                    del running[ptr]
+                elif status == -1:
+                    del running[ptr]
+                    if attempts[ptr] >= self._read_attempts or time.monotonic() > deadline:
+                        error = "Mooncake read failed. Status: -1"
+                        break
+                    attempts[ptr] += 1
+                    batch_id = submit(info)
+                    if batch_id == 0:
+                        unknown.add(ptr)
+                        error = "Mooncake read submit failed"
+                        break
+                    running[ptr] = (batch_id, info)
+            if not running or error is not None:
+                break
+            if time.monotonic() > deadline:
+                error = f"Mooncake read timed out after {self._transfer_timeout_s} s"
+                break
+            time.sleep(_ASYNC_READ_POLL_S)
+        if error is not None:
+            raise AsyncReadError(
+                error, {ptr: batch_id for ptr, (batch_id, _) in running.items()}, unknown,
+            )
+
+    def transfer_status(self, batch_id: int) -> int:
+        """Non-blocking state of one async read batch: 1 completed, -1 failed
+        (both free the batch), 0 or -2 still running."""
+        return self._engine.transfer_check_status(batch_id)
 
     def wait_all(self):
         """Block until all pending writes complete. Re-raises exceptions."""
@@ -527,11 +702,19 @@ class TensorCommunicationManager(ABC):
         # rid -> the error of its first failed read; held until cleanup_request
         self._failed_read_errors: dict[Rid, BaseException] = {}
         self._failed_reads: list[FailedRead] = []
-        # local buffers of failed transfers, still registered, never freed
-        self._quarantined_buffers: list[torch.Tensor] = []
+        # local buffers of failed transfers, still registered; freed only by
+        # the drain check, which only a transport that can report on a
+        # transfer after the fact turns on
+        self._kept_reads: list[KeptRead] = []
         self.quarantined_reads = 0
         self.quarantined_bytes = 0
         self.quarantine_budget_bytes = read_quarantine_budget_bytes()
+        self.drained_reads = 0
+        self.parked_reads = 0
+        # batch id -> 1 completed, -1 failed, 0 / -2 still running
+        self._transfer_status: Callable[[int], int] | None = None
+        self.drain_cap_s = _DEFAULT_READ_DRAIN_CAP_S
+        self._next_drain_check = 0.0
         # receive buffers Mooncake refused to register; their reads fail before posting
         self.registration_failures = 0
         # bumped whenever read_quarantine() would report something new
@@ -1363,9 +1546,10 @@ class TensorCommunicationManager(ABC):
 
         ``error`` set: this read failed. A failed transfer may still be writing
         into its local buffers (Mooncake's sync read gives up on a timeout
-        without draining the batch), so they are kept for the life of the
-        process instead of being freed with the request, and the producer is
-        not acked; it reclaims its copy when the request is torn down.
+        without draining the batch), so they are kept instead of being freed
+        with the request, and the producer is not acked; it reclaims its copy
+        when the request is torn down. Without the drain check they are kept
+        for the life of the process.
         ``error`` None: an earlier read of the request failed; this one
         completed, so it is acked and its buffers go with the request.
         """
@@ -1377,23 +1561,30 @@ class TensorCommunicationManager(ABC):
                     "Tensor read for request %s failed: %s: %s",
                     self.rid_to_str(ep.request_id), type(error).__name__, error,
                 )
-            self._quarantine_read_buffers(ep)
+            self._quarantine_read_buffers(ep, error)
         error = self._failed_read_errors.setdefault(ep.request_id, error)
         self._failed_reads.append(FailedRead(ep.request_id, ep.graph_edges, error))
 
-    def _quarantine_read_buffers(self, ep: FutureAndPointers) -> None:
+    def _quarantine_read_buffers(
+        self, ep: FutureAndPointers, error: BaseException | None = None,
+    ) -> None:
+        """Keep a read's buffers. ``error`` is how it failed; None for a read
+        still running (or done cleanly) when its request is torn down."""
+        buffers = []
         nbytes = 0
         for uuid in ep.transfer_uuids:
             if not self.tensor_store.check_uuid_presence(uuid):
                 continue
             tensor = self.tensor_store.get_tensor(uuid)
-            self._quarantined_buffers.append(tensor)
+            buffers.append(tensor)
             nbytes += tensor.nbytes
             self.uuid_to_shard_dim.pop(uuid, None)
             self.uuid_to_edge_name.pop(uuid, None)
             self.tensor_store.remove_tensor(uuid)
         if not nbytes:
             return
+        kept = KeptRead(self.rid_to_str(ep.request_id), buffers, nbytes, time.monotonic())
+        self._kept_reads.append(kept)
         was_over_budget = self.quarantine_over_budget()
         self.quarantined_reads += 1
         self.quarantined_bytes += nbytes
@@ -1412,9 +1603,116 @@ class TensorCommunicationManager(ABC):
                 self.my_entity_id, self.quarantined_bytes, self.quarantined_reads,
                 self.quarantine_budget_bytes, READ_QUARANTINE_BUDGET_ENV,
             )
+        if self._transfer_status is None:
+            return
+        if error is None and ep.future is not None:
+            # the reader owns its batch ids until it finishes, which may be
+            # after the poll that found it running
+            kept.future = ep.future
+        else:
+            self._take_over_transfers(kept, error)
 
     def quarantine_over_budget(self) -> bool:
         return self.quarantined_bytes > self.quarantine_budget_bytes
+
+    def _take_over_transfers(self, kept: KeptRead, error: BaseException | None) -> None:
+        """Adopt the batch ids a finished read handed over for ``kept``'s
+        buffers, or park it if the read cannot say whether they stopped."""
+        if error is None or isinstance(error, CancelledError):
+            # it completed after all, or never started
+            return
+        if not isinstance(error, AsyncReadError):
+            self._park(kept, f"its {type(error).__name__} does not say whether the transfer stopped")
+            return
+        ptrs = {buffer.data_ptr() for buffer in kept.buffers}
+        if error.unknown & ptrs:
+            self._park(kept, "a submit failed, so part of the transfer may be running with no handle")
+            return
+        kept.in_flight = {ptr: batch_id for ptr, batch_id in error.in_flight.items() if ptr in ptrs}
+
+    def _park(self, kept: KeptRead, why: str) -> None:
+        kept.parked = True
+        kept.future = None
+        self.parked_reads += 1
+        self.quarantine_changes += 1
+        logger.warning(
+            "Parking %d bytes of read buffers for request %s: %s. They stay kept "
+            "for the life of the process (%d parked)",
+            kept.nbytes, kept.request, why, self.parked_reads,
+        )
+
+    def _maybe_drain_kept_reads(self) -> None:
+        if self._transfer_status is None or not self._kept_reads:
+            return
+        now = time.monotonic()
+        if now < self._next_drain_check:
+            return
+        self._next_drain_check = now + _DRAIN_CHECK_INTERVAL_S
+        self.drain_kept_reads(now)
+
+    def drain_kept_reads(self, now: float | None = None) -> None:
+        """Free every kept read whose transfer has stopped; park the ones that
+        have waited past the cap. Never blocks. Without a transport that can
+        report on a transfer, nothing is known to have stopped."""
+        if self._transfer_status is None:
+            return
+        now = time.monotonic() if now is None else now
+        still_kept = []
+        for kept in self._kept_reads:
+            if not kept.parked and self._has_drained(kept, now) and self._free_kept_read(kept):
+                continue
+            still_kept.append(kept)
+        self._kept_reads = still_kept
+
+    def _has_drained(self, kept: KeptRead, now: float) -> bool:
+        if kept.future is not None:
+            if not kept.future.done():
+                self._park_if_past_cap(kept, now)
+                return False
+            future, kept.future = kept.future, None
+            # exception(), not result(): a re-raise would put this frame,
+            # and with it ``kept.buffers``, on the stored traceback
+            error = CancelledError() if future.cancelled() else future.exception()
+            self._take_over_transfers(kept, error)
+            if kept.parked:
+                return False
+        for ptr, batch_id in list(kept.in_flight.items()):
+            # 1 and -1 free the batch, so the id is never polled again
+            if self._transfer_status(batch_id) in (1, -1):
+                del kept.in_flight[ptr]
+        if not kept.in_flight:
+            return True
+        self._park_if_past_cap(kept, now)
+        return False
+
+    def _park_if_past_cap(self, kept: KeptRead, now: float) -> None:
+        if now - kept.kept_at >= self.drain_cap_s:
+            self._park(kept, f"its transfer has not reported after {self.drain_cap_s:.0f} s")
+
+    def _free_kept_read(self, kept: KeptRead) -> bool:
+        for buffer in kept.buffers:
+            ret_value = self.transfer_engine.unregister_memory(buffer.data_ptr())
+            if ret_value != 0:
+                self._park(kept, f"unregistering its buffers failed ({ret_value})")
+                return False
+        # the reader may still hold this read's future and its error
+        kept.buffers.clear()
+        was_over_budget = self.quarantine_over_budget()
+        self.quarantined_reads -= 1
+        self.quarantined_bytes -= kept.nbytes
+        self.drained_reads += 1
+        self.quarantine_changes += 1
+        logger.info(
+            "Freed %d bytes of read buffers kept for request %s: the transfer "
+            "has stopped (%d reads, %d bytes still kept)", kept.nbytes,
+            kept.request, self.quarantined_reads, self.quarantined_bytes,
+        )
+        if was_over_budget and not self.quarantine_over_budget():
+            logger.warning(
+                "%s is back within its read buffer budget of %d bytes (%d bytes kept)",
+                self.my_entity_id, self.quarantine_budget_bytes, self.quarantined_bytes,
+            )
+        return True
 
     def read_quarantine(self) -> ReadQuarantine:
         """This process's buffers kept from failed reads, for stats and health."""
@@ -1424,6 +1722,8 @@ class TensorCommunicationManager(ABC):
             nbytes=self.quarantined_bytes,
             budget_bytes=self.quarantine_budget_bytes,
             registration_failures=self.registration_failures,
+            drained_reads=self.drained_reads,
+            parked_reads=self.parked_reads,
         )
 
     def take_failed_reads(self) -> list[FailedRead]:
@@ -1434,6 +1734,7 @@ class TensorCommunicationManager(ABC):
         return failed
 
     def get_ready_tensors(self, graph_walk: str | None=None) -> dict[Rid, list[GraphEdge]]:
+        self._maybe_drain_kept_reads()
         ready: dict[Rid, list[GraphEdge]] = {}
         still_pending = []
         uuid_to_time = {}
@@ -1689,7 +1990,7 @@ class TensorCommunicationManager(ABC):
         for ep in leftover:
             done, error = self._poll_read(ep)
             if not done or error is not None:
-                self._quarantine_read_buffers(ep)
+                self._quarantine_read_buffers(ep, error)
             else:
                 ack_edges.extend(ep.graph_edges)
         self.read_finished.pop(request_id, None)
@@ -1755,10 +2056,15 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         # the consumer has the engine copy ``nbytes`` from ``address + offset``
         # into a buffer it views with the descriptor's strides
         self.needs_flat_layout = protocol in (CommProtocol.RDMA, CommProtocol.TCP)
+        async_drain = read_async_drain_enabled()
         self._async_reader = AsyncMooncakeReader(
             engine._engine, device=device,
-            enable_prof=enable_prof
+            enable_prof=enable_prof,
+            async_drain=async_drain,
         )
+        if async_drain:
+            self._transfer_status = self._async_reader.transfer_status
+            self.drain_cap_s = read_drain_cap_seconds()
 
     def register_for_send(self, request_id, tensor_infos, skip_cuda_sync=False):
         if not skip_cuda_sync and self._on_cuda:

@@ -435,8 +435,9 @@ def test_health_reports_unhealthy_once_fatal():
 
 
 def test_health_fails_once_kept_read_buffers_pass_the_budget():
-    """Buffers kept from failed reads are never freed, so a transport that
-    keeps failing grows them until a restart. Past the budget /health fails,
+    """Buffers kept from failed reads are freed only once their transfer
+    reports it stopped, so a transport that keeps failing can grow them until
+    a restart. Past the budget /health fails,
     so a liveness probe restarts the deployment instead of leaving it to
     grow; a worker's report arrives as a message, the data worker's own
     count is read in place."""

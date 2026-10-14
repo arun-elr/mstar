@@ -80,6 +80,10 @@ class ReadQuarantine:
     # receive buffers that failed to register; nothing is kept for them, so
     # they do not count toward the budget
     registration_failures: int = 0
+    # with MSTAR_READ_ASYNC_DRAIN: kept reads freed once their transfer
+    # stopped, and kept reads given up on (still in ``reads``)
+    drained_reads: int = 0
+    parked_reads: int = 0
 
     @property
     def over_budget(self) -> bool:

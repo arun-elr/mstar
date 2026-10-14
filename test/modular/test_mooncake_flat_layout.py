@@ -58,7 +58,7 @@ class _NoEngine(LocalTransferEngine):
 class _FlatCopyReader:
     """The transfer engine's batch read: ``nbytes`` from ``remote_ptr``."""
 
-    def __init__(self, engine, device, enable_prof=False):
+    def __init__(self, engine, device, enable_prof=False, async_drain=False):
         pass
 
     def submit(self, reads):

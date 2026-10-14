@@ -469,14 +469,15 @@ class APIServer:
         workers' latest reports and this process's data worker."""
         quarantines = list(self.worker_read_quarantine.values())
         own = self.preprocess_worker.tensor_manager.read_quarantine()
-        if own.reads or own.registration_failures:
+        if own.reads or own.registration_failures or own.drained_reads:
             quarantines.append(own)
         return quarantines
 
     def health_problem(self) -> str | None:
-        """Why ``/health`` should fail, or None. Kept read buffers are never
-        freed, so a transport that keeps failing grows them until a restart;
-        past the budget the deployment says so rather than serve on quietly."""
+        """Why ``/health`` should fail, or None. Kept read buffers are freed
+        only once their transfer reports it stopped (``MSTAR_READ_ASYNC_DRAIN``),
+        so a transport that keeps failing can grow them until a restart; past
+        the budget the deployment says so rather than serve on quietly."""
         if self.fatal_error is not None:
             return self.fatal_error
         over = [q for q in self.read_quarantines() if q.over_budget]
