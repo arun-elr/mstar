@@ -2823,7 +2823,16 @@ class Cosmos3VAEDecoderARSubmodule(Cosmos3VAEDecoderSubmodule):
         stream_tail = new if tail is None else torch.cat([tail, new.to(tail.dtype)], dim=2)
         feat_cache = st.get("ar_feat_cache")
         if feat_cache is not None:
-            pixels = self._decode_stream(new, feat_cache, clip_start=False)
+            try:
+                pixels = self._decode_stream(new, feat_cache, clip_start=False)
+            except Exception:
+                # The cache is updated in place, so a decode that raised has
+                # left it half-advanced. Drop it: a retry of this window (the
+                # tail and window count have not moved) re-decodes behind its
+                # context like a stream's first window.
+                st.remove("ar_feat_cache")
+                self._log_warm_streams("dropped", rid)
+                raise
         else:
             if st["ar_warm"]:
                 feat_cache = _wan_vae().new_feat_cache(self.vae)

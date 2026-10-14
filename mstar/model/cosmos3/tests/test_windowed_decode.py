@@ -150,6 +150,36 @@ def test_missing_cache_falls_back_to_the_redecode(monkeypatch, vae) -> None:
     assert first[0].shape[2] == 29
 
 
+def test_a_failed_window_drops_the_cache(monkeypatch, vae) -> None:
+    """A decode that raises mid-window leaves no half-advanced cache behind; a
+    retry of the window re-decodes behind its context, as a stream's first
+    window does, and the stream carries on warm."""
+    stream = _stream(20)
+    windows = _windows(stream)
+    sub = _decoder(monkeypatch, vae)
+    _run(sub, "r", windows[:1], 77, num_windows=3)
+    st = sub.request_state("r")
+    decoder, calls = sub._step._decoder, []
+
+    def fail_third(x, **kw):
+        calls.append(x.shape[2])
+        if len(calls) == 3:
+            raise RuntimeError("injected")
+        return decoder(x, **kw)
+
+    sub._step._decoder = fail_third
+    with pytest.raises(RuntimeError, match="injected"):
+        _run(sub, "r", windows[1:2], 77, num_windows=3)
+    assert "ar_feat_cache" not in st and st["ar_chunks"] == 1
+    sub._step._decoder = decoder
+    retried = _run(sub, "r", windows[1:2], 77, num_windows=3)
+    assert "ar_feat_cache" in st
+    ref = _run(_decoder(monkeypatch, vae, warm=False), "r", windows, 77)
+    _u8_close(retried[0], ref[1])
+    third = _run(sub, "r", windows[2:], 77, num_windows=3)
+    assert third[0].shape[2] == 24 and "ar_feat_cache" not in st
+
+
 def test_resumed_session_warms_up_from_the_stored_latents(monkeypatch, vae) -> None:
     """A resumed session's first window decodes behind the session's stored
     latent context (the store never holds a decoder cache), exactly as the
