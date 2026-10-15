@@ -88,3 +88,4 @@ test/modular/test_launch_script_socket_prefix.py
 test/modular/test_startup_graph_validation.py
 test/modular/test_cosyvoice3_model.py
 test/modular/test_cosyvoice3_model.py
+test/integration/test_cosyvoice3_real_weights.py
