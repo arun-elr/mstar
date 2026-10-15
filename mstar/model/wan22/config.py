@@ -87,9 +87,10 @@ class Wan22Config:
     # against an fp32 decode, as stock). 2.3x faster decode at 1280x704 x 121
     # frames on a B200, at the same peak memory. The compile is per output
     # resolution (not frame count): the first request at each new size pays it,
-    # about 11 s on a B200. The tiled fallback keeps ``tiled_decode``, on the
-    # channels-last weights. False decodes with stock ``vae.decode`` and leaves
-    # the VAE as loaded. Settable from the yaml's ``model_kwargs``.
+    # about 11 s on a B200 and 20 s on an H200. The tiled fallback keeps
+    # ``tiled_decode``, on the channels-last weights. False decodes with stock
+    # ``vae.decode`` and leaves the VAE as loaded. Settable from the yaml's
+    # ``model_kwargs``.
     vae_decode_fast: bool = True
 
     def __post_init__(self):
