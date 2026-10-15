@@ -245,7 +245,9 @@ def test_mixed_batch_of_a_terminal_flush_and_a_live_window():
         full = _to_pcm(decoder(request_codes.t()[None], torch.arange(request_codes.shape[0])[None]))[0, 0]
         streamed = torch.cat([audio for _, audio, _ in steps[rid]])
         assert torch.equal(streamed, full), rid
-    assert not submodule._first_chunk_emitted
+    # Request handles are reused: a finished handle starts a new stream from scratch.
+    again = _stream_batched(submodule, {"a": codes["b"]})[0]["a"]
+    assert torch.equal(torch.cat([audio for _, audio, _ in again]), torch.cat([audio for _, audio, _ in steps["b"]]))
 
 
 # ---------------------------------------------------------------------------
