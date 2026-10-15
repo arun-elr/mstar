@@ -319,6 +319,16 @@ def test_lenient_update_reads_numeric_strings_and_raises_a_short_chunk(client_an
         assert all(type(knobs[k]) is type(v) for k, v in expected.items())
 
 
+@pytest.mark.parametrize("value", ["x" * 1_000_000, "9" * 4300, 10**4000])
+def test_error_quotes_only_an_excerpt_of_a_bad_value(value):
+    import asyncio
+
+    ws = _ScriptedWS([_update({"chunk_seconds": value})])
+    asyncio.run(serving_realtime.RealtimeTranscription(_StubAPI(), "rt_test", _ContinuingAdapter(), ws).run())
+    error = ws.sent[-1]
+    assert error["type"] == "error" and len(error["error"]["message"]) < 200
+
+
 def test_non_object_events_are_errors(client_and_stub):
     client, stub = client_and_stub
     with client.websocket_connect("/v1/realtime") as ws:
