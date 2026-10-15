@@ -1039,9 +1039,12 @@ class Worker:
         if body.producer_done:
             if req_info:
                 for edge_name, sbuf in req_info.stream_buffers.items():
-                    if sbuf.from_partition in body.producer_done:
-                        # If we have multiple consumer partitions colocated, we need to signal
-                        # the right one
+                    # With several consumer partitions colocated, each gets its
+                    # own signal carrying only its own streams' counts.
+                    if (
+                        sbuf.from_partition in body.producer_done
+                        and self._stream_partition.get(edge_name) == body.partition_name
+                    ):
                         sbuf.signal_done(body.producer_done_items.get(edge_name, 0))
 
         # Separate streaming edges — they'll be handled when tensors are ready
