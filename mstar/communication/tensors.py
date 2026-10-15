@@ -79,6 +79,13 @@ def inline_step_max_bytes() -> int:
     return _env_nonnegative(INLINE_STEP_MAX_BYTES_ENV, _DEFAULT_INLINE_STEP_MAX_BYTES)
 
 
+def _flat_bytes(t: torch.Tensor) -> torch.Tensor:
+    """A contiguous tensor's bytes as a flat uint8 view. Through ``as_strided``
+    because a contiguous tensor can still carry an arbitrary stride on a size-1
+    dim (``x[:, -1]`` of a 1 x 2 tensor), which ``view`` refuses."""
+    return t.as_strided((t.numel(),), (1,)).view(torch.uint8)
+
+
 class TransportStats:
     """Counts of tensors sent inline vs by transfer, and of reads per edge.
 
@@ -464,6 +471,8 @@ class TensorCommunicationManager(ABC):
         # received inline from another process: the descriptor points at the
         # sender's memory, which it never registered, so the bytes must stay
         self._foreign_inline: set[int] = set()
+        # uuid -> outgoing copies in the next register call (see note_copies)
+        self._copies: dict[int, int] = {}
         self.transport_stats: TransportStats | None = None
 
     @property
@@ -1056,6 +1065,11 @@ class TensorCommunicationManager(ABC):
                 info.shm_segment = stored.shm_segment
                 info.shm_offset = stored.shm_offset
 
+    def note_copies(self, uuids, counts) -> None:
+        """How many outgoing edges carry each of the next register call's
+        tensors: an inline budget has to count every copy a frame holds."""
+        self._copies = dict(zip(uuids, counts, strict=True))
+
     def keep_registered(self, uuids) -> None:
         """Keep these off the inline path: persisted signals, whose descriptors
         accumulate across passes into one message and are handed back to
@@ -1597,6 +1611,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         read."""
         stats = self.transport_stats
         budget = self.inline_step_max_bytes
+        copies, self._copies = self._copies, {}
         picked: list[int] = []
         tensors: list[torch.Tensor] = []
         seen: set[int] = set()
@@ -1608,12 +1623,14 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             if uuid in seen:
                 continue
             if uuid in self._foreign_inline:
-                # rides inline as received; it cannot be demoted
+                # Rides inline as received, each under its sender's cap: it
+                # cannot be demoted, since nothing registered it anywhere.
                 seen.add(uuid)
-                budget -= min(budget, self.tensor_store.get_tensor(uuid).nbytes)
+                n = self.tensor_store.get_tensor(uuid).nbytes * copies.get(uuid, 1)
+                budget -= min(budget, n)
             elif uuid in self._inlined:
                 seen.add(uuid)
-                nbytes = self.tensor_store.get_tensor(uuid).nbytes
+                nbytes = self.tensor_store.get_tensor(uuid).nbytes * copies.get(uuid, 1)
                 if nbytes <= budget:
                     budget -= nbytes
                 else:
@@ -1634,6 +1651,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 continue
             tensor = self.tensor_store.get_tensor(uuid)
             nbytes = tensor.nbytes
+            charge = nbytes * copies.get(uuid, 1)
             if nbytes == 0 or nbytes > self.inline_max_bytes:
                 outcome = "over_tensor_max" if nbytes else "empty"
             elif uuid in self._no_inline:
@@ -1644,10 +1662,10 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 outcome = "permuted"
             elif not tensor.is_contiguous():
                 outcome = "not_contiguous"
-            elif nbytes > budget:
+            elif charge > budget:
                 outcome = "over_step_max"
             else:
-                budget -= nbytes
+                budget -= charge
                 picked.append(uuid)
                 tensors.append(tensor)
                 continue
@@ -1674,7 +1692,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         device_idx = [i for i, t in enumerate(tensors) if t.device.type != "cpu"]
         for i, t in enumerate(tensors):
             if t.device.type == "cpu":
-                out[i] = t.reshape(-1).view(torch.uint8).numpy().tobytes()
+                out[i] = _flat_bytes(t).numpy().tobytes()
         if device_idx:
             total = sum(tensors[i].nbytes for i in device_idx)
             staging = torch.empty(total, dtype=torch.uint8, pin_memory=True)
@@ -1688,7 +1706,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 for i in device_idx:
                     n = tensors[i].nbytes
                     staging[at:at + n].copy_(
-                        tensors[i].reshape(-1).view(torch.uint8), non_blocking=True,
+                        _flat_bytes(tensors[i]), non_blocking=True,
                     )
                     spans.append((i, at, n))
                     at += n

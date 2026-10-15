@@ -1234,6 +1234,10 @@ pub struct RouteOut {
     /// their descriptors accumulate across passes, so they are kept off the
     /// inline path.
     #[pyo3(get)] pub persist_uuids: Vec<u64>,
+    /// Parallel to `register_uuids`: how many outgoing edges carry each (one
+    /// tensor on two edges to a peer rides its frame twice), so an inline
+    /// budget can count every copy.
+    #[pyo3(get)] pub register_counts: Vec<u32>,
 }
 
 /// Routing parked between complete_and_route_batch and send_outputs.
@@ -2330,6 +2334,7 @@ impl GraphRuntime {
         let mut first_tp_rank: FxHashMap<u32, bool> = FxHashMap::default();
         let mut speculative: FxHashMap<u32, bool> = FxHashMap::default();
         let mut staged: FxHashSet<u64> = FxHashSet::default();
+        let mut copies: FxHashMap<u64, u32> = FxHashMap::default();
         // Edge name -> (rids, uuids), insertion-ordered. Syms now, strings
         // once at the end: the interner cannot be borrowed while the loop
         // below holds `&mut self`, and a name per stream is cheaper anyway.
@@ -2664,6 +2669,7 @@ impl GraphRuntime {
             }
             for (_name, tensors) in persist_pre.iter().filter(|_| has_remote) {
                 for t in tensors {
+                    *copies.entry(t.uuid).or_insert(0) += 1;
                     if staged.insert(t.uuid) {
                         out.register_uuids.push(t.uuid);
                         out.register_rids.push(rid);
@@ -2721,6 +2727,7 @@ impl GraphRuntime {
                 }
                 if remote {
                     for t in &e.tensors {
+                        *copies.entry(t.uuid).or_insert(0) += 1;
                         if staged.insert(t.uuid) {
                             out.register_uuids.push(t.uuid);
                             out.register_rids.push(rid);
@@ -2862,6 +2869,11 @@ impl GraphRuntime {
             }
         }
         out.rids_needing_request_info = sends_a_frame.into_iter().collect();
+        out.register_counts = out
+            .register_uuids
+            .iter()
+            .map(|u| copies.get(u).copied().unwrap_or(1))
+            .collect();
 
         // One string per stream, resolved now that `&mut self` is released.
         for (name, rids_for_edge, uuids_for_edge) in streaming_by_signal {

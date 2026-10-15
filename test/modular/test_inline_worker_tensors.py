@@ -484,6 +484,34 @@ def test_the_worker_keeps_persisted_tensors_registered_with_nothing_to_register(
     assert calls == [[5]]
 
 
+@pytest.mark.parametrize("bookkeeping", _BOOKKEEPERS)
+def test_a_contiguous_tensor_with_an_odd_singleton_stride_goes_inline(monkeypatch, bookkeeping):
+    prod = _manager("worker_0", monkeypatch, bookkeeping=bookkeeping)
+    cons = _manager("worker_1", monkeypatch, bookkeeping=bookkeeping)
+    odd = torch.tensor([[11, 22]])[:, -1]
+    assert odd.is_contiguous() and odd.stride() == (2,)
+    edges, _, _ = _send(prod, "r", "x", [odd])
+    assert edges[0].tensor_info[0].inline_data is not None
+    (got,) = _receive(cons, "r", edges)["x"]
+    assert got.tolist() == [22]
+
+
+def test_every_outgoing_copy_counts_against_the_step_cap(monkeypatch):
+    """One tensor routed to two nodes on the same peer rides that frame twice."""
+    prod = _manager("worker_0", monkeypatch, max_bytes=4096, step_max=6000, fake_engine=True)
+    infos = prod.store_and_return_tensor_info(
+        "r", {"x": [torch.zeros(4000, dtype=torch.uint8), torch.zeros(1000, dtype=torch.uint8)]},
+    )["x"]
+    twice, once = infos[0].uuid, infos[1].uuid
+    prod.note_copies([twice, once], [2, 1])
+    prod.register_for_send_uuids(ParallelList(["r"], [[twice, once]]))
+    assert prod.tensor_store.get_info(twice).inline_data is None
+    assert prod.tensor_store.get_info(once).inline_data is not None
+    # counts apply to one call only
+    prod.register_for_send_uuids(ParallelList(["r"], [[twice]]))
+    assert prod.tensor_store.is_registered(twice)
+
+
 def test_a_descriptor_stripped_of_its_bytes_fails_the_read_loudly(monkeypatch):
     """An older peer drops the unknown field when it relays a descriptor (all
     peers must run the same version, as since #407). The read that follows is

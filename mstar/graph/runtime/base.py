@@ -472,6 +472,10 @@ class RouteOutput(NamedTuple):
     # pile up across passes into one WORKER_GRAPHS_DONE and are handed back to
     # later walks, so they stay registered rather than going inline.
     persist_uuids: tuple[int, ...] | list[int] = ()
+    # Parallel to register_uuids: how many outgoing edges of this completion
+    # carry each one. One tensor on two edges to a peer rides its frame twice,
+    # so an inline budget counts it twice. Empty means one each.
+    register_counts: tuple[int, ...] | list[int] = ()
 
 
 

@@ -590,6 +590,7 @@ class RustGraphRuntime(GraphRuntime):
                 out.freed_input_uuids, out.freed_input_registered,
             ),
             persist_uuids=out.persist_uuids,
+            register_counts=out.register_counts,
         )
 
     def stop_loops_batched(

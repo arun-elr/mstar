@@ -146,9 +146,13 @@ Communication
        fails the request.
    * - ``MSTAR_INLINE_STEP_MAX_BYTES``
      - ``1048576``
-     - Total inline bytes one worker step (one register call) may attach;
-       every message of the step carries a subset, so this bounds each. Past
-       it, tensors take the transfer path.
+     - Inline bytes one worker step (one register call) may put on the wire,
+       counting every outgoing copy and bytes attached in earlier steps that
+       go out again; every message of the step carries a subset, so this
+       bounds each. Past it, tensors take the transfer path. Persisted signals
+       are never inlined. Tensors this process received inline and sends on
+       keep their bytes (nothing registered them) and count against the cap
+       without being bound by it; each arrived under its sender's cap.
    * - ``MSTAR_TRANSPORT_STATS_S``
      - ``0``
      - Mooncake transports: log one ``transport stats`` JSON line per process

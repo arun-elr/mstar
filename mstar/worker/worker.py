@@ -1701,6 +1701,10 @@ class Worker:
             per_rid.setdefault(request_id, []).append(uuid)
         if not per_rid:
             return
+        if route_output.register_counts:
+            self.tensor_manager.note_copies(
+                route_output.register_uuids, route_output.register_counts,
+            )
         # One staging pass for the batch: the arena collapses what would be one
         # host-blocking D2H stream sync per request into one.
         self.tensor_manager.register_for_send_uuids(

@@ -996,3 +996,25 @@ def test_persisted_tensors_are_reported_so_they_stay_registered(tmp_path):
     })
     assert 1 in out.persist_uuids
     assert list(out.register_uuids) == [1]
+
+
+def test_a_tensor_on_two_remote_edges_is_counted_twice(tmp_path):
+    """Registered once, but carried by two edges of one frame, so the route
+    reports both copies for the inline budget (as Python's runtime does)."""
+    mesh = _Mesh(
+        tmp_path, outs=[("a", "remote", False), ("b", "remote", False)],
+        remote=[{"wg_id": 1, "graph_walks": [WALK],
+                 "nodes": ["remote"], "dyn_loops": []}],
+    )
+    rid = mesh.admit(wgs=(WG_ID, 1), workers=(ME, PEER))
+    _put(mesh, 1)
+    mesh.rt.ingest_inputs_batch(_one_signal(rid, "prompt", "only"))
+    mesh.rt.pop_rids("only", WALK, [rid])
+    signals = mesh.rt.get_output_signals("only", WALK)
+    out = mesh.rt.complete_and_route_batch({
+        "partition": "default", "graph_walk": WALK, "node_name": "only",
+        "output_signals": signals, "rids": [rid], "wg_ids": [WG_ID],
+        "tensors": [1, 1], "num_tensors": [1] * len(signals),
+    })
+    assert list(out.register_uuids) == [1]
+    assert list(out.register_counts) == [2]

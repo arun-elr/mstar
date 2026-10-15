@@ -1282,6 +1282,7 @@ class PythonGraphRuntime(GraphRuntime):
         routing_per_rid: dict[int, NodeOutputRouting] = {}
         nested_idxs: dict[int, NestedLoopIndices] = {}
         persist_uuids: list[int] = []
+        copies: dict[int, int] = {}
         register_uuids: list[int] = []
         register_rids: list[int] = []
         new_token_idxs: list[int] = []
@@ -1363,6 +1364,7 @@ class PythonGraphRuntime(GraphRuntime):
                 + sum(routing.streaming_to_workers.values(), start=[])
             ):
                 for info in edge.tensor_info:
+                    copies[info.uuid] = copies.get(info.uuid, 0) + 1
                     if info.uuid in staged:
                         continue
                     staged.add(info.uuid)
@@ -1413,6 +1415,7 @@ class PythonGraphRuntime(GraphRuntime):
             new_token_output_idxs=new_token_idxs,
             local_streaming_by_signal=streaming_by_signal,
             persist_uuids=persist_uuids,
+            register_counts=[copies[u] for u in register_uuids],
         )
 
     def _peek_completion(self, completion_id: int) -> "CompletionState":
