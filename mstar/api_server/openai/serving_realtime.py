@@ -70,6 +70,13 @@ DEFAULT_UNFIXED_TOKENS = 5
 MIN_CHUNK_SECONDS = 0.5
 # Longest uncommitted item: the most audio one step decodes.
 MAX_ITEM_SECONDS = 300.0
+# Longest excerpt of a client value quoted in an error.
+EXCERPT_CHARS = 100
+# Bounds the work of rendering a nested value; EXCERPT_CHARS bounds the result.
+_EXCERPT_REPR = reprlib.Repr(
+    maxlevel=2, maxtuple=4, maxlist=4, maxarray=4, maxdict=4, maxset=4, maxfrozenset=4, maxdeque=4,
+    maxstring=EXCERPT_CHARS, maxlong=EXCERPT_CHARS, maxother=EXCERPT_CHARS,
+)
 
 
 @dataclass
@@ -136,6 +143,12 @@ def pcm16_to_float(payload: str) -> np.ndarray:
     return np.frombuffer(raw[: len(raw) - len(raw) % 2], dtype="<i2").astype(np.float32) / 32768.0
 
 
+def _excerpt(value) -> str:
+    """The repr of a client-supplied value, at most ``EXCERPT_CHARS`` long."""
+    text = _EXCERPT_REPR.repr(value)
+    return text if len(text) <= EXCERPT_CHARS else text[: EXCERPT_CHARS - 3] + "..."
+
+
 def _object(value, name: str) -> dict:
     if value is None:
         return {}
@@ -171,7 +184,7 @@ def _number(knobs: dict, name: str, default, lo: float, hi: float = math.inf, in
     ok = ok and lo <= value <= hi
     if not ok:
         bound = f">= {lo:g}" if hi == math.inf else f"between {lo:g} and {hi:g}"
-        raise ValueError(f"mstar.{name} must be {kind} {bound}; got {reprlib.repr(value)}")
+        raise ValueError(f"mstar.{name} must be {kind} {bound}; got {_excerpt(value)}")
     return int(value) if integer else float(value)
 
 
@@ -340,14 +353,14 @@ class RealtimeTranscription:
             self.session.clear()
             await self.send(_event("input_audio_buffer.cleared"))
         else:
-            await self.send(_error(f"unknown event {kind!r}"))
+            await self.send(_error(f"unknown event {_excerpt(kind)}"))
 
     def update(self, session: dict) -> None:
         """Apply a session update, all or nothing."""
         s = self.session
         fmt = session.get("input_audio_format")
         if fmt not in (None, "pcm16"):
-            raise ValueError(f"only pcm16 input is supported; got {fmt!r}")
+            raise ValueError(f"only pcm16 input is supported; got {_excerpt(fmt)}")
         knobs = _object(session.get("mstar"), "mstar")
         chunk_seconds = _number(knobs, "chunk_seconds", s.chunk_seconds, MIN_CHUNK_SECONDS, s.max_item_seconds,
                                 clamp_low=True)
