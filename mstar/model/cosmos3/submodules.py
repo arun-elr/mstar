@@ -121,22 +121,6 @@ DENOISE_LOOP_FOR_WALK = {
     VIDEO_SOUND_GEN_WALK: VIDEO_SOUND_GEN_LOOP,
 }
 
-
-def _loop_step(fwd_info, graph_walk: str, time_index: torch.Tensor) -> int:
-    """The denoise iteration a step runs, from the engine's loop counter.
-
-    ``time_index`` holds the same value (global over a windowed request's
-    windows and commits, like the counter), but it is the previous step's
-    device output: reading it on the host waits for that step to finish, which
-    stalls the speculative preparation of this one. Callers that drive the
-    submodule without a loop counter (tests, harnesses) fall back to the edge.
-    """
-    loop = DENOISE_LOOP_FOR_WALK.get(graph_walk, IMAGE_GEN_LOOP)
-    counts = getattr(fwd_info, "dynamic_loop_iter_counts", None) or {}
-    if loop in counts:
-        return int(counts[loop])
-    return int(time_index.reshape(-1)[0].item())
-
 # Both action walks run the joint video+action denoise loop body; they differ
 # only in what they emit (the predicted action vs the predicted video).
 ACTION_WALKS = (ACTION_GEN_WALK, ACTION_VIDEO_GEN_WALK)
@@ -174,6 +158,22 @@ REASONER_PREFILL_WALKS = (REASONER_PREFILL_WALK, REASONER_PREFILL_VISION_WALK)
 REASONER_DECODE_LOOP = "reasoner_decode_loop"
 # The reasoner keeps every request's text under one cache label.
 REASONER_LABEL = "main"
+
+
+def _loop_step(fwd_info, graph_walk: str, time_index: torch.Tensor) -> int:
+    """The denoise iteration a step runs, from the engine's loop counter.
+
+    ``time_index`` holds the same value (global over a windowed request's
+    windows and commits, like the counter), but it is the previous step's
+    device output: reading it on the host waits for that step to finish, which
+    stalls the speculative preparation of this one. Callers that drive the
+    submodule without a loop counter (tests, harnesses) fall back to the edge.
+    """
+    loop = DENOISE_LOOP_FOR_WALK.get(graph_walk, IMAGE_GEN_LOOP)
+    counts = getattr(fwd_info, "dynamic_loop_iter_counts", None) or {}
+    if loop in counts:
+        return int(counts[loop])
+    return int(time_index.reshape(-1)[0].item())
 
 
 # Attribute a request's scheduler carries its timesteps under as a host list,
