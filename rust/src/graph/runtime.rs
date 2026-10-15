@@ -259,6 +259,10 @@ pub struct GraphRuntime {
         refs.iter()
             .filter_map(|r| {
                 let mut i = bk.info_raw(r.uuid).cloned()?;
+                // the bytes are the whole tensor's, not a slice's
+                if r.nbytes != i.nbytes || r.offset != i.offset {
+                    i.inline_data = None;
+                }
                 if let Some(d) = i.dims.first_mut() {
                     *d = r.dim0;
                 }

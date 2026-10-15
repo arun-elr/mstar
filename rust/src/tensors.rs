@@ -13,6 +13,7 @@ use crate::graph::spec::{StrToId, Sym};
 use crate::graph::state::TensorRef;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::PyBytes;
 use rustc_hash::FxHashMap;
 use std::sync::{Arc, Mutex};
 
@@ -46,6 +47,10 @@ pub struct TensorPointerInfo {
     pub shm_offset: i64,
     pub source_node_name: Option<Sym>,
     pub source_graph_walk: Option<Sym>,
+    /// The tensor's bytes, sent in the frame instead of read from `address`
+    /// (Mooncake transports, small whole tensors). Shared, since every frame
+    /// built from this descriptor clones it.
+    pub inline_data: Option<Arc<[u8]>>,
 }
 
 /// One descriptor as Python hands it over.
@@ -89,6 +94,17 @@ pub struct TensorInfoOut {
     #[pyo3(get)] pub shm_offset: i64,
     #[pyo3(get)] pub source_node_name: Option<String>,
     #[pyo3(get)] pub source_graph_walk: Option<String>,
+    pub inline_data: Option<Arc<[u8]>>,
+}
+
+#[pymethods]
+impl TensorInfoOut {
+    /// As `bytes`: a `#[pyo3(get)]` on the slice would hand Python a list of
+    /// ints.
+    #[getter]
+    fn inline_data<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyBytes>> {
+        self.inline_data.as_deref().map(|d| PyBytes::new(py, d))
+    }
 }
 
 /// The state itself, held apart from the `#[pyclass]` wrapper so Rust-side
@@ -147,6 +163,8 @@ impl Bookkeeping {
                 .source_graph_walk
                 .as_deref()
                 .map(|s| self.strings.intern(s)),
+            // Crosses on its own, through `set_inline_data`.
+            inline_data: None,
         }
     }
 
@@ -168,6 +186,7 @@ impl Bookkeeping {
             shm_offset: info.shm_offset,
             source_node_name: info.source_node_name.map(name),
             source_graph_walk: info.source_graph_walk.map(name),
+            inline_data: info.inline_data.clone(),
         }
     }
 
@@ -288,6 +307,7 @@ impl Bookkeeping {
                 shm_offset: 0,
                 source_node_name: node,
                 source_graph_walk: walk,
+                inline_data: None,
             };
             self.ref_info.insert(uuid, ReferenceInfo::default());
             self.tensor_info.insert(uuid, info);
@@ -361,6 +381,22 @@ impl Bookkeeping {
             if let Some(info) = self.tensor_info.get_mut(&uuids[i]) {
                 info.shm_segment = seg;
                 info.shm_offset = offsets[i];
+            }
+        }
+        Ok(())
+    }
+
+    /// Attach each tensor's bytes to its descriptor; every frame built from
+    /// it afterwards carries them. An untracked uuid is skipped.
+    pub fn set_inline_data(&mut self, uuids: &[u64], datas: Vec<Arc<[u8]>>) -> PyResult<()> {
+        if uuids.len() != datas.len() {
+            return Err(PyValueError::new_err(
+                "set_inline_data: uuids and datas must have the same length",
+            ));
+        }
+        for (uuid, data) in uuids.iter().zip(datas) {
+            if let Some(info) = self.tensor_info.get_mut(uuid) {
+                info.inline_data = Some(data);
             }
         }
         Ok(())
@@ -610,6 +646,13 @@ impl TensorBookkeeping {
             .set_shm_placement(uuids, segment_idxs, offsets)
     }
 
+    fn set_inline_data(
+        &self, uuids: Vec<u64>, datas: Vec<Bound<'_, PyBytes>>,
+    ) -> PyResult<()> {
+        let datas: Vec<Arc<[u8]>> = datas.iter().map(|b| Arc::from(b.as_bytes())).collect();
+        self.inner.lock().unwrap().set_inline_data(&uuids, datas)
+    }
+
     fn get_info(&self, uuid: u64) -> Option<TensorInfoOut> {
         self.inner.lock().unwrap().get_info(uuid)
     }
@@ -815,6 +858,7 @@ mod tests {
                 shm_offset: 0,
                 source_node_name: None,
                 source_graph_walk: None,
+                inline_data: None,
             },
         );
         b.forget_tensor(1);

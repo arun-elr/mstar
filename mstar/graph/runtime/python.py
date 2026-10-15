@@ -1459,6 +1459,7 @@ class PythonGraphRuntime(GraphRuntime):
                 self._tensor_manager.refresh_shm_placement(
                     routing.emit_to_client
                 )
+                self._tensor_manager.refresh_inline_data(routing.emit_to_client)
                 info.current_output_chunks.extend(
                     edge.name for edge in routing.emit_to_client
                 )
@@ -1514,6 +1515,7 @@ class PythonGraphRuntime(GraphRuntime):
         # during routing -- before staging stamped the arena placement onto the
         # store's copy. Refresh it here, where the edge leaves the process.
         self._tensor_manager.refresh_shm_placement(edges)
+        self._tensor_manager.refresh_inline_data(edges)
         self._communicator.send(worker_id, WorkerMessage(
             message_type=WorkerMessageType.INPUT_SIGNALS,
             body=InputSignals(
@@ -1539,6 +1541,7 @@ class PythonGraphRuntime(GraphRuntime):
         self._tensor_manager.refresh_shm_placement(
             info.pending_persist_signals
         )
+        self._tensor_manager.refresh_inline_data(info.pending_persist_signals)
         # A loop can persist a name once per iteration before this goes out, so
         # keep all of them; one output routed twice repeats its uuids.
         persist_signals: dict[str, list[TensorPointerInfo]] = {}

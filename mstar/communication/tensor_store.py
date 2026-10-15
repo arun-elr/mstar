@@ -171,6 +171,13 @@ class TensorBookkeeping(ABC):
         pass
 
     @abstractmethod
+    def set_inline_data(self, uuids: list[int], datas: list[bytes]):
+        """Attach each tensor's bytes to its held descriptor, so every frame
+        built from it afterwards carries them inline. Untracked uuids are
+        skipped, like every other mutator here."""
+        pass
+
+    @abstractmethod
     def get_info(self, uuid: int) -> TensorPointerInfo | None:
         """The descriptor a peer needs to read this tensor.
 
@@ -317,6 +324,12 @@ class PythonTensorBookkeeping(TensorBookkeeping):
             )
         return name
 
+    def set_inline_data(self, uuids: list[int], datas: list[bytes]):
+        for uuid, data in zip(uuids, datas, strict=True):
+            info = self._tensor_info.get(uuid)
+            if info is not None:
+                info.inline_data = data
+
     def get_info(self, uuid: int) -> TensorPointerInfo | None:
         return self._tensor_info.get(uuid)
 
@@ -428,6 +441,7 @@ def _from_rust(out) -> TensorPointerInfo:
         shm_offset=out.shm_offset,
         _source_node_name=out.source_node_name,
         _source_graph_walk=out.source_graph_walk,
+        inline_data=out.inline_data,
     )
 
 
@@ -453,11 +467,22 @@ class RustTensorBookkeeping(TensorBookkeeping):
 
     def put_tensor(self, uuid: int, info: TensorPointerInfo):
         self._rust.put_tensor(uuid, _to_rust(info))
+        # bytes cross as one PyBytes, not inside the dict: pyo3 would extract
+        # them element by element
+        if info.inline_data is not None:
+            self._rust.set_inline_data([uuid], [info.inline_data])
 
     def put_tensor_batch(
         self, uuids: list[int], infos: list[TensorPointerInfo]
     ):
         self._rust.put_tensor_batch(uuids, [_to_rust(i) for i in infos])
+        inline = [(u, i.inline_data) for u, i in zip(uuids, infos, strict=True)
+                  if i.inline_data is not None]
+        if inline:
+            self._rust.set_inline_data([u for u, _ in inline], [d for _, d in inline])
+
+    def set_inline_data(self, uuids: list[int], datas: list[bytes]):
+        self._rust.set_inline_data(uuids, datas)
 
     @property
     def has_put_tensor_batch_columns(self):
@@ -721,6 +746,9 @@ class TensorStore:
         offsets: list[int],
     ):
         self.bookkeeping.set_shm_placement(uuids, segment_idxs, offsets)
+
+    def set_inline_data(self, uuids: list[int], datas: list[bytes]):
+        self.bookkeeping.set_inline_data(uuids, datas)
 
     def increment_ref_batch(self, uuids: list[int], counts: list[int]):
         self.bookkeeping.increment_ref_batch(uuids, counts)

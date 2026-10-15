@@ -188,6 +188,9 @@ fn tensor_info(out: &mut Vec<u8>, bk: &StrToId, i: &TensorPointerInfo) {
         if let Some(w) = i.source_graph_walk {
             w_str(m.key("_source_graph_walk"), bk.name(w));
         }
+        if let Some(d) = &i.inline_data {
+            enc::write_bin(m.key("inline_data"), d).expect("vec sink");
+        }
     });
 }
 

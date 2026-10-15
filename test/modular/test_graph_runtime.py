@@ -76,6 +76,9 @@ class StubTensorManager:
     # test: no arena here, so nothing to copy back.
     stamps_shm_placement = False
     refresh_shm_placement = TensorCommunicationManager.refresh_shm_placement
+    # Likewise inline bytes: nothing was sent inline here.
+    _inlined = frozenset()
+    refresh_inline_data = TensorCommunicationManager.refresh_inline_data
 
     def set_persist(self, uuid: int, persist: bool):
         self.tensor_store.set_metadata(uuid, persist=persist)

@@ -1,5 +1,6 @@
 import errno
 import hashlib
+import json
 import logging
 import os
 import platform
@@ -43,6 +44,93 @@ from mstar.utils.ipc_format import TensorReceived, WorkerMessage, WorkerMessageT
 from mstar.utils.profiler import PHASE_PERIOD, phase_record
 
 logger = logging.getLogger(__name__)
+
+INLINE_TENSOR_MAX_BYTES_ENV = "MSTAR_INLINE_TENSOR_MAX_BYTES"
+INLINE_STEP_MAX_BYTES_ENV = "MSTAR_INLINE_STEP_MAX_BYTES"
+TRANSPORT_STATS_ENV = "MSTAR_TRANSPORT_STATS_S"
+_DEFAULT_INLINE_TENSOR_MAX_BYTES = 0
+_DEFAULT_INLINE_STEP_MAX_BYTES = 1 << 20
+
+
+def _env_nonnegative(name: str, default: float, kind=int):
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        value = kind(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a non-negative {kind.__name__}, got {raw!r}") from None
+    if value < 0:
+        raise ValueError(f"{name} must be a non-negative {kind.__name__}, got {raw!r}")
+    return value
+
+
+def inline_tensor_max_bytes() -> int:
+    """Largest tensor a Mooncake sender puts in the control message instead of
+    registering it for a read (``MSTAR_INLINE_TENSOR_MAX_BYTES``; 0 disables)."""
+    return _env_nonnegative(INLINE_TENSOR_MAX_BYTES_ENV, _DEFAULT_INLINE_TENSOR_MAX_BYTES)
+
+
+def inline_step_max_bytes() -> int:
+    """Total inline bytes one register call (a worker step, or one api-server
+    send) may attach (``MSTAR_INLINE_STEP_MAX_BYTES``). Every message the step
+    produces carries a subset, so this bounds each of them; tensors past it
+    take the transfer path."""
+    return _env_nonnegative(INLINE_STEP_MAX_BYTES_ENV, _DEFAULT_INLINE_STEP_MAX_BYTES)
+
+
+class TransportStats:
+    """Counts of tensors sent inline vs by transfer, and of reads per edge.
+
+    Cumulative; logged as one JSON line every ``MSTAR_TRANSPORT_STATS_S``
+    seconds (off by default) so a benchmark can diff two snapshots.
+    """
+
+    def __init__(self, entity: str, interval_s: float):
+        self.entity = entity
+        self.interval_s = interval_s
+        self._last_log = time.monotonic()
+        # outcome -> [count, bytes]
+        self.sent: dict[str, list[int]] = {}
+        self.stage_s = 0.0
+        # (source entity, edge) -> [inline n, inline bytes, read n, read bytes,
+        # read seconds, min bytes, max bytes]
+        self.rx: dict[tuple[str, str], list] = {}
+
+    def add_sent(self, outcome: str, nbytes: int) -> None:
+        entry = self.sent.setdefault(outcome, [0, 0])
+        entry[0] += 1
+        entry[1] += nbytes
+
+    def add_rx(self, source: str, edge: str, nbytes: int, inline: bool) -> None:
+        entry = self.rx.get((source, edge))
+        if entry is None:
+            entry = self.rx[(source, edge)] = [0, 0, 0, 0, 0.0, nbytes, nbytes]
+        at = 0 if inline else 2
+        entry[at] += 1
+        entry[at + 1] += nbytes
+        entry[5] = min(entry[5], nbytes)
+        entry[6] = max(entry[6], nbytes)
+
+    def add_read_time(self, source: str, edge: str, seconds: float) -> None:
+        entry = self.rx.get((source, edge))
+        if entry is not None:
+            entry[4] += seconds
+
+    def snapshot(self) -> dict:
+        return {
+            "entity": self.entity,
+            "sent": {k: list(v) for k, v in self.sent.items()},
+            "stage_s": round(self.stage_s, 6),
+            "rx": [[s, e, *v] for (s, e), v in self.rx.items()],
+        }
+
+    def maybe_log(self) -> None:
+        now = time.monotonic()
+        if now - self._last_log < self.interval_s:
+            return
+        self._last_log = now
+        logger.info("transport stats %s", json.dumps(self.snapshot()))
 
 
 class StoredOutputs(NamedTuple):
@@ -181,10 +269,10 @@ class AsyncMooncakeReader:
                 if status < 0:
                     raise RuntimeError(f"Mooncake read failed. Status: {status}")
         end_time = time.perf_counter()
-        if self.enable_prof:
-            for info in read_info:
-                if info.fp is not None:
-                    info.fp.rx_time = (end_time - start_time)
+        # fp is set only when profiling or transport stats want the time
+        for info in read_info:
+            if info.fp is not None:
+                info.fp.rx_time = (end_time - start_time)
 
     def wait_all(self):
         """Block until all pending writes complete. Re-raises exceptions."""
@@ -356,6 +444,13 @@ class TensorCommunicationManager(ABC):
         # req_id -> {name -> shards}
         self.buffered_shards: dict[Rid, dict[str, BufferedShards]] = {}
         self.uuid_to_shard_dim: dict[int, int | None] = {}
+
+        # Inline sends: only the Mooncake transports set these.
+        self.inline_max_bytes = 0
+        self.inline_step_max_bytes = 0
+        # uuids sent inline and so never registered for a read
+        self._inlined: set[int] = set()
+        self.transport_stats: TransportStats | None = None
 
     @property
     def needs_cpu_tensor(self) -> bool:
@@ -947,6 +1042,24 @@ class TensorCommunicationManager(ABC):
                 info.shm_segment = stored.shm_segment
                 info.shm_offset = stored.shm_offset
 
+    def refresh_inline_data(self, edges: list[GraphEdge]) -> None:
+        """Give a descriptor about to be sent the inline bytes the store's copy
+        carries, if it is a copy of the whole tensor made before they were
+        attached. A uuid sent inline is never registered, so a descriptor of it
+        without the bytes would send the reader to memory it cannot read."""
+        if not self._inlined:
+            return
+        for edge in edges:
+            for info in edge.tensor_info:
+                if info.inline_data is not None or info.uuid not in self._inlined:
+                    continue
+                stored = self.tensor_store.get_info(info.uuid)
+                if (
+                    stored is not None and stored is not info
+                    and stored.offset == info.offset and stored.nbytes == info.nbytes
+                ):
+                    info.inline_data = stored.inline_data
+
     # ---- abstract: transport-specific ----
 
     @abstractmethod
@@ -1012,6 +1125,7 @@ class TensorCommunicationManager(ABC):
             # if the producer's UUID GCs.
             self.dereference(info.uuid, 1)
             info.uuid = new_uuid
+            info.inline_data = None
             # After the re-point, so the descriptor the store keeps already
             # names the slice rather than the producer's tensor.
             self.tensor_store.put_tensor(request_id, new_uuid, slice_view, info)
@@ -1029,6 +1143,7 @@ class TensorCommunicationManager(ABC):
         on. ``None`` means the record is still there -- ask the store."""
         self.uuid_to_shard_dim.pop(uuid, None)
         self.uuid_to_edge_name.pop(uuid, None)
+        self._inlined.discard(uuid)
 
     # ---- shared: polling & ACKs ----
 
@@ -1080,6 +1195,12 @@ class TensorCommunicationManager(ABC):
             if done and ep.request_id not in waiting:
                 if ep.future is not None:
                     ep.future.result()
+                if self.transport_stats is not None and ep.future is not None and ep.rx_time:
+                    for edge in ep.graph_edges:
+                        source = next((i.source_entity for i in edge.tensor_info
+                                       if i.inline_data is None), None)
+                        if source is not None:
+                            self.transport_stats.add_read_time(source, edge.name, ep.rx_time)
                 for edge in ep.graph_edges:
                     ready.setdefault(ep.request_id, []).append(edge)
                     logger.debug(
@@ -1093,6 +1214,8 @@ class TensorCommunicationManager(ABC):
                 waiting.add(ep.request_id)
                 still_pending.append(ep)
         self.pending = still_pending
+        if self.transport_stats is not None:
+            self.transport_stats.maybe_log()
 
         final_ready: dict[Rid, list[GraphEdge]] = {}
         for req_id, edges in ready.items():
@@ -1378,11 +1501,32 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             engine._engine, device=device,
             enable_prof=enable_prof
         )
+        self.inline_max_bytes = inline_tensor_max_bytes()
+        self.inline_step_max_bytes = inline_step_max_bytes()
+        stats_s = _env_nonnegative(TRANSPORT_STATS_ENV, 0.0, float)
+        if stats_s:
+            self.transport_stats = TransportStats(my_entity_id, stats_s)
+        # Inline copies run on their own streams: on the default stream the
+        # copy would wait for the next step's kernels queued behind it.
+        self._d2h_stream: torch.cuda.Stream | None = None
+        self._h2d_stream: torch.cuda.Stream | None = None
+        if self.inline_max_bytes and self._on_cuda:
+            self._d2h_stream = torch.cuda.Stream(device=device)
+            self._h2d_stream = torch.cuda.Stream(device=device)
 
     def register_for_send(self, request_id, tensor_infos, skip_cuda_sync=False):
         if not skip_cuda_sync and self._on_cuda:
             torch.cuda.default_stream().synchronize()
+        if self.inline_max_bytes:
+            self._attach_inline([info.uuid for info in tensor_infos])
         for info in tensor_infos:
+            if info.uuid in self._inlined:
+                # The caller sends these objects, which under the Rust
+                # bookkeeper are copies of the store's.
+                if info.inline_data is None:
+                    stored = self.tensor_store.get_info(info.uuid)
+                    info.inline_data = stored.inline_data if stored is not None else None
+                continue
             self._register_one(request_id, info.uuid)
 
     def register_for_send_uuids(
@@ -1395,9 +1539,114 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         uuids avoids rebuilding one per tensor."""
         if not skip_cuda_sync and self._on_cuda:
             torch.cuda.default_stream().synchronize()
+        if self.inline_max_bytes:
+            self._attach_inline([uuid for _, uuids in per_request for uuid in uuids])
         for request_id, uuids in per_request:
             for uuid in uuids:
-                self._register_one(request_id, uuid)
+                if uuid not in self._inlined:
+                    self._register_one(request_id, uuid)
+
+    def _attach_inline(self, uuids: list[int]) -> None:
+        """Send the small ones of ``uuids`` inline: their bytes go onto the
+        store's descriptors, which every frame built afterwards copies, and
+        they are never registered. A tensor qualifies if it is non-empty, at
+        most ``inline_max_bytes``, whole (no TP shard dim, so no frame carries
+        a slice of it) and contiguous (the read copies ``nbytes`` from its
+        address, so its bytes are exactly that range). Taken in order until
+        the call's ``inline_step_max_bytes`` is spent; the rest are read."""
+        stats = self.transport_stats
+        budget = self.inline_step_max_bytes
+        picked: list[int] = []
+        tensors: list[torch.Tensor] = []
+        seen: set[int] = set()
+        for uuid in uuids:
+            if uuid in seen or uuid in self._inlined:
+                continue
+            seen.add(uuid)
+            if self.tensor_store.is_registered(uuid):
+                continue
+            tensor = self.tensor_store.get_tensor(uuid)
+            nbytes = tensor.nbytes
+            if nbytes == 0 or nbytes > self.inline_max_bytes:
+                outcome = "over_tensor_max" if nbytes else "empty"
+            elif self.uuid_to_shard_dim.get(uuid) is not None or not tensor.is_contiguous():
+                outcome = "not_whole"
+            elif nbytes > budget:
+                outcome = "over_step_max"
+            else:
+                budget -= nbytes
+                picked.append(uuid)
+                tensors.append(tensor)
+                continue
+            if stats is not None:
+                stats.add_sent(outcome, nbytes)
+        if not picked:
+            return
+        t0 = time.perf_counter()
+        datas = self._host_bytes(tensors)
+        self.tensor_store.set_inline_data(picked, datas)
+        self._inlined.update(picked)
+        if stats is not None:
+            stats.stage_s += time.perf_counter() - t0
+            for data in datas:
+                stats.add_sent("inline", len(data))
+
+    def _host_bytes(self, tensors: list[torch.Tensor]) -> list[bytes]:
+        """Each tensor's raw bytes. Device tensors are copied into one pinned
+        buffer on the side stream with a single wait; the caller has already
+        waited for the step that produced them."""
+        out: list[bytes | None] = [None] * len(tensors)
+        device_idx = [i for i, t in enumerate(tensors) if t.device.type != "cpu"]
+        for i, t in enumerate(tensors):
+            if t.device.type == "cpu":
+                out[i] = t.reshape(-1).view(torch.uint8).numpy().tobytes()
+        if device_idx:
+            total = sum(tensors[i].nbytes for i in device_idx)
+            staging = torch.empty(total, dtype=torch.uint8, pin_memory=True)
+            spans = []
+            ctx = (
+                torch.cuda.stream(self._d2h_stream)
+                if self._d2h_stream is not None else _nullcontext()
+            )
+            with ctx:
+                at = 0
+                for i in device_idx:
+                    n = tensors[i].nbytes
+                    staging[at:at + n].copy_(
+                        tensors[i].reshape(-1).view(torch.uint8), non_blocking=True,
+                    )
+                    spans.append((i, at, n))
+                    at += n
+            if self._d2h_stream is not None:
+                self._d2h_stream.synchronize()
+            else:
+                torch.cuda.current_stream().synchronize()
+            host = staging.numpy()
+            for i, at, n in spans:
+                out[i] = host[at:at + n].tobytes()
+        return out
+
+    def _from_inline(self, info: TensorPointerInfo) -> torch.Tensor:
+        """The tensor an inline descriptor carries, on this manager's device.
+        A device copy is queued on the side stream; the caller makes the
+        default stream wait for it."""
+        data = info.inline_data
+        if len(data) != info.nbytes:
+            raise ValueError(
+                f"tensor {info.uuid} from {info.source_entity} carries "
+                f"{len(data)} inline bytes for a {info.nbytes}-byte descriptor"
+            )
+        host = torch.frombuffer(bytearray(data), dtype=torch.uint8).view(
+            info.dtype,
+        ).reshape(tuple(info.dims))
+        if not self._on_cuda:
+            return host
+        with torch.cuda.stream(self._h2d_stream) if self._h2d_stream is not None else _nullcontext():
+            tensor = host.to(self.device)
+        if self._h2d_stream is not None:
+            # allocated on the side stream, used on the default one
+            tensor.record_stream(torch.cuda.default_stream(self.device))
+        return tensor
 
     def _register_one(self, request_id: Rid, uuid: int) -> None:
         """Pin one tensor for remote reads. The caller owns the CUDA sync."""
@@ -1420,6 +1669,8 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                     f"Mooncake memory registration failed for request id "
                     f"{request_id}, uuid {uuid}."
                 )
+            if self.transport_stats is not None:
+                self.transport_stats.add_sent("registered", tensor.nbytes)
             if self.enable_prof:
                 # RDMA: the receiver does the actual read, so the sender-side
                 # cost is the memory-pinning (register) time.
@@ -1452,6 +1703,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         graph_walk: str | None=None
     ) -> list[Future]:
         futures = []
+        inline_copied = False
         for graph_edge in graph_edges:
             if len(graph_edge.tensor_info) == 0:
                 continue
@@ -1474,6 +1726,24 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 if self.tensor_store.check_uuid_presence(info.uuid):
                     self.tensor_store.increment_ref(info.uuid, 1)
                     continue
+                if info.inline_data is not None:
+                    # No read and no registration, but the same references
+                    # as a read, so the ack and the cleanup are unchanged.
+                    tensor = self._from_inline(info)
+                    inline_copied = inline_copied or self._on_cuda
+                    self.tensor_store.put_tensor(
+                        request_id=request_id, uuid=info.uuid, tensor=tensor, info=info,
+                    )
+                    self.tensor_store.increment_ref(info.uuid, 2)
+                    if self.transport_stats is not None:
+                        self.transport_stats.add_rx(
+                            info.source_entity, graph_edge.name, info.nbytes, inline=True,
+                        )
+                    continue
+                if self.transport_stats is not None:
+                    self.transport_stats.add_rx(
+                        info.source_entity, graph_edge.name, info.nbytes, inline=False,
+                    )
                 buffer = torch.empty(
                     info.dims, dtype=info.dtype, device=self.device
                 ).as_strided(info.dims, stride=info.stride)
@@ -1504,7 +1774,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             fp = FutureAndPointers(
                 future=None, graph_edges=[graph_edge], request_id=request_id
             )
-            if self.enable_prof:
+            if self.enable_prof or self.transport_stats is not None:
                 for ri in read_info:
                     ri.fp = fp
             fut = self._async_reader.submit(read_info)
@@ -1512,6 +1782,8 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             if fut is not None:
                 futures.append(fut)
             self.pending.append(fp)
+        if inline_copied and self._h2d_stream is not None:
+            torch.cuda.default_stream(self.device).wait_stream(self._h2d_stream)
         return futures
 
 

@@ -334,6 +334,8 @@ class ShardingConfig:
                     new_info.dims = tuple(new_dims)
                     new_info.nbytes = new_nbytes
                     new_info.offset = offset
+                    # the bytes are the whole tensor's, not this slice's
+                    new_info.inline_data = None
 
                     new_edge.tensor_info.append(new_info)
             result[item.worker] = new_edge

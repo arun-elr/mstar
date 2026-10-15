@@ -40,6 +40,11 @@ class TensorPointerInfo:
     _source_node_name: str | None = None
     _source_graph_walk: str | None = None
 
+    # Mooncake transports (MSTAR_INLINE_TENSOR_MAX_BYTES): the tensor's bytes,
+    # carried in the control message instead of read from `address`. Only on
+    # a whole, contiguous tensor, so len(inline_data) == nbytes.
+    inline_data: bytes | None = None
+
     def clone(self):
         return TensorPointerInfo(
             dims=self.dims[:],
@@ -56,7 +61,8 @@ class TensorPointerInfo:
             shm_segment=self.shm_segment,
             shm_offset=self.shm_offset,
             _source_node_name=self._source_node_name,
-            _source_graph_walk=self._source_graph_walk
+            _source_graph_walk=self._source_graph_walk,
+            inline_data=self.inline_data,
         )
 
 
