@@ -305,6 +305,40 @@ def test_non_object_events_are_errors(client_and_stub):
         assert json.loads(ws.receive_text())["type"] == "transcription_session.updated"
 
 
+class _ScriptedWS:
+    """Feeds ``run()`` a fixed list of messages, then disconnects."""
+
+    def __init__(self, messages):
+        self.inbox = list(messages)
+        self.sent: list[dict] = []
+
+    async def accept(self):
+        pass
+
+    async def send_text(self, payload):
+        self.sent.append(json.loads(payload))
+
+    async def receive_text(self):
+        if not self.inbox:
+            from fastapi import WebSocketDisconnect
+            raise WebSocketDisconnect(1000)
+        return self.inbox.pop(0)
+
+
+@pytest.mark.parametrize("message", [
+    # past Python's int-string conversion limit (4300 digits): a plain ValueError
+    '{"type": "transcription_session.update", "session": {"mstar": {"unfixed_tokens": 1' + "0" * 4300 + "}}}",
+    "[" * 10_000 + "0" + "]" * 10_000,   # RecursionError
+], ids=["int_digits_limit", "deep_nesting"])
+def test_unparseable_message_is_an_error_and_the_session_survives(message):
+    import asyncio
+
+    ws = _ScriptedWS([message, _update({"chunk_seconds": 1.0})])
+    asyncio.run(serving_realtime.RealtimeTranscription(_StubAPI(), "rt_test", _ContinuingAdapter(), ws).run())
+    assert [e["type"] for e in ws.sent] == ["transcription_session.created", "error", "transcription_session.updated"]
+    assert ws.sent[-1]["session"]["mstar"]["chunk_seconds"] == 1.0
+
+
 def test_engine_requests_per_audio_second_are_bounded(client_and_stub):
     """The chunk floor caps a session at 2 engine requests per audio second,
     and an append that completes several chunks is one step."""
