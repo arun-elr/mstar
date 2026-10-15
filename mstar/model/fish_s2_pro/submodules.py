@@ -160,7 +160,16 @@ class ARSubmodule(ARNodeSubmodule):
             input_embeds = inputs["ar_input_embeds"][0].to(device=self.get_device()).reshape(1, -1)
         else:
             raise ValueError(f"Unknown Fish S2-Pro AR walk: {graph_walk!r}")
-        return ARNodeInputs(input_embeds=input_embeds, input_seq_len=input_embeds.shape[0])
+        # A stop requested from a prefill walk is dropped (``ar_decode_loop`` is
+        # not in it), and the codec stream ends at the first ``<|im_end|>``, so
+        # the prefill frame and every ``ignore_eos`` frame must not sample it.
+        sampling = fwd_info.resource_configs.get(AR_SAMPLER)
+        suppress_eos = graph_walk != "ar_decode" or bool(getattr(sampling, "ignore_eos", False))
+        return ARNodeInputs(
+            input_embeds=input_embeds,
+            input_seq_len=input_embeds.shape[0],
+            tensor_inputs={"suppress_eos": torch.tensor([suppress_eos], dtype=torch.bool, device=self.get_device())},
+        )
 
     def preprocess(
         self, graph_walk: str, engine_inputs: ModelInputsFromEngine, inputs: list[ARNodeInputs],
@@ -176,7 +185,11 @@ class ARSubmodule(ARNodeSubmodule):
         else:
             packed = torch.cat(embeds, dim=0)
             last_token_indices = torch.tensor(seq_lens, device=self.get_device()).cumsum(0) - 1
-        return {"input_embeds": packed, "last_token_indices": last_token_indices}
+        # Carried per request from ``prepare_inputs``: CUDA-graph replay runs
+        # this with padding-slot ids, so request state cannot be read here.
+        flags = [item.tensor_inputs["suppress_eos"] for item in inputs]
+        suppress_eos = (flags[0] if len(flags) == 1 else torch.cat(flags)).to(device=self.get_device())
+        return {"input_embeds": packed, "last_token_indices": last_token_indices, "suppress_eos": suppress_eos}
 
     def declare_step(
         self, graph_walk: str, request_ids: list[str], inputs: list[ARNodeInputs],
@@ -198,11 +211,13 @@ class ARSubmodule(ARNodeSubmodule):
 
     def _run_frame(
         self, engine_inputs: ModelInputsFromEngine, input_embeds: torch.Tensor, last_token_indices: torch.Tensor,
+        suppress_eos: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
         """One frame for every request: semantic sample, Fast AR codebooks, next input."""
         hidden = self.slow_ar(input_embeds, label="main")
         last_hidden = hidden.index_select(0, last_token_indices)
         logits = self.slow_ar.semantic_logits(last_hidden)
+        logits[:, self.eos_code].masked_fill_(suppress_eos, float("-inf"))
         sampler: SamplerResource = engine_inputs.resources[AR_SAMPLER]
         head_index = sampler.sample(engine_inputs.request_ids, logits).reshape(-1)
         is_eos = head_index >= self.eos_code
@@ -217,10 +232,10 @@ class ARSubmodule(ARNodeSubmodule):
 
     def forward(
         self, graph_walk: str, engine_inputs: ModelInputsFromEngine, input_embeds: torch.Tensor,
-        last_token_indices: torch.Tensor, **kwargs: Any,
+        last_token_indices: torch.Tensor, suppress_eos: torch.Tensor, **kwargs: Any,
     ) -> NameToTensorList:
         del graph_walk, kwargs
-        output = self._run_frame(engine_inputs, input_embeds, last_token_indices)
+        output = self._run_frame(engine_inputs, input_embeds, last_token_indices, suppress_eos)
         return {
             "ar_input_embeds": [output["ar_input_embeds"]],
             "codec_tokens": [output["codec_tokens"][0]],
@@ -229,10 +244,10 @@ class ARSubmodule(ARNodeSubmodule):
 
     def forward_batched(
         self, graph_walk: str, engine_inputs: ModelInputsFromEngine, input_embeds: torch.Tensor,
-        last_token_indices: torch.Tensor, **kwargs: Any,
+        last_token_indices: torch.Tensor, suppress_eos: torch.Tensor, **kwargs: Any,
     ) -> dict[str, NameToTensorList]:
         del graph_walk, kwargs
-        output = self._run_frame(engine_inputs, input_embeds, last_token_indices)
+        output = self._run_frame(engine_inputs, input_embeds, last_token_indices, suppress_eos)
         return {
             request_id: {
                 "ar_input_embeds": [output["ar_input_embeds"][i:i + 1]],
@@ -292,6 +307,7 @@ class ARSubmodule(ARNodeSubmodule):
             single_request_inputs=ARNodeInputs(
                 input_embeds=torch.zeros(1, self.config.slow_ar.dim, dtype=dtype, device=device),
                 input_seq_len=1,
+                tensor_inputs={"suppress_eos": torch.zeros(1, dtype=torch.bool, device=device)},
             ),
             capture_batch_sizes=self.DECODE_CAPTURE_BATCH_SIZES,
             compile=False,

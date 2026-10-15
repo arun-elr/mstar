@@ -192,7 +192,8 @@ class FishS2ProModel(Model):
             "ar_decode": Loop(
                 name="ar_decode_loop",
                 section=ar_node(["ar_input_embeds"], prefill=False),
-                max_iters=self.get_max_output_tokens(),
+                # the largest per-request max_new_tokens; check_stop ends each request's own
+                max_iters=self.config.codec.max_frames,
                 outputs=[],
             ),
             "codec_chunk": GraphNode(
@@ -398,6 +399,12 @@ class FishS2ProModel(Model):
         del incoming_connections
         if partition_name == "AR":
             if partition_metadata.graph_walk in ("ar_prefill", "ar_prefill_clone"):
+                if partition_metadata.kwargs["ar_max_tokens"] <= 1:
+                    # the prefill sampled the only frame allowed; a stop from prefill is dropped
+                    return ForwardPassArgs(
+                        full_metadata=partition_metadata, inputs=[],
+                        unpersist_tensors=list(persist_signals.get("ar_input_embeds", [])), request_done=True,
+                    )
                 partition_metadata.graph_walk = "ar_decode"
                 partition_metadata.is_prefill = False
                 edge = GraphEdge(next_node="AR", name="ar_input_embeds")
