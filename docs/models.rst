@@ -89,6 +89,12 @@ Registry keys live in ``mstar/model/registry.py`` (``MODEL_REGISTRY`` / ``HF_MOD
    * - ``qwen3_tts_base``
      - ``Qwen/Qwen3-TTS-12Hz-1.7B-Base``
      - 1.7B Base: zero-shot voice clone from one reference clip (x-vector, optional in-context transcript).
+   * - ``fish_s2_pro``
+     - ``fishaudio/s2-pro``
+     - Fish Audio S2-Pro: dual-AR TTS (Qwen3-4B Slow AR + 4-layer Fast AR over 10 codebooks),
+       44.1 kHz causal DAC codec, voice cloning from one reference clip, inline ``[tag]``
+       prosody control. Weights under the Fish Audio Research License (non-commercial use
+       only); check it before deploying.
    * - ``vjepa2``
      - ``facebook/vjepa2-vitl-fpc64-256``
      - V-JEPA 2 video encoder + masked predictor.
