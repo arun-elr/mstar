@@ -13,6 +13,7 @@ Each send is timed at the sender from the first byte of work to the ack, so ever
 | Path | What one send does |
 |---|---|
 | `control` | Serialize the tensor to bytes (a side-stream copy for a GPU tensor), send them in a control message, rebuild the tensor at the receiver, ack. What a tensor costs if it rides in the message itself |
+| `inline` | M\*'s Mooncake manager with `MSTAR_INLINE_TENSOR_MAX_BYTES` raised to the largest size: the producer copies the bytes into the descriptor instead of registering, the consumer rebuilds the tensor without a read, and the ack and cleanup are the same as `tcp` |
 | `tcp`, `rdma` | M\*'s Mooncake path: store, `register_for_send`, an `INPUT_SIGNALS` descriptor, `start_read_tensors` at the receiver, `get_ready_tensors` (which sends the real `TENSOR_RECEIVED` ack), and the sender's dereference and cleanup (unregister) |
 | `shm` | M\*'s same-host file transport, same flow (file write, read, unlink) |
 | `arena` | M\*'s same-host Rust shared-memory arena (`MSTAR_SHM_ARENA=1`), same flow |
@@ -33,7 +34,7 @@ Per path the tool prints p50 and p99 per size, throughput, the p50 of each phase
 
 ## Use cases
 
-- **Choosing inline thresholds**: the `control` vs `tcp` crossover is the size below which carrying a tensor in the message beats a transfer; `--interference` bounds how many bytes one step may put on the control channel.
+- **Choosing inline thresholds**: the `inline` vs `tcp` crossover (or `control` vs `tcp` on a build without inline sends) is the size below which carrying a tensor in the message beats a transfer; `--interference` bounds how many bytes one step may put on the control channel.
 - **Comparing Mooncake versions** (for example 0.3.13.post1 against 0.3.14 when it ships): run the same command in two environments and diff the JSON.
 - **Validating RDMA or Kubernetes networking**: the two-machine mode between two nodes or pods shows the fixed cost and bandwidth M\* will see.
 - **Regression-checking transport changes**: the same sweep before and after a change to `mstar/communication`.

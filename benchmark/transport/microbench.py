@@ -43,11 +43,14 @@ SENDER, RECEIVER = "worker_0", "worker_1"
 
 #: control: the bytes ride in a control message (serialize, send, deserialize).
 #: tcp / rdma: M*'s Mooncake path (register, descriptor, read, ack, cleanup).
+#: inline: the same manager with MSTAR_INLINE_TENSOR_MAX_BYTES covering every
+#: size, so the bytes ride in the descriptor (attach, send, rebuild, ack).
 #: shm / arena: M*'s same-host paths (per-uuid file, Rust arena).
 #: tcp-pool / rdma-pool: Mooncake reads from a buffer registered once, copied
 #: into (or, with --pool-mode zerocopy, produced in) per send. Not an M* path
 #: today; the contrast with tcp shows what per-tensor registration costs.
-PATHS = ("control", "tcp", "rdma", "shm", "arena", "tcp-pool", "rdma-pool")
+PATHS = ("control", "inline", "tcp", "rdma", "shm", "arena", "tcp-pool", "rdma-pool")
+MANAGER_PATHS = ("inline", "tcp", "rdma", "shm", "arena")
 SAME_HOST_PATHS = ("shm", "arena")
 
 
@@ -140,7 +143,7 @@ def rdma_devices() -> list[str]:
 def unavailable_reason(path: str, args) -> str | None:
     """Why ``path`` cannot run here, or None."""
     from mstar.communication.tensors import MOONCAKE_IMPORT_ERROR
-    if path in ("tcp", "rdma", "tcp-pool", "rdma-pool") and MOONCAKE_IMPORT_ERROR is not None:
+    if path in ("inline", "tcp", "rdma", "tcp-pool", "rdma-pool") and MOONCAKE_IMPORT_ERROR is not None:
         return f"mooncake not importable ({type(MOONCAKE_IMPORT_ERROR).__name__})"
     if path.startswith("rdma") and not rdma_devices():
         return "no RDMA device under /sys/class/infiniband"
@@ -214,6 +217,10 @@ def make_manager(path: str, my_id: str, device: str, comm, args):
         )
     if path in ("rdma", "rdma-pool") and args.rdma_device:
         os.environ["RDMA_DEVICE_NAME"] = args.rdma_device
+    from mstar.communication.tensors import INLINE_STEP_MAX_BYTES_ENV, INLINE_TENSOR_MAX_BYTES_ENV
+    cap = max(args.sizes) if path == "inline" else 0
+    os.environ[INLINE_TENSOR_MAX_BYTES_ENV] = str(cap)
+    os.environ[INLINE_STEP_MAX_BYTES_ENV] = str(max(cap * args.inflight, 1))
     return create_tensor_communication_manager(
         protocol=CommProtocol.RDMA if path.startswith("rdma") else CommProtocol.TCP,
         my_entity_id=my_id, hostname=host, device=device, communicator=comm,
@@ -425,14 +432,14 @@ class Sender:
         self._ctl("phase", path=path)
         self._await(self._reply("phase_ready"), timeout_s=60)
         runner = {
-            "control": self._run_control,
+            "control": self._run_control, "inline": self._run_manager,
             "tcp": self._run_manager, "rdma": self._run_manager,
             "shm": self._run_manager, "arena": self._run_manager,
             "tcp-pool": self._run_pool, "rdma-pool": self._run_pool,
         }[path]
         out = []
         mgr = make_manager(path, SENDER, self.args.device, self.comm, self.args) \
-            if path in ("tcp", "rdma", "shm", "arena") else None
+            if path in MANAGER_PATHS else None
         for size in self.args.sizes:
             res = SizeResult(size=size, iters=self.iters_for(size))
             runner(path, size, res, mgr)
@@ -744,7 +751,7 @@ class Receiver:
             self._send({"kind": "ready"})
         elif kind == "phase":
             self.path = msg["path"]
-            if self.path in ("tcp", "rdma", "shm", "arena"):
+            if self.path in MANAGER_PATHS:
                 self.mgr = make_manager(self.path, RECEIVER, self.args.receiver_device, self.comm, self.args)
             elif self.path.endswith("-pool"):
                 self._setup_pool()
