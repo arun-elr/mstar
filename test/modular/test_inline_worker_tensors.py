@@ -319,6 +319,8 @@ def test_transport_stats_count_inline_and_read_per_edge(monkeypatch):
     assert (source, edge, inline_n, inline_b, read_n, read_b, lo, hi) == (
         "worker_0", "x", 1, 16, 1, 4096, 16, 4096)
     assert read_s > 0
+    (sizes,) = cons.transport_stats.snapshot()["rx_sizes"]
+    assert sizes == ["worker_0", "x", [(4, 1), (12, 1)]]
 
 
 def test_wire_round_trip_keeps_the_bytes_exactly():

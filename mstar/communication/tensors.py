@@ -96,6 +96,8 @@ class TransportStats:
         # (source entity, edge) -> [inline n, inline bytes, read n, read bytes,
         # read seconds, min bytes, max bytes]
         self.rx: dict[tuple[str, str], list] = {}
+        # (source entity, edge) -> {ceil(log2(bytes)): count}
+        self.rx_sizes: dict[tuple[str, str], dict[int, int]] = {}
 
     def add_sent(self, outcome: str, nbytes: int) -> None:
         entry = self.sent.setdefault(outcome, [0, 0])
@@ -111,6 +113,9 @@ class TransportStats:
         entry[at + 1] += nbytes
         entry[5] = min(entry[5], nbytes)
         entry[6] = max(entry[6], nbytes)
+        sizes = self.rx_sizes.setdefault((source, edge), {})
+        bucket = max(0, nbytes - 1).bit_length()
+        sizes[bucket] = sizes.get(bucket, 0) + 1
 
     def add_read_time(self, source: str, edge: str, seconds: float) -> None:
         entry = self.rx.get((source, edge))
@@ -123,6 +128,8 @@ class TransportStats:
             "sent": {k: list(v) for k, v in self.sent.items()},
             "stage_s": round(self.stage_s, 6),
             "rx": [[s, e, *v] for (s, e), v in self.rx.items()],
+            # bucket b counts tensors of (2**(b-1), 2**b] bytes
+            "rx_sizes": [[s, e, sorted(v.items())] for (s, e), v in self.rx_sizes.items()],
         }
 
     def maybe_log(self) -> None:
