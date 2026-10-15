@@ -328,6 +328,15 @@ def test_check_stop_on_im_end_on_the_frame_limit_and_not_with_ignore_eos():
     assert step("b", 1) == set()
     assert step("b", 2) == {"ar_decode_loop"}
 
+    # speculation: step N+1's postprocess runs before step N's stop check
+    frames = [{"new_token": [torch.tensor([head])]} for head in (4, 5, 6)]
+    ar.postprocess("c", info(), frames[0])
+    assert ar.check_stop("c", info(), frames[0]) == set()
+    ar.postprocess("c", info(), frames[1])
+    ar.postprocess("c", info(), frames[2])
+    assert ar.check_stop("c", info(), frames[1]) == set()
+    assert ar.check_stop("c", info(), frames[2]) == {"ar_decode_loop"}
+
 
 def test_eos_is_not_sampled_on_the_prefill_frame_or_with_ignore_eos():
     ar = tiny_ar()

@@ -267,18 +267,22 @@ class ARSubmodule(ARNodeSubmodule):
             outputs["head_index"] = outputs.pop("new_token")
         elif "head_index" not in outputs and "codec_tokens" in outputs:
             outputs["head_index"] = [outputs["codec_tokens"][-1].reshape(-1)[0]]
-        if "head_index" in outputs:
-            state = self.request_state(request_id)
-            state.add("generated_frames", int(state.get("generated_frames", 0)) + 1)
 
     def check_stop(
         self, request_id: str, request_info: CurrentForwardPassInfo, outputs: dict[str, list[torch.Tensor]],
     ) -> set[str]:
-        """Stop on ``<|im_end|>`` or the request's frame limit."""
+        """Stop on ``<|im_end|>`` or the request's frame limit.
+
+        Frames are counted here, not in ``postprocess``: a speculative step's
+        ``postprocess`` can run before the previous step's stop check, and a
+        discarded speculative step never reaches this.
+        """
         if "head_index" not in outputs:
             return set()
         head_index = int(outputs["head_index"][0].item())
-        generated = int(self.request_state(request_id).get("generated_frames", 0))
+        state = self.request_state(request_id)
+        generated = int(state.get("generated_frames", 0)) + 1
+        state.add("generated_frames", generated)
         max_tokens = request_info.step_metadata.get("ar_max_tokens", request_info.max_tokens)
         sampling = request_info.resource_configs.get(AR_SAMPLER)
         reached_eos = head_index == self.eos_code and not bool(getattr(sampling, "ignore_eos", False))
