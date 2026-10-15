@@ -1050,10 +1050,11 @@ class TensorCommunicationManager(ABC):
                 info.shm_offset = stored.shm_offset
 
     def refresh_inline_data(self, edges: list[GraphEdge]) -> None:
-        """Give a descriptor about to be sent the inline bytes the store's copy
-        carries, if it is a copy of the whole tensor made before they were
-        attached. A uuid sent inline is never registered, so a descriptor of it
-        without the bytes would send the reader to memory it cannot read."""
+        """Give a descriptor about to be sent its range of the inline bytes the
+        store's copy carries, if it was copied before they were attached (a TP
+        fanout clones during routing, before registration). A uuid sent inline
+        is never registered, so a descriptor of it without the bytes would send
+        the reader to memory it cannot read."""
         if not self._inlined:
             return
         for edge in edges:
@@ -1061,11 +1062,8 @@ class TensorCommunicationManager(ABC):
                 if info.inline_data is not None or info.uuid not in self._inlined:
                     continue
                 stored = self.tensor_store.get_info(info.uuid)
-                if (
-                    stored is not None and stored is not info
-                    and stored.offset == info.offset and stored.nbytes == info.nbytes
-                ):
-                    info.inline_data = stored.inline_data
+                if stored is not None and stored is not info:
+                    info.inline_data = stored.inline_slice(info.offset, info.nbytes)
 
     # ---- abstract: transport-specific ----
 
@@ -1557,10 +1555,11 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         """Send the small ones of ``uuids`` inline: their bytes go onto the
         store's descriptors, which every frame built afterwards copies, and
         they are never registered. A tensor qualifies if it is non-empty, at
-        most ``inline_max_bytes``, whole (no TP shard dim, so no frame carries
-        a slice of it) and contiguous (the read copies ``nbytes`` from its
-        address, so its bytes are exactly that range). Taken in order until
-        the call's ``inline_step_max_bytes`` is spent; the rest are read."""
+        most ``inline_max_bytes`` and contiguous (a read copies ``nbytes`` from
+        its address, so its bytes are exactly that range; a TP slice of it is a
+        sub-range, see ``TensorPointerInfo.inline_slice``). Taken in order
+        until the call's ``inline_step_max_bytes`` is spent; the rest are
+        read."""
         stats = self.transport_stats
         budget = self.inline_step_max_bytes
         picked: list[int] = []
@@ -1576,8 +1575,8 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             nbytes = tensor.nbytes
             if nbytes == 0 or nbytes > self.inline_max_bytes:
                 outcome = "over_tensor_max" if nbytes else "empty"
-            elif self.uuid_to_shard_dim.get(uuid) is not None or not tensor.is_contiguous():
-                outcome = "not_whole"
+            elif not tensor.is_contiguous():
+                outcome = "not_contiguous"
             elif nbytes > budget:
                 outcome = "over_step_max"
             else:

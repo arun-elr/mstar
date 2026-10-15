@@ -29,7 +29,8 @@ from mstar.communication.tensors import (
 )
 from mstar.communication.wire import decode, encode
 from mstar.conductor.request_info import CurrentForwardPassInfo
-from mstar.graph.base import GraphEdge, TensorPointerInfo
+from mstar.distributed.base import ShardingConfig, ShardingGroup
+from mstar.graph.base import GraphEdge, NodeAndGraphWalk, TensorPointerInfo
 from mstar.utils.containers import ParallelList
 from mstar.utils.ipc_format import (
     InputSignals,
@@ -203,9 +204,10 @@ def test_threshold_boundary_and_what_is_never_inlined(monkeypatch):
     uuids = [i.uuid for i in infos]
     prod.register_for_send_uuids(ParallelList(["r"], [uuids]))
     inline = [prod.tensor_store.get_info(u).inline_data is not None for u in uuids]
-    assert inline == [True, False, False, False, False]
+    # a sharded tensor qualifies: each TP slice carries its own byte range
+    assert inline == [True, False, False, False, True]
     assert sorted(c[1] for c in prod.register_spy.calls) == sorted(
-        [over.nbytes, 0, strided.nbytes, sharded.nbytes])
+        [over.nbytes, 0, strided.nbytes])
 
 
 def test_the_step_cap_bounds_the_inline_bytes_of_one_call(monkeypatch):
@@ -279,18 +281,100 @@ def test_the_consumer_keeps_the_bytes_for_a_later_re_send(monkeypatch, bookkeepi
     assert cons.tensor_store.get_info(uuid).inline_data == t.numpy().tobytes()
 
 
-def test_refresh_restores_the_bytes_on_a_whole_copy_only(monkeypatch):
+def test_refresh_gives_each_copy_its_own_range_of_the_bytes(monkeypatch):
     prod = _manager("worker_0", monkeypatch)
     infos = prod.store_and_return_tensor_info("r", {"x": [torch.arange(8, dtype=torch.int64)]})["x"]
     prod.register_for_send_uuids(ParallelList(["r"], [[infos[0].uuid]]))
+    data = torch.arange(8, dtype=torch.int64).numpy().tobytes()
     whole = infos[0].clone()
     whole.inline_data = None
     half = whole.clone()
     half.nbytes, half.offset = 32, 32
-    edge = GraphEdge(next_node="n", name="x", tensor_info=[whole, half])
+    past_end = whole.clone()
+    past_end.nbytes, past_end.offset = 32, 48
+    edge = GraphEdge(next_node="n", name="x", tensor_info=[whole, half, past_end])
     prod.refresh_inline_data([edge])
-    assert whole.inline_data == torch.arange(8, dtype=torch.int64).numpy().tobytes()
-    assert half.inline_data is None
+    assert whole.inline_data == data
+    assert half.inline_data == data[32:]
+    assert past_end.inline_data is None
+
+
+def _tp1_to_tp2_config() -> ShardingConfig:
+    cfg = ShardingConfig(
+        groups=[
+            ShardingGroup(nodes=["A"], tp_size=1, graph_walks=["decode"], _tp_rank=0),
+            ShardingGroup(nodes=["B"], tp_size=2, graph_walks=["decode"]),
+        ],
+        tp_enabled_nodes={"A", "B"},
+        shard_dim={"x": 0},
+    )
+    cfg.setup({
+        NodeAndGraphWalk("A", "decode"): ["worker_0"],
+        NodeAndGraphWalk("B", "decode"): ["worker_1", "worker_2"],
+    })
+    return cfg
+
+
+def _read_halves(monkeypatch, fanout, original, bookkeeping):
+    for worker, expected in (("worker_1", original[:2]), ("worker_2", original[2:])):
+        cons = _manager(worker, monkeypatch, bookkeeping=bookkeeping)
+        (got,) = _receive(cons, 7, [fanout[worker]])["x"]
+        assert torch.equal(got, expected), f"{worker} read the wrong rows"
+        assert cons.register_spy.calls == [], f"{worker} fell back to a read"
+
+
+@pytest.mark.parametrize("bookkeeping", _BOOKKEEPERS)
+def test_an_api_input_fanned_out_to_tp2_carries_each_rank_its_rows(monkeypatch, bookkeeping):
+    """The api server knows no sharding, so it inlines a whole input; the
+    conductor's fanout then slices the descriptor per rank, bytes included."""
+    api = _manager("api_server", monkeypatch, bookkeeping=bookkeeping)
+    original = torch.arange(32, dtype=torch.float32).reshape(4, 8)
+    infos = api.store_and_return_tensor_info(7, {"x": [original]})["x"]
+    api.register_for_send(7, infos)
+    assert infos[0].inline_data is not None and api.register_spy.calls == []
+    wire = decode(encode(GraphEdge(next_node="B", name="x", tensor_info=infos)))
+    fanout = _tp1_to_tp2_config().fanout_graph_edges(
+        wire, source_node="A", source_graph_walk="decode", dest_graph_walk="decode",
+    )
+    _read_halves(monkeypatch, fanout, original, bookkeeping)
+
+
+@pytest.mark.parametrize("bookkeeping", _BOOKKEEPERS)
+def test_a_tp_fanout_cloned_before_registration_is_refreshed_per_rank(monkeypatch, bookkeeping):
+    """A worker's routing slices a sharded output (shard_dim 0) before the
+    tensor is registered; the refresh at send time gives each slice its range."""
+    prod = _manager("worker_0", monkeypatch, bookkeeping=bookkeeping)
+    cfg = _tp1_to_tp2_config()
+    prod.register_request(7, cfg)
+    original = torch.arange(32, dtype=torch.float32).reshape(4, 8)
+    infos = prod.store_and_return_tensor_info(
+        7, {"x": [original]}, node_name="A", graph_walk="decode",
+    )["x"]
+    edge = GraphEdge(next_node="B", name="x", tensor_info=infos)
+    fanout = cfg.fanout_graph_edges(
+        edge, source_node="A", source_graph_walk="decode", dest_graph_walk="decode",
+    )
+    prod.register_for_send_uuids(ParallelList([7], [[infos[0].uuid]]))
+    assert prod.register_spy.calls == []
+    for wire_edge in fanout.values():
+        prod.refresh_inline_data([wire_edge])
+    fanout = {w: decode(encode(e)) for w, e in fanout.items()}
+    _read_halves(monkeypatch, fanout, original, bookkeeping)
+
+
+def test_a_descriptor_stripped_of_its_bytes_fails_the_read_loudly(monkeypatch):
+    """An older peer drops the unknown field when it relays a descriptor (all
+    peers must run the same version, as since #407). The read that follows is
+    of memory the producer never registered: Mooncake refuses it, so the
+    request fails instead of reading anything."""
+    prod = _manager("worker_0", monkeypatch)
+    cons = _manager("worker_1", monkeypatch)
+    edges, _, _ = _send(prod, "r", "x", [torch.arange(4, dtype=torch.int64)])
+    edges[0].tensor_info[0].inline_data = None
+    futures = cons.start_read_tensors("r", edges)
+    assert futures
+    with pytest.raises(RuntimeError, match="Mooncake read failed"):
+        futures[0].result(timeout=30)
 
 
 @pytest.mark.parametrize("bookkeeping", _BOOKKEEPERS)

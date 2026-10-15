@@ -259,9 +259,14 @@ pub struct GraphRuntime {
         refs.iter()
             .filter_map(|r| {
                 let mut i = bk.info_raw(r.uuid).cloned()?;
-                // the bytes are the whole tensor's, not a slice's
+                // A slice carries its own range of the inline bytes, as
+                // `TensorPointerInfo.inline_slice` does in Python.
                 if r.nbytes != i.nbytes || r.offset != i.offset {
-                    i.inline_data = None;
+                    i.inline_data = i.inline_data.as_deref().and_then(|d| {
+                        let start = usize::try_from(r.offset - i.offset).ok()?;
+                        let end = start.checked_add(usize::try_from(r.nbytes).ok()?)?;
+                        d.get(start..end).map(std::sync::Arc::from)
+                    });
                 }
                 if let Some(d) = i.dims.first_mut() {
                     *d = r.dim0;
@@ -3582,19 +3587,23 @@ mod tests {
     }
 
     #[test]
-    fn only_a_whole_descriptor_carries_the_inline_bytes() {
-        // The bytes are the whole tensor's: a TP slice of it would hand the
-        // reader the wrong rows, so a slice goes out without them.
+    fn a_slice_carries_its_own_range_of_the_inline_bytes() {
+        // A TP slice is read at `address + offset` for `nbytes`, so its inline
+        // bytes are that range; a range the bytes do not cover gets none.
         let mut bk = crate::tensors::Bookkeeping::default();
         let bytes = [1u8, 2, 3, 4, 5, 6, 7, 8];
         inline_tensor(&mut bk, 7, &bytes);
         let whole = TensorRef { uuid: 7, dim0: 2, nbytes: 8, offset: 0 };
-        let half = TensorRef { uuid: 7, dim0: 1, nbytes: 4, offset: 4 };
+        let second_half = TensorRef { uuid: 7, dim0: 1, nbytes: 4, offset: 4 };
         let first_half = TensorRef { uuid: 7, dim0: 1, nbytes: 4, offset: 0 };
-        let out = GraphRuntime::sliced_infos_locked(&bk, &[whole, half, first_half]);
+        let past_end = TensorRef { uuid: 7, dim0: 1, nbytes: 4, offset: 6 };
+        let out = GraphRuntime::sliced_infos_locked(
+            &bk, &[whole, second_half, first_half, past_end],
+        );
         assert_eq!(out[0].inline_data.as_deref(), Some(&bytes[..]));
-        assert!(out[1].inline_data.is_none());
-        assert!(out[2].inline_data.is_none());
+        assert_eq!(out[1].inline_data.as_deref(), Some(&bytes[4..]));
+        assert_eq!(out[2].inline_data.as_deref(), Some(&bytes[..4]));
+        assert!(out[3].inline_data.is_none());
         assert_eq!(out[1].offset, 4);
     }
 }

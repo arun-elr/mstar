@@ -138,9 +138,12 @@ Communication
      - ``16384``
      - Mooncake transports (``TCP``, ``RDMA``) only: a remote-bound tensor of
        at most this many bytes travels inside its descriptor in the control
-       message instead of being registered and read. Only whole, contiguous,
-       non-empty tensors without a TP shard dimension. ``0`` turns it off and
-       the frames are byte for byte what they were before.
+       message instead of being registered and read. Only contiguous,
+       non-empty tensors; a TP slice of one carries its own byte range. ``0``
+       turns it off and the frames are byte for byte what they were before.
+       Every process of a deployment must run the same version: an older peer
+       drops the bytes when it relays a descriptor, and the read that follows
+       fails the request.
    * - ``MSTAR_INLINE_STEP_MAX_BYTES``
      - ``1048576``
      - Total inline bytes one worker step (one register call) may attach;

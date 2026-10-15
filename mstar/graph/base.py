@@ -40,10 +40,22 @@ class TensorPointerInfo:
     _source_node_name: str | None = None
     _source_graph_walk: str | None = None
 
-    # Mooncake transports (MSTAR_INLINE_TENSOR_MAX_BYTES): the tensor's bytes,
-    # carried in the control message instead of read from `address`. Only on
-    # a whole, contiguous tensor, so len(inline_data) == nbytes.
+    # Mooncake transports (MSTAR_INLINE_TENSOR_MAX_BYTES): exactly the bytes a
+    # read of `nbytes` at `address + offset` would return, carried in the
+    # control message instead. A slice of the descriptor carries its range.
     inline_data: bytes | None = None
+
+    def inline_slice(self, offset: int, nbytes: int) -> bytes | None:
+        """The inline bytes of the read at ``offset`` for ``nbytes``, or None if
+        this descriptor carries none or they do not cover that range."""
+        if self.inline_data is None:
+            return None
+        start = offset - self.offset
+        if start < 0 or start + nbytes > len(self.inline_data):
+            return None
+        if start == 0 and nbytes == len(self.inline_data):
+            return self.inline_data
+        return self.inline_data[start:start + nbytes]
 
     def clone(self):
         return TensorPointerInfo(
