@@ -319,14 +319,32 @@ def test_lenient_update_reads_numeric_strings_and_raises_a_short_chunk(client_an
         assert all(type(knobs[k]) is type(v) for k, v in expected.items())
 
 
-@pytest.mark.parametrize("value", ["x" * 1_000_000, "9" * 4300, 10**4000])
-def test_error_quotes_only_an_excerpt_of_a_bad_value(value):
+def _nested(value="x" * 64, depth=4, width=6):
+    for _ in range(depth):
+        value = [value] * width
+    return value
+
+
+@pytest.mark.parametrize("message", [
+    _update({"chunk_seconds": "x" * 1_000_000}),
+    _update({"chunk_seconds": "9" * 4300}),
+    _update({"chunk_seconds": 10**4000}),
+    _update({"chunk_seconds": _nested()}),
+    _update({"unfixed_tokens": {"k" * 1000: _nested()}}),
+    json.dumps({"type": "x" * 1_000_000}),
+    json.dumps({"type": _nested()}),
+    _update(input_audio_format="x" * 1_000_000),
+    _update(input_audio_format=_nested()),
+], ids=["long_string", "digit_string", "big_int", "nested_list", "nested_dict",
+        "long_event_type", "nested_event_type", "long_audio_format", "nested_audio_format"])
+def test_error_quotes_only_a_short_excerpt_of_client_input(message):
     import asyncio
 
-    ws = _ScriptedWS([_update({"chunk_seconds": value})])
+    ws = _ScriptedWS([message, _update({"chunk_seconds": 1.0})])
     asyncio.run(serving_realtime.RealtimeTranscription(_StubAPI(), "rt_test", _ContinuingAdapter(), ws).run())
-    error = ws.sent[-1]
-    assert error["type"] == "error" and len(error["error"]["message"]) < 200
+    assert [e["type"] for e in ws.sent] == ["transcription_session.created", "error", "transcription_session.updated"]
+    # an excerpt of at most 100 characters plus the fixed text around it
+    assert len(ws.sent[1]["error"]["message"]) <= 180
 
 
 def test_non_object_events_are_errors(client_and_stub):
