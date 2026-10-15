@@ -343,6 +343,13 @@ def test_wire_round_trip_keeps_the_bytes_exactly():
     assert back.inputs[0].tensor_info[0] == info
 
 
+def test_defaults_inline_up_to_16_kib_within_1_mib_a_step(monkeypatch):
+    monkeypatch.delenv(INLINE_TENSOR_MAX_BYTES_ENV, raising=False)
+    monkeypatch.delenv(INLINE_STEP_MAX_BYTES_ENV, raising=False)
+    assert inline_tensor_max_bytes() == 16384
+    assert inline_step_max_bytes() == 1 << 20
+
+
 def test_env_values_are_checked(monkeypatch):
     monkeypatch.setenv(INLINE_TENSOR_MAX_BYTES_ENV, "-1")
     with pytest.raises(ValueError, match=INLINE_TENSOR_MAX_BYTES_ENV):

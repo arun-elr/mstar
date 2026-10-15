@@ -134,6 +134,24 @@ Communication
      - Under ``--log-stats``: how often the arena logs its occupancy /
        fragmentation snapshot (segments, free bytes, largest contiguous
        free block, pinned bytes).
+   * - ``MSTAR_INLINE_TENSOR_MAX_BYTES``
+     - ``16384``
+     - Mooncake transports (``TCP``, ``RDMA``) only: a remote-bound tensor of
+       at most this many bytes travels inside its descriptor in the control
+       message instead of being registered and read. Only whole, contiguous,
+       non-empty tensors without a TP shard dimension. ``0`` turns it off and
+       the frames are byte for byte what they were before.
+   * - ``MSTAR_INLINE_STEP_MAX_BYTES``
+     - ``1048576``
+     - Total inline bytes one worker step (one register call) may attach;
+       every message of the step carries a subset, so this bounds each. Past
+       it, tensors take the transfer path.
+   * - ``MSTAR_TRANSPORT_STATS_S``
+     - ``0``
+     - Mooncake transports: log one ``transport stats`` JSON line per process
+       every N seconds (tensors sent inline vs registered and why, per edge
+       inline vs read counts, bytes, read time and a log2 size histogram).
+       ``0`` disables.
 
 Models
 ------
