@@ -183,32 +183,24 @@ impl Bridge {
         }
     }
 
-    /// Whether `request_id` has a request in flight on this frontend.
-    pub fn is_active(&self, request_id: &str) -> bool {
-        self.routes.lock().expect("routes lock").contains_key(request_id)
-    }
-
     /// Submit a flattened request under `request_id`; returns a receiver that
     /// yields `ResultChunk`s until `Done`. The `request_id` is caller-supplied
     /// (the serving handler mints `chatcmpl-…`/`speech-…`), matching mstar,
-    /// whose per-request RNG seed derives from `hash(request_id)`.
+    /// whose per-request RNG seed derives from `hash(request_id)`. Refuses
+    /// (`Err` with the message for a 409) an id that is still in flight:
+    /// replacing its route would orphan the first request's stream, and that
+    /// stream's abort would then hit this one.
     pub fn submit(
         &self,
         args: &SubmitArgs,
         request_id: &str,
         streaming: bool,
-    ) -> UnboundedReceiver<StreamItem> {
+    ) -> Result<UnboundedReceiver<StreamItem>, String> {
         let (tx, rx) = unbounded_channel();
         {
             let mut routes = self.routes.lock().expect("routes lock");
             if routes.contains_key(request_id) {
-                // Replacing the route would orphan the first request's stream,
-                // and its abort would then hit this one.
-                let _ = tx.send(StreamItem::Error {
-                    status: 409,
-                    message: format!("request_id {request_id:?} is already in use"),
-                });
-                return rx;
+                return Err(format!("request_id {request_id:?} is already in use"));
             }
             routes.insert(request_id.to_string(), tx.clone());
         }
@@ -236,7 +228,7 @@ impl Bridge {
             });
             self.routes.lock().expect("routes lock").remove(request_id);
         }
-        rx
+        Ok(rx)
     }
 
     /// Liveness round-trip for the deep health check: send `{t:"ping"}` and

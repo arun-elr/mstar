@@ -822,7 +822,7 @@ class APIServer:
                         req = self.pending_requests.get(request_id)
                         if req:
                             remaining = req.chunks[req.consumed_chunks:]
-                            finished_req = self.pending_requests.pop(request_id, None)
+                            finished_req = self._pop_finished(request_id)
                     # Profiling (incl. the optional file write) runs outside the
                     # lock; the popped request is no longer shared with other threads.
                     if finished_req is not None:
@@ -949,7 +949,7 @@ class APIServer:
             await asyncio.sleep(0.005)
 
         with self.request_lock:
-            req = self.pending_requests.pop(request_id, None)
+            req = self._pop_finished(request_id)
         if req is None:
             return []
         if req.error is not None:
@@ -1004,6 +1004,17 @@ class APIServer:
         logger.info("Client cancelled request %s; releasing resources", request_id)
         self.preprocess_worker.abort_request(request_id)
 
+    def _pop_finished(self, request_id: str) -> PendingRequest | None:
+        """Pop a request whose client has its final answer, with
+        ``request_lock`` held, and free its id now: a failed request stays
+        parked in recently_completed until the next prune, and a client
+        retrying the id at once would get a 409 meanwhile."""
+        req = self.pending_requests.pop(request_id, None)
+        if req is not None and request_id in self.recently_completed:
+            del self.recently_completed[request_id]
+            self.preprocess_worker.finished_reading(request_id, drained=False)
+        return req
+
     def release_request(self, request_id: str) -> None:
         """Drop a request whose results will never be read: abort it if it is
         still running, else just forget it (an ended request needs no abort)."""
@@ -1011,7 +1022,7 @@ class APIServer:
             req = self.pending_requests.get(request_id)
             finished = req is not None and req.event.is_set()
             if finished:
-                self.pending_requests.pop(request_id)
+                self._pop_finished(request_id)
         if not finished:
             self.abort_request(request_id)
 

@@ -33,6 +33,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from fastapi import HTTPException
+
 from mstar.communication.communicator import CommProtocol
 from mstar.communication.rust_communicator import (
     MsgpackCodec,
@@ -128,6 +130,15 @@ class RustFrontendBridge:
                 streaming=bool(msg.get("streaming", True)),
                 request_id=rid,
             )
+        except HTTPException as e:
+            logger.warning("submit %s refused: %s", rid, e.detail)
+            # An in-band error chunk is the bridge's only form that carries
+            # an HTTP status; `t="err"` always surfaces as a 500.
+            self._send({
+                "t": "chunk", "rid": rid, "modality": "error",
+                "data": str(e.detail).encode(), "metadata": {"status": e.status_code},
+            })
+            return
         except Exception as e:  # noqa: BLE001 — one bad request must not kill the loop
             logger.warning("submit %s failed: %r", rid, e)
             self._err(rid, repr(e))

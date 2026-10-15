@@ -93,6 +93,37 @@ def test_id_is_free_again_once_released(tmp_path):
     assert s.submitted == [("dup", "first"), ("dup", "second")]
 
 
+@pytest.mark.parametrize("streaming", [False, True])
+def test_id_is_free_as_soon_as_a_failed_request_answers(tmp_path, streaming):
+    # A failed request is parked in recently_completed until the data worker
+    # side lets go; its client already has the error and may retry at once.
+    s = _server(tmp_path)
+    s.preprocess_worker.finished_reading = (
+        lambda rid, drained=True: s.reads_done.append((rid, drained))
+    )
+    s.reads_done = []
+    s.submit_request(text="first", request_id="dup", streaming=streaming, **TEXT)
+    with s.request_lock:
+        req = s.pending_requests["dup"]
+        req.error, req.error_status = "bad input", 400
+        req.event.set()
+        s.recently_completed["dup"] = time.time()
+
+    if streaming:
+        async def read_all():
+            return [c async for c in s.iter_result_chunks("dup")]
+        assert [c.modality for c in asyncio.run(read_all())] == ["error"]
+    else:
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(s.collect_results("dup"))
+        assert e.value.status_code == 400
+
+    s.submit_request(text="retry", request_id="dup", streaming=False, **TEXT)
+    assert s.submitted == [("dup", "first"), ("dup", "retry")]
+    # The data worker still gets its READS_DONE for the failed request.
+    assert s.reads_done == [("dup", False)]
+
+
 @pytest.mark.parametrize("streaming", ["true", "false"])
 def test_generate_returns_409(monkeypatch, tmp_path, streaming):
     s = _server(tmp_path)

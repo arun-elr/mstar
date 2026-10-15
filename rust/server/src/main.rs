@@ -54,7 +54,7 @@ use protocol::{
     ChatCompletionRequest, ImageGenerationRequest, ModelCard, ModelList, SpeechRequest,
     VideoGenerationRequest,
 };
-use serving::{collect, now, result_stream, rid, AppState, Out};
+use serving::{collect, now, result_stream, rid, try_result_stream, AppState, Out};
 
 #[tokio::main]
 async fn main() {
@@ -1010,11 +1010,11 @@ async fn generate_finish(
     };
 
     schedule_upload_cleanup(&st.upload_dir, &args);
-    if st.bridge.as_ref().is_some_and(|b| b.is_active(&request_id)) {
-        return detail_error(409, &format!("request_id {request_id:?} is already in use"));
-    }
     if streaming {
-        let base = result_stream(&st, &args, &request_id, true);
+        let base = match try_result_stream(&st, &args, &request_id, true) {
+            Ok(base) => base,
+            Err((status, message)) => return detail_error(status, &message),
+        };
         let body = base.map(|item| {
             Ok::<Bytes, Infallible>(Bytes::from(match item {
                 Out::Chunk(c) => ndjson_line(&c),
