@@ -1505,6 +1505,15 @@ class Conductor:
         for name in body.output_signal_names:
             counts[name] = counts.get(name, 0) + 1
 
+        # Keyed by edge, not by this message's partition: a worker reports what
+        # it sent on whichever completion goes out next. Every rank's items
+        # are its own, so none is skipped.
+        for edge_name, per_worker in body.stream_items_sent.items():
+            for conn in request_data.streaming_connections.values():
+                if conn.edge_name == edge_name:
+                    for worker_id, n in per_worker.items():
+                        conn.items_sent[worker_id] = conn.items_sent.get(worker_id, 0) + n
+
         pstate = request_data.partition_states.get(partition_name)
         if pstate is None:
             logger.warning(
@@ -1701,6 +1710,13 @@ class Conductor:
             if walks & pdef.graph_walks:
                 consumer_workers.update(worker_ids)
 
+        # The signal ends every stream from the producer, so it carries all of
+        # their counts, not just the one connection's.
+        conns = [
+            conn for conn in request_data.streaming_connections.values()
+            if conn.from_partition == producer_partition
+            and conn.to_partition == consumer_partition_name
+        ]
         for worker_id in consumer_workers:
             message = WorkerMessage(
                 message_type=WorkerMessageType.INPUT_SIGNALS,
@@ -1718,6 +1734,10 @@ class Conductor:
                     ),
                     partition_name=consumer_partition_name,
                     producer_done=set([producer_partition]),
+                    producer_done_items={
+                        conn.edge_name: conn.items_sent.get(worker_id, 0)
+                        for conn in conns
+                    },
                 ),
             )
             self.communicator.send(worker_id, message)
