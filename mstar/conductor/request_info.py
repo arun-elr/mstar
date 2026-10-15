@@ -107,6 +107,8 @@ class StreamingConnectionState:
     token_count: int = 0
     consumed_count: int = 0
     producer_done: bool = False
+    # destination worker -> stream items the producer sent it
+    items_sent: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
