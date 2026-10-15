@@ -11,9 +11,10 @@ Client events
     ``input_audio_buffer.commit``      end of the utterance: flush and finish
     ``input_audio_buffer.clear``       drop buffered audio and start over
 
-``chunk_seconds`` must be between ``MIN_CHUNK_SECONDS`` and the item cap, and
-the unfixed counts non-negative integers; any other value is an ``error`` and
-the update changes nothing.
+``chunk_seconds`` below ``MIN_CHUNK_SECONDS`` is raised to it and must not
+pass the item cap, and the unfixed counts are non-negative integers; numeric
+strings count as numbers. Any other value is an ``error`` and the update
+changes nothing.
 
 Server events
     ``transcription_session.created`` / ``.updated``
@@ -142,17 +143,31 @@ def _object(value, name: str) -> dict:
     return value
 
 
-def _number(knobs: dict, name: str, default, lo: float, hi: float = math.inf, integer: bool = False):
+def _number(knobs: dict, name: str, default, lo: float, hi: float = math.inf, integer: bool = False,
+            clamp_low: bool = False):
     """``knobs[name]`` (or ``default``) checked to be a finite number in
-    ``[lo, hi]``, and integral when ``integer``. JSON allows NaN, Infinity and
-    integers too big for a float, so each is checked before any conversion."""
+    ``[lo, hi]``, and integral when ``integer``. A numeric string is read as
+    its number, and with ``clamp_low`` a value below ``lo`` is raised to it.
+    JSON allows NaN, Infinity and integers too big for a float, so each is
+    checked before any conversion."""
     value = knobs.get(name, default)
+    if isinstance(value, str):
+        try:
+            value = int(value)
+        except ValueError:
+            try:
+                value = float(value)
+            except ValueError:
+                pass
     kind = "an integer" if integer else "a number"
     ok = isinstance(value, (int, float)) and not isinstance(value, bool)
     try:
-        ok = ok and lo <= value <= hi and math.isfinite(value) and (not integer or value == int(value))
+        ok = ok and math.isfinite(value) and (not integer or value == int(value))
     except OverflowError:
         ok = False
+    if ok and clamp_low and value < lo:
+        value = lo
+    ok = ok and lo <= value <= hi
     if not ok:
         bound = f">= {lo:g}" if hi == math.inf else f"between {lo:g} and {hi:g}"
         raise ValueError(f"mstar.{name} must be {kind} {bound}; got {value!r}")
@@ -333,7 +348,8 @@ class RealtimeTranscription:
         if fmt not in (None, "pcm16"):
             raise ValueError(f"only pcm16 input is supported; got {fmt!r}")
         knobs = _object(session.get("mstar"), "mstar")
-        chunk_seconds = _number(knobs, "chunk_seconds", s.chunk_seconds, MIN_CHUNK_SECONDS, s.max_item_seconds)
+        chunk_seconds = _number(knobs, "chunk_seconds", s.chunk_seconds, MIN_CHUNK_SECONDS, s.max_item_seconds,
+                                clamp_low=True)
         unfixed_chunks = _number(knobs, "unfixed_chunks", s.unfixed_chunks, 0, integer=True)
         unfixed_tokens = _number(knobs, "unfixed_tokens", s.unfixed_tokens, 0, integer=True)
         transcription = _object(session.get("input_audio_transcription"), "input_audio_transcription")
