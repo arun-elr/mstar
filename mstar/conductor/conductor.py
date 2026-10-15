@@ -318,6 +318,9 @@ class Conductor:
         self._draining_deadlines: deque[tuple[float, str]] = deque()
         self._early_reads_done_deadlines: deque[tuple[float, str]] = deque()
         self._early_abort_deadlines: deque[tuple[float, str]] = deque()
+        # (deadline, rid, entity, message) for teardown sends that raised; the
+        # request's state is already freed, so this is the only copy left.
+        self._unsent_teardown: list[tuple[float, str, str, object]] = []
 
         self.model = model
         self.hostname = hostname
@@ -664,6 +667,11 @@ class Conductor:
             if dr is not None and dr.failure_error is None:
                 continue  # completed or aborted, the client has already heard
             pending.append(request_id)
+        # Freed already, but their request_failed never went out.
+        pending += [
+            request_id for _, request_id, entity, _ in self._unsent_teardown
+            if entity == "api_server"
+        ]
         for request_id in pending:
             self.communicator.send(
                 "api_server",
@@ -1170,9 +1178,31 @@ class Conductor:
             self.communicator.send(entity, message)
         except Exception:
             logger.exception(
-                "Could not send %s for request %s to %s",
+                "Could not send %s for request %s to %s; retrying",
                 message.message_type, request_id, entity,
             )
+            self._unsent_teardown.append(
+                (time.perf_counter() + self._drain_ttl_s, request_id, entity, message)
+            )
+
+    def _retry_unsent_teardown(self):
+        """Resend teardown messages whose send raised, until each goes out or
+        its TTL runs out."""
+        if not self._unsent_teardown:
+            return
+        now = time.perf_counter()
+        pending, self._unsent_teardown = self._unsent_teardown, []
+        for deadline, request_id, entity, message in pending:
+            try:
+                self.communicator.send(entity, message)
+            except Exception:
+                if now < deadline:
+                    self._unsent_teardown.append((deadline, request_id, entity, message))
+                else:
+                    logger.exception(
+                        "Gave up sending %s for request %s to %s after %.0fs",
+                        message.message_type, request_id, entity, self._drain_ttl_s,
+                    )
 
     def _finalize_draining(self, request_id: str):
         """Every reader has drained: send the hard RemoveRequest to all
@@ -1181,7 +1211,8 @@ class Conductor:
         if dr is None:
             return
         # The drain record is gone, so nothing would ever finish this teardown
-        # later: a send that raises must not skip the other sends or the free.
+        # later: a send that raises must not skip the other sends or the free,
+        # and is retried on its own.
         for entity in dr.participants:
             self._send_for_teardown(
                 request_id, entity,
@@ -1765,6 +1796,7 @@ class Conductor:
                         except Exception as exc:
                             self._fail_after_error(request_id, "completing it", exc)
 
+                self._retry_unsent_teardown()
                 self._sweep_expiry()
 
             except Exception:
