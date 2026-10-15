@@ -225,6 +225,9 @@ class RequestData:
     sharding_config: ShardingConfig | None = None
     # set once a NewRequest goes out; before that a failed ingest has nothing to drain
     dispatched: bool = False
+    # set once request_complete goes out; after that the client must never get
+    # request_failed
+    completion_sent: bool = False
 
     # Partition state (always populated — single-partition models use a "default" partition)
     partition_states: dict[str, PartitionState] = field(default_factory=dict)
@@ -1169,23 +1172,34 @@ class Conductor:
             ),
         )
 
+    def _send_for_teardown(self, request_id: str, entity: str, message):
+        try:
+            self.communicator.send(entity, message)
+        except Exception:
+            logger.exception(
+                "Could not send %s for request %s to %s",
+                message.message_type, request_id, entity,
+            )
+
     def _finalize_draining(self, request_id: str):
         """Every reader has drained: send the hard RemoveRequest to all
         participants, notify the client on the fail path, then free state."""
         dr = self.draining.pop(request_id, None)
         if dr is None:
             return
+        # The drain record is gone, so nothing would ever finish this teardown
+        # later: a send that raises must not skip the other sends or the free.
         for entity in dr.participants:
-            self.communicator.send(
-                entity,
+            self._send_for_teardown(
+                request_id, entity,
                 WorkerMessage(
                     message_type=WorkerMessageType.REMOVE_REQUEST,
                     body=RemoveRequest(request_id),
                 ),
             )
         if dr.failure_error is not None:
-            self.communicator.send(
-                "api_server",
+            self._send_for_teardown(
+                request_id, "api_server",
                 APIServerMessage(
                     message_type="request_failed",
                     body=RequestFailed(
@@ -1349,6 +1363,7 @@ class Conductor:
                 )
             )
         )
+        request_data.completion_sent = True
 
         # Unpersist anything still held, with correct ref counts, so producers
         # reclaim it as the final reads ACK — before the hard teardown.
@@ -1677,13 +1692,12 @@ class Conductor:
 
     def _fail_after_error(
         self, request_id: str | None, step: str, exc: Exception,
-        notify_client: bool = True,
     ) -> None:
         """Fail the one request whose handling raised, through the drain barrier,
         so its client gets the error and its concurrency slot is freed.
 
-        ``notify_client=False`` only tears it down: for a completion, whose
-        ``request_complete`` may already have reached the client."""
+        A request whose ``request_complete`` already went out is only torn
+        down: its client has the result."""
         logger.exception("Conductor error %s for request %s", step, request_id)
         request_data = self.requests.get(request_id)
         if request_data is None or request_id in self.draining:
@@ -1692,8 +1706,8 @@ class Conductor:
             self._remove_request(
                 request_id, request_data,
                 failure_error=(
-                    f"Conductor error {step}: {type(exc).__name__}: {exc}"
-                    if notify_client else None
+                    None if request_data.completion_sent
+                    else f"Conductor error {step}: {type(exc).__name__}: {exc}"
                 ),
             )
         except Exception:
@@ -1756,9 +1770,7 @@ class Conductor:
                         try:
                             self._process_request_done(request_id)
                         except Exception as exc:
-                            self._fail_after_error(
-                                request_id, "completing it", exc, notify_client=False,
-                            )
+                            self._fail_after_error(request_id, "completing it", exc)
 
                 self._sweep_expiry()
 

@@ -24,6 +24,7 @@ from mstar.utils.ipc_format import (
     ConductorMessageType,
     ReadsDone,
     WorkerGraphsDone,
+    WorkerMessageType,
 )
 
 PREPROCESS = Conductor.PREPROCESS_WORKER
@@ -208,6 +209,64 @@ def test_a_completion_that_raises_after_notifying_is_torn_down_quietly():
     assert "a" in _to_client(c, "request_complete")
     assert _to_client(c, "request_failed") == {}
     assert "a" not in c.requests and "a" not in c.draining
+
+
+def _send_raises_once(c, kind):
+    """The first send of ``kind`` raises, as a socket error would, and sends
+    nothing."""
+    send = c.communicator.send
+    raised = []
+
+    def _send(entity, msg):
+        if msg.message_type == kind and not raised:
+            raised.append(entity)
+            raise OSError(f"could not send {kind}")
+        send(entity, msg)
+    c.communicator.send = _send
+    return raised
+
+
+def test_a_completed_request_whose_teardown_send_raises_is_not_failed():
+    c = _conductor(
+        [_done("a")],
+        [_reads_done("a", PREPROCESS)],
+        [_reads_done("a", "worker_0"), _reads_done("a", PREPROCESS)],
+        requests={"a": _request()},
+    )
+    admitted = []
+    c.max_concurrent_requests = 1
+    c.waiting_queue = [SimpleNamespace(request_id="queued")]
+    c._admit_request = lambda body: admitted.append(body.request_id)
+    raised = _send_raises_once(c, WorkerMessageType.REMOVE_REQUEST)
+    _run(c)
+    assert "a" in _to_client(c, "request_complete")
+    assert _to_client(c, "request_failed") == {}
+    assert "a" not in c.requests and "a" not in c.draining
+    assert admitted == ["queued"]
+    # The send that raised does not stop the hard remove to the others.
+    removed = {
+        entity for entity, m in c.sent
+        if m.message_type == WorkerMessageType.REMOVE_REQUEST
+    }
+    assert removed | set(raised) == {"worker_0", PREPROCESS}
+
+
+def test_a_completion_whose_send_raises_fails_its_client():
+    c = _conductor(
+        [_done("a")],
+        [_reads_done("a", "worker_0"), _reads_done("a", PREPROCESS)],
+        requests={"a": _request()},
+    )
+    admitted = []
+    c.max_concurrent_requests = 1
+    c.waiting_queue = [SimpleNamespace(request_id="queued")]
+    c._admit_request = lambda body: admitted.append(body.request_id)
+    _send_raises_once(c, "request_complete")
+    _run(c)
+    assert _to_client(c, "request_complete") == {}
+    assert "could not send request_complete" in _to_client(c, "request_failed")["a"].error_message
+    assert "a" not in c.requests and "a" not in c.draining
+    assert admitted == ["queued"]
 
 
 def test_a_base_exception_is_not_swallowed():
