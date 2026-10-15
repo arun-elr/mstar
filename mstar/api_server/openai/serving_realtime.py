@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import itertools
 import json
 import logging
 import math
@@ -72,8 +73,30 @@ MIN_CHUNK_SECONDS = 0.5
 MAX_ITEM_SECONDS = 300.0
 # Longest excerpt of a client value quoted in an error.
 EXCERPT_CHARS = 100
+class _ExcerptRepr(reprlib.Repr):
+    """``reprlib.Repr`` that reads the first items of a dict or set instead
+    of sorting all of them, so the work does not grow with the input."""
+
+    def repr_dict(self, x, level):
+        if not x:
+            return "{}"
+        if level <= 0:
+            return "{" + self.fillvalue + "}"
+        pieces = [f"{self.repr1(k, level - 1)}: {self.repr1(v, level - 1)}"
+                  for k, v in itertools.islice(x.items(), self.maxdict)]
+        if len(x) > self.maxdict:
+            pieces.append(self.fillvalue)
+        return "{" + ", ".join(pieces) + "}"
+
+    def repr_set(self, x, level):
+        return self._repr_iterable(x, level, "{", "}", self.maxset) if x else "set()"
+
+    def repr_frozenset(self, x, level):
+        return self._repr_iterable(x, level, "frozenset({", "})", self.maxfrozenset) if x else "frozenset()"
+
+
 # Bounds the work of rendering a nested value; EXCERPT_CHARS bounds the result.
-_EXCERPT_REPR = reprlib.Repr(
+_EXCERPT_REPR = _ExcerptRepr(
     maxlevel=2, maxtuple=4, maxlist=4, maxarray=4, maxdict=4, maxset=4, maxfrozenset=4, maxdeque=4,
     maxstring=EXCERPT_CHARS, maxlong=EXCERPT_CHARS, maxother=EXCERPT_CHARS,
 )
