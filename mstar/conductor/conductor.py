@@ -1337,6 +1337,7 @@ class Conductor:
                 self.waiting_queue.pop(i)
                 self._early_reads_done.pop(request_id, None)
                 self._send_remove_to_preprocess_worker(request_id)
+                self._mark_torn_down(request_id)
                 logger.info("Aborted request %s before admission", request_id)
                 return
 

@@ -299,6 +299,20 @@ def test_a_late_reads_done_does_not_pre_ack_a_rerun():
     assert c.draining["r1"].expected_acks == {PREPROCESS}
 
 
+def test_a_queued_abort_s_reads_done_does_not_pre_ack_a_rerun():
+    """The data worker answers its own abort with a READS_DONE, which lands
+    after the conductor already dropped the queued request."""
+    c = _conductor({})
+    c.waiting_queue = [_new_request("r1")]
+    c._abort_request("r1")
+    c._handle_reads_done(ReadsDone(request_id="r1", entity_id=PREPROCESS))
+    assert "r1" not in c._early_reads_done
+    c._ingest_request(_new_request("r1"))
+    c.requests["r1"] = _request_data()
+    c._process_request_done("r1")
+    assert c.draining["r1"].expected_acks == {PREPROCESS}
+
+
 def test_a_late_abort_after_a_rejection_does_not_drop_a_rerun():
     c = _conductor({})
     admitted = _admitting(c)
