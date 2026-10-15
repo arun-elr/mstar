@@ -347,6 +347,36 @@ def test_error_quotes_only_a_short_excerpt_of_client_input(message):
     assert len(ws.sent[1]["error"]["message"]) <= 180
 
 
+def test_excerpt_of_a_wide_container_does_not_sort_it():
+    """A dict's keys are not compared at all: the excerpt reads its first
+    few items instead of sorting every key."""
+    comparisons = 0
+
+    class _Key(str):
+        def __lt__(self, other):
+            nonlocal comparisons
+            comparisons += 1
+            return str.__lt__(self, other)
+
+        __gt__ = __le__ = __ge__ = __lt__
+
+    keys = [_Key(i) for i in range(100_000)]
+    for value in (dict.fromkeys(keys, 0), set(keys), frozenset(keys), {"type": dict.fromkeys(keys, 0)}):
+        assert len(serving_realtime._excerpt(value)) <= serving_realtime.EXCERPT_CHARS
+    assert comparisons == 0
+
+
+def test_wide_dict_event_type_is_an_error(client_and_stub):
+    client, stub = client_and_stub
+    with client.websocket_connect("/v1/realtime") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": {str(i): 0 for i in range(100_000)}}))
+        error = json.loads(ws.receive_text())
+        assert error["type"] == "error" and len(error["error"]["message"]) <= 180
+        ws.send_text(_update())
+        assert json.loads(ws.receive_text())["type"] == "transcription_session.updated"
+
+
 def test_non_object_events_are_errors(client_and_stub):
     client, stub = client_and_stub
     with client.websocket_connect("/v1/realtime") as ws:
