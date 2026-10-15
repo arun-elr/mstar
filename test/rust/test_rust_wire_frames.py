@@ -944,3 +944,33 @@ def test_a_removed_rid_leaves_no_persist_signal_for_the_next_handle(tmp_path):
         "only the surviving request reports done"
     )
     assert [i.uuid for i in wgds[0].persist_signals["kv"]] == [1]
+
+
+
+def test_inline_bytes_reach_a_peer_as_python_would_send_them(tmp_path):
+    """A descriptor carrying inline bytes (MSTAR_INLINE_TENSOR_MAX_BYTES) goes
+    out of Rust exactly as Python would send it."""
+    mesh = _Mesh(
+        tmp_path, outs=[("out", "remote", False)],
+        remote=[{"wg_id": 1, "graph_walks": [WALK],
+                 "nodes": ["remote"], "dyn_loops": []}],
+    )
+    rid = mesh.admit(wgs=(WG_ID, 1), workers=(ME, PEER))
+    info = _put(mesh, 1)
+    info.inline_data = bytes(range(12))
+    mesh.book.set_inline_data([1], [info.inline_data])
+    got = mesh.run(rid, uuids=[1])
+
+    (frame,) = got[PEER]
+    assert frame.body.inputs[0].tensor_info == [info]
+    assert mesh.book.get_info(1).inline_data == bytes(range(12))
+
+
+def test_inline_bytes_reach_the_api_server(tmp_path):
+    mesh = _Mesh(tmp_path, outs=[("out", "emit_to_client", False)])
+    rid = mesh.admit()
+    info = _put(mesh, 1)
+    info.inline_data = bytes(12)
+    mesh.book.set_inline_data([1], [info.inline_data])
+    got = mesh.run(rid, uuids=[1])
+    assert got["api_server"][0].body.graph_edge.tensor_info == [info]

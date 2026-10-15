@@ -868,6 +868,25 @@ mod tests {
 
 
     #[test]
+    fn inline_bytes_survive_a_lookup_and_go_with_the_record() {
+        let mut b = bk();
+        b.put_tensor(1, TensorInfoArg {
+            dims: vec![2], dtype: "int64".into(), nbytes: 16, address: 0,
+            stride: vec![1], uuid: 1, source_session_id: "h:1".into(),
+            source_entity: "worker_0".into(), offset: 0, source_tp_size: 1,
+            source_tp_rank: 0, shm_segment: None, shm_offset: 0,
+            source_node_name: None, source_graph_walk: None,
+        });
+        assert!(b.get_info(1).unwrap().inline_data.is_none());
+        let data: Arc<[u8]> = Arc::from(&[5u8; 16][..]);
+        b.set_inline_data(&[1, 99], vec![data.clone(), data.clone()]).unwrap();
+        assert_eq!(b.get_info(1).unwrap().inline_data.as_deref(), Some(&[5u8; 16][..]));
+        assert!(b.set_inline_data(&[1], vec![]).is_err());
+        b.forget_tensor(1);
+        assert!(b.get_info(1).is_none());
+    }
+
+    #[test]
     fn mem_registered_is_independent_of_collectability() {
         let mut b = bk();
         track(&mut b, 1);

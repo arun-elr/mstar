@@ -3569,6 +3569,34 @@ mod tests {
         let mut rids = InternedRids::new();
         assert!(!rids.release(42));
     }
+
+    fn inline_tensor(bk: &mut crate::tensors::Bookkeeping, uuid: u64, bytes: &[u8]) {
+        bk.put_tensor(uuid, crate::tensors::TensorInfoArg {
+            dims: vec![2, (bytes.len() / 2) as i64], dtype: "uint8".into(),
+            nbytes: bytes.len() as i64, address: 0x1000, stride: vec![(bytes.len() / 2) as i64, 1],
+            uuid, source_session_id: "h:1".into(), source_entity: "worker_0".into(),
+            offset: 0, source_tp_size: 1, source_tp_rank: 0, shm_segment: None,
+            shm_offset: 0, source_node_name: None, source_graph_walk: None,
+        });
+        bk.set_inline_data(&[uuid], vec![std::sync::Arc::from(bytes)]).unwrap();
+    }
+
+    #[test]
+    fn only_a_whole_descriptor_carries_the_inline_bytes() {
+        // The bytes are the whole tensor's: a TP slice of it would hand the
+        // reader the wrong rows, so a slice goes out without them.
+        let mut bk = crate::tensors::Bookkeeping::default();
+        let bytes = [1u8, 2, 3, 4, 5, 6, 7, 8];
+        inline_tensor(&mut bk, 7, &bytes);
+        let whole = TensorRef { uuid: 7, dim0: 2, nbytes: 8, offset: 0 };
+        let half = TensorRef { uuid: 7, dim0: 1, nbytes: 4, offset: 4 };
+        let first_half = TensorRef { uuid: 7, dim0: 1, nbytes: 4, offset: 0 };
+        let out = GraphRuntime::sliced_infos_locked(&bk, &[whole, half, first_half]);
+        assert_eq!(out[0].inline_data.as_deref(), Some(&bytes[..]));
+        assert!(out[1].inline_data.is_none());
+        assert!(out[2].inline_data.is_none());
+        assert_eq!(out[1].offset, 4);
+    }
 }
 
 /// Env-gated timing of `send_outputs` (MSTAR_RUST_SEND_TIMING=1): how long

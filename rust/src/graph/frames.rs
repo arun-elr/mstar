@@ -560,6 +560,31 @@ mod tests {
         }
     }
 
+    #[test]
+    fn inline_bytes_ride_as_msgpack_bin_and_only_when_present() {
+        let mut strings = StrToId::default();
+        let mut info = TensorPointerInfo {
+            dims: vec![3], dtype: strings.intern("uint8"), nbytes: 3, address: 0,
+            stride: vec![1], uuid: 1, source_session_id: strings.intern("h:1"),
+            source_entity: strings.intern("worker_0"), offset: 0, source_tp_size: 1,
+            source_tp_rank: 0, shm_segment: None, shm_offset: 0,
+            source_node_name: None, source_graph_walk: None, inline_data: None,
+        };
+        let keys = |info: &TensorPointerInfo| {
+            let mut out = Vec::new();
+            tensor_info(&mut out, &strings, info);
+            let Value::Map(entries) = rmpv::decode::read_value(&mut &out[..]).unwrap() else {
+                panic!("not a map")
+            };
+            entries
+        };
+        assert!(keys(&info).iter().all(|(k, _)| k.as_str() != Some("inline_data")));
+        info.inline_data = Some(std::sync::Arc::from(&[9u8, 8, 7][..]));
+        let entries = keys(&info);
+        let (_, v) = entries.iter().find(|(k, _)| k.as_str() == Some("inline_data")).unwrap();
+        assert_eq!(v, &Value::Binary(vec![9, 8, 7]));
+    }
+
     /// A nested counted map must not disturb its parent's count.
     #[test]
     fn nesting_counted_maps_keeps_both_counts() {
