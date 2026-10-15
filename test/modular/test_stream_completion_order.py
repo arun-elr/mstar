@@ -335,6 +335,41 @@ def test_done_before_the_last_of_several_passes(kind, tmp_path):
     assert done.producer_done_items == {EDGE: 2}
 
 
+@pytest.mark.parametrize("flush", ["one_per_tick", "all_at_once"])
+def test_a_send_backlog_that_drains_after_done(kind, tmp_path, flush):
+    """With non-blocking sends and a per-peer backlog (#217), descriptors for a
+    backed-up consumer wait on the producer while its completions reach an idle
+    conductor at once. Every pass's descriptor then lands after
+    ``producer_done``, in order, and the stream ends with the last one."""
+    producer = _Producer(kind, tmp_path)
+    backlog, wgds = [], []
+    for uuid in (11, 12, 13):
+        descriptor, wgd = producer.step(uuid=uuid)
+        backlog.append(descriptor)
+        wgds.append(wgd)
+    done = _conduct(_conductor(passes=3), wgds)
+
+    if flush == "one_per_tick":
+        w, buf = _consumer(FixedChunkPolicy(1))
+        w._process_new_inputs(done)
+        assert _chunks(w, buf) == [], "ended the stream before its backlog drained"
+        _deliver(w, backlog[0])
+        assert _chunks(w, buf) == [(1, False)]
+        _deliver(w, backlog[1])
+        assert _chunks(w, buf) == [(1, False)]
+        _deliver(w, backlog[2])
+        assert _chunks(w, buf) == [(1, True)]
+    else:
+        w, buf = _consumer(FixedChunkPolicy(25))
+        w._process_new_inputs(done)
+        assert _chunks(w, buf) == [], "ended the stream before its backlog drained"
+        for descriptor in backlog:
+            _deliver(w, descriptor)
+        assert _chunks(w, buf) == [(3, True)]
+    assert _chunks(w, buf) == []
+    assert done.producer_done_items == {EDGE: 3}
+
+
 def test_items_before_done_end_the_stream_as_before(kind, tmp_path):
     producer = _Producer(kind, tmp_path)
     descriptor, wgd = producer.step(uuid=11)
