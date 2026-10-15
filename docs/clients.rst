@@ -301,7 +301,7 @@ Per-model notes:
   turn is prefilled with the previous hypothesis minus its last ``unfixed_tokens``
   tokens (the Qwen3-ASR SDK's streaming algorithm), so only the tail is ever revised.
   Tune ``chunk_seconds`` / ``unfixed_chunks`` / ``unfixed_tokens`` under ``session.mstar``
-  in ``transcription_session.update``; ``chunk_seconds`` is at least 0.5. An item holds
+  in ``transcription_session.update``; a smaller ``chunk_seconds`` is raised to 0.5. An item holds
   at most 300 s of audio (``max_item_seconds`` in the session, lower if the model hears
   less): commit before then, since an append past it is refused with an ``error``.
 - **Kokoro** — ``voice`` is one of the 54 bundled voices (default ``af_heart``) or a
