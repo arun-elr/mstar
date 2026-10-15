@@ -482,17 +482,20 @@ _DERIVED_KEYS = (".causal_mask",)
 def _fold_weight_norm(state: dict[str, torch.Tensor]) -> Iterator[tuple[str, torch.Tensor]]:
     """Yield checkpoint tensors with every weight-normed weight folded."""
     pairs = (
-        (".parametrizations.weight.original0", ".parametrizations.weight.original1"),
-        (".weight_g", ".weight_v"),
+        ("parametrizations.weight.original0", "parametrizations.weight.original1"),
+        ("weight_g", "weight_v"),
     )
+
+    def has_leaf(name: str, leaf: str) -> bool:
+        return name == leaf or name.endswith("." + leaf)
+
     for name, tensor in state.items():
-        for g_suffix, v_suffix in pairs:
-            if name.endswith(v_suffix):
+        for g_leaf, v_leaf in pairs:
+            if has_leaf(name, v_leaf):
                 break
-            if name.endswith(g_suffix):
-                base = name[: -len(g_suffix)]
-                v = state[base + v_suffix]
-                yield base + ".weight", torch._weight_norm(v, tensor, 0)
+            if has_leaf(name, g_leaf):
+                base = name[: -len(g_leaf)]
+                yield base + "weight", torch._weight_norm(state[base + v_leaf], tensor, 0)
                 break
         else:
             yield name, tensor
