@@ -1671,14 +1671,6 @@ class Code2WavSubmodule(NodeSubmodule):
         super().__init__()
         self.code2wav = code2wav_model
         self.config = config
-        # Per-request set of request_ids that have already emitted their first
-        # audio chunk. The first chunk has no prior audio to overlap with, so
-        # its output must NOT be trimmed — the left-context trim only applies
-        # to subsequent chunks. Matches HF chunked_decode's ``context_size =
-        # left_context_size if start_index - left_context_size > 0 else start_index``
-        # logic, where the first iteration has context_size=0.
-        self._first_chunk_emitted: set[str] = set()
-        self._latest_seq_len: dict[str, int] = {}
 
         # Pre-compute the total upsample factor. HF defines this as
         # ``np.prod(upsample_rates + upsampling_ratios)`` — both tuples
@@ -1691,20 +1683,20 @@ class Code2WavSubmodule(NodeSubmodule):
             total_upsample *= r
         self.total_upsample = total_upsample
 
-        self.full_seqlen = self.config.code2wav.codec_left_context_frames + \
-            self.config.code2wav.codec_chunk_frames
-
-    def cleanup_request(self, request_id):
-        super().cleanup_request(request_id)
-        self._first_chunk_emitted.discard(request_id)
-        self._latest_seq_len.pop(request_id, None)
+        # Every window, from the ramp's first few frames to a steady
+        # context + chunk window, is zero-padded to this one shape. The
+        # vocoder is causal, so the padding changes only the look-ahead
+        # samples that ``postprocess`` drops, and the convs keep the input
+        # lengths of a full window (bf16 cuDNN convs go wrong at some other
+        # odd lengths on B200).
+        self.full_seqlen = self.config.code2wav.codec_max_window
 
     @staticmethod
     def _context_only(
         request_ids, per_request_input_metadata: Mapping[str, InputMetadata] | None,
     ) -> bool:
         """Whether every window is a terminal flush of frames an earlier window
-        already delivered (a stream of exactly k * codec_chunk_frames frames).
+        already delivered (a stream that ended exactly on a chunk boundary).
         Such a window emits no audio."""
         metadata = per_request_input_metadata or {}
         for rid in request_ids:
@@ -1748,6 +1740,7 @@ class Code2WavSubmodule(NodeSubmodule):
         graph_walk: str,
         fwd_info: CurrentForwardPassInfo,
         inputs: NameToTensorList,
+        input_metadata: InputMetadata | None = None,
         **kwargs
     ) -> NodeInputs:
         num_quantizers = self.config.code2wav.num_quantizers  # 16
@@ -1772,8 +1765,13 @@ class Code2WavSubmodule(NodeSubmodule):
         if codec_tokens.shape[-1] > num_quantizers:
             codec_tokens = codec_tokens[..., :num_quantizers]
 
-        # pad sequence to full_seqlen for batching
+        # The window's leading frames that an earlier window already decoded.
+        # EOS is only ever a stream's last frame, so it never counts here.
+        chunk = (input_metadata.stream_chunks.get("codec_tokens") if input_metadata is not None else None)
         orig_seq_len = codec_tokens.shape[0]
+        context = min(chunk.context_items if chunk is not None else 0, orig_seq_len)
+
+        # pad sequence to full_seqlen for batching
         pad_len = self.full_seqlen - codec_tokens.shape[0]
         if pad_len > 0:
             pad = torch.zeros((
@@ -1781,14 +1779,19 @@ class Code2WavSubmodule(NodeSubmodule):
             ),dtype=codec_tokens.dtype,
             device=codec_tokens.device)
             codec_tokens = torch.cat([codec_tokens, pad], dim=0)
-        self._latest_seq_len[fwd_info.rid_handle] = orig_seq_len
 
         # Transpose to (Q, T)
         codec_tokens = codec_tokens.T  # (Q, T)
-        return NodeInputs(tensor_inputs={
-            "codec_tokens": codec_tokens,
-            "position_ids": torch.arange(codec_tokens.shape[1], device=codec_tokens.device)
-        })
+        # The window's geometry rides with this pass rather than in request
+        # state: the engine may prepare a request's next window before it
+        # postprocesses this one.
+        return NodeInputs(
+            tensor_inputs={
+                "codec_tokens": codec_tokens,
+                "position_ids": torch.arange(codec_tokens.shape[1], device=codec_tokens.device)
+            },
+            kwargs={"frames": orig_seq_len, "context": context},
+        )
 
     def preprocess(
         self,
@@ -1825,14 +1828,13 @@ class Code2WavSubmodule(NodeSubmodule):
     ) -> dict[str, NameToTensorList]:
         """Decode a batch of padded windows to untrimmed int16 PCM.
 
-        The Talker→Code2Wav StreamBuffer uses ``LeftContextChunkPolicy``:
-        the first popped chunk for a request contains ``codec_chunk_frames``
-        fresh frames with no overlap; every subsequent chunk contains
-        ``codec_chunk_frames + codec_left_context_frames`` frames where the
-        leading ``codec_left_context_frames`` are overlap from the previous
-        chunk's tail. The overlap lets the vocoder warm up at chunk
-        boundaries; ``postprocess`` cuts each request's new audio out of the
-        window.
+        The Talker→Code2Wav StreamBuffer uses ``ScheduledLeftContextChunkPolicy``:
+        chunk k for a request carries ``codec_chunk_schedule[k]`` new frames
+        (``codec_chunk_frames`` once the schedule runs out) behind up to
+        ``codec_left_context_frames`` frames an earlier chunk delivered, so
+        the first chunk has no overlap. The overlap lets the vocoder warm up
+        at chunk boundaries; ``postprocess`` cuts each request's new audio
+        out of the window.
 
         A zero-frame batch (terminal flushes with no new frames, see
         ``preprocess``) decodes nothing and emits empty chunks.
@@ -1894,15 +1896,16 @@ class Code2WavSubmodule(NodeSubmodule):
         self, request_id: str,
         request_info: CurrentForwardPassInfo,
         outputs: dict[str, list[torch.Tensor]],
+        inputs: NodeInputs | None = None,
         **kwargs
     ):
         if "audio_chunk" not in outputs:
             return
+        if inputs is None:
+            raise ValueError("Code2Wav postprocess needs the pass's inputs for its window geometry")
 
-        orig_seq_len = self._latest_seq_len[request_id]
-        cfg_ctx = self.config.code2wav.codec_left_context_frames
-        left_context_size = 0 if request_id not in self._first_chunk_emitted else cfg_ctx
-        self._first_chunk_emitted.add(request_id)
+        orig_seq_len = int(inputs.kwargs["frames"])
+        left_context_size = int(inputs.kwargs["context"])
         audio = outputs["audio_chunk"][0].reshape(-1)
         if audio.numel() == 0:
             outputs["audio_chunk"][0] = audio
