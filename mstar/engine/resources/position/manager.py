@@ -101,6 +101,17 @@ class RopeManager(PositionManager):
                 config.rope_theta,
                 cache_dtype,
             )
+        # CUDA rotates from this table instead of in-kernel angles when set.
+        self._rope_table: torch.Tensor | None = None
+        if config.rope_table_dtype is not None and device.type != "xpu":
+            if config.llama31_params:
+                raise NotImplementedError("rope_table_dtype does not support Llama 3.1 RoPE scaling")
+            rotary_dim = config.rotary_dim or head_dim
+            if rotary_dim is None:
+                raise ValueError("rope_table_dtype needs PositionConfig.rotary_dim or the KV cache's head_dim")
+            self._rope_table = self._build_rope_cache(
+                rotary_dim, config.rope_scale, config.rope_theta, config.rope_table_dtype,
+            ).float()
 
         # rid -> label -> next pos of stream
         self._counters: dict[str, dict[str, int]] = {}
@@ -510,7 +521,7 @@ class RopeManager(PositionManager):
             rope_theta if rope_theta is not None else config.rope_theta
         )
 
-        cos_sin_cache = None
+        cos_sin_cache = self._rope_table
         kernel_pos_ids = pos_ids[:q.shape[0]]
         if q.device.type == "xpu":
             rotary_dim = rotary_dim or q.shape[-1]
