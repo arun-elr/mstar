@@ -329,6 +329,34 @@ def test_check_stop_on_im_end_on_the_frame_limit_and_not_with_ignore_eos():
     assert step("b", 2) == {"ar_decode_loop"}
 
 
+def test_eos_is_not_sampled_on_the_prefill_frame_or_with_ignore_eos():
+    ar = tiny_ar()
+
+    def info(ignore_eos=False):
+        return SimpleNamespace(rid_handle=0, request_id="r",
+                               resource_configs={AR_SAMPLER: SamplingReqConfig(ignore_eos=ignore_eos)})
+
+    dim = ar.config.slow_ar.dim
+    prefill = ar.prepare_inputs("ar_prefill", info(), {
+        "prompt_ids": [torch.tensor([4, 5, 6])], "prompt_layout": [torch.tensor([3, 0])]})
+    decode = ar.prepare_inputs("ar_decode", info(), {"ar_input_embeds": [torch.zeros(1, dim)]})
+    ignoring = ar.prepare_inputs("ar_decode", info(ignore_eos=True), {"ar_input_embeds": [torch.zeros(1, dim)]})
+    assert [item.tensor_inputs["suppress_eos"].item() for item in (prefill, decode, ignoring)] == [True, False, True]
+
+    # EOS scores highest in every row; only the unsuppressed row may sample it
+    ar.slow_ar.forward = lambda embeds, label: embeds
+    rows = torch.zeros(3, ar.eos_code + 1, dtype=torch.float64)
+    rows[:, ar.eos_code], rows[:, 7] = 2.0, 1.0
+    ar.slow_ar.semantic_logits = lambda hidden: rows.clone()
+    sampler = SimpleNamespace(sample=lambda rids, logits: logits.argmax(-1))
+    engine_inputs = SimpleNamespace(request_ids=["p", "d", "i"], resources={AR_SAMPLER: sampler})
+    packed = ar.preprocess("ar_decode", engine_inputs, [decode, decode, decode])
+    packed["suppress_eos"] = torch.tensor([True, False, True])
+    out = ar._run_frame(engine_inputs, torch.zeros(3, dim, dtype=torch.float64), packed["last_token_indices"],
+                        packed["suppress_eos"])
+    assert out["new_token"].tolist() == [7, ar.eos_code, 7]
+
+
 # ---------------------------------------------------------------------------
 # Prompt and request validation
 # ---------------------------------------------------------------------------
@@ -418,6 +446,13 @@ def test_partition_state_machine_routes_clones_through_the_ref_encoder():
     assert meta.graph_walk == "ar_decode" and not meta.is_prefill and not decode.request_done
     assert decode.inputs[0].name == "ar_input_embeds" and decode.step_metadata["is_prefill"] is False
     assert model.get_partition_forward_pass_args("AR", meta, {}).request_done
+
+    # one frame allowed: the prefill sampled it, so the request ends without a decode walk
+    single = model.get_initial_forward_pass_args("AR", ["text"], ["audio"], signals, {"max_new_tokens": 1})
+    embeds = pointers("ar_input_embeds")
+    done = model.get_partition_forward_pass_args("AR", single.full_metadata, embeds)
+    assert done.request_done and done.unpersist_tensors == embeds["ar_input_embeds"]
+    assert model.get_graph_walk_graphs()["ar_decode"].max_iters == model.config.codec.max_frames
 
     codec = model.get_initial_forward_pass_args("Codec", ["text"], ["audio"], {})
     assert codec.full_metadata.graph_walk == "codec_chunk" and not codec.request_done
