@@ -270,7 +270,9 @@ class RealtimeTranscription:
                 message = await self.ws.receive_text()
                 try:
                     event = json.loads(message)
-                except json.JSONDecodeError:
+                # ValueError covers JSONDecodeError and integers past Python's
+                # int-string digit limit; RecursionError is deep nesting
+                except (ValueError, RecursionError):
                     await self.send(_error("not JSON"))
                     continue
                 if not isinstance(event, dict):
