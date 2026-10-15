@@ -362,6 +362,74 @@ def test_a_tp_fanout_cloned_before_registration_is_refreshed_per_rank(monkeypatc
     _read_halves(monkeypatch, fanout, original, bookkeeping)
 
 
+def test_a_permuted_shard_and_a_fan_in_concat_stay_registered(monkeypatch):
+    """Both are made by a kernel queued after the step's completion event,
+    which the side-stream copy would not wait for."""
+    prod = _manager("worker_0", monkeypatch, fake_engine=True)
+    cfg = ShardingConfig(
+        groups=[ShardingGroup(nodes=["A"], tp_size=1, graph_walks=["decode"], _tp_rank=0)],
+        tp_enabled_nodes={"A"}, shard_dim={"x": 1, "y": 0},
+    )
+    cfg.setup({NodeAndGraphWalk("A", "decode"): ["worker_0"]})
+    prod.register_request(7, cfg)
+    infos = prod.store_and_return_tensor_info(
+        7, {"x": [torch.zeros(2, 4)], "y": [torch.zeros(2, 4)]},
+        node_name="A", graph_walk="decode",
+    )
+    uuids = [infos["x"][0].uuid, infos["y"][0].uuid]
+    prod.register_for_send_uuids(ParallelList([7], [uuids]))
+    assert [prod.tensor_store.get_info(u).inline_data is not None for u in uuids] == [False, True]
+
+    cons = _manager("worker_1", monkeypatch, fake_engine=True)
+    cons._no_inline.add(99)  # what get_ready_tensors does for a consolidated tensor
+    cons.tensor_store.put_tensor(7, 99, torch.zeros(4), TensorPointerInfo(
+        dims=[4], dtype=torch.float32, nbytes=16, address=0, stride=[1], uuid=99,
+        source_session_id="h:1", source_entity="worker_1",
+    ))
+    cons.register_for_send_uuids(ParallelList([7], [[99]]))
+    assert cons.tensor_store.get_info(99).inline_data is None
+    assert len(cons.register_spy.calls) == 1
+
+
+@pytest.mark.parametrize("bookkeeping", _BOOKKEEPERS)
+def test_persisted_tensors_stay_registered_even_if_sent_inline_before(monkeypatch, bookkeeping):
+    prod = _manager("worker_0", monkeypatch, bookkeeping=bookkeeping, fake_engine=True)
+    infos = prod.store_and_return_tensor_info(
+        "r", {"x": [torch.arange(4, dtype=torch.int64), torch.arange(2, dtype=torch.int64)]},
+    )["x"]
+    early, fresh = infos[0].uuid, infos[1].uuid
+    prod.register_for_send_uuids(ParallelList(["r"], [[early]]))
+    assert prod.tensor_store.get_info(early).inline_data is not None
+    # a later pass persists both (worker._register_outputs)
+    prod.keep_registered([early, fresh])
+    prod.register_for_send_uuids(ParallelList(["r"], [[early, fresh]]))
+    for uuid in (early, fresh):
+        assert prod.tensor_store.get_info(uuid).inline_data is None
+        assert prod.tensor_store.is_registered(uuid)
+    assert len(prod.register_spy.calls) == 2
+
+
+@pytest.mark.parametrize("bookkeeping", _BOOKKEEPERS)
+def test_bytes_sent_again_count_against_the_step_cap(monkeypatch, bookkeeping):
+    """A tensor inlined in an earlier step rides this step's frames too (a loop
+    edge re-sending earlier outputs), so its bytes come off this budget; one
+    that no longer fits is registered and read instead."""
+    prod = _manager("worker_0", monkeypatch, max_bytes=4096, step_max=6000,
+                    bookkeeping=bookkeeping, fake_engine=True)
+    infos = prod.store_and_return_tensor_info(
+        "r", {"x": [torch.zeros(4000, dtype=torch.uint8) for _ in range(3)]},
+    )["x"]
+    a, b, c = (i.uuid for i in infos)
+    prod.register_for_send_uuids(ParallelList(["r"], [[a]]))
+    prod.register_for_send_uuids(ParallelList(["r"], [[b]]))
+    assert prod._inlined == {a, b}
+    # one call re-sending a and b and adding c: 12000 bytes against 6000
+    prod.register_for_send_uuids(ParallelList(["r"], [[a, b, c]]))
+    inline = {u: prod.tensor_store.get_info(u).inline_data is not None for u in (a, b, c)}
+    assert inline == {a: True, b: False, c: False}
+    assert prod.tensor_store.is_registered(b) and prod.tensor_store.is_registered(c)
+
+
 def test_a_descriptor_stripped_of_its_bytes_fails_the_read_loudly(monkeypatch):
     """An older peer drops the unknown field when it relays a descriptor (all
     peers must run the same version, as since #407). The read that follows is

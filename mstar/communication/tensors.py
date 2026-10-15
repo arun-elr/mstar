@@ -457,6 +457,8 @@ class TensorCommunicationManager(ABC):
         self.inline_step_max_bytes = 0
         # uuids sent inline and so never registered for a read
         self._inlined: set[int] = set()
+        # uuids that must take the read path (see keep_registered)
+        self._no_inline: set[int] = set()
         self.transport_stats: TransportStats | None = None
 
     @property
@@ -1049,6 +1051,17 @@ class TensorCommunicationManager(ABC):
                 info.shm_segment = stored.shm_segment
                 info.shm_offset = stored.shm_offset
 
+    def keep_registered(self, uuids) -> None:
+        """Keep these off the inline path: persisted signals, whose descriptors
+        accumulate across passes into one message and are handed back to
+        later walks, so a per-step budget cannot bound them. One already sent
+        inline loses its bytes; the next registration call registers it."""
+        self._no_inline.update(uuids)
+        demoted = [uuid for uuid in uuids if uuid in self._inlined]
+        if demoted:
+            self._inlined.difference_update(demoted)
+            self.tensor_store.set_inline_data(demoted, [None] * len(demoted))
+
     def refresh_inline_data(self, edges: list[GraphEdge]) -> None:
         """Give a descriptor about to be sent its range of the inline bytes the
         store's copy carries, if it was copied before they were attached (a TP
@@ -1149,6 +1162,7 @@ class TensorCommunicationManager(ABC):
         self.uuid_to_shard_dim.pop(uuid, None)
         self.uuid_to_edge_name.pop(uuid, None)
         self._inlined.discard(uuid)
+        self._no_inline.discard(uuid)
 
     # ---- shared: polling & ACKs ----
 
@@ -1313,6 +1327,9 @@ class TensorCommunicationManager(ABC):
                             # (cat happened along the real shard_dim); record
                             # None so get_tensor doesn't try to un-rearrange.
                             self.uuid_to_shard_dim[uuid_] = None
+                            # made by a kernel queued just now, which an
+                            # inline copy on the side stream would not wait for
+                            self._no_inline.add(uuid_)
                             new_infos.append(info)
                         edge.tensor_info = new_infos
                         del self.buffered_shards[req_id][edge.name]
@@ -1530,8 +1547,11 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 # bookkeeper are copies of the store's.
                 if info.inline_data is None:
                     stored = self.tensor_store.get_info(info.uuid)
-                    info.inline_data = stored.inline_data if stored is not None else None
+                    info.inline_data = (
+                        stored.inline_slice(info.offset, info.nbytes) if stored is not None else None
+                    )
                 continue
+            info.inline_data = None
             self._register_one(request_id, info.uuid)
 
     def register_for_send_uuids(
@@ -1565,8 +1585,27 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         picked: list[int] = []
         tensors: list[torch.Tensor] = []
         seen: set[int] = set()
+        # Bytes already attached in an earlier call go out again in this one's
+        # frames, so they come off the budget first; one that no longer fits
+        # is registered and its bytes cleared, and this call's frames read it.
+        demoted: list[int] = []
         for uuid in uuids:
-            if uuid in seen or uuid in self._inlined:
+            if uuid in self._inlined and uuid not in seen:
+                seen.add(uuid)
+                nbytes = self.tensor_store.get_tensor(uuid).nbytes
+                if nbytes <= budget:
+                    budget -= nbytes
+                else:
+                    demoted.append(uuid)
+        if demoted:
+            self._inlined.difference_update(demoted)
+            self._no_inline.update(demoted)
+            self.tensor_store.set_inline_data(demoted, [None] * len(demoted))
+            if stats is not None:
+                for uuid in demoted:
+                    stats.add_sent("demoted", self.tensor_store.get_tensor(uuid).nbytes)
+        for uuid in uuids:
+            if uuid in seen:
                 continue
             seen.add(uuid)
             if self.tensor_store.is_registered(uuid):
@@ -1575,6 +1614,12 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             nbytes = tensor.nbytes
             if nbytes == 0 or nbytes > self.inline_max_bytes:
                 outcome = "over_tensor_max" if nbytes else "empty"
+            elif uuid in self._no_inline:
+                outcome = "kept_registered"
+            elif self.uuid_to_shard_dim.get(uuid) not in (None, 0):
+                # stored permuted to put the shard dim first, by a kernel
+                # queued after the step's completion event
+                outcome = "permuted"
             elif not tensor.is_contiguous():
                 outcome = "not_contiguous"
             elif nbytes > budget:
@@ -1599,8 +1644,10 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
 
     def _host_bytes(self, tensors: list[torch.Tensor]) -> list[bytes]:
         """Each tensor's raw bytes. Device tensors are copied into one pinned
-        buffer on the side stream with a single wait; the caller has already
-        waited for the step that produced them."""
+        buffer on the side stream with a single wait. That stream does not wait
+        for the default one: the caller has waited for the step that produced
+        them, and tensors made by later kernels there (a shard permute, a
+        fan-in concat) are kept off the inline path."""
         out: list[bytes | None] = [None] * len(tensors)
         device_idx = [i for i, t in enumerate(tensors) if t.device.type != "cpu"]
         for i, t in enumerate(tensors):

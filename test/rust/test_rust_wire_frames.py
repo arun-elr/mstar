@@ -974,3 +974,25 @@ def test_inline_bytes_reach_the_api_server(tmp_path):
     mesh.book.set_inline_data([1], [info.inline_data])
     got = mesh.run(rid, uuids=[1])
     assert got["api_server"][0].body.graph_edge.tensor_info == [info]
+
+
+def test_persisted_tensors_are_reported_so_they_stay_registered(tmp_path):
+    """Persist descriptors pile up across passes into one WORKER_GRAPHS_DONE,
+    so the route names them (as Python's runtime does) and the worker keeps
+    them off the inline path."""
+    mesh = _Mesh(
+        tmp_path, outs=[("out", "remote", True)],
+        remote=[{"wg_id": 1, "graph_walks": [WALK],
+                 "nodes": ["remote"], "dyn_loops": []}],
+    )
+    rid = mesh.admit(wgs=(WG_ID, 1), workers=(ME, PEER))
+    _put(mesh, 1)
+    mesh.rt.ingest_inputs_batch(_one_signal(rid, "prompt", "only"))
+    mesh.rt.pop_rids("only", WALK, [rid])
+    out = mesh.rt.complete_and_route_batch({
+        "partition": "default", "graph_walk": WALK, "node_name": "only",
+        "output_signals": mesh.rt.get_output_signals("only", WALK),
+        "rids": [rid], "wg_ids": [WG_ID], "tensors": [1], "num_tensors": [1],
+    })
+    assert 1 in out.persist_uuids
+    assert list(out.register_uuids) == [1]

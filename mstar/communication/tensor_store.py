@@ -171,7 +171,7 @@ class TensorBookkeeping(ABC):
         pass
 
     @abstractmethod
-    def set_inline_data(self, uuids: list[int], datas: list[bytes]):
+    def set_inline_data(self, uuids: list[int], datas: list[bytes | None]):
         """Attach each tensor's bytes to its held descriptor, so every frame
         built from it afterwards carries them inline. Untracked uuids are
         skipped, like every other mutator here."""
@@ -324,7 +324,7 @@ class PythonTensorBookkeeping(TensorBookkeeping):
             )
         return name
 
-    def set_inline_data(self, uuids: list[int], datas: list[bytes]):
+    def set_inline_data(self, uuids: list[int], datas: list[bytes | None]):
         for uuid, data in zip(uuids, datas, strict=True):
             info = self._tensor_info.get(uuid)
             if info is not None:
@@ -481,7 +481,7 @@ class RustTensorBookkeeping(TensorBookkeeping):
         if inline:
             self._rust.set_inline_data([u for u, _ in inline], [d for _, d in inline])
 
-    def set_inline_data(self, uuids: list[int], datas: list[bytes]):
+    def set_inline_data(self, uuids: list[int], datas: list[bytes | None]):
         self._rust.set_inline_data(uuids, datas)
 
     @property
@@ -747,7 +747,7 @@ class TensorStore:
     ):
         self.bookkeeping.set_shm_placement(uuids, segment_idxs, offsets)
 
-    def set_inline_data(self, uuids: list[int], datas: list[bytes]):
+    def set_inline_data(self, uuids: list[int], datas: list[bytes | None]):
         self.bookkeeping.set_inline_data(uuids, datas)
 
     def increment_ref_batch(self, uuids: list[int], counts: list[int]):

@@ -1177,6 +1177,8 @@ def test_a_tensor_on_two_outgoing_edges_is_staged_once(tmp_path):
     stored, out = _complete(tm, runtime, rid, "n", {"y": [torch.ones(3)]}, ["y"])
     assert out.register_uuids == stored.flat_uuids
     assert out.register_rids == [rid]
+    # reported as persisted too, which keeps it off the inline path
+    assert list(out.persist_uuids) == stored.flat_uuids
 def test_results_report_the_loop_context_from_before_the_completion(tmp_path):
     """Marking the node complete advances its loop, so the runtime has to
     snapshot the loop context first: a result emitted on iteration k is

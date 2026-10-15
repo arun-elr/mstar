@@ -1230,6 +1230,10 @@ pub struct RouteOut {
     /// cached), and inside a loop on a single-worker deployment neither an
     /// INPUT_SIGNALS nor a WORKER_GRAPHS_DONE goes out on most passes.
     #[pyo3(get)] pub rids_needing_request_info: Vec<u32>,
+    /// Tensors persisted for the conductor (Python's `RouteOutput.persist_uuids`):
+    /// their descriptors accumulate across passes, so they are kept off the
+    /// inline path.
+    #[pyo3(get)] pub persist_uuids: Vec<u64>,
 }
 
 /// Routing parked between complete_and_route_batch and send_outputs.
@@ -2653,6 +2657,11 @@ impl GraphRuntime {
             // registered for a remote read whether or not the fanout kept an
             // edge for it. Skipped with no remote worker, as in Python.
             let has_remote = self.info(rid).is_none_or(|i| i.has_remote_workers);
+            // Every persisted tensor, remote readers or not: the descriptor
+            // rides WORKER_GRAPHS_DONE either way.
+            for (_name, tensors) in persist_pre.iter() {
+                out.persist_uuids.extend(tensors.iter().map(|t| t.uuid));
+            }
             for (_name, tensors) in persist_pre.iter().filter(|_| has_remote) {
                 for t in tensors {
                     if staged.insert(t.uuid) {
@@ -2707,6 +2716,9 @@ impl GraphRuntime {
                     || (!is_local
                         && !inline_edge
                         && matches!(e.dest, Dest::External(_) | Dest::EmitToClient));
+                if e.persist {
+                    out.persist_uuids.extend(e.tensors.iter().map(|t| t.uuid));
+                }
                 if remote {
                     for t in &e.tensors {
                         if staged.insert(t.uuid) {
@@ -3583,7 +3595,7 @@ mod tests {
             offset: 0, source_tp_size: 1, source_tp_rank: 0, shm_segment: None,
             shm_offset: 0, source_node_name: None, source_graph_walk: None,
         });
-        bk.set_inline_data(&[uuid], vec![std::sync::Arc::from(bytes)]).unwrap();
+        bk.set_inline_data(&[uuid], vec![Some(std::sync::Arc::from(bytes))]).unwrap();
     }
 
     #[test]

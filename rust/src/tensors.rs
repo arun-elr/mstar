@@ -386,9 +386,9 @@ impl Bookkeeping {
         Ok(())
     }
 
-    /// Attach each tensor's bytes to its descriptor; every frame built from
-    /// it afterwards carries them. An untracked uuid is skipped.
-    pub fn set_inline_data(&mut self, uuids: &[u64], datas: Vec<Arc<[u8]>>) -> PyResult<()> {
+    /// Attach each tensor's bytes to its descriptor (None clears them); every
+    /// frame built from it afterwards follows. An untracked uuid is skipped.
+    pub fn set_inline_data(&mut self, uuids: &[u64], datas: Vec<Option<Arc<[u8]>>>) -> PyResult<()> {
         if uuids.len() != datas.len() {
             return Err(PyValueError::new_err(
                 "set_inline_data: uuids and datas must have the same length",
@@ -396,7 +396,7 @@ impl Bookkeeping {
         }
         for (uuid, data) in uuids.iter().zip(datas) {
             if let Some(info) = self.tensor_info.get_mut(uuid) {
-                info.inline_data = Some(data);
+                info.inline_data = data;
             }
         }
         Ok(())
@@ -647,9 +647,10 @@ impl TensorBookkeeping {
     }
 
     fn set_inline_data(
-        &self, uuids: Vec<u64>, datas: Vec<Bound<'_, PyBytes>>,
+        &self, uuids: Vec<u64>, datas: Vec<Option<Bound<'_, PyBytes>>>,
     ) -> PyResult<()> {
-        let datas: Vec<Arc<[u8]>> = datas.iter().map(|b| Arc::from(b.as_bytes())).collect();
+        let datas: Vec<Option<Arc<[u8]>>> =
+            datas.iter().map(|b| b.as_ref().map(|b| Arc::from(b.as_bytes()))).collect();
         self.inner.lock().unwrap().set_inline_data(&uuids, datas)
     }
 
@@ -879,9 +880,11 @@ mod tests {
         });
         assert!(b.get_info(1).unwrap().inline_data.is_none());
         let data: Arc<[u8]> = Arc::from(&[5u8; 16][..]);
-        b.set_inline_data(&[1, 99], vec![data.clone(), data.clone()]).unwrap();
+        b.set_inline_data(&[1, 99], vec![Some(data.clone()), Some(data.clone())]).unwrap();
         assert_eq!(b.get_info(1).unwrap().inline_data.as_deref(), Some(&[5u8; 16][..]));
         assert!(b.set_inline_data(&[1], vec![]).is_err());
+        b.set_inline_data(&[1], vec![None]).unwrap();
+        assert!(b.get_info(1).unwrap().inline_data.is_none());
         b.forget_tensor(1);
         assert!(b.get_info(1).is_none());
     }

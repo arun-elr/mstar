@@ -589,6 +589,7 @@ class RustGraphRuntime(GraphRuntime):
             freed_inputs=FreedTensors(
                 out.freed_input_uuids, out.freed_input_registered,
             ),
+            persist_uuids=out.persist_uuids,
         )
 
     def stop_loops_batched(

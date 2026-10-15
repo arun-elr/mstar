@@ -468,6 +468,10 @@ class RouteOutput(NamedTuple):
     # tear down -- see ``cleanup_consumed_inputs``. Empty in the normal order,
     # where that call has already taken them.
     freed_inputs: FreedTensors = FreedTensors.none()
+    # Tensors this completion persists for the conductor. Their descriptors
+    # pile up across passes into one WORKER_GRAPHS_DONE and are handed back to
+    # later walks, so they stay registered rather than going inline.
+    persist_uuids: tuple[int, ...] | list[int] = ()
 
 
 

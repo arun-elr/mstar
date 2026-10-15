@@ -1697,6 +1697,8 @@ class Worker:
             per_rid.setdefault(request_id, []).append(uuid)
         if not per_rid:
             return
+        if route_output.persist_uuids:
+            self.tensor_manager.keep_registered(route_output.persist_uuids)
         # One staging pass for the batch: the arena collapses what would be one
         # host-blocking D2H stream sync per request into one.
         self.tensor_manager.register_for_send_uuids(

@@ -1281,6 +1281,7 @@ class PythonGraphRuntime(GraphRuntime):
 
         routing_per_rid: dict[int, NodeOutputRouting] = {}
         nested_idxs: dict[int, NestedLoopIndices] = {}
+        persist_uuids: list[int] = []
         register_uuids: list[int] = []
         register_rids: list[int] = []
         new_token_idxs: list[int] = []
@@ -1352,6 +1353,10 @@ class PythonGraphRuntime(GraphRuntime):
                 routing.persist
                 if req_info is None or req_info.has_remote_workers else []
             )
+            # every persisted tensor, remote readers or not: the descriptor
+            # rides WORKER_GRAPHS_DONE either way
+            for edge in routing.persist:
+                persist_uuids.extend(info.uuid for info in edge.tensor_info)
             for edge in (
                 persist + routing.emit_to_client
                 + sum(routing.to_workers.values(), start=[])
@@ -1407,6 +1412,7 @@ class PythonGraphRuntime(GraphRuntime):
             register_rids=register_rids,
             new_token_output_idxs=new_token_idxs,
             local_streaming_by_signal=streaming_by_signal,
+            persist_uuids=persist_uuids,
         )
 
     def _peek_completion(self, completion_id: int) -> "CompletionState":
