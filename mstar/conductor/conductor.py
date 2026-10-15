@@ -318,6 +318,12 @@ class Conductor:
         self._draining_deadlines: deque[tuple[float, str]] = deque()
         self._early_reads_done_deadlines: deque[tuple[float, str]] = deque()
         self._early_abort_deadlines: deque[tuple[float, str]] = deque()
+        # rid -> deadline, for one drain TTL after its teardown finished. The
+        # API server can still send an abort or a READS_DONE for it after that
+        # (a client that disconnects as its answer arrives); neither may
+        # tombstone the id or pre-ack a later request that reuses it.
+        self._torn_down: dict[str, float] = {}
+        self._torn_down_deadlines: deque[tuple[float, str]] = deque()
         # (deadline, rid, entity, message) for teardown sends that raised; the
         # request's state is already freed, so this is the only copy left.
         self._unsent_teardown: list[tuple[float, str, str, object]] = []
@@ -880,6 +886,8 @@ class Conductor:
         initialize partition states, and kick off all partitions.
         """
 
+        # A new request under this id: later aborts and READS_DONE are its own.
+        self._torn_down.pop(body.request_id, None)
         if body.request_id in self._early_abort_requests:
             # The abort outran this NEW_REQUEST. The preprocess worker's input
             # signals exist only now, so this is the first moment we can safely
@@ -956,6 +964,7 @@ class Conductor:
                 body=RequestFailed(request_id=request_id, error_message=error, status=status),
             ),
         )
+        self._mark_torn_down(request_id)
 
     def _do_ingest_request(
         self, body: NewRequestConductor
@@ -1234,12 +1243,23 @@ class Conductor:
                 ),
             )
         self.requests.pop(request_id, None)
+        self._mark_torn_down(request_id)
         logger.info("Tore down request %s; freed worker resources", request_id)
         self._try_admit_waiting()
+
+    def _mark_torn_down(self, request_id: str):
+        deadline = time.perf_counter() + self._drain_ttl_s
+        self._torn_down[request_id] = deadline
+        self._torn_down_deadlines.append((deadline, request_id))
 
     def _handle_reads_done(self, body: ReadsDone):
         dr = self.draining.get(body.request_id)
         if dr is None:
+            if body.request_id in self._torn_down:
+                logger.debug(
+                    "READS_DONE for torn-down request %s ignored", body.request_id
+                )
+                return
             # Raced ahead of registration (preprocess-worker self-drain on abort).
             if body.request_id not in self._early_reads_done:
                 self._early_reads_done_deadlines.append(
@@ -1285,6 +1305,10 @@ class Conductor:
                 logger.debug(
                     "Dropping stale early READS_DONE for request %s", request_id
                 )
+        for request_id in self._pop_expired(self._torn_down_deadlines, now):
+            # A later teardown of a reused id pushed its own, later deadline.
+            if self._torn_down.get(request_id, now) <= now:
+                self._torn_down.pop(request_id, None)
 
     def _fail_requests(self, body: FailRequests):
         """Tear down requests a worker reported as unservable. Routes through the
@@ -1317,6 +1341,9 @@ class Conductor:
                 return
 
         request_data = self.requests.get(request_id)
+        if request_data is None and request_id in self._torn_down:
+            logger.info("Abort for request %s ignored; already torn down", request_id)
+            return
         if request_data is None:
             # Either already torn down (nothing to do) or the abort outran its
             # NEW_REQUEST. Tombstone it: _ingest_request drops the request and

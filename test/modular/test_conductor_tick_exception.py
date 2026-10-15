@@ -111,6 +111,8 @@ def _conductor(*ticks, requests):
     c._draining_deadlines = deque()
     c._early_reads_done_deadlines = deque()
     c._early_abort_deadlines = deque()
+    c._torn_down = {}
+    c._torn_down_deadlines = deque()
     c._unsent_teardown = []
     c._drain_ttl_s = 120.0
     c.worker_graphs = {0: SimpleNamespace(graph_walks={"decode"})}
