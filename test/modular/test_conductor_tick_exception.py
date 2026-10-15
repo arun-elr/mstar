@@ -111,6 +111,7 @@ def _conductor(*ticks, requests):
     c._draining_deadlines = deque()
     c._early_reads_done_deadlines = deque()
     c._early_abort_deadlines = deque()
+    c._unsent_teardown = []
     c._drain_ttl_s = 120.0
     c.worker_graphs = {0: SimpleNamespace(graph_walks={"decode"})}
     c._all_worker_graph_ids_to_graph_walks = {0: {"decode"}}
@@ -243,12 +244,13 @@ def test_a_completed_request_whose_teardown_send_raises_is_not_failed():
     assert _to_client(c, "request_failed") == {}
     assert "a" not in c.requests and "a" not in c.draining
     assert admitted == ["queued"]
-    # The send that raised does not stop the hard remove to the others.
-    removed = {
+    # The send that raised is retried, and does not hold up the others.
+    removed = [
         entity for entity, m in c.sent
         if m.message_type == WorkerMessageType.REMOVE_REQUEST
-    }
-    assert removed | set(raised) == {"worker_0", PREPROCESS}
+    ]
+    assert sorted(removed) == sorted(["worker_0", PREPROCESS])
+    assert removed[-1] == raised[0]
 
 
 def test_a_completion_whose_send_raises_fails_its_client():
@@ -267,6 +269,53 @@ def test_a_completion_whose_send_raises_fails_its_client():
     assert "could not send request_complete" in _to_client(c, "request_failed")["a"].error_message
     assert "a" not in c.requests and "a" not in c.draining
     assert admitted == ["queued"]
+
+
+def test_a_failure_whose_send_raises_still_reaches_its_client():
+    c = _conductor(
+        [_done("bad")],
+        [_reads_done("bad", "worker_0"), _reads_done("bad", PREPROCESS)],
+        requests={"bad": _request(raise_=ValueError)},
+    )
+    admitted = []
+    c.max_concurrent_requests = 1
+    c.waiting_queue = [SimpleNamespace(request_id="queued")]
+    c._admit_request = lambda body: admitted.append(body.request_id)
+    _send_raises_once(c, "request_failed")
+    _run(c)
+    failed = [
+        m.body for entity, m in c.sent
+        if entity == "api_server" and m.message_type == "request_failed"
+    ]
+    assert [f.request_id for f in failed] == ["bad"]
+    assert "model rejected this request's step" in failed[0].error_message
+    assert "bad" not in c.requests and "bad" not in c.draining
+    assert admitted == ["queued"]
+    assert c._unsent_teardown == []
+
+
+def test_an_unsendable_failure_is_dropped_after_the_ttl_and_failed_at_shutdown():
+    c = _conductor([], requests={})
+    c._drain_ttl_s = 0.0
+
+    def _send(entity, msg):
+        if msg.message_type == "request_failed":
+            raise OSError("api server unreachable")
+        c.sent.append((entity, msg))
+    c.communicator.send = _send
+    c.draining["bad"] = conductor_mod.DrainingRequest(
+        expected_acks=set(), participants={"worker_0"}, failure_error="boom",
+    )
+    c._finalize_draining("bad")
+    assert [rid for _, rid, entity, _ in c._unsent_teardown] == ["bad"]
+
+    c.communicator.send = lambda entity, msg: c.sent.append((entity, msg))
+    c._fail_all_requests("shutting down")
+    assert _to_client(c, "request_failed")["bad"].error_message == "shutting down"
+
+    c.communicator.send = _send
+    c._retry_unsent_teardown()
+    assert c._unsent_teardown == []
 
 
 def test_a_base_exception_is_not_swallowed():
