@@ -1561,7 +1561,8 @@ class KVManager(AttentionResource):
                     break
                 n_real += 1
             real, pad = views[:n_real], views[n_real:]
-            if pad and (len(pad), pad[0].to_compute) != cache.pad_layout:
+            # a hit rebuilds each label's padding from all the step's padding rows
+            if (len(pad), pad[0].to_compute if pad else 0) != cache.pad_layout:
                 return None
             streams = []
             for v in real:
@@ -1669,7 +1670,8 @@ class KVManager(AttentionResource):
             else:
                 last_all, npages_all, indices, pages_all = last, npages, rows.indices, rows.last_page.copy()
             kv_indptr = np.concatenate((np.zeros(1, np.int64), np.cumsum(npages_all))).astype(np.int32)
-            n_rows = n_real + n_pad
+            # this label's rows: `n_real` counts the real rows of every label
+            n_rows = len(rows.rows) + n_pad
             qo_indptr = np.arange(n_rows + 1, dtype=np.int32)
             kv_lens = (npages_all - 1) * page_size + last_all
             row_pages_now, lens_now = rows.row_pages, lens.tolist()
@@ -1803,6 +1805,8 @@ class KVManager(AttentionResource):
             pending = {}
             self._maybe_apply_forks(step, ctx)
 
+        if self._indptr_ring is not None:
+            self._indptr_ring.begin_plan()
         res = None
         if self._plan_cache_mode and not pending:
             res = self._fast_decode_plan(step, ctx)
