@@ -475,9 +475,15 @@ class MicroScheduler:
         # A backlogged key goes first, oldest first, so a split set drains
         # before anything else starts; its fresh rows ride along. A key whose
         # step comes out empty (every backlogged row blocked) is passed over
-        # rather than leaving the worker idle behind it. `exclude_target` is
-        # only a fairness hint, and finishing a split set beats fairness.
-        keys = [k for k in self.backlog if target is None or k == target]
+        # rather than leaving the worker idle behind it. A backlog under
+        # `exclude_target` waits too: a speculation chain over two capture
+        # groups backlogs one group every step, so serving it here would turn
+        # every yield-away back into the chain (the caller falls back to an
+        # unexcluded pass when nothing else is ready).
+        keys = [
+            k for k in self.backlog
+            if (target is None or k == target) and k != exclude_target
+        ]
         rr_key = self._select_node_rr(ready)
         if rr_key is not None and rr_key not in keys:
             keys.append(rr_key)

@@ -124,9 +124,12 @@ class FIFOBatchBuilder(BaseBatchBuilder):
     So a fresh row the cap pushed out goes back to its ready queue **only on
     a step that served a backlog**, which is the case main never created. With
     no backlog it parks, exactly as main did, and the remainder keeps its
-    arrival order instead of being re-popped and reordered. A row held back
-    for any other reason -- OOM backoff, pending remove, a foreign capture
-    group -- always parks: it cannot run this step whoever holds it.
+    arrival order instead of being re-popped and reordered. A fresh row of a
+    foreign capture group goes back on such a step too: parked, it would hand
+    the key a backlog again, and two groups alternating would keep one there
+    for good, served ahead of every other node. A row held back for any other
+    reason -- OOM backoff, pending remove -- always parks: it cannot run this
+    step whoever holds it.
     """
 
     def build_batch(self, request: BatchBuildRequest) -> BatchBuildResult:
@@ -149,7 +152,7 @@ class FIFOBatchBuilder(BaseBatchBuilder):
             return BatchBuildResult(scheduled)
         give_back = {
             rid for rid in remainder.request_to_worker_graph
-            if rid in fresh_rids and rid not in exclude
+            if rid in fresh_rids and rid not in request.blocked_rids
         } if had_backlog else set()
         if not give_back:
             return BatchBuildResult(scheduled, backlog=remainder)
