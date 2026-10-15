@@ -430,6 +430,60 @@ def test_bytes_sent_again_count_against_the_step_cap(monkeypatch, bookkeeping):
     assert prod.tensor_store.is_registered(b) and prod.tensor_store.is_registered(c)
 
 
+@pytest.mark.parametrize("bookkeeping", _BOOKKEEPERS)
+def test_a_tensor_received_inline_keeps_its_bytes_when_sent_on(monkeypatch, bookkeeping):
+    """Its descriptor points at the api server's memory, which was never
+    registered: over the step cap or persisted, it still rides inline."""
+    api = _manager("api_server", monkeypatch, bookkeeping=bookkeeping)
+    infos = api.store_and_return_tensor_info("r", {"x": [torch.arange(8, dtype=torch.int64)]})["x"]
+    api.register_for_send("r", infos)
+    wire = decode(encode(GraphEdge(next_node="n", name="x", tensor_info=infos)))
+    worker = _manager("worker_1", monkeypatch, step_max=16, bookkeeping=bookkeeping)
+    _receive(worker, "r", [wire])
+    uuid = infos[0].uuid
+    worker.register_for_send_uuids(ParallelList(["r"], [[uuid]]))
+    worker.keep_registered([uuid])
+    worker.register_for_send_uuids(ParallelList(["r"], [[uuid]]))
+    assert worker.tensor_store.get_info(uuid).inline_data == infos[0].inline_data
+    assert worker.register_spy.calls == []
+
+
+@pytest.mark.parametrize("bookkeeping", _BOOKKEEPERS)
+def test_refresh_clears_bytes_from_copies_made_before_a_demotion(monkeypatch, bookkeeping):
+    """A cached descriptor copy (the Python runtime under the Rust bookkeeper)
+    still holds the bytes after its tensor is registered: the refresh at send
+    time takes them off, so the frame follows the store."""
+    prod = _manager("worker_0", monkeypatch, bookkeeping=bookkeeping, fake_engine=True)
+    infos = prod.store_and_return_tensor_info("r", {"x": [torch.arange(2, dtype=torch.int64)]})["x"]
+    uuid = infos[0].uuid
+    prod.register_for_send_uuids(ParallelList(["r"], [[uuid]]))
+    cached = prod.tensor_store.get_info(uuid).clone()
+    assert cached.inline_data is not None
+    prod.keep_registered([uuid])
+    prod.refresh_inline_data([GraphEdge(next_node="n", name="x", tensor_info=[cached])])
+    assert cached.inline_data is None
+
+
+def test_the_worker_keeps_persisted_tensors_registered_with_nothing_to_register():
+    """A single-worker persist has no remote reader, so nothing is staged; it
+    still rides WORKER_GRAPHS_DONE and must be kept off the inline path."""
+    from types import SimpleNamespace
+
+    from mstar.graph.runtime.base import RouteOutput
+    from mstar.worker.worker import Worker
+
+    calls = []
+    fake = SimpleNamespace(tensor_manager=SimpleNamespace(
+        keep_registered=calls.append,
+        register_for_send_uuids=lambda *a, **k: calls.append("registered"),
+    ))
+    Worker._register_outputs(fake, RouteOutput(
+        completion_id=1, register_uuids=[], register_rids=[], new_token_output_idxs=[],
+        local_streaming_by_signal={}, persist_uuids=[5],
+    ))
+    assert calls == [[5]]
+
+
 def test_a_descriptor_stripped_of_its_bytes_fails_the_read_loudly(monkeypatch):
     """An older peer drops the unknown field when it relays a descriptor (all
     peers must run the same version, as since #407). The read that follows is

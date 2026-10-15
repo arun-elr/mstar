@@ -77,7 +77,7 @@ class StubTensorManager:
     stamps_shm_placement = False
     refresh_shm_placement = TensorCommunicationManager.refresh_shm_placement
     # Likewise inline bytes: nothing was sent inline here.
-    _inlined = frozenset()
+    _inlined = _cleared = frozenset()
     refresh_inline_data = TensorCommunicationManager.refresh_inline_data
 
     def set_persist(self, uuid: int, persist: bool):

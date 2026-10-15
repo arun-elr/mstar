@@ -459,6 +459,11 @@ class TensorCommunicationManager(ABC):
         self._inlined: set[int] = set()
         # uuids that must take the read path (see keep_registered)
         self._no_inline: set[int] = set()
+        # inlined here once, then cleared: copies made before still carry bytes
+        self._cleared: set[int] = set()
+        # received inline from another process: the descriptor points at the
+        # sender's memory, which it never registered, so the bytes must stay
+        self._foreign_inline: set[int] = set()
         self.transport_stats: TransportStats | None = None
 
     @property
@@ -1056,10 +1061,13 @@ class TensorCommunicationManager(ABC):
         accumulate across passes into one message and are handed back to
         later walks, so a per-step budget cannot bound them. One already sent
         inline loses its bytes; the next registration call registers it."""
+        # one received inline cannot be made readable here, so it keeps its bytes
+        uuids = [uuid for uuid in uuids if uuid not in self._foreign_inline]
         self._no_inline.update(uuids)
         demoted = [uuid for uuid in uuids if uuid in self._inlined]
         if demoted:
             self._inlined.difference_update(demoted)
+            self._cleared.update(demoted)
             self.tensor_store.set_inline_data(demoted, [None] * len(demoted))
 
     def refresh_inline_data(self, edges: list[GraphEdge]) -> None:
@@ -1068,15 +1076,20 @@ class TensorCommunicationManager(ABC):
         fanout clones during routing, before registration). A uuid sent inline
         is never registered, so a descriptor of it without the bytes would send
         the reader to memory it cannot read."""
-        if not self._inlined:
+        if not self._inlined and not self._cleared:
             return
         for edge in edges:
             for info in edge.tensor_info:
-                if info.inline_data is not None or info.uuid not in self._inlined:
-                    continue
-                stored = self.tensor_store.get_info(info.uuid)
-                if stored is not None and stored is not info:
-                    info.inline_data = stored.inline_slice(info.offset, info.nbytes)
+                if info.uuid in self._inlined:
+                    if info.inline_data is not None:
+                        continue
+                    stored = self.tensor_store.get_info(info.uuid)
+                    if stored is not None and stored is not info:
+                        info.inline_data = stored.inline_slice(info.offset, info.nbytes)
+                elif info.uuid in self._cleared:
+                    # registered since this copy was made (a cached descriptor
+                    # under the Rust bookkeeper): it is read now
+                    info.inline_data = None
 
     # ---- abstract: transport-specific ----
 
@@ -1163,6 +1176,8 @@ class TensorCommunicationManager(ABC):
         self.uuid_to_edge_name.pop(uuid, None)
         self._inlined.discard(uuid)
         self._no_inline.discard(uuid)
+        self._cleared.discard(uuid)
+        self._foreign_inline.discard(uuid)
 
     # ---- shared: polling & ACKs ----
 
@@ -1542,7 +1557,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         if self.inline_max_bytes:
             self._attach_inline([info.uuid for info in tensor_infos])
         for info in tensor_infos:
-            if info.uuid in self._inlined:
+            if info.uuid in self._inlined or info.uuid in self._foreign_inline:
                 # The caller sends these objects, which under the Rust
                 # bookkeeper are copies of the store's.
                 if info.inline_data is None:
@@ -1568,7 +1583,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             self._attach_inline([uuid for _, uuids in per_request for uuid in uuids])
         for request_id, uuids in per_request:
             for uuid in uuids:
-                if uuid not in self._inlined:
+                if uuid not in self._inlined and uuid not in self._foreign_inline:
                     self._register_one(request_id, uuid)
 
     def _attach_inline(self, uuids: list[int]) -> None:
@@ -1590,7 +1605,13 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         # is registered and its bytes cleared, and this call's frames read it.
         demoted: list[int] = []
         for uuid in uuids:
-            if uuid in self._inlined and uuid not in seen:
+            if uuid in seen:
+                continue
+            if uuid in self._foreign_inline:
+                # rides inline as received; it cannot be demoted
+                seen.add(uuid)
+                budget -= min(budget, self.tensor_store.get_tensor(uuid).nbytes)
+            elif uuid in self._inlined:
                 seen.add(uuid)
                 nbytes = self.tensor_store.get_tensor(uuid).nbytes
                 if nbytes <= budget:
@@ -1600,6 +1621,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         if demoted:
             self._inlined.difference_update(demoted)
             self._no_inline.update(demoted)
+            self._cleared.update(demoted)
             self.tensor_store.set_inline_data(demoted, [None] * len(demoted))
             if stats is not None:
                 for uuid in demoted:
@@ -1784,6 +1806,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                     # as a read, so the ack and the cleanup are unchanged.
                     tensor = self._from_inline(info)
                     inline_copied = inline_copied or self._on_cuda
+                    self._foreign_inline.add(info.uuid)
                     self.tensor_store.put_tensor(
                         request_id=request_id, uuid=info.uuid, tensor=tensor, info=info,
                     )

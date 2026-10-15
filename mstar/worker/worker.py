@@ -1688,6 +1688,10 @@ class Worker:
         """
         # Uuids, not descriptors: registration only ever reads ``uuid`` off
         # them and takes the tensor from the store.
+        # Before the early return: a persisted tensor with no remote reader
+        # still rides WORKER_GRAPHS_DONE, and may have gone inline before.
+        if route_output.persist_uuids:
+            self.tensor_manager.keep_registered(route_output.persist_uuids)
         per_rid: dict[int, list[int]] = {}
         for uuid, request_id in zip(
             route_output.register_uuids,
@@ -1697,8 +1701,6 @@ class Worker:
             per_rid.setdefault(request_id, []).append(uuid)
         if not per_rid:
             return
-        if route_output.persist_uuids:
-            self.tensor_manager.keep_registered(route_output.persist_uuids)
         # One staging pass for the batch: the arena collapses what would be one
         # host-blocking D2H stream sync per request into one.
         self.tensor_manager.register_for_send_uuids(
