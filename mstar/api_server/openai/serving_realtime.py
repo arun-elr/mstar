@@ -46,6 +46,7 @@ import base64
 import json
 import logging
 import math
+import reprlib
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -170,7 +171,7 @@ def _number(knobs: dict, name: str, default, lo: float, hi: float = math.inf, in
     ok = ok and lo <= value <= hi
     if not ok:
         bound = f">= {lo:g}" if hi == math.inf else f"between {lo:g} and {hi:g}"
-        raise ValueError(f"mstar.{name} must be {kind} {bound}; got {value!r}")
+        raise ValueError(f"mstar.{name} must be {kind} {bound}; got {reprlib.repr(value)}")
     return int(value) if integer else float(value)
 
 
