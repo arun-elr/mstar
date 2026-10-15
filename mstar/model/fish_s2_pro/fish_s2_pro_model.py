@@ -264,9 +264,13 @@ class FishS2ProModel(Model):
     def _encode(self, text: str) -> list[int]:
         return list(self.tokenizer.encode(text, add_special_tokens=False))
 
-    def _encode_user_text(self, text: str, field: str) -> list[int]:
-        """Tokenize request text; refuse chat control tokens it could smuggle in."""
-        ids = self._encode(text)
+    def _encode_user_text(self, text: str, field: str, speaker_tag: str) -> list[int]:
+        """Tokenize ``speaker_tag + text``; refuse chat control tokens the text could smuggle in.
+
+        The tag is plain text to this tokenizer, so it is encoded with the text
+        it precedes: BPE merges across the seam (``>[`` before an inline tag).
+        """
+        ids = self._encode(speaker_tag + text)
         smuggled = sorted({self.tokenizer.convert_ids_to_tokens(i) for i in ids if i in self._special_ids})
         if smuggled:
             raise ValueError(f"Fish S2-Pro {field} contains unsupported control tokens: {', '.join(smuggled)}")
@@ -285,12 +289,12 @@ class FishS2ProModel(Model):
         if ref_frames:
             prefix += self._encode(f"{IM_START}system\n") + self._encode(CLONE_SYSTEM_TEXT)
             if ref_text:
-                prefix += self._encode(speaker_tag) + self._encode_user_text(ref_text, "ref_text")
+                prefix += self._encode_user_text(ref_text, "ref_text", speaker_tag)
             prefix += self._encode(CLONE_SPEECH_TEXT)
         suffix = self._encode(f"{IM_END}\n") if ref_frames else []
         suffix += (
             self._encode(f"{IM_START}user\n")
-            + self._encode(speaker_tag) + self._encode_user_text(text, "input")
+            + self._encode_user_text(text, "input", speaker_tag)
             + self._encode(f"{IM_END}\n")
             + self._encode(f"{IM_START}assistant\n{VOICE_TOKEN}")
         )
