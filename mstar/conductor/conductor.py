@@ -1633,6 +1633,56 @@ class Conductor:
                 time.sleep(0.01)
         logger.info("Conductor: all %d worker(s) ready", len(self.worker_ids))
 
+    def _route_message(
+        self, message, done_partition_forwards: list[tuple[str, str, bool]],
+    ) -> None:
+        """Apply one message from the api server or a worker. A WORKER_GRAPHS_DONE
+        that finishes a partition's pass is queued on ``done_partition_forwards``."""
+        if message.message_type == ConductorMessageType.NEW_REQUEST:
+            self._ingest_request(message.body)
+        elif message.message_type == ConductorMessageType.ABORT_REQUEST:
+            self._abort_request(message.body.request_id)
+        elif message.message_type == ConductorMessageType.FAIL_REQUESTS:
+            self._fail_requests(message.body)
+        elif message.message_type == ConductorMessageType.READS_DONE:
+            self._handle_reads_done(message.body)
+        elif message.message_type == ConductorMessageType.WORKER_GRAPHS_DONE:
+            rid = message.body.request_id
+            # Draining requests linger in self.requests (concurrency
+            # accounting) but are being torn down — ignore late dones.
+            if rid not in self.requests or rid in self.draining:
+                logger.debug(
+                    "WORKER_GRAPHS_DONE for unknown request %s (already completed?)", rid
+                )
+                return
+
+            if self.enable_nvtx:
+                range_push("conductor._process_worker_graphs_done")
+            done_parts = self._process_worker_graphs_done(message.body)
+            for pname in done_parts:
+                done_partition_forwards.append(
+                    (rid, pname, message.body.partition_done)
+                )
+            if self.enable_nvtx:
+                range_pop()
+        else:
+            raise ValueError(f"Unknown message type: {message.message_type}")
+
+    def _fail_after_error(self, request_id: str | None, step: str, exc: Exception) -> None:
+        """Fail the one request whose handling raised, through the drain barrier,
+        so its client gets the error and its concurrency slot is freed."""
+        logger.exception("Conductor error %s for request %s", step, request_id)
+        request_data = self.requests.get(request_id)
+        if request_data is None or request_id in self.draining:
+            return  # unknown, never admitted, or already being torn down
+        try:
+            self._remove_request(
+                request_id, request_data,
+                failure_error=f"Conductor error {step}: {type(exc).__name__}: {exc}",
+            )
+        except Exception:
+            logger.exception("Could not fail request %s", request_id)
+
     def run(self):
         from mstar.utils.profiler import range_pop, range_push
 
@@ -1654,52 +1704,43 @@ class Conductor:
 
                 startup_backlog = self._startup_message_backlog
                 self._startup_message_backlog = []
+                # Every message, pass and completion is isolated: the batch is
+                # already off the socket, so one that raises would otherwise
+                # take the rest of it down and they would never be resent.
                 for message in startup_backlog + self.communicator.get_all_new_messages():
-                    if message.message_type == ConductorMessageType.NEW_REQUEST:
-                        self._ingest_request(message.body)
-                    elif message.message_type == ConductorMessageType.ABORT_REQUEST:
-                        self._abort_request(message.body.request_id)
-                    elif message.message_type == ConductorMessageType.FAIL_REQUESTS:
-                        self._fail_requests(message.body)
-                    elif message.message_type == ConductorMessageType.READS_DONE:
-                        self._handle_reads_done(message.body)
-                    elif message.message_type == ConductorMessageType.WORKER_GRAPHS_DONE:
-                        rid = message.body.request_id
-                        # Draining requests linger in self.requests (concurrency
-                        # accounting) but are being torn down — ignore late dones.
-                        if rid not in self.requests or rid in self.draining:
-                            logger.debug(
-                                "WORKER_GRAPHS_DONE for unknown request %s (already completed?)", rid
-                            )
-                            continue
-
-                        if self.enable_nvtx:
-                            range_push("conductor._process_worker_graphs_done")
-                        done_parts = self._process_worker_graphs_done(message.body)
-                        for pname in done_parts:
-                            done_partition_forwards.append(
-                                (rid, pname, message.body.partition_done)
-                            )
-                        if self.enable_nvtx:
-                            range_pop()
-                    else:
-                        raise ValueError(f"Unknown message type: {message.message_type}")
+                    try:
+                        self._route_message(message, done_partition_forwards)
+                    except Exception as exc:
+                        self._fail_after_error(
+                            getattr(getattr(message, "body", None), "request_id", None),
+                            f"handling {getattr(message, 'message_type', type(message).__name__)}",
+                            exc,
+                        )
 
                 completed_requests = []
 
                 for request_id, partition_name, p_done in done_partition_forwards:
                     if request_id not in self.requests or request_id in self.draining:
                         continue  # already completed by another partition in this cycle
-                    all_done = self._process_done_forward(
-                        request_id, partition_name,
-                        partition_done_from_worker=p_done,
-                    )
+                    try:
+                        all_done = self._process_done_forward(
+                            request_id, partition_name,
+                            partition_done_from_worker=p_done,
+                        )
+                    except Exception as exc:
+                        self._fail_after_error(
+                            request_id, f"advancing partition {partition_name}", exc,
+                        )
+                        continue
                     if all_done:
                         completed_requests.append(request_id)
 
                 for request_id in dict.fromkeys(completed_requests):
                     if request_id in self.requests and request_id not in self.draining:
-                        self._process_request_done(request_id)
+                        try:
+                            self._process_request_done(request_id)
+                        except Exception as exc:
+                            self._fail_after_error(request_id, "completing it", exc)
 
                 self._sweep_expiry()
 
