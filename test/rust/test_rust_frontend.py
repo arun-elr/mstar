@@ -380,11 +380,14 @@ def test_concurrent_generates_with_one_request_id_admit_exactly_one():
 def test_a_backend_refusal_keeps_its_http_status():
     """An HTTPException from the backend's submit_request reaches the client
     with its own status, not as a 500."""
-    from fastapi import HTTPException
+    class _RefusedError(Exception):
+        """fastapi's HTTPException, which this job does not install."""
+        status_code = 409
+        detail = "request_id 'dup' is already in use"
 
     class _Refusing(_StubAPIServer):
         def submit_request(self, **kwargs):
-            raise HTTPException(status_code=409, detail="request_id 'dup' is already in use")
+            raise _RefusedError()
 
     with _model_stack("qwen3_omni", _Refusing()) as (port, _upload_dir):
         import urllib.parse
