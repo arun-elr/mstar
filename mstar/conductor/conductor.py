@@ -1675,9 +1675,15 @@ class Conductor:
         else:
             raise ValueError(f"Unknown message type: {message.message_type}")
 
-    def _fail_after_error(self, request_id: str | None, step: str, exc: Exception) -> None:
+    def _fail_after_error(
+        self, request_id: str | None, step: str, exc: Exception,
+        notify_client: bool = True,
+    ) -> None:
         """Fail the one request whose handling raised, through the drain barrier,
-        so its client gets the error and its concurrency slot is freed."""
+        so its client gets the error and its concurrency slot is freed.
+
+        ``notify_client=False`` only tears it down: for a completion, whose
+        ``request_complete`` may already have reached the client."""
         logger.exception("Conductor error %s for request %s", step, request_id)
         request_data = self.requests.get(request_id)
         if request_data is None or request_id in self.draining:
@@ -1685,7 +1691,10 @@ class Conductor:
         try:
             self._remove_request(
                 request_id, request_data,
-                failure_error=f"Conductor error {step}: {type(exc).__name__}: {exc}",
+                failure_error=(
+                    f"Conductor error {step}: {type(exc).__name__}: {exc}"
+                    if notify_client else None
+                ),
             )
         except Exception:
             logger.exception("Could not fail request %s", request_id)
@@ -1747,7 +1756,9 @@ class Conductor:
                         try:
                             self._process_request_done(request_id)
                         except Exception as exc:
-                            self._fail_after_error(request_id, "completing it", exc)
+                            self._fail_after_error(
+                                request_id, "completing it", exc, notify_client=False,
+                            )
 
                 self._sweep_expiry()
 

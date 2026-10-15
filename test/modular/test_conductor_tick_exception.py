@@ -188,6 +188,28 @@ def test_the_failing_request_gets_an_error_and_frees_its_slot():
     assert admitted == ["queued"]
 
 
+def test_a_completion_that_raises_after_notifying_is_torn_down_quietly():
+    c = _conductor(
+        [_done("a")],
+        [_reads_done("a", "worker_0"), _reads_done("a", PREPROCESS)],
+        requests={"a": _request()},
+    )
+    calls = {"n": 0}
+    request_workers = c._request_workers
+
+    def _raise_once(request_data):
+        calls["n"] += 1
+        if calls["n"] == 1:  # inside _process_request_done, after request_complete
+            raise RuntimeError("teardown bookkeeping failed")
+        return request_workers(request_data)
+    c._request_workers = _raise_once
+    _run(c)
+    # The client already has its result; it must not get a failure after it.
+    assert "a" in _to_client(c, "request_complete")
+    assert _to_client(c, "request_failed") == {}
+    assert "a" not in c.requests and "a" not in c.draining
+
+
 def test_a_base_exception_is_not_swallowed():
     c = _conductor(
         [_done("bad"), _done("good")],
