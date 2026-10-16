@@ -42,12 +42,30 @@ SEMANTIC_START, SEMANTIC_CODES, EOS_ID = 100, 32, 99
 
 def tiny_config(**generation) -> FishS2ProConfig:
     return FishS2ProConfig(
-        semantic_start_token_id=SEMANTIC_START, semantic_end_token_id=SEMANTIC_START + SEMANTIC_CODES - 1,
+        semantic_start_token_id=SEMANTIC_START,
+        semantic_end_token_id=SEMANTIC_START + SEMANTIC_CODES - 1,
         eos_token_id=EOS_ID,
-        slow_ar=FishSlowARConfig(dim=32, n_layer=2, n_head=4, n_local_heads=2, head_dim=8,
-                                 intermediate_size=48, vocab_size=140, max_seq_len=512),
-        fast_ar=FishFastARConfig(dim=32, text_dim=32, n_layer=2, n_head=4, n_local_heads=2, head_dim=8,
-                                 intermediate_size=48, vocab_size=SEMANTIC_CODES, num_codebooks=4),
+        slow_ar=FishSlowARConfig(
+            dim=32,
+            n_layer=2,
+            n_head=4,
+            n_local_heads=2,
+            head_dim=8,
+            intermediate_size=48,
+            vocab_size=140,
+            max_seq_len=512,
+        ),
+        fast_ar=FishFastARConfig(
+            dim=32,
+            text_dim=32,
+            n_layer=2,
+            n_head=4,
+            n_local_heads=2,
+            head_dim=8,
+            intermediate_size=48,
+            vocab_size=SEMANTIC_CODES,
+            num_codebooks=4,
+        ),
         codec=FishDACConfig(semantic_codebook_size=SEMANTIC_CODES, codebook_size=8, n_residual_codebooks=3),
         generation=FishGenerationConfig(**{"max_new_tokens": 64, **generation}),
     )
@@ -102,8 +120,12 @@ def tiny_ar(seed: int = 0) -> ARSubmodule:
 
 
 def test_registry_and_deployment_config():
+    from mstar.cli.main import DEFAULT_CONFIGS, _next_steps
+
     assert get_model_class("fish_s2_pro") is FishS2ProModel
     assert HF_MODELS["fish_s2_pro"]["model_path_hf"] == "fishaudio/s2-pro"
+    assert DEFAULT_CONFIGS["fish_s2_pro"] == CONFIG_PATH.name
+    assert "client.tts(" in _next_steps("fish_s2_pro", "0.0.0.0", 8000)
     deployment = yaml.safe_load(CONFIG_PATH.read_text())
     assert deployment["model"] == "fish_s2_pro"
     walks = {walk for group in deployment["node_groups"] for walk in group["graph_walks"]}
@@ -115,7 +137,8 @@ def test_adapter_clones_from_a_data_url_and_drops_a_lone_ref_text(tmp_path):
     assert isinstance(adapter, adapters.FishS2ProAdapter)
     wav = "data:audio/wav;base64," + base64.b64encode(b"RIFF0000WAVE").decode()
     clone = adapter.speech_to_request(
-        SpeechRequest(input="hi", ref_audio=wav, ref_text="ref words", temperature=0.5, top_k=10), tmp_path)
+        SpeechRequest(input="hi", ref_audio=wav, ref_text="ref words", temperature=0.5, top_k=10), tmp_path
+    )
     assert clone.input_modalities == ["text", "audio"] and clone.output_modalities == ["audio"]
     assert Path(clone.file_paths["audio"][0]).read_bytes() == b"RIFF0000WAVE"
     assert clone.model_kwargs["ref_text"] == "ref words"
@@ -136,12 +159,18 @@ def test_adapter_refuses_server_paths(tmp_path):
 
 
 def test_config_reads_fish_field_names(tmp_path):
-    (tmp_path / "config.json").write_text(json.dumps({
-        "model_type": "fish_qwen3_omni", "semantic_start_token_id": 151678, "semantic_end_token_id": 155773,
-        "eos_token_id": 151645,
-        "text_config": {"dim": 2560, "n_layer": 36, "n_head": 32, "n_local_heads": 8, "rope_base": 1e6},
-        "audio_decoder_config": {"n_layer": 4, "max_seq_len": 11, "vocab_size": 4096, "num_codebooks": 10},
-    }))
+    (tmp_path / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "fish_qwen3_omni",
+                "semantic_start_token_id": 151678,
+                "semantic_end_token_id": 155773,
+                "eos_token_id": 151645,
+                "text_config": {"dim": 2560, "n_layer": 36, "n_head": 32, "n_local_heads": 8, "rope_base": 1e6},
+                "audio_decoder_config": {"n_layer": 4, "max_seq_len": 11, "vocab_size": 4096, "num_codebooks": 10},
+            }
+        )
+    )
     config = FishS2ProConfig.from_pretrained(tmp_path, codec_overrides={"chunk_frames": 16})
     assert (config.slow_ar.n_layer, config.slow_ar.n_local_heads, config.fast_ar.n_layer) == (36, 8, 4)
     assert config.eos_code == 4096 and config.semantic_head_size == 4097
@@ -167,37 +196,41 @@ def test_config_rejects_inconsistent_checkpoints():
 def fish_slow_ar_checkpoint(config: FishS2ProConfig) -> dict[str, torch.Tensor]:
     s = config.slow_ar
     q, kv = s.n_head * s.head_dim, s.n_local_heads * s.head_dim
-    state = {"text_model.model.embeddings.weight": torch.randn(s.vocab_size, s.dim),
-             "text_model.model.norm.weight": torch.randn(s.dim)}
+    state = {
+        "text_model.model.embeddings.weight": torch.randn(s.vocab_size, s.dim),
+        "text_model.model.norm.weight": torch.randn(s.dim),
+    }
     for i in range(s.n_layer):
         p = f"text_model.model.layers.{i}."
-        state.update({
-            p + "attention.wqkv.weight": torch.randn(q + 2 * kv, s.dim),
-            p + "attention.wo.weight": torch.randn(s.dim, q),
-            p + "attention.q_norm.weight": torch.randn(s.head_dim),
-            p + "attention.k_norm.weight": torch.randn(s.head_dim),
-            p + "attention_norm.weight": torch.randn(s.dim),
-            p + "ffn_norm.weight": torch.randn(s.dim),
-            p + "feed_forward.w1.weight": torch.randn(s.intermediate_size, s.dim),
-            p + "feed_forward.w3.weight": torch.randn(s.intermediate_size, s.dim),
-            p + "feed_forward.w2.weight": torch.randn(s.dim, s.intermediate_size),
-        })
+        state.update(
+            {
+                p + "attention.wqkv.weight": torch.randn(q + 2 * kv, s.dim),
+                p + "attention.wo.weight": torch.randn(s.dim, q),
+                p + "attention.q_norm.weight": torch.randn(s.head_dim),
+                p + "attention.k_norm.weight": torch.randn(s.head_dim),
+                p + "attention_norm.weight": torch.randn(s.dim),
+                p + "ffn_norm.weight": torch.randn(s.dim),
+                p + "feed_forward.w1.weight": torch.randn(s.intermediate_size, s.dim),
+                p + "feed_forward.w3.weight": torch.randn(s.intermediate_size, s.dim),
+                p + "feed_forward.w2.weight": torch.randn(s.dim, s.intermediate_size),
+            }
+        )
     return state
 
 
 def test_slow_ar_weight_map_splits_wqkv_and_renames():
     config = tiny_config()
     state = fish_slow_ar_checkpoint(config)
-    mapped = dict(remap_slow_ar_weights(
-        [*state.items(), ("audio_decoder.output.weight", torch.zeros(1))], config))
+    mapped = dict(remap_slow_ar_weights([*state.items(), ("audio_decoder.output.weight", torch.zeros(1))], config))
     wqkv = state["text_model.model.layers.1.attention.wqkv.weight"]
     assert torch.equal(torch.cat([mapped[f"layers.1.self_attn.{n}_proj.weight"] for n in "qkv"]), wqkv)
     assert mapped["layers.1.self_attn.q_proj.weight"].shape[0] == 4 * 8
     layer0 = "text_model.model.layers.0."
     assert torch.equal(mapped["layers.0.mlp.gate_proj.weight"], state[layer0 + "feed_forward.w1.weight"])
     assert torch.equal(mapped["layers.0.mlp.up_proj.weight"], state[layer0 + "feed_forward.w3.weight"])
-    assert torch.equal(mapped["layers.0.post_attention_layernorm.weight"],
-                       state["text_model.model.layers.0.ffn_norm.weight"])
+    assert torch.equal(
+        mapped["layers.0.post_attention_layernorm.weight"], state["text_model.model.layers.0.ffn_norm.weight"]
+    )
     assert "embed_tokens.weight" in mapped and "norm.weight" in mapped
     assert not any(name.startswith("audio_decoder") for name in mapped)
 
@@ -211,7 +244,7 @@ def test_slow_ar_loads_completely_and_scores_only_semantic_tokens_and_eos():
     wqkv = state["text_model.model.layers.0.attention.wqkv.weight"]
     assert torch.equal(lm["layers.0.self_attn.qkv_proj.weight"], wqkv)
     embed = state["text_model.model.embeddings.weight"]
-    assert torch.equal(slow_ar.semantic_head[:SEMANTIC_CODES], embed[SEMANTIC_START:SEMANTIC_START + SEMANTIC_CODES])
+    assert torch.equal(slow_ar.semantic_head[:SEMANTIC_CODES], embed[SEMANTIC_START : SEMANTIC_START + SEMANTIC_CODES])
     assert torch.equal(slow_ar.semantic_head[-1], embed[EOS_ID])
     hidden = torch.randn(3, config.slow_ar.dim)
     full = hidden @ embed.t()
@@ -230,8 +263,9 @@ def test_fast_ar_loader_rejects_gaps_extras_and_shape_mismatches():
     load_fast_ar_weights(fast_ar, ((f"audio_decoder.{k}", v) for k, v in state.items()))
     assert torch.equal(fast_ar.output.weight, state["output.weight"])
     with pytest.raises(RuntimeError, match="unloaded"):
-        load_fast_ar_weights(FishFastAR(cfg), [(f"audio_decoder.{k}", v) for k, v in state.items()
-                                               if k != "norm.weight"])
+        load_fast_ar_weights(
+            FishFastAR(cfg), [(f"audio_decoder.{k}", v) for k, v in state.items() if k != "norm.weight"]
+        )
     with pytest.raises(RuntimeError, match="no place"):
         load_fast_ar_weights(FishFastAR(cfg), [("audio_decoder.extra.weight", torch.zeros(1))])
     with pytest.raises(RuntimeError, match="checkpoint"):
@@ -250,7 +284,7 @@ def fast_ar_without_cache(fast_ar: FishFastAR, slow_hidden: torch.Tensor, semant
     seq = [fast_ar.project_in(slow_hidden), fast_ar.embeddings(semantic)]
     for pos in range(1, cfg.num_codebooks):
         x = torch.stack(seq, dim=1)
-        freqs = fast_ar.freqs_cis[:x.shape[1]].unsqueeze(0)
+        freqs = fast_ar.freqs_cis[: x.shape[1]].unsqueeze(0)
         for layer in fast_ar.layers:
             att = layer.attention
             h = layer.attention_norm(x)
@@ -258,8 +292,9 @@ def fast_ar_without_cache(fast_ar: FishFastAR, slow_hidden: torch.Tensor, semant
             q = apply_rotary_emb(q.view(*x.shape[:2], cfg.n_head, -1), freqs)
             k = apply_rotary_emb(k.view(*x.shape[:2], cfg.n_local_heads, -1), freqs)
             v = v.view(*x.shape[:2], cfg.n_local_heads, -1)
-            y = F.scaled_dot_product_attention(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2),
-                                               is_causal=True, enable_gqa=True)
+            y = F.scaled_dot_product_attention(
+                q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), is_causal=True, enable_gqa=True
+            )
             x = x + att.wo(y.transpose(1, 2).reshape(*x.shape[:2], -1))
             x = x + layer.feed_forward(layer.ffn_norm(x))
         code = fast_ar.output(fast_ar.norm(x[:, pos])).argmax(-1)
@@ -314,8 +349,11 @@ def test_check_stop_on_im_end_on_the_frame_limit_and_not_with_ignore_eos():
     ar = tiny_ar()
 
     def info(ignore_eos=False):
-        return SimpleNamespace(step_metadata={"ar_max_tokens": 3}, max_tokens=99,
-                               resource_configs={AR_SAMPLER: SamplingReqConfig(ignore_eos=ignore_eos)})
+        return SimpleNamespace(
+            step_metadata={"ar_max_tokens": 3},
+            max_tokens=99,
+            resource_configs={AR_SAMPLER: SamplingReqConfig(ignore_eos=ignore_eos)},
+        )
 
     def step(rid, head, ignore_eos=False):
         outputs = {"new_token": [torch.tensor([head])]}
@@ -342,12 +380,14 @@ def test_eos_is_not_sampled_on_the_prefill_frame_or_with_ignore_eos():
     ar = tiny_ar()
 
     def info(ignore_eos=False):
-        return SimpleNamespace(rid_handle=0, request_id="r",
-                               resource_configs={AR_SAMPLER: SamplingReqConfig(ignore_eos=ignore_eos)})
+        return SimpleNamespace(
+            rid_handle=0, request_id="r", resource_configs={AR_SAMPLER: SamplingReqConfig(ignore_eos=ignore_eos)}
+        )
 
     dim = ar.config.slow_ar.dim
-    prefill = ar.prepare_inputs("ar_prefill", info(), {
-        "prompt_ids": [torch.tensor([4, 5, 6])], "prompt_layout": [torch.tensor([3, 0])]})
+    prefill = ar.prepare_inputs(
+        "ar_prefill", info(), {"prompt_ids": [torch.tensor([4, 5, 6])], "prompt_layout": [torch.tensor([3, 0])]}
+    )
     decode = ar.prepare_inputs("ar_decode", info(), {"ar_input_embeds": [torch.zeros(1, dim)]})
     ignoring = ar.prepare_inputs("ar_decode", info(ignore_eos=True), {"ar_input_embeds": [torch.zeros(1, dim)]})
     assert [item.tensor_inputs["suppress_eos"].item() for item in (prefill, decode, ignoring)] == [True, False, True]
@@ -361,8 +401,9 @@ def test_eos_is_not_sampled_on_the_prefill_frame_or_with_ignore_eos():
     engine_inputs = SimpleNamespace(request_ids=["p", "d", "i"], resources={AR_SAMPLER: sampler})
     packed = ar.preprocess("ar_decode", engine_inputs, [decode, decode, decode])
     packed["suppress_eos"] = torch.tensor([True, False, True])
-    out = ar._run_frame(engine_inputs, torch.zeros(3, dim, dtype=torch.float64), packed["last_token_indices"],
-                        packed["suppress_eos"])
+    out = ar._run_frame(
+        engine_inputs, torch.zeros(3, dim, dtype=torch.float64), packed["last_token_indices"], packed["suppress_eos"]
+    )
     assert out["new_token"].tolist() == [7, ar.eos_code, 7]
 
 
@@ -376,15 +417,22 @@ def test_prompt_layout_matches_the_reference_segments():
     tok = model.tokenizer
     ids, prefix_len = model.build_prompt("[laugh] hi", None, 0)
     assert prefix_len == 0
-    assert ids == (tok.encode("<|im_start|>user\n") + tok.encode("<|speaker:0|>[laugh] hi")
-                   + tok.encode("<|im_end|>\n") + tok.encode("<|im_start|>assistant\n<|voice|>"))
+    assert ids == (
+        tok.encode("<|im_start|>user\n")
+        + tok.encode("<|speaker:0|>[laugh] hi")
+        + tok.encode("<|im_end|>\n")
+        + tok.encode("<|im_start|>assistant\n<|voice|>")
+    )
 
     ids, prefix_len = model.build_prompt("hi", "ref words", 4)
-    system = (tok.encode("<|im_start|>system\n")
-              + tok.encode("convert the provided text to speech reference to the following:\n\nText:\n")
-              + tok.encode("<|speaker:0|>ref words") + tok.encode("\n\nSpeech:\n"))
+    system = (
+        tok.encode("<|im_start|>system\n")
+        + tok.encode("convert the provided text to speech reference to the following:\n\nText:\n")
+        + tok.encode("<|speaker:0|>ref words")
+        + tok.encode("\n\nSpeech:\n")
+    )
     assert ids[:prefix_len] == system
-    assert ids[prefix_len:prefix_len + 2] == tok.encode("<|im_end|>\n")
+    assert ids[prefix_len : prefix_len + 2] == tok.encode("<|im_end|>\n")
 
     no_text, no_text_prefix = model.build_prompt("hi", "", 4)
     assert no_text_prefix == prefix_len - len(tok.encode("<|speaker:0|>ref words"))
@@ -432,8 +480,18 @@ def test_process_prompt_lays_out_clones_and_validates_requests():
 
 def pointers(*names):
     return {
-        name: [TensorPointerInfo(dims=[1], dtype=torch.long, nbytes=8, address=0, stride=[1], uuid=i,
-                                 source_session_id="host:0", source_entity="api_server")]
+        name: [
+            TensorPointerInfo(
+                dims=[1],
+                dtype=torch.long,
+                nbytes=8,
+                address=0,
+                stride=[1],
+                uuid=i,
+                source_session_id="host:0",
+                source_entity="api_server",
+            )
+        ]
         for i, name in enumerate(names)
     }
 
@@ -444,7 +502,10 @@ def test_partition_state_machine_routes_clones_through_the_ref_encoder():
     clone = model.get_initial_forward_pass_args("AR", ["text", "audio"], ["audio"], signals, {"max_new_tokens": 7})
     assert clone.full_metadata.graph_walk == "ar_prefill_clone" and clone.full_metadata.is_prefill
     assert {(edge.name, edge.next_node) for edge in clone.inputs} == {
-        ("prompt_ids", "AR"), ("prompt_layout", "AR"), ("audio_inputs", "RefEncoder")}
+        ("prompt_ids", "AR"),
+        ("prompt_layout", "AR"),
+        ("audio_inputs", "RefEncoder"),
+    }
     assert clone.step_metadata == {"is_prefill": True, "ar_max_tokens": 7}
     plain = model.get_initial_forward_pass_args("AR", ["text"], ["audio"], signals)
     assert plain.full_metadata.graph_walk == "ar_prefill"
@@ -466,8 +527,13 @@ def test_partition_state_machine_routes_clones_through_the_ref_encoder():
     codec = model.get_initial_forward_pass_args("Codec", ["text"], ["audio"], {})
     assert codec.full_metadata.graph_walk == "codec_chunk" and not codec.request_done
     with pytest.raises(ValueError, match="Unknown Fish S2-Pro partition"):
-        model.get_partition_forward_pass_args("Talker", CurrentForwardConductorMetadata(
-            input_modalities=["text"], output_modalities=["audio"], graph_walk="x", is_prefill=False), {})
+        model.get_partition_forward_pass_args(
+            "Talker",
+            CurrentForwardConductorMetadata(
+                input_modalities=["text"], output_modalities=["audio"], graph_walk="x", is_prefill=False
+            ),
+            {},
+        )
 
 
 def test_sampling_defaults_and_greedy():
@@ -493,8 +559,9 @@ def test_postprocess_emits_pcm16_bytes():
 
 
 def test_rope_table_dtype_rounds_the_cos_sin_table():
-    config = PositionConfig(kv_cache="kv", interleave=True, rope_theta=1e6, rotary_dim=8,
-                            rope_table_dtype=torch.bfloat16)
+    config = PositionConfig(
+        kv_cache="kv", interleave=True, rope_theta=1e6, rotary_dim=8, rope_table_dtype=torch.bfloat16
+    )
     manager = RopeManager(config, torch.device("cpu"), max_seq_len=64, head_dim=8)
     inv_freq = 1.0 / (1e6 ** (torch.arange(0, 8, 2, dtype=torch.float32) / 8))
     angles = torch.outer(torch.arange(64, dtype=torch.float32), inv_freq)
