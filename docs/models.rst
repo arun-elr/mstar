@@ -668,6 +668,21 @@ Fish Audio S2-Pro notes
   each codec window carries the decoder's whole receptive field as context, and
   the codec runs in fp32 with TF32 off.
 
+VoxCPM2 notes
+-------------
+
+- Install with ``pip install -e '.[voxcpm2]'`` and serve with
+  ``mstar serve voxcpm2 --gpus 0``. ``/v1/audio/speech`` takes the text alone
+  (zero-shot), a voice description in ``instructions`` (voice design), a
+  ``ref_audio`` clip (cloning) or ``ref_audio`` with its transcript in
+  ``ref_text`` (continuation). Output is 48 kHz.
+- The Talker's decode step (both LMs, the local DiT solve, the stop head) is
+  ``torch.compile``'d and captured as CUDA graphs at start-up, so the first
+  start-up takes about ten minutes. ``model_kwargs: {compile_talker: false}``
+  in the deployment YAML captures the eager step instead: on a B200 the server
+  is up in about 15 seconds, with about a third less throughput at
+  concurrency 1 and a sixth less at concurrency 8.
+
 Nemotron VoiceChat (``nemotron_duplex``) notes
 ----------------------------------------------
 
