@@ -178,7 +178,9 @@ The GPU model families depend on:
   extra**; install it separately (see `flash-attn-4 (Waypoint, FA3 sm90 kernel)`_).
 - **mooncake-transfer-engine** — RDMA tensor transport for multi-GPU, disaggregated
   deployments. Single-node deployments can use shared-memory (``SHM``) or ``TCP`` transport
-  instead (see :doc:`serving`).
+  instead (see :doc:`serving`). The extras install Mooncake's CUDA 12 wheel; next to a CUDA
+  13 torch (``+cu130``), replace it with ``mooncake-transfer-engine-cuda13`` of the same
+  version, as the Docker images do (#480).
 
 Apart from ``flash-attn`` and ``flash-attn-4``, these are installed by the extras above. Your
 installed ``torch`` must match your system CUDA toolkit — ``--torch-backend=auto`` handles
