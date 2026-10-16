@@ -315,6 +315,26 @@ the saved WAVs with ``benchmark/tts_speech_wer.py``::
    python -m benchmark.tts_speech_bench --engine mstar --url http://127.0.0.1:8000 \
        --model qwen3_tts_1p7b --sentences sentences_200.txt --voice vivian \
        --language English --concurrency 8 --repeats 3 --out results/mstar_c8.json
+
+Fish Audio S2-Pro notes
+-----------------------
+
+- The ``fishaudio/s2-pro`` weights are under the Fish Audio Research License:
+  research and non-commercial use only. M* downloads them at runtime and does
+  not redistribute them; read the license before deploying.
+- ``pip install -e '.[fish_s2_pro]'`` then ``mstar serve fish_s2_pro --gpus 0``.
+- Requests: ``/v1/audio/speech`` with ``input``; inline ``[tag]`` prosody
+  control is part of the text. Clone a voice with ``ref_audio`` (data URL, or
+  an http(s) URL when the server allows remote fetch) and its transcript in
+  ``ref_text``; with the SDK, ``client.tts(text, reference_audio="ref.wav",
+  ref_text="...")``. ``voice`` and ``speed`` are ignored.
+- Sampling defaults follow the reference (temperature 0.8, top-p 0.8, top-k 30);
+  ``do_sample: false`` is greedy. ``max_new_tokens`` (default 2048, at most
+  4096 frames of 2048 samples at 44.1 kHz) and ``ignore_eos`` pass through.
+- Streamed audio matches the whole-utterance decode to within one int16 step:
+  each codec window carries the decoder's whole receptive field as context, and
+  the codec runs in fp32 with TF32 off.
+
 Nemotron VoiceChat (``nemotron_duplex``) notes
 ----------------------------------------------
 
