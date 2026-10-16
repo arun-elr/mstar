@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import collections
+import itertools
 import json
 import logging
 import multiprocessing as mp
@@ -314,12 +315,18 @@ class APIServer:
             enable_nvtx=self.enable_nvtx,
         )
 
-        # Concurrent request tracking
+        # Concurrent request tracking, keyed by each submission's internal key
+        # (see submit_request), which is what the engine knows the request by.
         self.pending_requests: dict[str, PendingRequest] = {}
         self.recently_completed: collections.OrderedDict[str, float] = (
             collections.OrderedDict()
         )
         self._recently_completed_ttl = 15.0
+        # request_id -> its newest submission's key, and key -> request_id,
+        # until the key has left both dicts above.
+        self._live: dict[str, str] = {}
+        self._client_ids: dict[str, str] = {}
+        self._generation = itertools.count(1)
         self.request_lock = threading.Lock()
         self.running = True
 
@@ -447,6 +454,13 @@ class APIServer:
         caller it is used as-is (useful for deterministic-noise debugging,
         since the conductor's per-request seed is derived from
         ``hash(request_id)``); otherwise a fresh uuid4 is generated.
+
+        The engine runs the request under a key of its own,
+        ``<request_id>#<generation>``, that is never reused: a client may
+        reuse its ``request_id`` while the engine is still tearing the older
+        request down, and every message the engine sends names only the key.
+        A submission under an id whose previous request is still pending
+        replaces it; the previous one is aborted.
         """
         if request_id is None:
             request_id = str(uuid.uuid4())
@@ -468,7 +482,13 @@ class APIServer:
         with self.request_lock:
             if self.fatal_error is not None:
                 raise HTTPException(status_code=503, detail=self.fatal_error)
-            self.pending_requests[request_id] = PendingRequest(
+            key = f"{request_id}#{next(self._generation)}"
+            replaced = self._live.get(request_id)
+            if replaced not in self.pending_requests:
+                replaced = None
+            self._live[request_id] = key
+            self._client_ids[key] = request_id
+            self.pending_requests[key] = PendingRequest(
                 streaming=streaming,
                 input_modalities=input_modalities,
                 output_modalities=output_modalities,
@@ -477,9 +497,12 @@ class APIServer:
                     timing=RequestTiming(recv_time=time.perf_counter()),
                 ),
             )
+        if replaced is not None:
+            self._abort_key(replaced)
 
         self.preprocess_worker.new_request(PreprocessInput(
-            request_id=request_id,
+            request_id=key,
+            client_request_id=request_id,
             text=text,
             file_paths=file_paths,
             input_modalities=input_modalities,
@@ -489,10 +512,19 @@ class APIServer:
         ))
 
         logger.info(
-            "Request %s submitted  in=%s  out=%s",
-            request_id, input_modalities, output_modalities,
+            "Request %s submitted as %s  in=%s  out=%s",
+            request_id, key, input_modalities, output_modalities,
         )
         return request_id
+
+    def _retire(self, key: str) -> None:
+        """Forget ``key``'s request_id once neither dict holds the key.
+        Caller holds ``request_lock``."""
+        if key in self.pending_requests or key in self.recently_completed:
+            return
+        request_id = self._client_ids.pop(key, None)
+        if request_id is not None and self._live.get(request_id) == key:
+            del self._live[request_id]
 
     # ----------------------------------------------------------
     # Result collection (background thread)
@@ -554,6 +586,7 @@ class APIServer:
             # others make the data worker gate the ACK on its own reads first.
             self.preprocess_worker.finished_reading(rid, drained=drained)
             self.recently_completed.pop(rid, None)
+            self._retire(rid)
 
     def _process_messages(self) -> None:
         """Drain the ZMQ pull socket and route results to pending requests.
@@ -775,7 +808,9 @@ class APIServer:
         # the completion lands; the timeout below is only a backstop.
         wake = asyncio.Event()
         with self.request_lock:
-            req = self.pending_requests.get(request_id)
+            # Resolved once: a later submission under the same id is not ours.
+            key = self._live.get(request_id)
+            req = self.pending_requests.get(key)
             if req is not None:
                 req.loop = asyncio.get_running_loop()
                 req.wake = wake
@@ -790,7 +825,7 @@ class APIServer:
                 new_chunks: list[ResultChunk] = []
                 done = False
                 with self.request_lock:
-                    req = self.pending_requests.get(request_id)
+                    req = self.pending_requests.get(key)
                     if req:
                         avail = len(req.chunks)
                         consumed = req.consumed_chunks
@@ -812,10 +847,11 @@ class APIServer:
                     remaining: list[ResultChunk] = []
                     finished_req: PendingRequest | None = None
                     with self.request_lock:
-                        req = self.pending_requests.get(request_id)
+                        req = self.pending_requests.get(key)
                         if req:
                             remaining = req.chunks[req.consumed_chunks:]
-                            finished_req = self.pending_requests.pop(request_id, None)
+                            finished_req = self.pending_requests.pop(key, None)
+                            self._retire(key)
                     # Profiling (incl. the optional file write) runs outside the
                     # lock; the popped request is no longer shared with other threads.
                     if finished_req is not None:
@@ -845,7 +881,7 @@ class APIServer:
                     pass
         finally:
             if not finished:
-                self.abort_request(request_id)
+                self._abort_key(key)
 
     def async_stream_results(self, request_id: str, binary: bool = False):
         """Yield the serialized body of ``/generate`` one piece at a time.
@@ -927,22 +963,25 @@ class APIServer:
         """Wait for the request to finish (or the client to disconnect), then
         return its chunks. Disconnecting or timing out releases engine state."""
         start = time.time()
+        with self.request_lock:
+            key = self._live.get(request_id)
         while True:
             with self.request_lock:
-                req = self.pending_requests.get(request_id)
+                req = self.pending_requests.get(key)
                 done = req.event.is_set() if req else True
             if done:
                 break
             if time.time() - start > self.timeout_seconds:
-                self.abort_request(request_id)
+                self._abort_key(key)
                 raise HTTPException(status_code=500, detail="Request timed out")
             if raw_request is not None and await raw_request.is_disconnected():
-                self.abort_request(request_id)
+                self._abort_key(key)
                 return []
             await asyncio.sleep(0.005)
 
         with self.request_lock:
-            req = self.pending_requests.pop(request_id, None)
+            req = self.pending_requests.pop(key, None)
+            self._retire(key)
         if req is None:
             return []
         if req.error is not None:
@@ -984,29 +1023,40 @@ class APIServer:
             logger.exception("Failed to emit request profile for %s", req.profile.rid)
 
     def abort_request(self, request_id: str) -> None:
-        """Stop GPU work for a request the client abandoned and drop its state."""
+        """Stop GPU work for a request the client abandoned and drop its state.
+        Acts on the newest submission under ``request_id``."""
+        with self.request_lock:
+            key = self._live.get(request_id)
+        self._abort_key(key)
+
+    def _abort_key(self, key: str | None) -> None:
+        if key is None:
+            return
         with self.request_lock:
             active = (
-                request_id in self.pending_requests
-                or request_id in self.recently_completed
+                key in self.pending_requests
+                or key in self.recently_completed
             )
-            self.pending_requests.pop(request_id, None)
-            self.recently_completed.pop(request_id, None)
+            self.pending_requests.pop(key, None)
+            self.recently_completed.pop(key, None)
+            self._retire(key)
         if not active:
             return
-        logger.info("Client cancelled request %s; releasing resources", request_id)
-        self.preprocess_worker.abort_request(request_id)
+        logger.info("Client cancelled request %s; releasing resources", key)
+        self.preprocess_worker.abort_request(key)
 
     def release_request(self, request_id: str) -> None:
         """Drop a request whose results will never be read: abort it if it is
         still running, else just forget it (an ended request needs no abort)."""
         with self.request_lock:
-            req = self.pending_requests.get(request_id)
+            key = self._live.get(request_id)
+            req = self.pending_requests.get(key)
             finished = req is not None and req.event.is_set()
             if finished:
-                self.pending_requests.pop(request_id)
+                self.pending_requests.pop(key)
+                self._retire(key)
         if not finished:
-            self.abort_request(request_id)
+            self._abort_key(key)
 
     # ----------------------------------------------------------
     # Cleanup
