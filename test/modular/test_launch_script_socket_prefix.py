@@ -1,8 +1,8 @@
 """Every server binds the same IPC names under its ``--socket-path-prefix``, so
 two servers on one host need two prefixes. A launch script whose prefix is
-keyed only on the user gives every server that user starts the same sockets:
-the second one takes over the first one's API inboxes before the deployment
-lock refuses it."""
+keyed only on the user, or that leaves the entrypoint's ``/tmp/mstar`` default,
+gives every server it starts the same sockets: the second one takes over the
+first one's API inboxes before the deployment lock refuses it."""
 
 import re
 from pathlib import Path
@@ -13,6 +13,7 @@ REPO = Path(__file__).resolve().parents[2]
 SCRIPTS = sorted(p for d in ("test", "benchmark") for p in (REPO / d).rglob("*.sh"))
 PREFIX_ARG = re.compile(r"--socket-path-prefix[ =]+(\"[^\"]*\"|'[^']*'|\S+)")
 VARIABLE = re.compile(r"\$(?:\{(\w+)[^}]*\}|(\w+)|(\$)|(\())")
+ENTRYPOINT = re.compile(r"api_server/entrypoint\.py|mstar\.api_server\.entrypoint|\bmstar-serve\b")
 PER_USER = {"WHO", "USER", "USERNAME", "LOGNAME", "HOME"}
 
 
@@ -35,7 +36,9 @@ def _keys(text: str, value: str, seen: frozenset = frozenset()) -> set[str]:
 
 
 def _code(path: Path) -> str:
-    return "\n".join(line for line in path.read_text().splitlines() if not line.lstrip().startswith("#"))
+    """The script without comment lines, one command per line."""
+    lines = (line for line in path.read_text().splitlines() if not line.lstrip().startswith("#"))
+    return re.sub(r"\\\n", " ", "\n".join(lines))
 
 
 def _prefixes(path: Path) -> list[str]:
@@ -44,6 +47,15 @@ def _prefixes(path: Path) -> list[str]:
 
 def test_the_scan_finds_the_launch_scripts():
     assert sum(len(_prefixes(p)) for p in SCRIPTS) >= 14
+
+
+@pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: str(p.relative_to(REPO)))
+def test_launch_script_passes_a_socket_prefix(script):
+    for command in _code(script).splitlines():
+        if ENTRYPOINT.search(command):
+            assert "--socket-path-prefix" in command, (
+                f"{script.relative_to(REPO)} starts the entrypoint on its shared /tmp/mstar default: {command.strip()}"
+            )
 
 
 @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: str(p.relative_to(REPO)))
