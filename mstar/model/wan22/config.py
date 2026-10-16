@@ -84,10 +84,10 @@ class Wan22Config:
     # decoder runs): channels-last weights and activations, one latent per
     # compiled decoder call against a decoder cache the node owns. Same calls
     # and math as ``vae.decode``; the frames match it to bf16 rounding (55.2 dB
-    # against an fp32 decode, as stock). 2.3x faster decode at 1280x704 x 121
-    # frames on a B200, at the same peak memory. The compile is per output
+    # against an fp32 decode, as stock). 1.74x faster decode at 1280x704 x 121
+    # frames on an H200, at the same peak memory. The compile is per output
     # resolution (not frame count): the first request at each new size pays it,
-    # about 11 s on a B200 and 20 s on an H200. The tiled fallback keeps
+    # about 20 s on an H200. The tiled fallback keeps
     # ``tiled_decode``, on the channels-last weights. False decodes with stock
     # ``vae.decode`` and leaves the VAE as loaded. Settable from the yaml's
     # ``model_kwargs``.
