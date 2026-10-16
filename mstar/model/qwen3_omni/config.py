@@ -302,18 +302,19 @@ class Code2WavConfig:
     # the schedule runs out, each behind up to ``codec_left_context_frames``
     # already-delivered frames (warm-up for the vocoder, trimmed from the
     # emitted waveform in ``Code2WavSubmodule``). The first audio waits for
-    # the first chunk, so the ramp starts it after 4 frames (0.32 s of audio)
+    # the first chunk, so the ramp starts it after 12 frames (0.96 s of audio)
     # instead of 25 (2 s); an empty schedule restores 25-frame first chunks.
     # The ramp sums to the left context: its windows hold the whole stream so
     # far, and every later window is the one 25-frame first chunks would pop,
     # so the audio is theirs. Playback stalls unless the Talker runs at least
-    # 2x real time over its first 25 frames.
+    # 1.5x real time over its first 50 frames; (4, 8, 13) starts audio sooner
+    # but needs 2x, and on a B200 it stalled from concurrency 16.
     #
     # Named with a ``codec_`` prefix to avoid collision with HF's
     # ``Qwen3OmniMoeCode2WavConfig`` (which has no such field today but could
     # add one; the HF method ``chunked_decode(chunk_size=...)`` also uses the
     # same bare name with different semantics).
-    codec_chunk_schedule: Tuple[int, ...] = (4, 8, 13)
+    codec_chunk_schedule: Tuple[int, ...] = (12, 13)
     codec_chunk_frames: int = 25
     codec_left_context_frames: int = 25
     attention_bias: bool = False

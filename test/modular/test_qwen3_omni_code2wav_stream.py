@@ -389,7 +389,8 @@ def _windows(policy, num_frames: int) -> list[tuple[int, int]]:
 
 
 RAMPS = [
-    pytest.param((4, 8, 13), 25, 25, id="default-4-8-13-25"),
+    pytest.param((12, 13), 25, 25, id="default-12-13-25"),
+    pytest.param((4, 8, 13), 25, 25, id="4-8-13-25"),
     pytest.param((4, 10), 25, 25, id="4-10-25"),
     pytest.param((5, 10), 25, 25, id="5-10-25"),
     pytest.param((1, 2, 4, 8, 16), 25, 25, id="doubling-ramp"),
@@ -446,13 +447,14 @@ def test_a_batch_mixes_windows_from_different_ramp_stages():
 
 @pytest.mark.parametrize("num_frames", [3, 4, 12, 25, 26, 50, 120])
 def test_real_decoder_streams_the_ramp_like_the_full_decode(tiny_code2wav, num_frames):
-    """The ramp's windows carry every frame decoded so far as context (4 of
-    4, then 12 of 12), so they see the full decode's history, and the steady
-    windows' 25 frames cover this decoder's ~15-frame reach."""
+    """The ramp's windows carry every frame decoded so far as context (none
+    for the first 12 frames, then those 12), so they see the full decode's
+    history, and the steady windows' 25 frames cover this decoder's ~15-frame
+    reach."""
     model, config = tiny_code2wav
     tail = _decoder_tail(config)
     submodule = Code2WavSubmodule(model, Qwen3OmniModelConfig(code2wav=config))
-    assert config.codec_chunk_schedule == (4, 8, 13)
+    assert config.codec_chunk_schedule == (12, 13)
     generator = torch.Generator().manual_seed(1000 + num_frames)
     codes = torch.randint(0, config.codebook_size, (num_frames, config.num_quantizers), generator=generator)
 
@@ -466,21 +468,21 @@ def test_real_decoder_streams_the_ramp_like_the_full_decode(tiny_code2wav, num_f
     assert [audio.numel() for _, audio, _ in steps] == _expected_samples_per_step(steps, tail)
 
 
-def test_default_config_ramps_4_8_13_then_25():
+def test_default_config_ramps_12_13_then_25():
     """The checkpoint carries no streaming fields, so the dataclass defaults
-    are what serves: windows of 4, 4 + 8 and 12 + 13 frames, then 25 + 25,
-    all padded to one 50-frame capture."""
+    are what serves: windows of 12 and 12 + 13 frames, then 25 + 25, all
+    padded to one 50-frame capture."""
     from mstar.model.qwen3_omni.qwen3_omni_model import Qwen3OmniModel
 
     cfg = Code2WavConfig.from_dict({"codebook_size": 2048})
-    assert (cfg.codec_chunk_schedule, cfg.codec_chunk_frames, cfg.codec_left_context_frames) == ((4, 8, 13), 25, 25)
+    assert (cfg.codec_chunk_schedule, cfg.codec_chunk_frames, cfg.codec_left_context_frames) == ((12, 13), 25, 25)
     assert Qwen3OmniModelConfig().code2wav == cfg
     policy = Qwen3OmniModel._code2wav_chunk_policy(SimpleNamespace(config=Qwen3OmniModelConfig()))
     assert isinstance(policy, ScheduledLeftContextChunkPolicy)
     windows = _windows(policy, 120)
-    assert windows == [(0, 4), (4, 12), (12, 25), (25, 50), (25, 50), (25, 50), (25, 45)]
+    assert windows == [(0, 12), (12, 25), (25, 50), (25, 50), (25, 50), (25, 45)]
     # from frame 25 on, the windows of 25-frame first chunks
-    assert windows[3:] == _windows(LeftContextChunkPolicy(chunk=25, left_context=25), 120)[1:]
+    assert windows[2:] == _windows(LeftContextChunkPolicy(chunk=25, left_context=25), 120)[1:]
 
     submodule = Code2WavSubmodule(_LookaheadDecoder(), Qwen3OmniModelConfig())
     capture = submodule.get_cuda_graph_configs("cpu")[0].single_request_inputs.tensor_inputs["codec_tokens"]
@@ -519,7 +521,7 @@ def test_one_context_frame_covers_the_lookahead_samples():
 
 def test_zero_context_frames_would_drop_the_lookahead_at_every_boundary():
     """Why the minimum is 1: forced past validation, a context of 0 loses 555
-    samples at each of the default ramp's three boundaries in 50 frames."""
+    samples at each of the (4, 8, 13) ramp's three boundaries in 50 frames."""
     cfg = _config()
     cfg.code2wav.codec_left_context_frames = 0
     decoder = _LookaheadDecoder()
@@ -556,7 +558,7 @@ def test_a_bad_streaming_knob_is_rejected_naming_its_key(key, value):
 
 @pytest.mark.parametrize("left_context", [1, 2, 25, 50])
 @pytest.mark.parametrize("chunk", [1, 25])
-@pytest.mark.parametrize("schedule", [(), (1,), (4, 8, 13), (4, 10), (30,), (2, 60)])
+@pytest.mark.parametrize("schedule", [(), (1,), (12, 13), (4, 8, 13), (4, 10), (30,), (2, 60)])
 @pytest.mark.parametrize("num_frames", [1, 4, 26, 77])
 def test_every_accepted_knob_combination_streams_the_full_decode(schedule, chunk, left_context, num_frames):
     """Schedules that sum to less than, exactly or more than the context, and

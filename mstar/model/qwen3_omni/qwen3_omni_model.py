@@ -13,7 +13,7 @@ Architecture (3 async partitions):
 
 Streaming topology:
     Thinker --[thinker_states, FixedChunkPolicy(1)]--> Talker
-    Talker  --[codec_tokens,  ScheduledLeftContextChunkPolicy((4, 8, 13), 25, 25)]--> Code2Wav
+    Talker  --[codec_tokens,  ScheduledLeftContextChunkPolicy((12, 13), 25, 25)]--> Code2Wav
 
 Conductor-triggered pipelined prefill (Approach C):
     After each Thinker walk completes (prefill_text, prefill_audio,

@@ -170,6 +170,7 @@ def boundary_and_mid_snr(
 
 
 @pytest.mark.parametrize("schedule, left_context", [
+    pytest.param((12, 13), 25, id="ramp-12-13-25"),
     pytest.param((4, 8, 13), 25, id="ramp-4-8-13-25"),
     pytest.param((), 25, id="first-chunk-25"),
     pytest.param((), 50, id="first-chunk-25-context-50"),
