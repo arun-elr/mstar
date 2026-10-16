@@ -174,6 +174,9 @@ def _shutdown_conductor_process(
 # ------------------------------------------------------------------
 
 
+SUPERSEDED_ERROR = "request superseded by a newer submission with the same request_id"
+
+
 @dataclass
 class PendingRequest:
     streaming: bool
@@ -462,8 +465,8 @@ class APIServer:
         ``<request_id>#<generation>``, that is never reused: a client may
         reuse its ``request_id`` while the engine is still tearing the older
         request down, and every message the engine sends names only the key.
-        A submission under an id whose previous request is still pending
-        replaces it; the previous one is aborted.
+        A submission under an id whose previous request is still running
+        replaces it: the previous one is aborted, and its client gets a 409.
         """
         if request_id is None:
             request_id = str(uuid.uuid4())
@@ -486,9 +489,21 @@ class APIServer:
             if self.fatal_error is not None:
                 raise HTTPException(status_code=503, detail=self.fatal_error)
             key = f"{request_id}#{next(self._generation)}"
-            replaced = self._live.get(request_id)
-            if replaced not in self.pending_requests:
+            replaced_key = self._live.get(request_id)
+            replaced = self.pending_requests.get(replaced_key)
+            if replaced is not None and replaced.event.is_set():
+                # Already finished: its client still gets the whole result.
                 replaced = None
+            if replaced is not None:
+                # Dropped here, under the same lock as the error, so its
+                # handler (which holds the PendingRequest) reports the 409
+                # instead of a truncated success.
+                replaced.error = SUPERSEDED_ERROR
+                replaced.error_status = 409
+                replaced.event.set()
+                self.pending_requests.pop(replaced_key, None)
+                self.recently_completed.pop(replaced_key, None)
+                self._retire(replaced_key)
             self._live[request_id] = key
             self._client_ids[key] = request_id
             self.pending_requests[key] = PendingRequest(
@@ -502,7 +517,9 @@ class APIServer:
                 request_id=request_id,
             )
         if replaced is not None:
-            self._abort_key(replaced)
+            replaced.notify()
+            logger.info("Request %s superseded by %s; aborting it", replaced_key, key)
+            self.preprocess_worker.abort_request(replaced_key)
 
         self.preprocess_worker.new_request(PreprocessInput(
             request_id=key,
@@ -781,7 +798,7 @@ class APIServer:
     # Streaming helper
     # ----------------------------------------------------------
 
-    async def iter_result_chunks(self, request_id: str):
+    def iter_result_chunks(self, request_id: str):
         """Yield raw :class:`ResultChunk` objects as they arrive, one at a time.
 
         Shared source for both output surfaces: ``/generate`` formats each
@@ -791,7 +808,10 @@ class APIServer:
         hands out the chunks the way they arrive (several per wake under load)
         and owns the timeout, the drain and the abort on an early exit.
         """
-        batches = self.iter_result_chunk_batches(request_id)
+        return self._flatten(self.iter_result_chunk_batches(request_id))
+
+    @staticmethod
+    async def _flatten(batches):
         try:
             async for batch in batches:
                 for chunk in batch:
@@ -799,7 +819,16 @@ class APIServer:
         finally:
             await batches.aclose()
 
-    async def iter_result_chunk_batches(self, request_id: str):
+    def _bind(self, request_id: str) -> tuple[str | None, PendingRequest | None]:
+        """The newest submission under ``request_id``: its key and request.
+        Called when a handler is created, right after ``submit_request`` and
+        before the event loop runs anything else, so a later submission under
+        the same id is never taken for this one."""
+        with self.request_lock:
+            key = self._live.get(request_id)
+            return key, self.pending_requests.get(key)
+
+    def iter_result_chunk_batches(self, request_id: str):
         """Yield the :class:`ResultChunk` objects as they arrive, as one list
         per drain: everything the message thread appended since the last
         wake. Under load several tokens of a request are often waiting when
@@ -808,18 +837,21 @@ class APIServer:
         length one and nothing is delayed. The final flush and an in-band
         error come as the last list.
         """
+        key, own = self._bind(request_id)
+        return self._iter_result_chunk_batches(request_id, key, own)
+
+    async def _iter_result_chunk_batches(
+        self, request_id: str, key: str | None, own: PendingRequest | None,
+    ):
         start = time.time()
         finished = False
         # Woken by the message thread (PendingRequest.notify) when a chunk or
         # the completion lands; the timeout below is only a backstop.
         wake = asyncio.Event()
         with self.request_lock:
-            # Resolved once: a later submission under the same id is not ours.
-            key = self._live.get(request_id)
-            req = self.pending_requests.get(key)
-            if req is not None:
-                req.loop = asyncio.get_running_loop()
-                req.wake = wake
+            if own is not None:
+                own.loop = asyncio.get_running_loop()
+                own.wake = wake
         try:
             while True:
                 if time.time() - start > self.timeout_seconds:
@@ -852,27 +884,34 @@ class APIServer:
                     # flush remaining
                     remaining: list[ResultChunk] = []
                     finished_req: PendingRequest | None = None
+                    failed_req: PendingRequest | None = None
                     with self.request_lock:
                         req = self.pending_requests.get(key)
                         if req:
                             remaining = req.chunks[req.consumed_chunks:]
                             finished_req = self.pending_requests.pop(key, None)
                             self._retire(key)
+                            failed_req = finished_req
+                        elif own is not None and own.error is not None:
+                            # Dropped with an error (superseded): still ours to report.
+                            remaining = own.chunks[own.consumed_chunks:]
+                            own.consumed_chunks = len(own.chunks)
+                            failed_req = own
                     # Profiling (incl. the optional file write) runs outside the
                     # lock; the popped request is no longer shared with other threads.
                     if finished_req is not None:
                         self._finalize_profile(finished_req)
                     tail = list(remaining)
                     # A request can fail after the stream is already open
-                    # (preprocess error, result-delivery timeout); the HTTP
-                    # status is committed by then, so the error must travel
-                    # in-band as the final chunk.
-                    if finished_req is not None and finished_req.error is not None:
+                    # (preprocess error, result-delivery timeout, superseded);
+                    # the HTTP status is committed by then, so the error must
+                    # travel in-band as the final chunk.
+                    if failed_req is not None and failed_req.error is not None:
                         tail.append(ResultChunk(
                             request_id=request_id,
                             modality="error",
-                            data=str(finished_req.error).encode("utf-8"),
-                            metadata={"status": finished_req.error_status},
+                            data=str(failed_req.error).encode("utf-8"),
+                            metadata={"status": failed_req.error_status},
                         ))
                     if tail:
                         yield tail
@@ -898,14 +937,16 @@ class APIServer:
 
         Deliberately a plain ``def`` returning the chosen async generator rather
         than an ``async def`` delegating to it: the branch is per-request, not
-        per-chunk, and this keeps both bodies flat.
+        per-chunk, and this keeps both bodies flat. It also binds the
+        submission now, before Starlette starts iterating the body.
         """
+        chunks = self.iter_result_chunks(request_id)
         if binary:
-            return self._stream_binary(request_id)
-        return self._stream_ndjson(request_id)
+            return self._stream_binary(chunks)
+        return self._stream_ndjson(chunks)
 
-    async def _stream_ndjson(self, request_id: str):
-        async for chunk in self.iter_result_chunks(request_id):
+    async def _stream_ndjson(self, chunks):
+        async for chunk in chunks:
             line = self._chunk_to_ndjson(chunk)
             if not self.enable_nvtx:
                 yield line
@@ -921,8 +962,8 @@ class APIServer:
             finally:
                 profiler.range_pop()
 
-    async def _stream_binary(self, request_id: str):
-        async for chunk in self.iter_result_chunks(request_id):
+    async def _stream_binary(self, chunks):
+        async for chunk in chunks:
             header, payload = _chunk_to_binary_frame(chunk)
             # Two yields rather than one concatenation: joining them would copy
             # the whole payload to prepend ~100 bytes, which is the class of
@@ -969,8 +1010,7 @@ class APIServer:
         """Wait for the request to finish (or the client to disconnect), then
         return its chunks. Disconnecting or timing out releases engine state."""
         start = time.time()
-        with self.request_lock:
-            key = self._live.get(request_id)
+        key, own = self._bind(request_id)
         while True:
             with self.request_lock:
                 req = self.pending_requests.get(key)
@@ -989,7 +1029,10 @@ class APIServer:
             req = self.pending_requests.pop(key, None)
             self._retire(key)
         if req is None:
-            return []
+            # Dropped with an error (superseded): still ours to report.
+            if own is None or own.error is None:
+                return []
+            req = own
         if req.error is not None:
             raise HTTPException(
                 status_code=req.error_status, detail=req.error

@@ -15,17 +15,22 @@ the order the conductor and the data worker send them.
 from __future__ import annotations
 
 import asyncio
+import base64
 import itertools
+import json
 import queue
 import threading
 import time
 from types import SimpleNamespace
 
+import httpx
 import pytest
+from fastapi.testclient import TestClient
 from test_teardown_barrier import PREPROCESS, _conductor, _remove_targets, _request_data
 
+from mstar.api_server import entrypoint
 from mstar.api_server.data_worker import PreprocessWorker, PreprocessWorkerThread
-from mstar.api_server.entrypoint import APIServer
+from mstar.api_server.entrypoint import SUPERSEDED_ERROR, APIServer
 from mstar.api_server.request_types import ResultChunk
 from mstar.utils.ipc_format import (
     ConductorMessageType,
@@ -373,6 +378,161 @@ def test_a_second_submission_under_a_pending_id_replaces_the_first():
 
     s.abort_request("X")
     assert pw.aborted == [first, second]
+
+
+# ── a superseded submission, through the routes ─────────────────────────────
+
+def _complete(s, key, data):
+    """The engine's whole answer for ``key`` lands."""
+    with s.request_lock:
+        req = s.pending_requests[key]
+        req.chunks.append(ResultChunk(request_id="X", modality="text", data=data))
+        req.event.set()
+    req.notify()
+
+
+def _wait(pred, timeout=5.0):
+    deadline = time.monotonic() + timeout
+    while not pred():
+        assert time.monotonic() < deadline
+        time.sleep(0.005)
+
+
+async def _await(pred, timeout=5.0):
+    deadline = time.monotonic() + timeout
+    while not pred():
+        assert time.monotonic() < deadline
+        await asyncio.sleep(0.005)
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_a_superseded_generate_fails_with_409_and_the_newer_one_completes(monkeypatch, streaming):
+    """Two /generate calls under X; the second arrives while the first runs.
+    The first client is told it was superseded (a 409, in-band once the
+    stream is open) instead of getting a truncated success."""
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    monkeypatch.setattr(entrypoint, "api_server", s)
+    form = {"text": "first", "request_id": "X", "streaming": str(streaming).lower()}
+
+    async def run():
+        transport = httpx.ASGITransport(app=entrypoint.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            first = asyncio.create_task(client.post("/generate", data=form))
+            await _await(lambda: len(pw.inputs) == 1)
+            second = asyncio.create_task(client.post("/generate", data={**form, "text": "second"}))
+            await _await(lambda: len(pw.inputs) == 2)
+            _complete(s, pw.inputs[1].request_id, b"second")
+            return await first, await second
+
+    r1, r2 = asyncio.run(run())
+
+    if streaming:
+        first_lines = [json.loads(line) for line in r1.text.splitlines()]
+        assert [line["modality"] for line in first_lines] == ["error"], first_lines
+        assert first_lines[-1]["metadata"]["status"] == 409
+        assert base64.b64decode(first_lines[-1]["data"]).decode() == SUPERSEDED_ERROR
+        second_lines = [json.loads(line) for line in r2.text.splitlines()]
+        assert [(line["modality"], base64.b64decode(line["data"])) for line in second_lines] == [
+            ("text", b"second"),
+        ]
+    else:
+        assert r1.status_code == 409, r1.text
+        assert r1.json()["detail"] == SUPERSEDED_ERROR
+        assert r2.status_code == 200, r2.text
+        assert r2.json()["request_id"] == "X"
+        texts = [base64.b64decode(o["data"]) for o in r2.json()["outputs"]["text"]]
+        assert texts == [b"second"]
+    assert pw.aborted == [pw.inputs[0].request_id]
+    assert not s.pending_requests and s._live == {}
+
+
+def test_a_superseded_websocket_request_gets_an_in_band_409(monkeypatch, tmp_path):
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.upload_dir = tmp_path
+    monkeypatch.setattr(entrypoint, "api_server", s)
+    with TestClient(entrypoint.app).websocket_connect("/generate/ws") as ws:
+        ws.send_text(json.dumps({"text": "first", "request_id": "X"}))
+        _wait(lambda: len(pw.inputs) == 1)
+        ws.send_text(json.dumps({"text": "second", "request_id": "X"}))
+        _wait(lambda: len(pw.inputs) == 2)
+
+        reply = json.loads(ws.receive_text())
+        assert reply == {"request_id": "X", "error": SUPERSEDED_ERROR, "status": 409}
+
+        _complete(s, pw.inputs[1].request_id, b"second")
+        chunk, finish = json.loads(ws.receive_text()), json.loads(ws.receive_text())
+    assert chunk["request_id"] == "X" and chunk["modality"] == "text"
+    assert finish == {"request_id": "X", "finish": True}
+
+
+def test_a_stream_is_bound_to_its_submission_before_it_is_iterated():
+    """/generate hands the body to Starlette, which iterates it later; a
+    submission under the same id in between is not this stream's."""
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.submit_request(text="first", request_id="X", **TEXT)
+
+    async def run():
+        body = s.async_stream_results("X")
+        s.submit_request(text="second", request_id="X", **TEXT)
+        _complete(s, pw.inputs[1].request_id, b"second")
+        return [json.loads(line) async for line in body]
+
+    lines = asyncio.run(run())
+
+    assert [line["modality"] for line in lines] == ["error"], "the stream read the newer request"
+    assert lines[0]["metadata"]["status"] == 409
+    assert [c.data for c in s.pending_requests[pw.inputs[1].request_id].chunks] == [b"second"]
+
+
+def test_an_openai_chat_stream_is_bound_before_it_is_iterated():
+    """The chat stream yields its role event before it reads any result."""
+    from mstar.api_server.openai.serving_chat import _stream
+
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.submit_request(text="first", request_id="X", **TEXT)
+
+    async def run():
+        body = _stream(s, "m", "X", 24000)
+        role = await body.__anext__()
+        s.submit_request(text="second", request_id="X", **TEXT)
+        _complete(s, pw.inputs[1].request_id, b"second")
+        return [role] + [frame async for frame in body]
+
+    frames = asyncio.run(run())
+
+    events = [json.loads(f[len("data: "):]) for f in frames if f.startswith("data: {")]
+    assert events[-1]["error"]["code"] == 409, events
+    assert not any(e.get("choices", [{}])[0].get("finish_reason") == "stop" for e in events)
+    assert [c.data for c in s.pending_requests[pw.inputs[1].request_id].chunks] == [b"second"]
+
+
+def test_rust_bridge_relays_each_read_their_own_submission():
+    """Two submits under X in one receive batch: each relay is bound when it
+    is scheduled, so the first relays its 409 and the second its answer."""
+    from mstar.api_server.rust_frontend import RustFrontendBridge
+
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    bridge = RustFrontendBridge.__new__(RustFrontendBridge)
+    bridge.server = s
+    sent = []
+    bridge._send = sent.append
+    submit = {"t": "submit", "rid": "X", "text": "first", **TEXT}
+
+    async def run():
+        bridge._submit(submit)
+        bridge._submit({**submit, "text": "second"})
+        _complete(s, pw.inputs[1].request_id, b"second")
+        await _await(lambda: [m["t"] for m in sent].count("done") == 2)
+
+    asyncio.run(run())
+
+    chunks = [(m["modality"], m["data"], m["metadata"].get("status")) for m in sent if m["t"] == "chunk"]
+    assert sorted(chunks) == [("error", SUPERSEDED_ERROR.encode(), 409), ("text", b"second", None)]
 
 
 def test_nothing_is_kept_once_the_request_is_done():
