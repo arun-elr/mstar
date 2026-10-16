@@ -150,26 +150,81 @@ def test_a_stream_closed_at_its_error_does_not_abort_a_retry(tmp_path):
     assert s.aborted == []
 
 
-@pytest.mark.parametrize("failed", [False, True])
-def test_the_bridge_sends_no_done_after_an_error(failed):
-    # The frontend ends a route on an error chunk, and the id can be live
-    # again before a trailing done arrives; that done would end the new route.
+def _fail(server, rid, data_worker):
+    """A failure as the message thread records it: an engine error sets
+    ``error``; a data worker's also appends its error chunk."""
+    with server.request_lock:
+        req = server.pending_requests[rid]
+        req.chunks.append(ResultChunk(request_id=rid, modality="text", data=b"a", metadata={}))
+        if data_worker:
+            req.chunks.append(ResultChunk(
+                request_id=rid, modality="error", data=b"postprocess failed", metadata={"status": 500},
+            ))
+        req.error, req.error_status = "failed", 500
+        req.event.set()
+        server.recently_completed[rid] = time.time()
+
+
+@pytest.mark.parametrize("failure", [None, "engine", "data_worker"])
+def test_the_bridge_sends_nothing_after_the_first_error(tmp_path, failure):
+    # The frontend ends a route on the first error chunk, and the id can be
+    # live again before anything that follows; a second error or a done would
+    # end the new route.
     from mstar.api_server.rust_frontend import RustFrontendBridge
 
-    async def chunks(rid):
-        yield ResultChunk(request_id=rid, modality="text", data=b"a", metadata={})
-        if failed:
-            yield ResultChunk(request_id=rid, modality="error", data=b"boom", metadata={"status": 500})
+    s = _server(tmp_path)
+    s.preprocess_worker.finished_reading = lambda rid, drained=True: None
+    s.submit_request(text="first", request_id="dup", **TEXT)
+    if failure:
+        _fail(s, "dup", data_worker=failure == "data_worker")
+    else:
+        _finish(s, "dup", data=b"a")
 
     bridge = RustFrontendBridge.__new__(RustFrontendBridge)
-    bridge.server = SimpleNamespace(iter_result_chunks=chunks)
+    bridge.server = s
     sent = []
     bridge._send = sent.append
     asyncio.run(bridge._relay("dup"))
     kinds = [(m["t"], m.get("modality")) for m in sent]
-    assert kinds == (
-        [("chunk", "text"), ("chunk", "error")] if failed else [("chunk", "text"), ("done", None)]
-    )
+    assert kinds == [("chunk", "text"), ("chunk", "error") if failure else ("done", None)]
+    assert "dup" not in s.pending_requests and s.aborted == []
+
+
+def _fail_when_submitted(server, rid, timeout=5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with server.request_lock:
+            if rid in server.pending_requests:
+                break
+        time.sleep(0.005)
+    _fail(server, rid, data_worker=True)
+
+
+def test_websocket_replies_once_to_a_data_worker_failure(monkeypatch, tmp_path):
+    # The stream adds its own error after the data worker's; a second reply
+    # under the id would read as the answer to a retry that reuses it.
+    s = _server(tmp_path)
+    s.preprocess_worker.finished_reading = lambda rid, drained=True: None
+    monkeypatch.setattr(entrypoint, "api_server", s)
+
+    with TestClient(entrypoint.app).websocket_connect("/generate/ws") as ws:
+        failer = threading.Thread(target=_fail_when_submitted, args=(s, "dup"))
+        failer.start()
+        ws.send_text(json.dumps({"text": "first", "request_id": "dup"}))
+        replies = [json.loads(ws.receive_text()) for _ in range(2)]
+        failer.join()
+        assert replies[0]["data"] and replies[1]["request_id"] == "dup"
+        assert replies[1]["error"] == "postprocess failed" and replies[1]["status"] == 500
+
+        finisher = threading.Thread(target=_finish_when_submitted, args=(s, "next"))
+        finisher.start()
+        ws.send_text(json.dumps({"text": "second", "request_id": "next"}))
+        after = [json.loads(ws.receive_text()) for _ in range(2)]
+        finisher.join()
+
+    assert [r["request_id"] for r in after] == ["next", "next"]
+    assert after[1] == {"request_id": "next", "finish": True}
+    assert s.aborted == []
 
 
 @pytest.mark.parametrize("streaming", ["true", "false"])

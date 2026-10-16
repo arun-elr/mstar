@@ -151,13 +151,18 @@ class RustFrontendBridge:
         try:
             failed = False
             async for chunk in self.server.iter_result_chunks(rid):
-                failed = failed or chunk.modality == "error"
+                # The frontend ends the route on the first error, and the id
+                # may be live again by now: anything sent after it (a data
+                # worker's error is followed by the stream's own, or a done)
+                # would land on the new request. The rest is still read so the
+                # finished request is not aborted.
+                if failed:
+                    continue
+                failed = chunk.modality == "error"
                 self._send({
                     "t": "chunk", "rid": rid, "modality": chunk.modality,
                     "data": bytes(chunk.data), "metadata": chunk.metadata,
                 })
-            # An error chunk already ended the frontend's route, and the id may
-            # be live again by now: a trailing done would end the new request.
             if not failed:
                 self._send({"t": "done", "rid": rid})
         except Exception as e:  # noqa: BLE001 — includes the per-request timeout

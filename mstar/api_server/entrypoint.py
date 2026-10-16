@@ -1361,10 +1361,15 @@ async def generate_ws(websocket: WebSocket):
             # iterator down, and its ``finally`` aborts the engine request.
             failed = False
             async for chunk in api_server.iter_result_chunks(request_id):
+                if failed:
+                    # A data worker's error is followed by the stream's own.
+                    # The id may be live again by now, so nothing more goes
+                    # out under it; the rest is read so the finished request
+                    # is not aborted.
+                    continue
                 if chunk.modality == "error":
-                    # The request failed after it was accepted. This is the
-                    # iterator's last chunk, so the loop ends here; the error
-                    # is the reply and no finish follows.
+                    # The request failed after it was accepted. The error is
+                    # the reply and no finish follows.
                     failed = True
                     await send({
                         "request_id": request_id,
