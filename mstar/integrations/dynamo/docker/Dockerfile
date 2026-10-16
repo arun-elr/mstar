@@ -9,36 +9,34 @@
 # stage adds the mstar[dynamo] extra, so the ai-dynamo version pin lives in
 # pyproject.toml only.
 #
-# For a CUDA 13 host, override the three build args together:
-#   --build-arg CUDA_IMAGE=docker.io/nvidia/cuda:13.0.0-devel-ubuntu24.04
-#   --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu130
-#   --build-arg FLASH_ATTN_WHEEL=...cu13torch2.9...  (see docs/installation.rst)
-#
-# The CUDA 12.8 default is a host-compatibility floor, not a preference:
-# a cu12.8 image runs on both r570 and r580+ driver hosts, while a CUDA 13
-# image needs r580+. Flip the default once the deployment fleet's driver
-# floor moves past r570.
+# The default is CUDA 13, which needs an r580+ driver: flash-attn publishes
+# its torch 2.10 wheel only for CUDA 13. For an r570 host, override these
+# together and supply a flash-attn wheel built from source for cu12 and
+# torch 2.10 (docs/installation.rst):
+#   --build-arg CUDA_IMAGE=docker.io/nvidia/cuda:12.8.1-devel-ubuntu24.04
+#   --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu128
+#   --build-arg FLASH_ATTN_WHEEL=<your cu12 torch2.10 wheel>
 
 # A -devel base is required at runtime, not just at build time: the vendored
 # MoE align kernel and FlashInfer both JIT-compile CUDA kernels on first use
 # and need nvcc. Fully qualified so rootless podman/buildah builds don't trip
 # on short-name resolution.
-ARG CUDA_IMAGE=docker.io/nvidia/cuda:12.8.1-devel-ubuntu24.04
+ARG CUDA_IMAGE=docker.io/nvidia/cuda:13.0.2-devel-ubuntu24.04
 
 FROM ${CUDA_IMAGE} AS serve
 
-ARG TORCH_INDEX=https://download.pytorch.org/whl/cu128
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu130
 # Keep torch below 2.13 when overriding: newer Inductor buffer allocation
 # breaks CUDA-graph capture.
-ARG TORCH_VERSION=2.9.1
-ARG TORCHVISION_VERSION=0.24.1
-ARG TORCHAUDIO_VERSION=2.9.1
-# torchcodec releases pair with torch minors (0.9.x <-> torch 2.9); a newer
+ARG TORCH_VERSION=2.10.0
+ARG TORCHVISION_VERSION=0.25.0
+ARG TORCHAUDIO_VERSION=2.10.0
+# torchcodec releases pair with torch minors (0.10.x <-> torch 2.10); a newer
 # torchcodec against this torch fails at runtime with undefined symbols.
-ARG TORCHCODEC_VERSION=0.9.1
+ARG TORCHCODEC_VERSION=0.10.0
 # flash-attn ships no PyPI wheels; install the GitHub release wheel whose
 # cu1x / torchX.Y / cpXY tags match the torch above (docs/installation.rst).
-ARG FLASH_ATTN_WHEEL=https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+ARG FLASH_ATTN_WHEEL=https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu13torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
