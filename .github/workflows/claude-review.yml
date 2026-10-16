@@ -327,6 +327,8 @@ jobs:
             || gh pr comment "$PR" --repo "$REPO" --body-file summary.md
 
       # Anything above failed: say so on the PR rather than leaving silence.
+      # A run the preflight skipped never gets here. Repeated failures update
+      # one comment, found by its marker, so retries don't stack up comments.
       - name: Report a review that didn't complete
         if: >-
           always() && steps.pre.outputs.run == 'true' &&
@@ -338,6 +340,12 @@ jobs:
           WHY: ${{ steps.pr.outputs.why || 'a step failed' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          printf 'The automated review didn'"'"'t complete: %s. [Log](%s). Comment `/review` to retry.\n' \
+          printf '<!-- claude-review-incomplete -->\nThe automated review didn'"'"'t complete: %s. [Log](%s). Comment `/review` to retry.\n' \
             "$WHY" "$RUN_URL" > failed.md
-          gh pr comment "$PR" --repo "$REPO" --body-file failed.md
+          id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" --jq '.[] |
+            select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- claude-review-incomplete -->"))) | .id' 2> /dev/null | tail -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@failed.md > /dev/null
+          else
+            gh pr comment "$PR" --repo "$REPO" --body-file failed.md
+          fi

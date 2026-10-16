@@ -17,7 +17,7 @@ The action refuses actors without write access, which is most contributors on a 
 
 A stacked PR (one whose base is another feature branch) gets the automatic review only if its base branch has a current copy of the workflow, because `pull_request_target` runs the base branch's workflow file. Comment `/review` on stacked PRs; that always runs `main`'s. Either way the rules are read from `main`.
 
-The bot reacts 👀 to a `/review` comment when it picks it up. A review that doesn't complete (an API error, running out of turns, a fork that no longer exists) leaves a PR comment linking the log, never a red check.
+The bot reacts 👀 to a `/review` comment when it picks it up. A review that doesn't complete (an API error, running out of turns, a fork that no longer exists) leaves a PR comment linking the log, never a red check; a later failure updates that comment rather than adding another. A request the workflow declines (no write access and not the author, or no API key) exits green without commenting.
 
 | File | Role |
 | --- | --- |
