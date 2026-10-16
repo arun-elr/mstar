@@ -348,10 +348,11 @@ class _DecodePlanCache:
     """The last leased decode plan, as `_fast_decode_plan` continues it."""
 
     __slots__ = (
-        "step_segments", "real_segments", "n_real", "pad_layout", "views", "epoch", "pending", "derived", "_rows",
+        "step_segments", "real_segments", "n_real", "pad_layout", "combined_labels", "views", "epoch", "pending",
+        "derived", "_rows",
     )
 
-    def __init__(self, step_segments, real_segments, n_real, pad_layout, views, epoch):
+    def __init__(self, step_segments, real_segments, n_real, pad_layout, combined_labels, views, epoch):
         # the planned step's own segments tuple: a commit of that object is the
         # one commit the next plan may assume
         self.step_segments = step_segments
@@ -360,6 +361,8 @@ class _DecodePlanCache:
         self.n_real = n_real
         # (count, span) of the padding rows, which change dummy ids per slot
         self.pad_layout = pad_layout
+        # the plan labels the views were built for
+        self.combined_labels = combined_labels
         # the full plan's views per label, the source of `derived`
         self.views = views
         self.epoch = epoch
@@ -1542,7 +1545,7 @@ class KVManager(AttentionResource):
                 return
         self._decode_plan_cache = _DecodePlanCache(
             step_segments=step.segments, real_segments=step.segments[:n_real],
-            n_real=n_real, pad_layout=pad_layout,
+            n_real=n_real, pad_layout=pad_layout, combined_labels=dict(step.combined_labels),
             views={label: out.views for label, out in res.items()},
             epoch=self._plan_epoch,
         )
@@ -1619,7 +1622,13 @@ class KVManager(AttentionResource):
         if (
             len(segs) != n_real + cache.pad_layout[0]
             or segs[:n_real] != cache.real_segments
+            or step.combined_labels != cache.combined_labels
             or any(seg.span != cache.pad_layout[1] or ctx.is_real_row(seg.request_id) for seg in segs[n_real:])
+            # padding keeps its labels: their order places the real rows in a combined label
+            or any(
+                seg.label != prev.label
+                for seg, prev in zip(segs[n_real:], cache.step_segments[n_real:], strict=True)
+            )
         ):
             stats["miss"] += 1
             return None

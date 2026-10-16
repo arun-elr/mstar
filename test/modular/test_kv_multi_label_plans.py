@@ -198,6 +198,52 @@ def test_padded_combined_labels_keep_their_real_rows():
     assert plans[1] == plans[0]
 
 
+def _layout_decodes(mode: int, layouts):
+    """Decode steps of rid "a" on labels A and B, one per (segments, combined
+    labels) in ``layouts``; the flat plans and the cache stats."""
+    kv = _manager(mode, ring=False)
+    kv.ingest_request("a", KVReqConfig())
+    step = KVStep(segments=(Segment("a", "A", 5), Segment("a", "B", 6)))
+    ctx = StepContext(request_ids=("a",), graph_walk="prefill", slot=0, capture=False)
+    assert kv.admit(step, ctx).ok
+    kv.plan(step, ctx)
+    kv.commit(step, ctx)
+    plans = []
+    for t, (layout, combined) in enumerate(layouts):
+        step = KVStep(segments=tuple(Segment(r, lab, 1) for r, lab in layout), combined_labels=combined)
+        rids = tuple(dict.fromkeys(r for r, _ in layout))
+        ctx = StepContext(
+            request_ids=("a",), graph_walk=P.WALK, slot=t % 2, capture=False,
+            slot_lease=SlotLease(slot=t % 2, bucket=BucketKey(graph_walk=P.WALK, bs=len(rids), num_tokens=len(layout))),
+        )
+        ctx.set_padded_rids(rids)
+        assert kv.admit(step, ctx).ok
+        plans.append(P._flat(kv.plan(step, ctx)))
+        kv.commit(step, ctx)
+    return plans, kv.plan_cache_stats
+
+
+def test_padding_that_changes_label_is_planned_from_the_streams():
+    """In a combined label the padding's labels place the real rows: padding
+    under B, then under A, puts A's padding before B's real row."""
+    real = (("a", "A"), ("a", "B"))
+    layouts = [(real + (("pad0", "B"),), {("A", "B"): "AB"}), (real + (("pad0", "A"),), {("A", "B"): "AB"})]
+    full, _ = _layout_decodes(0, layouts)
+    cached, stats = _layout_decodes(1, layouts)
+    assert cached == full
+    assert stats["hit"] == 0
+
+
+def test_a_step_that_combines_labels_is_planned_from_the_streams():
+    """The same real rows with and without combined labels are different plans."""
+    real = (("a", "A"), ("a", "B"))
+    layouts = [(real, {}), (real, {("A", "B"): "AB"}), (real, {("A", "B"): "AB"})]
+    full, _ = _layout_decodes(0, layouts)
+    cached, stats = _layout_decodes(1, layouts)
+    assert cached == full
+    assert stats == {"hit": 1, "miss": 1, "mismatch": 0}
+
+
 def test_a_plans_arrays_outlive_the_next_plan():
     """The ring hands a set back after two plans, whatever the label count:
     one plan's arrays are intact while the next plan is built."""
