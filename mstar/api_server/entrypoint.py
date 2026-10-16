@@ -191,6 +191,9 @@ class PendingRequest:
     # sleeps between chunks instead of polling every millisecond per request.
     wake: Any | None = None
     loop: Any | None = None
+    # The client's request_id. The engine knows the request by its key, so
+    # the message thread restamps each chunk with this before the client sees it.
+    request_id: str | None = None
 
     def notify(self) -> None:
         """Wake the streaming handler, from any thread."""
@@ -496,6 +499,7 @@ class APIServer:
                     rid=request_id,
                     timing=RequestTiming(recv_time=time.perf_counter()),
                 ),
+                request_id=request_id,
             )
         if replaced is not None:
             self._abort_key(replaced)
@@ -745,6 +749,8 @@ class APIServer:
                         if req.profile.timing.first_chunk_time is None:
                             req.profile.timing.first_chunk_time = now
                         req.profile.timing.last_chunk_time = now
+                        if req.request_id is not None:
+                            result_chunk.request_id = req.request_id
                         req.chunks.append(result_chunk)
                         to_wake[id(req)] = req
 

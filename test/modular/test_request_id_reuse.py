@@ -19,14 +19,17 @@ import itertools
 import queue
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 from test_teardown_barrier import PREPROCESS, _conductor, _remove_targets, _request_data
 
 from mstar.api_server.data_worker import PreprocessWorker, PreprocessWorkerThread
 from mstar.api_server.entrypoint import APIServer
+from mstar.api_server.request_types import ResultChunk
 from mstar.utils.ipc_format import (
     ConductorMessageType,
+    NewRequestConductor,
     ReadsDone,
     RemoveRequest,
     WorkerMessage,
@@ -264,6 +267,59 @@ def test_the_seed_still_derives_from_the_client_request_id(rig):
     assert first.request_id != second.request_id
     assert first.client_request_id == second.client_request_id == "X"
     assert _request_seed({}, _seed_id(second)) == _req_id_to_seed("X")
+
+
+def test_an_empty_pinned_request_id_keeps_its_seed():
+    from mstar.conductor.conductor import _req_id_to_seed, _seed_id
+
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.submit_request(text="first", request_id="", **TEXT)
+    s.abort_request("")
+    s.submit_request(text="second", request_id="", **TEXT)
+
+    seeds = {
+        _req_id_to_seed(_seed_id(NewRequestConductor(
+            request_id=inp.request_id,
+            initial_signals={},
+            initial_input_modalities=["text"],
+            initial_output_modalities=["text"],
+            input_metadata={},
+            model_kwargs={},
+            client_request_id=inp.client_request_id,
+        )))
+        for inp in pw.inputs
+    }
+    assert seeds == {_req_id_to_seed("")}
+
+
+def test_chunks_reach_the_client_under_its_own_request_id():
+    """The engine's chunks name the request by its key; what the stream and
+    collect hand back names it by the client's id."""
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.submit_request(text="first", request_id="X", streaming=False, **TEXT)
+    key = pw.inputs[0].request_id
+    engine_chunks = [ResultChunk(request_id=key, modality="text", data=b"hi")]
+    s.preprocess_worker.get_result_chunks = lambda: [engine_chunks.pop()] if engine_chunks else []
+    s.preprocess_worker.get_profile_updates = lambda: []
+    s.communicator = SimpleNamespace(get_all_new_messages=lambda: [])
+    s.conductor_proc = None
+    s._liveness_interval_s = 0.5
+    s.running = True
+    thread = threading.Thread(target=s._process_messages, daemon=True)
+    thread.start()
+    try:
+        deadline = time.time() + 10
+        while not s.pending_requests[key].chunks and time.time() < deadline:
+            time.sleep(0.005)
+    finally:
+        s.running = False
+        thread.join(timeout=10)
+    s.pending_requests[key].event.set()
+
+    chunks = asyncio.run(s.collect_results("X"))
+    assert [(c.request_id, c.data) for c in chunks] == [("X", b"hi")]
 
 
 # ── the API server alone ─────────────────────────────────────────────────────
