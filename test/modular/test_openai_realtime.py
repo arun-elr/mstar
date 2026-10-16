@@ -388,6 +388,17 @@ def test_non_object_events_are_errors(client_and_stub):
         assert json.loads(ws.receive_text())["type"] == "transcription_session.updated"
 
 
+def test_binary_frame_is_an_error_and_the_session_survives(client_and_stub):
+    client, stub = client_and_stub
+    stub.answers = ["language English<asr_text> hi"]
+    with client.websocket_connect("/v1/realtime") as ws:
+        ws.receive_text()
+        ws.send_bytes(base64.b64decode(_pcm(1.0)))   # raw PCM instead of an append event
+        assert json.loads(ws.receive_text())["type"] == "error"
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(2.0)}))
+        assert _recv_until(ws, "mstar.transcription.partial")[-1]["text"] == "hi"
+
+
 class _ScriptedWS:
     """Feeds ``run()`` a fixed list of messages, then disconnects."""
 
@@ -401,11 +412,10 @@ class _ScriptedWS:
     async def send_text(self, payload):
         self.sent.append(json.loads(payload))
 
-    async def receive_text(self):
+    async def receive(self):
         if not self.inbox:
-            from fastapi import WebSocketDisconnect
-            raise WebSocketDisconnect(1000)
-        return self.inbox.pop(0)
+            return {"type": "websocket.disconnect", "code": 1000}
+        return {"type": "websocket.receive", "text": self.inbox.pop(0)}
 
 
 @pytest.mark.parametrize("message", [
@@ -439,6 +449,22 @@ def test_engine_requests_per_audio_second_are_bounded(client_and_stub):
         ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(10.0)}))
         _recv_until(ws, "mstar.transcription.partial")
     assert len(stub.submits) == 5 and _step_seconds(stub)[-1] == 14.0
+
+
+def test_coalesced_step_counts_its_chunks_for_the_prefix(client_and_stub):
+    """A 6 s burst is 3 chunks: the next step continues from the stable
+    prefix, as it would after 3 separate steps, so text already sent as
+    deltas is not decoded afresh."""
+    client, stub = client_and_stub
+    stub.answers = ["language English<asr_text> one two three four five six seven eight", " nine ten"]
+    with client.websocket_connect("/v1/realtime") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(6.0)}))
+        assert _recv_until(ws, "mstar.transcription.partial")[-1]["chunk_id"] == 3
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(2.0)}))
+        _recv_until(ws, "mstar.transcription.partial")
+    assert _step_seconds(stub) == [6.0, 8.0]
+    assert stub.submits[1]["model_kwargs"]["assistant_prefix"] == "language English<asr_text> one two three"
 
 
 def test_item_length_is_capped(client_and_stub, monkeypatch):
