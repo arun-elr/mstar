@@ -29,6 +29,7 @@ Request state machine:
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +56,7 @@ from mstar.engine.resources import (
 )
 from mstar.graph.base import GraphEdge, GraphNode, GraphSection, Loop, Sequential, TensorPointerInfo
 from mstar.graph.special_destinations import EMIT_TO_CLIENT, EMPTY_DESTINATION
-from mstar.model.base import ForwardPassArgs, Model, TensorAndMetadata
+from mstar.model.base import ForwardPassArgs, Model, ProcessPromptOutput, TensorAndMetadata
 from mstar.model.fish_s2_pro.config import (
     ALLOWED_TEXT_SPECIAL_TOKENS,
     AR_ATTN,
@@ -66,6 +67,8 @@ from mstar.model.fish_s2_pro.config import (
     CLONE_SYSTEM_TEXT,
     IM_END,
     IM_START,
+    PROMPT_LAYOUT_KEY,
+    REF_CLIP_KEY,
     VOICE_TOKEN,
     FishS2ProConfig,
 )
@@ -93,11 +96,17 @@ def _resolve_snapshot(repo_id: str, cache_dir: str | None, allow_patterns: list[
     return snapshot_download(repo_id=repo_id, cache_dir=cache_dir, allow_patterns=allow_patterns)
 
 
+def clip_digest(clip: torch.Tensor) -> str:
+    """Content key of a reference clip, under which its codes are memoised."""
+    samples = clip.detach().to(device="cpu", dtype=torch.float32).contiguous()
+    return hashlib.blake2b(samples.numpy().tobytes(), digest_size=16).hexdigest()
+
+
 class FishS2ProModel(Model):
     """Fish Audio S2-Pro model contract (plain TTS and voice cloning)."""
 
     # API tensors the AR prefill consumes; the clone prefill adds ``ref_codes``.
-    PREFILL_INPUTS = ("prompt_ids", "prompt_layout")
+    PREFILL_INPUTS = ("prompt_ids",)
     REF_ENCODER_INPUTS = ("audio_inputs",)
 
     def __init__(self, model_path_hf: str, cache_dir: str | None = None, **kwargs: Any) -> None:
@@ -320,12 +329,14 @@ class FishS2ProModel(Model):
         output_modalities: list[str],
         tensors: NameToTensorList | None = None,
         **kwargs: Any,
-    ) -> NameToTensorList:
-        """Tokenize a request into ``prompt_ids`` and ``prompt_layout = [prefix_len, ref_frames]``.
+    ) -> ProcessPromptOutput:
+        """Tokenize a request into ``prompt_ids``, with ``[prefix_len, ref_frames]`` as metadata.
 
         A voice clone carries one 44.1 kHz reference clip (``audio_inputs``)
         and optionally its transcript (``ref_text``); its frames are encoded
-        on the worker and spliced in after ``prefix_len`` prompt tokens.
+        on the worker and spliced in after ``prefix_len`` prompt tokens. The
+        layout and the clip's digest travel as host values to the prefill's
+        step metadata, so the worker never reads them back from the device.
         """
         if not prompt or not prompt.strip():
             raise ValueError("Fish S2-Pro requires a non-empty text prompt")
@@ -345,10 +356,10 @@ class FishS2ProModel(Model):
         ids, prefix_len = self.build_prompt(prompt.strip(), ref_text, ref_frames)
         if len(ids) + ref_frames + self.get_max_output_tokens(**kwargs) > self.config.slow_ar.max_seq_len:
             raise ValueError("Fish S2-Pro prompt plus max_new_tokens exceeds the 32,768-token context")
-        return {
-            "prompt_ids": [torch.tensor(ids, dtype=torch.long)],
-            "prompt_layout": [torch.tensor([prefix_len, ref_frames], dtype=torch.long)],
-        }
+        metadata: dict[str, Any] = {PROMPT_LAYOUT_KEY: [prefix_len, ref_frames]}
+        if clips:
+            metadata[REF_CLIP_KEY] = clip_digest(clips[0])
+        return ProcessPromptOutput({"prompt_ids": [torch.tensor(ids, dtype=torch.long)]}, metadata)
 
     # -----------------------------------------------------------------------
     # Conductor partition state machine
@@ -373,8 +384,10 @@ class FishS2ProModel(Model):
                 kwargs={"ar_max_tokens": self.get_max_output_tokens(**model_kwargs)},
             )
             routes = [(name, "AR") for name in self.PREFILL_INPUTS]
+            step_metadata = {**self._ar_step_metadata(metadata), PROMPT_LAYOUT_KEY: model_kwargs[PROMPT_LAYOUT_KEY]}
             if clone:
                 routes += [(name, "RefEncoder") for name in self.REF_ENCODER_INPUTS]
+                step_metadata[REF_CLIP_KEY] = model_kwargs[REF_CLIP_KEY]
             inputs = []
             for name, node in routes:
                 edge = GraphEdge(next_node=node, name=name)
@@ -385,7 +398,7 @@ class FishS2ProModel(Model):
                 inputs=inputs,
                 unpersist_tensors=sum([edge.tensor_info for edge in inputs], start=[]),
                 request_done="audio" not in output_modalities,
-                step_metadata=self._ar_step_metadata(metadata),
+                step_metadata=step_metadata,
             )
         if partition_name == "Codec":
             return ForwardPassArgs(

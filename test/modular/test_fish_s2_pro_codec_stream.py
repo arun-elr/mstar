@@ -34,6 +34,7 @@ from mstar.model.fish_s2_pro.config import (
     FishS2ProConfig,
     FishSlowARConfig,
 )
+from mstar.model.fish_s2_pro.fish_s2_pro_model import clip_digest
 from mstar.model.fish_s2_pro.submodules import CodecSubmodule, RefEncoderSubmodule
 from mstar.model.submodule_base import InputMetadata, ModelInputsFromEngine
 from mstar.streaming.chunk_policy import ScheduledLeftContextChunkPolicy
@@ -358,15 +359,12 @@ def test_ref_encoder_emits_frames_and_memoises_by_clip(config):
     calls = []
     original = submodule.encode
     submodule.encode = lambda waveform: calls.append(1) or original(waveform)
-    info = SimpleNamespace(request_id="r", rid_handle="r")
+    info = SimpleNamespace(request_id="r", rid_handle="r", step_metadata={"ref_clip_key": clip_digest(clip)})
 
-    first = submodule.forward(
-        "ar_prefill_clone",
-        None,
-        **submodule.prepare_inputs("ar_prefill_clone", info, {"audio_inputs": [clip]}).tensor_inputs,
-        clip_key=RefEncoderSubmodule.clip_digest(clip),
-    )["ref_codes"][0]
-    again = submodule.forward("ar_prefill_clone", None, waveform=clip, clip_key=RefEncoderSubmodule.clip_digest(clip))
+    item = submodule.prepare_inputs("ar_prefill_clone", info, {"audio_inputs": [clip]})
+    assert item.kwargs == {"clip_key": clip_digest(clip)}
+    first = submodule.forward("ar_prefill_clone", None, **item.tensor_inputs, **item.kwargs)["ref_codes"][0]
+    again = submodule.forward("ar_prefill_clone", None, waveform=clip, clip_key=clip_digest(clip))
 
     assert first.shape == (config.codec.frames_for_samples(clip.numel()), NUM_CODEBOOKS) == (6, NUM_CODEBOOKS)
     assert first.dtype == torch.long

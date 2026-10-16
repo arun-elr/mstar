@@ -23,7 +23,7 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
+import itertools
 import logging
 import math
 from collections import OrderedDict
@@ -40,7 +40,15 @@ from mstar.engine.resources.sampler.resource import SamplerResource
 from mstar.model.fish_s2_pro.components.dac import FishDACDecoder, FishDACEncoder
 from mstar.model.fish_s2_pro.components.fast_ar import FishFastAR
 from mstar.model.fish_s2_pro.components.slow_ar import FishSlowAR
-from mstar.model.fish_s2_pro.config import AR_ATTN, AR_KV, AR_POS, AR_SAMPLER, FishS2ProConfig
+from mstar.model.fish_s2_pro.config import (
+    AR_ATTN,
+    AR_KV,
+    AR_POS,
+    AR_SAMPLER,
+    PROMPT_LAYOUT_KEY,
+    REF_CLIP_KEY,
+    FishS2ProConfig,
+)
 from mstar.model.submodule_base import (
     EMPTY_INPUT_METADATA,
     ARNodeInputs,
@@ -51,6 +59,7 @@ from mstar.model.submodule_base import (
     NodeSubmodule,
 )
 from mstar.streaming.stream_buffer import StreamChunkInfo
+from mstar.utils.h2d import PinnedStager
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +105,8 @@ class ARSubmodule(ARNodeSubmodule):
         self.eos_code = config.eos_code
         self._fast_kv: torch.Tensor | None = None
         self._decode_last_token_indices: torch.Tensor | None = None
+        self._flag_stager = PinnedStager(torch.bool, numel=self.MAX_BATCH_SIZE)
+        self._index_stager = PinnedStager(torch.long, numel=self.MAX_BATCH_SIZE)
 
     def _get_fast_kv(self, batch_size: int) -> torch.Tensor:
         """Frame-local Fast AR KV scratch, overwritten every step (stable graph addresses)."""
@@ -134,11 +145,10 @@ class ARSubmodule(ARNodeSubmodule):
         return (tokens + vq) * self.config.vq_scale
 
     def _build_prefill(
-        self, prompt_ids: torch.Tensor, layout: torch.Tensor, ref_codes: torch.Tensor | None
+        self, prompt_ids: torch.Tensor, prefix_len: int, ref_frames: int, ref_codes: torch.Tensor | None
     ) -> torch.Tensor:
         """Prompt embeddings; a clone's reference frames sit after ``prefix_len`` tokens."""
         ids = prompt_ids.to(device=self.get_device(), dtype=torch.long).view(-1)
-        prefix_len, ref_frames = (int(v) for v in layout.tolist()[:2])
         embeds = self.slow_ar.embed(ids)
         if ref_frames <= 0:
             return embeds
@@ -159,9 +169,11 @@ class ARSubmodule(ARNodeSubmodule):
     ) -> ARNodeInputs:
         del kwargs
         if graph_walk in ("ar_prefill", "ar_prefill_clone"):
+            prefix_len, ref_frames = fwd_info.step_metadata[PROMPT_LAYOUT_KEY]
             input_embeds = self._build_prefill(
                 inputs["prompt_ids"][0],
-                inputs["prompt_layout"][0],
+                int(prefix_len),
+                int(ref_frames),
                 inputs["ref_codes"][0] if "ref_codes" in inputs else None,
             )
             self.request_state(fwd_info.rid_handle).add("generated_frames", 0)
@@ -177,7 +189,7 @@ class ARSubmodule(ARNodeSubmodule):
         return ARNodeInputs(
             input_embeds=input_embeds,
             input_seq_len=input_embeds.shape[0],
-            tensor_inputs={"suppress_eos": torch.tensor([suppress_eos], dtype=torch.bool, device=self.get_device())},
+            kwargs={"suppress_eos": suppress_eos},
         )
 
     def preprocess(
@@ -187,6 +199,7 @@ class ARSubmodule(ARNodeSubmodule):
         inputs: list[ARNodeInputs],
     ) -> dict[str, torch.Tensor | Any]:
         del engine_inputs
+        device = self.get_device()
         seq_lens = [item.input_seq_len for item in inputs]
         embeds = [item.input_embeds for item in inputs]
         if graph_walk == "ar_decode":
@@ -196,11 +209,12 @@ class ARSubmodule(ARNodeSubmodule):
             last_token_indices = self._get_decode_last_token_indices(len(inputs))
         else:
             packed = torch.cat(embeds, dim=0)
-            last_token_indices = torch.tensor(seq_lens, device=self.get_device()).cumsum(0) - 1
+            last_token_indices = torch.empty(len(inputs), dtype=torch.long, device=device)
+            self._index_stager.copy_(last_token_indices, [end - 1 for end in itertools.accumulate(seq_lens)])
         # Carried per request from ``prepare_inputs``: CUDA-graph replay runs
         # this with padding-slot ids, so request state cannot be read here.
-        flags = [item.tensor_inputs["suppress_eos"] for item in inputs]
-        suppress_eos = (flags[0] if len(flags) == 1 else torch.cat(flags)).to(device=self.get_device())
+        suppress_eos = torch.empty(len(inputs), dtype=torch.bool, device=device)
+        self._flag_stager.copy_(suppress_eos, [item.kwargs["suppress_eos"] for item in inputs])
         return {"input_embeds": packed, "last_token_indices": last_token_indices, "suppress_eos": suppress_eos}
 
     def declare_step(
@@ -347,7 +361,7 @@ class ARSubmodule(ARNodeSubmodule):
                 single_request_inputs=ARNodeInputs(
                     input_embeds=torch.zeros(1, self.config.slow_ar.dim, dtype=dtype, device=device),
                     input_seq_len=1,
-                    tensor_inputs={"suppress_eos": torch.zeros(1, dtype=torch.bool, device=device)},
+                    kwargs={"suppress_eos": False},
                 ),
                 capture_batch_sizes=self.DECODE_CAPTURE_BATCH_SIZES,
                 compile=False,
@@ -580,11 +594,6 @@ class RefEncoderSubmodule(NodeSubmodule):
         self.config = config
         self._codes: OrderedDict[str, torch.Tensor] = OrderedDict()
 
-    @staticmethod
-    def clip_digest(clip: torch.Tensor) -> str:
-        samples = clip.detach().to(device="cpu", dtype=torch.float32).contiguous()
-        return hashlib.blake2b(samples.numpy().tobytes(), digest_size=16).hexdigest()
-
     def prepare_inputs(
         self,
         graph_walk: str,
@@ -592,10 +601,10 @@ class RefEncoderSubmodule(NodeSubmodule):
         inputs: NameToTensorList,
         **kwargs: Any,
     ) -> NodeInputs:
-        del graph_walk, fwd_info, kwargs
-        clip = inputs["audio_inputs"][0]
-        waveform = clip.to(device=self.get_device(), dtype=torch.float32).reshape(-1)
-        return NodeInputs(tensor_inputs={"waveform": waveform}, kwargs={"clip_key": self.clip_digest(clip)})
+        del graph_walk, kwargs
+        waveform = inputs["audio_inputs"][0].to(device=self.get_device(), dtype=torch.float32).reshape(-1)
+        clip_key = fwd_info.step_metadata[REF_CLIP_KEY]
+        return NodeInputs(tensor_inputs={"waveform": waveform}, kwargs={"clip_key": clip_key})
 
     def encode(self, waveform: torch.Tensor) -> torch.Tensor:
         with torch.no_grad(), full_fp32():
