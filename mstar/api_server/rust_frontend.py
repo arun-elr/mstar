@@ -149,12 +149,17 @@ class RustFrontendBridge:
     async def _relay(self, rid: str) -> None:
         """Forward this request's ResultChunks; terminal err on failure."""
         try:
+            failed = False
             async for chunk in self.server.iter_result_chunks(rid):
+                failed = failed or chunk.modality == "error"
                 self._send({
                     "t": "chunk", "rid": rid, "modality": chunk.modality,
                     "data": bytes(chunk.data), "metadata": chunk.metadata,
                 })
-            self._send({"t": "done", "rid": rid})
+            # An error chunk already ended the frontend's route, and the id may
+            # be live again by now: a trailing done would end the new request.
+            if not failed:
+                self._send({"t": "done", "rid": rid})
         except Exception as e:  # noqa: BLE001 — includes the per-request timeout
             detail = getattr(e, "detail", None) or repr(e)
             logger.warning("request %s failed: %s", rid, detail)

@@ -823,6 +823,10 @@ class APIServer:
                         if req:
                             remaining = req.chunks[req.consumed_chunks:]
                             finished_req = self._pop_finished(request_id)
+                    # The id is free from here on, and a request that reuses it
+                    # must not get this one's abort if the consumer stops at
+                    # the tail below.
+                    finished = True
                     # Profiling (incl. the optional file write) runs outside the
                     # lock; the popped request is no longer shared with other threads.
                     if finished_req is not None:
@@ -841,7 +845,6 @@ class APIServer:
                         ))
                     if tail:
                         yield tail
-                    finished = True
                     break
 
                 if new_chunks:

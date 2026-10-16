@@ -124,6 +124,54 @@ def test_id_is_free_as_soon_as_a_failed_request_answers(tmp_path, streaming):
     assert s.reads_done == [("dup", False)]
 
 
+def test_a_stream_closed_at_its_error_does_not_abort_a_retry(tmp_path):
+    # The id is free once the error is handed out; a consumer that closes the
+    # stream there (or a client gone at that moment) must not abort a request
+    # that already reuses it.
+    s = _server(tmp_path)
+    s.preprocess_worker.finished_reading = lambda rid, drained=True: None
+    s.submit_request(text="first", request_id="dup", **TEXT)
+    with s.request_lock:
+        req = s.pending_requests["dup"]
+        req.error, req.error_status = "engine failed", 500
+        req.event.set()
+        s.recently_completed["dup"] = time.time()
+
+    async def scenario():
+        batches = s.iter_result_chunk_batches("dup")
+        assert [c.modality for c in await anext(batches)] == ["error"]
+        s.submit_request(text="retry", request_id="dup", **TEXT)
+        retry = s.pending_requests["dup"]
+        await batches.aclose()
+        return retry
+
+    retry = asyncio.run(scenario())
+    assert s.pending_requests.get("dup") is retry
+    assert s.aborted == []
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_the_bridge_sends_no_done_after_an_error(failed):
+    # The frontend ends a route on an error chunk, and the id can be live
+    # again before a trailing done arrives; that done would end the new route.
+    from mstar.api_server.rust_frontend import RustFrontendBridge
+
+    async def chunks(rid):
+        yield ResultChunk(request_id=rid, modality="text", data=b"a", metadata={})
+        if failed:
+            yield ResultChunk(request_id=rid, modality="error", data=b"boom", metadata={"status": 500})
+
+    bridge = RustFrontendBridge.__new__(RustFrontendBridge)
+    bridge.server = SimpleNamespace(iter_result_chunks=chunks)
+    sent = []
+    bridge._send = sent.append
+    asyncio.run(bridge._relay("dup"))
+    kinds = [(m["t"], m.get("modality")) for m in sent]
+    assert kinds == (
+        [("chunk", "text"), ("chunk", "error")] if failed else [("chunk", "text"), ("done", None)]
+    )
+
+
 @pytest.mark.parametrize("streaming", ["true", "false"])
 def test_generate_returns_409(monkeypatch, tmp_path, streaming):
     s = _server(tmp_path)
