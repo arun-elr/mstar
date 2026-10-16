@@ -1243,7 +1243,7 @@ class TensorCommunicationManager(ABC):
             if done and ep.request_id not in waiting:
                 if ep.future is not None:
                     ep.future.result()
-                if self.transport_stats is not None and ep.future is not None and ep.rx_time:
+                if self.transport_stats is not None and ep.rx_time:
                     for edge in ep.graph_edges:
                         source = next((i.source_entity for i in edge.tensor_info
                                        if i.inline_data is None), None)

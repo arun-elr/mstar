@@ -136,9 +136,11 @@ Communication
        free block, pinned bytes).
    * - ``MSTAR_INLINE_TENSOR_MAX_BYTES``
      - ``16384``
-     - Mooncake transports (``TCP``, ``RDMA``) only: a remote-bound tensor of
-       at most this many bytes travels inside its descriptor in the control
-       message instead of being registered and read. Only contiguous,
+     - Mooncake transports (``TCP``, ``RDMA``) only (see
+       :func:`mstar.communication.tensors.inline_tensor_max_bytes`): a
+       remote-bound tensor of at most this many bytes travels inside its
+       descriptor in the control message instead of being registered and
+       read. Only contiguous,
        non-empty tensors; a TP slice of one carries its own byte range. ``0``
        turns it off and the frames are byte for byte what they were before.
        Every process of a deployment must run the same version: an older peer
@@ -146,7 +148,8 @@ Communication
        fails the request.
    * - ``MSTAR_INLINE_STEP_MAX_BYTES``
      - ``1048576``
-     - Inline bytes one worker step (one register call) may put on the wire,
+     - Inline bytes one worker step (one register call) may put on the wire
+       (see :func:`mstar.communication.tensors.inline_step_max_bytes`),
        counting every outgoing copy and bytes attached in earlier steps that
        go out again; every message of the step carries a subset, so this
        bounds each. Past it, tensors take the transfer path. Persisted signals
@@ -158,7 +161,8 @@ Communication
      - Mooncake transports: log one ``transport stats`` JSON line per process
        every N seconds (tensors sent inline vs registered and why, per edge
        inline vs read counts, bytes, read time and a log2 size histogram).
-       ``0`` disables.
+       ``0`` disables. Read when the transport manager is built
+       (:class:`mstar.communication.tensors.MooncakeCommunicationManager`).
 
 Models
 ------

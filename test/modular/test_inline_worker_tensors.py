@@ -206,8 +206,9 @@ def test_threshold_boundary_and_what_is_never_inlined(monkeypatch):
     inline = [prod.tensor_store.get_info(u).inline_data is not None for u in uuids]
     # a sharded tensor qualifies: each TP slice carries its own byte range
     assert inline == [True, False, False, False, True]
-    assert sorted(c[1] for c in prod.register_spy.calls) == sorted(
-        [over.nbytes, 0, strided.nbytes])
+    # the empty tensor stays off the inline path; Mooncake may skip pinning it
+    assert sorted(c[1] for c in prod.register_spy.calls if c[1]) == sorted(
+        [over.nbytes, strided.nbytes])
 
 
 def test_the_step_cap_bounds_the_inline_bytes_of_one_call(monkeypatch):
