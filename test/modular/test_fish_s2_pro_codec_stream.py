@@ -38,7 +38,7 @@ from mstar.model.fish_s2_pro.fish_s2_pro_model import clip_digest
 from mstar.model.fish_s2_pro.submodules import CodecSubmodule, RefEncoderSubmodule
 from mstar.model.submodule_base import InputMetadata, ModelInputsFromEngine
 from mstar.streaming.chunk_policy import ScheduledLeftContextChunkPolicy
-from mstar.streaming.stream_buffer import StreamBuffer
+from mstar.streaming.stream_buffer import StreamBuffer, StreamChunkInfo
 
 HOP = 16
 NUM_CODEBOOKS = 4
@@ -307,6 +307,27 @@ def test_codec_drops_the_end_of_stream_frame(config, decoder):
     )
     assert item.tensor_inputs["codec_tokens"].shape == (NUM_CODEBOOKS, 3)
     assert item.kwargs == {"frames": 3, "context": 0, "conv_start": 0, "start_offset": 0}
+
+
+def test_codec_preprocess_stages_window_geometry_as_the_per_column_copies_did(config, decoder):
+    submodule = CodecSubmodule(decoder, config)
+    windows = [(0, 0, 4), (4, 4, 12), (40, 30, 62), (100, 30, 30)]  # (start_offset, context, frames)
+    items = [
+        submodule.prepare_inputs(
+            "codec_chunk",
+            SimpleNamespace(request_id=str(i), rid_handle=i),
+            {"codec_tokens": [stream_codes(frames)]},
+            input_metadata=InputMetadata(
+                stream_chunks={"codec_tokens": StreamChunkInfo(start, context, frames, is_final=False)}
+            ),
+        )
+        for i, (start, context, frames) in enumerate(windows)
+    ]
+    packed = submodule.preprocess("codec_chunk", ModelInputsFromEngine(request_ids=[], per_request_info={}), items)
+    for name in ("start_offset", "conv_start"):
+        old = torch.tensor([item.kwargs[name] for item in items], dtype=torch.long)
+        assert packed[name].dtype == old.dtype and packed[name].shape == old.shape and torch.equal(packed[name], old)
+    assert packed["start_offset"].tolist() == [0, 4, 40, 100]
 
 
 def test_codec_rejects_conv_context_below_the_receptive_field():
