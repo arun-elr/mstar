@@ -32,7 +32,7 @@ from mstar.model.fish_s2_pro.config import (
     FishS2ProConfig,
     FishSlowARConfig,
 )
-from mstar.model.fish_s2_pro.fish_s2_pro_model import FishS2ProModel, load_fast_ar_weights
+from mstar.model.fish_s2_pro.fish_s2_pro_model import FishS2ProModel, clip_digest, load_fast_ar_weights
 from mstar.model.fish_s2_pro.submodules import ARSubmodule
 from mstar.model.registry import HF_MODELS, get_model_class
 
@@ -335,14 +335,14 @@ def test_clone_prefill_splices_reference_frames_after_the_prefix():
     ids = torch.tensor([5, 6, 7, 8, 9])
     ref_codes = torch.tensor([[1, 0, 0, 0], [2, 1, 1, 1], [9, 9, 9, 9]])
     with torch.no_grad():
-        embeds = ar._build_prefill(ids, torch.tensor([2, 2]), ref_codes)
-        plain = ar._build_prefill(ids, torch.tensor([0, 0]), None)
+        embeds = ar._build_prefill(ids, 2, 2, ref_codes)
+        plain = ar._build_prefill(ids, 0, 0, None)
     assert embeds.shape == (7, 32)
     torch.testing.assert_close(embeds[:2], plain[:2])
     torch.testing.assert_close(embeds[2:4], ar.reference_embeds(ref_codes[:2]))
     torch.testing.assert_close(embeds[4:], plain[2:])
     with pytest.raises(ValueError, match="needs 4 reference frames"):
-        ar._build_prefill(ids, torch.tensor([2, 4]), ref_codes)
+        ar._build_prefill(ids, 2, 4, ref_codes)
 
 
 def test_check_stop_on_im_end_on_the_frame_limit_and_not_with_ignore_eos():
@@ -376,21 +376,23 @@ def test_check_stop_on_im_end_on_the_frame_limit_and_not_with_ignore_eos():
     assert ar.check_stop("c", info(), frames[2]) == {"ar_decode_loop"}
 
 
+def ar_info(ignore_eos=False, layout=None):
+    return SimpleNamespace(
+        rid_handle=0,
+        request_id="r",
+        resource_configs={AR_SAMPLER: SamplingReqConfig(ignore_eos=ignore_eos)},
+        step_metadata={} if layout is None else {"prompt_layout": layout},
+    )
+
+
 def test_eos_is_not_sampled_on_the_prefill_frame_or_with_ignore_eos():
     ar = tiny_ar()
 
-    def info(ignore_eos=False):
-        return SimpleNamespace(
-            rid_handle=0, request_id="r", resource_configs={AR_SAMPLER: SamplingReqConfig(ignore_eos=ignore_eos)}
-        )
-
     dim = ar.config.slow_ar.dim
-    prefill = ar.prepare_inputs(
-        "ar_prefill", info(), {"prompt_ids": [torch.tensor([4, 5, 6])], "prompt_layout": [torch.tensor([3, 0])]}
-    )
-    decode = ar.prepare_inputs("ar_decode", info(), {"ar_input_embeds": [torch.zeros(1, dim)]})
-    ignoring = ar.prepare_inputs("ar_decode", info(ignore_eos=True), {"ar_input_embeds": [torch.zeros(1, dim)]})
-    assert [item.tensor_inputs["suppress_eos"].item() for item in (prefill, decode, ignoring)] == [True, False, True]
+    prefill = ar.prepare_inputs("ar_prefill", ar_info(layout=[3, 0]), {"prompt_ids": [torch.tensor([4, 5, 6])]})
+    decode = ar.prepare_inputs("ar_decode", ar_info(), {"ar_input_embeds": [torch.zeros(1, dim)]})
+    ignoring = ar.prepare_inputs("ar_decode", ar_info(ignore_eos=True), {"ar_input_embeds": [torch.zeros(1, dim)]})
+    assert [item.kwargs["suppress_eos"] for item in (prefill, decode, ignoring)] == [True, False, True]
 
     # EOS scores highest in every row; only the unsuppressed row may sample it
     ar.slow_ar.forward = lambda embeds, label: embeds
@@ -399,12 +401,68 @@ def test_eos_is_not_sampled_on_the_prefill_frame_or_with_ignore_eos():
     ar.slow_ar.semantic_logits = lambda hidden: rows.clone()
     sampler = SimpleNamespace(sample=lambda rids, logits: logits.argmax(-1))
     engine_inputs = SimpleNamespace(request_ids=["p", "d", "i"], resources={AR_SAMPLER: sampler})
-    packed = ar.preprocess("ar_decode", engine_inputs, [decode, decode, decode])
-    packed["suppress_eos"] = torch.tensor([True, False, True])
+    packed = ar.preprocess("ar_decode", engine_inputs, [ignoring, decode, ignoring])
     out = ar._run_frame(
         engine_inputs, torch.zeros(3, dim, dtype=torch.float64), packed["last_token_indices"], packed["suppress_eos"]
     )
     assert out["new_token"].tolist() == [7, ar.eos_code, 7]
+
+
+def assert_same_tensor(new: torch.Tensor, old: torch.Tensor) -> None:
+    assert new.dtype == old.dtype and new.shape == old.shape and torch.equal(new, old)
+
+
+def test_preprocess_packs_the_tensors_the_per_row_device_copies_did():
+    """``prepare_inputs`` carries host values; ``preprocess`` stages each batch's in one copy.
+
+    The packed tensors equal what the per-row ``torch.tensor(..., device=...)``
+    construction built: a mixed decode batch, a mixed prefill batch (plain and
+    clone), and a decode batch padded with the capture template's rows.
+    """
+    ar = tiny_ar()
+    dim = ar.config.slow_ar.dim
+    engine_inputs = SimpleNamespace(request_ids=[], resources={})
+
+    def decode_row(ignore_eos):
+        embeds = torch.randn(1, dim, dtype=torch.float64)
+        return ar.prepare_inputs("ar_decode", ar_info(ignore_eos=ignore_eos), {"ar_input_embeds": [embeds]})
+
+    def old_flags(flags):
+        return torch.cat([torch.tensor([flag], dtype=torch.bool) for flag in flags])
+
+    flags = [False, True, False, True, True]
+    rows = [decode_row(flag) for flag in flags]
+    assert all(not row.tensor_inputs for row in rows)
+    packed = ar.preprocess("ar_decode", engine_inputs, rows)
+    assert_same_tensor(packed["suppress_eos"], old_flags(flags))
+    assert_same_tensor(packed["last_token_indices"], torch.arange(len(rows)))
+    assert_same_tensor(packed["input_embeds"], torch.cat([row.input_embeds for row in rows]))
+
+    ref_codes = torch.tensor([[1, 0, 0, 0], [2, 1, 1, 1]])
+    with torch.no_grad():
+        plain = ar.prepare_inputs("ar_prefill", ar_info(layout=[0, 0]), {"prompt_ids": [torch.tensor([4, 5, 6])]})
+        clone = ar.prepare_inputs(
+            "ar_prefill_clone",
+            ar_info(layout=[2, 2]),
+            {"prompt_ids": [torch.tensor([5, 6, 7, 8, 9])], "ref_codes": [ref_codes]},
+        )
+        expected_clone = ar._build_prefill(torch.tensor([5, 6, 7, 8, 9]), 2, 2, ref_codes)
+    assert_same_tensor(clone.input_embeds, expected_clone)
+    packed = ar.preprocess("ar_prefill", engine_inputs, [plain, clone, plain])
+    seq_lens = [3, 7, 3]
+    assert [row.input_seq_len for row in (plain, clone, plain)] == seq_lens
+    assert_same_tensor(packed["last_token_indices"], torch.tensor(seq_lens).cumsum(0) - 1)
+    assert_same_tensor(packed["suppress_eos"], old_flags([True, True, True]))
+
+    (graph_config,) = ar.get_cuda_graph_configs(torch.device("cpu"))
+    template = graph_config.single_request_inputs
+    assert template.kwargs == {"suppress_eos": False} and not template.tensor_inputs
+    padded = [decode_row(True), decode_row(False), *graph_config.get_node_inputs(2, 0)]
+    packed = ar.preprocess("ar_decode", engine_inputs, padded)
+    assert_same_tensor(packed["suppress_eos"], old_flags([True, False, False, False]))
+    assert_same_tensor(packed["last_token_indices"], torch.arange(4))
+    capture = ar.preprocess("ar_decode", engine_inputs, graph_config.get_node_inputs(8, 0))
+    assert_same_tensor(capture["suppress_eos"], torch.zeros(8, dtype=torch.bool))
 
 
 # ---------------------------------------------------------------------------
@@ -453,11 +511,12 @@ def test_process_prompt_lays_out_clones_and_validates_requests():
     clip = torch.zeros(20 * model.config.codec.hop_length + 1)
     out = model.process_prompt("hi", ["text", "audio"], ["audio"], {"audio_inputs": [clip]}, ref_text=" r ")
     ids, prefix_len = model.build_prompt("hi", "r", 21)
-    assert out["prompt_layout"][0].tolist() == [prefix_len, 21]
-    assert out["prompt_ids"][0].tolist() == ids
+    assert list(out.new_input_tensors) == ["prompt_ids"]
+    assert out.new_input_tensors["prompt_ids"][0].tolist() == ids
+    assert out.metadata == {"prompt_layout": [prefix_len, 21], "ref_clip_key": clip_digest(clip)}
 
     plain = model.process_prompt("hi", ["text"], ["audio"])
-    assert plain["prompt_layout"][0].tolist() == [0, 0]
+    assert plain.metadata == {"prompt_layout": [0, 0]}
     for prompt, inputs, outputs, tensors, match in [
         ("  ", ["text"], ["audio"], None, "non-empty"),
         ("hi", ["image"], ["audio"], None, "takes text input"),
@@ -498,18 +557,24 @@ def pointers(*names):
 
 def test_partition_state_machine_routes_clones_through_the_ref_encoder():
     model = tiny_model()
-    signals = pointers("prompt_ids", "prompt_layout", "audio_inputs")
-    clone = model.get_initial_forward_pass_args("AR", ["text", "audio"], ["audio"], signals, {"max_new_tokens": 7})
+    signals = pointers("prompt_ids", "audio_inputs")
+    clone_kwargs = {"max_new_tokens": 7, "prompt_layout": [5, 21], "ref_clip_key": "k"}
+    clone = model.get_initial_forward_pass_args("AR", ["text", "audio"], ["audio"], signals, clone_kwargs)
     assert clone.full_metadata.graph_walk == "ar_prefill_clone" and clone.full_metadata.is_prefill
     assert {(edge.name, edge.next_node) for edge in clone.inputs} == {
         ("prompt_ids", "AR"),
-        ("prompt_layout", "AR"),
         ("audio_inputs", "RefEncoder"),
     }
-    assert clone.step_metadata == {"is_prefill": True, "ar_max_tokens": 7}
-    plain = model.get_initial_forward_pass_args("AR", ["text"], ["audio"], signals)
+    assert clone.step_metadata == {
+        "is_prefill": True,
+        "ar_max_tokens": 7,
+        "prompt_layout": [5, 21],
+        "ref_clip_key": "k",
+    }
+    plain = model.get_initial_forward_pass_args("AR", ["text"], ["audio"], signals, {"prompt_layout": [0, 0]})
     assert plain.full_metadata.graph_walk == "ar_prefill"
     assert all(edge.next_node == "AR" for edge in plain.inputs)
+    assert plain.step_metadata["prompt_layout"] == [0, 0] and "ref_clip_key" not in plain.step_metadata
 
     meta = clone.full_metadata
     decode = model.get_partition_forward_pass_args("AR", meta, pointers("ar_input_embeds"))
@@ -518,7 +583,9 @@ def test_partition_state_machine_routes_clones_through_the_ref_encoder():
     assert model.get_partition_forward_pass_args("AR", meta, {}).request_done
 
     # one frame allowed: the prefill sampled it, so the request ends without a decode walk
-    single = model.get_initial_forward_pass_args("AR", ["text"], ["audio"], signals, {"max_new_tokens": 1})
+    single = model.get_initial_forward_pass_args(
+        "AR", ["text"], ["audio"], signals, {"max_new_tokens": 1, "prompt_layout": [0, 0]}
+    )
     embeds = pointers("ar_input_embeds")
     done = model.get_partition_forward_pass_args("AR", single.full_metadata, embeds)
     assert done.request_done and done.unpersist_tensors == embeds["ar_input_embeds"]

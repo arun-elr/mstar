@@ -32,6 +32,11 @@ AR_ATTN = "slow_ar_attn"
 AR_POS = "slow_ar_pos"
 AR_SAMPLER = "semantic_sampler"
 
+# Step-metadata keys ``process_prompt`` settles on the host for the prefill:
+# ``[prefix_len, ref_frames]``, and a clone's reference-clip digest.
+PROMPT_LAYOUT_KEY = "prompt_layout"
+REF_CLIP_KEY = "ref_clip_key"
+
 # Fixed prompt text of the SGLang-Omni S2-Pro serving path (built with the
 # Fish Audio team), which segments are tokenized one by one exactly as here.
 IM_START = "<|im_start|>"
