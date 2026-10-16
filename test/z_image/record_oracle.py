@@ -6,7 +6,8 @@ Runs the stock diffusers ``ZImagePipeline`` — never any mstar code — and wri
 embeddings, the seeded initial fp32 latents, the fp32 latents after every Euler step, the
 final PNG and a metadata.json. Same numerics rules as the klein recorder: same environment
 and GPU as the suite, ``NVIDIA_TF32_OVERRIDE=0 CUBLAS_WORKSPACE_CONFIG=:4096:8`` for both,
-noise from a CPU generator.
+noise from a CPU generator, and, for the transformer only, the SDPA kernels the served DiT
+allows (``SDPA_BACKENDS``, which must equal ``mstar.model.z_image.components.transformer.SDPA_BACKENDS``).
 
     CUDA_VISIBLE_DEVICES=0 NVIDIA_TF32_OVERRIDE=0 CUBLAS_WORKSPACE_CONFIG=:4096:8 \\
         python test/z_image/record_oracle.py --out-dir /path/to/oracle
@@ -20,6 +21,10 @@ import platform
 from pathlib import Path
 
 import torch
+from torch.nn.attention import SDPBackend, sdpa_kernel
+
+# The served DiT's SDPA kernels (no cuDNN); test_z_image_model.py checks the two lists match.
+SDPA_BACKENDS = [SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]
 
 PROMPT = "A cozy bookshop on a rainy evening, warm lamplight in the window, a cat asleep on a stack of books"
 
@@ -57,6 +62,14 @@ def main():
             captured["prompt_embeds"] = kwargs["prompt_embeds"][0].detach().clone().cpu()
         return {}
 
+    # the transformer only, as in the served DiT; the text encoder keeps SDPA's default dispatch
+    transformer_forward = pipe.transformer.forward
+
+    def forward_on_dit_kernels(*fwd_args, **fwd_kwargs):
+        with sdpa_kernel(SDPA_BACKENDS):
+            return transformer_forward(*fwd_args, **fwd_kwargs)
+
+    pipe.transformer.forward = forward_on_dit_kernels
     result = pipe(
         prompt=args.prompt, height=args.height, width=args.width, num_inference_steps=args.steps, guidance_scale=0.0,
         generator=torch.Generator(device="cpu").manual_seed(args.seed), callback_on_step_end=on_step_end,
@@ -71,6 +84,7 @@ def main():
         "torch": torch.__version__, "diffusers": diffusers.__version__, "transformers": transformers.__version__,
         "cuda": torch.version.cuda, "gpu": torch.cuda.get_device_name(0), "python": platform.python_version(),
         "float32_matmul_precision": torch.get_float32_matmul_precision(),
+        "sdpa_backends": [b.name for b in SDPA_BACKENDS],
     }
     with open(Path(args.out_dir) / "metadata.json", "w") as f:
         json.dump(meta, f, indent=2)

@@ -24,6 +24,7 @@ from collections.abc import Mapping
 
 import torch
 from torch import nn
+from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from mstar.model.components.diffusion.attention import RaggedAttentionFn, joint_attention
 from mstar.model.components.linear import FusedColumnLinear
@@ -31,6 +32,11 @@ from mstar.model.z_image.config import ZImageTransformerConfig
 
 # Sinusoidal timestep feature width (diffusers ``TimestepEmbedder.frequency_embedding_size``).
 TIMESTEP_FREQ_DIM = 256
+
+# SDPA kernels the DiT may use. cuDNN's (picked for some batch shapes by torch 2.10 on CUDA 13)
+# moves a batched row further from the same request run alone than the bound in
+# test_z_image_batch_invariance.py allows; these three stay within it.
+SDPA_BACKENDS = [SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]
 
 
 class ScaledRMSNorm(nn.Module):
@@ -102,7 +108,8 @@ class ZImageAttention(nn.Module):
         dtype = q.dtype
         q = apply_rotary_complex(q, freqs_cis).to(dtype)
         k = apply_rotary_complex(k, freqs_cis).to(dtype)
-        out = joint_attention(q, k, v, ragged).flatten(2, 3).to(dtype)
+        with sdpa_kernel(SDPA_BACKENDS):
+            out = joint_attention(q, k, v, ragged).flatten(2, 3).to(dtype)
         return self.out(out)
 
 

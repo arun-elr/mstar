@@ -214,3 +214,43 @@ def test_blank_prompts_are_rejected():
     for bad in (None, "", "   "):
         with pytest.raises(ValueError, match="text prompt"):
             model.process_prompt(bad, ["text"], ["image"])
+
+
+def test_dit_attention_keeps_cudnn_sdpa_out(monkeypatch):
+    """The DiT's SDPA runs with cuDNN's kernels disabled (the batch-invariance bound) and
+    the flash / mem-efficient / math kernels enabled; the global setting is restored after."""
+    from mstar.model.components.diffusion import attention
+    from mstar.model.z_image.components.transformer import ZImageAttention
+    from mstar.model.z_image.config import ZImageTransformerConfig
+
+    seen = []
+    real = attention.F.scaled_dot_product_attention
+
+    def spy(*args, **kwargs):
+        cuda = torch.backends.cuda
+        seen.append((cuda.cudnn_sdp_enabled(), cuda.flash_sdp_enabled(), cuda.mem_efficient_sdp_enabled(),
+                     cuda.math_sdp_enabled()))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(attention.F, "scaled_dot_product_attention", spy)
+    cfg = ZImageTransformerConfig(dim=64, n_heads=2)
+    attn = ZImageAttention(cfg).eval()
+    x = torch.randn(1, 8, cfg.dim)
+    freqs = torch.polar(torch.ones(8, cfg.head_dim // 2), torch.zeros(8, cfg.head_dim // 2))
+    before = torch.backends.cuda.cudnn_sdp_enabled()
+    with torch.no_grad():
+        out = attn(x, freqs, None)
+    assert out.shape == x.shape
+    assert seen == [(False, True, True, True)]
+    assert torch.backends.cuda.cudnn_sdp_enabled() == before
+
+
+def test_the_oracle_recorder_uses_the_dit_sdpa_kernels():
+    """The reference gate is bit-exact on the SDPA backend, so the diffusers oracle must run on
+    the same SDPA kernels as the served DiT."""
+    import runpy
+
+    from mstar.model.z_image.components.transformer import SDPA_BACKENDS
+
+    recorder = runpy.run_path(str(Path(__file__).resolve().parents[1] / "z_image" / "record_oracle.py"))
+    assert recorder["SDPA_BACKENDS"] == SDPA_BACKENDS
