@@ -15,16 +15,17 @@ ARG DYNAMO_IMAGE=nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.4.0
 
 FROM ${DYNAMO_IMAGE}
 
-ARG TORCH_INDEX=https://download.pytorch.org/whl/cu128
-ARG TORCH_VERSION=2.9.1
-ARG TORCHVISION_VERSION=0.24.1
-ARG TORCHAUDIO_VERSION=2.9.1
-# torchcodec releases pair with torch minors (0.9.x <-> torch 2.9); a newer
+# The Dynamo 1.4 runtime image is CUDA 13.0, as is flash-attn's torch 2.10 wheel.
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu130
+ARG TORCH_VERSION=2.10.0
+ARG TORCHVISION_VERSION=0.25.0
+ARG TORCHAUDIO_VERSION=2.10.0
+# torchcodec releases pair with torch minors (0.10.x <-> torch 2.10); a newer
 # torchcodec against this torch fails at runtime with undefined symbols.
-ARG TORCHCODEC_VERSION=0.9.1
+ARG TORCHCODEC_VERSION=0.10.0
 # flash-attn ships no PyPI wheels; the GitHub release wheel's tags must
 # match the torch above (docs/installation.rst).
-ARG FLASH_ATTN_WHEEL=https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+ARG FLASH_ATTN_WHEEL=https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu13torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 
 USER root
 
