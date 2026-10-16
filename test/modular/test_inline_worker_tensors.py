@@ -4,14 +4,18 @@ descriptor instead of registering the tensor, and the consumer rebuilds it
 without a read, keeping the references and the ack of a read.
 
 Two real ``MooncakeCommunicationManager``s on CPU over TCP loopback, with the
-descriptor going through the wire codec between them. Skips without Mooncake.
+descriptor going through the wire codec between them. Without Mooncake, an
+in-process stand-in with its return codes takes the engine's place.
 """
+import ctypes
+import itertools
 from concurrent.futures import Future
 
 import msgpack
 import pytest
 import torch
 
+import mstar.communication.tensors as tensors_mod
 import mstar.communication.wire_types  # noqa: F401  (registers the tags)
 from mstar.communication.communicator import BaseCommunicator, CommProtocol
 from mstar.communication.tensor_store import (
@@ -39,9 +43,59 @@ from mstar.utils.ipc_format import (
     WorkerMessageType,
 )
 
-pytestmark = pytest.mark.skipif(
-    MOONCAKE_IMPORT_ERROR is not None, reason="mooncake not installed",
-)
+
+class _FakeMooncake:
+    """In-process stand-in for ``mooncake.engine.TransferEngine``.
+
+    Same return codes as the real engine: register -1 for a 0-byte region and
+    -7 for an overlap, unregister -3 for an unknown address, and a read -1
+    when the remote range is outside the peer's registered memory. Reads copy
+    host memory, so both managers must use ``device="cpu"``.
+    """
+
+    sessions: dict[str, "_FakeMooncake"] = {}
+    _ports = itertools.count(21000)
+
+    def __init__(self):
+        self.port = next(self._ports)
+        self.regions: dict[int, int] = {}
+
+    def initialize(self, hostname, metadata_server, protocol, device):
+        self.sessions[f"{hostname}:{self.port}"] = self
+        return 0
+
+    def get_rpc_port(self):
+        return self.port
+
+    def _covers(self, ptr, nbytes):
+        return any(base <= ptr and ptr + nbytes <= base + size for base, size in self.regions.items())
+
+    def register_memory(self, ptr, nbytes):
+        if nbytes == 0:
+            return -1
+        if any(ptr < base + size and base < ptr + nbytes for base, size in self.regions.items()):
+            return -7
+        self.regions[ptr] = nbytes
+        return 0
+
+    def unregister_memory(self, ptr):
+        return 0 if self.regions.pop(ptr, None) is not None else -3
+
+    def batch_transfer_sync_read(self, session, local_ptrs, remote_ptrs, lengths):
+        peer = self.sessions[session]
+        if any(n and not peer._covers(r, n) for r, n in zip(remote_ptrs, lengths, strict=True)):
+            return -1
+        for local, remote, n in zip(local_ptrs, remote_ptrs, lengths, strict=True):
+            ctypes.memmove(local, remote, n)
+        return 0
+
+
+@pytest.fixture(autouse=True)
+def _mooncake_engine(monkeypatch):
+    if MOONCAKE_IMPORT_ERROR is not None:
+        _FakeMooncake.sessions = {}
+        monkeypatch.setattr(tensors_mod, "TransferEngine", _FakeMooncake)
+
 
 try:
     from mstar.communication.tensor_store import RustTensorBookkeeping
@@ -597,6 +651,7 @@ def test_env_values_are_checked(monkeypatch):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a GPU")
+@pytest.mark.skipif(MOONCAKE_IMPORT_ERROR is not None, reason="device reads need Mooncake")
 def test_device_tensors_round_trip_through_the_side_streams(monkeypatch):
     monkeypatch.setenv(INLINE_TENSOR_MAX_BYTES_ENV, "16384")
     prod = create_tensor_communication_manager(
