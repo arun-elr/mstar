@@ -119,7 +119,10 @@ jobs:
       - name: Preflight
         id: pre
         env:
-          KEY_SET: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          # TEST ONLY (fork): run the gate without a key; the action then stops at
+          # its own key validation, after its permission check, before any API call.
+          KEY_SET: 'true'
+          TEST_FORCE_PERM: ${{ vars.TEST_FORCE_PERM }}
           ACTOR: ${{ github.actor }}
           AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
           # The PR author's association on the automatic run; the commenter's on
@@ -136,6 +139,8 @@ jobs:
             exit 0
           fi
           perm=$(gh api "repos/$REPO/collaborators/$ACTOR/permission" --jq .permission 2> /dev/null || echo none)
+          echo "TEST ONLY: real permission of $ACTOR is '$perm'; TEST_FORCE_PERM='$TEST_FORCE_PERM'"
+          perm=${TEST_FORCE_PERM:-$perm}
           case "$perm" in
             admin|maintain|write)
               echo "run=true" >> "$GITHUB_OUTPUT"
@@ -155,6 +160,31 @@ jobs:
             echo "::notice::$ACTOR has '$perm' access, not write; only people with write access, or a contributor on their own PR, can request a review."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: TEST ONLY gate inputs and outputs
+        env:
+          EVENT: ${{ github.event_name }}/${{ github.event.action }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
+          ASSOC: ${{ github.event.comment.author_association || github.event.pull_request.author_association }}
+          IF_WRITE_BRANCH: >-
+            ${{ github.event_name == 'issue_comment' &&
+                (github.event.comment.body == '/review' || github.event.comment.body == '/review thorough') &&
+                contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) }}
+          IF_AUTHOR_BRANCH: >-
+            ${{ github.event_name == 'issue_comment' &&
+                github.event.comment.body == '/review' &&
+                github.event.comment.user.login == github.event.issue.user.login &&
+                !contains(github.event.issue.labels.*.name, 'skip-ai-review') &&
+                contains(fromJSON('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association) }}
+          SELF_SERVE: >-
+            ${{ (github.event_name == 'pull_request_target' && github.event.action != 'labeled') ||
+                (github.event_name == 'issue_comment' && github.event.comment.body == '/review' &&
+                 !contains(github.event.issue.labels.*.name, 'skip-ai-review')) }}
+          RUN: ${{ steps.pre.outputs.run }}
+          NON_WRITE_USER: ${{ steps.pre.outputs.non_write_user }}
+        run: env | grep -E '^(EVENT|ACTOR|TRIGGERING_ACTOR|AUTHOR|ASSOC|IF_WRITE_BRANCH|IF_AUTHOR_BRANCH|SELF_SERVE|RUN|NON_WRITE_USER)=' | sort
 
       # Tell the commenter their /review was picked up; a comment-triggered run
       # is otherwise invisible from the PR.
