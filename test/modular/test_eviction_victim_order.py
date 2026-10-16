@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
+from concurrent.futures import Future
 from types import SimpleNamespace
 
 sys.path.insert(0, ".")
@@ -197,6 +199,29 @@ def test_a_victim_with_a_step_in_flight_falls_through_to_the_next():
     assert kv.offload(BIG) == 0
     worker = _Evictor(_OneResourceEngine(kv), {BIG: 1.0, SMALL: 5.0})
     assert worker.evict({BLAMED}) == SMALL
+
+
+def test_a_victim_that_cannot_fit_does_not_wait_on_its_reads():
+    """Trying the next victim must not block the worker on a read of one that
+    would free nothing anyway."""
+    kv, worker = _big_idle_and_small(host_pages=1)
+    pending = Future()
+    kv._streams[SMALL]["main"].read_future = pending
+    kv._streams[SMALL]["main"].read_pending = True
+    done = threading.Event()
+    result = []
+
+    def evict():
+        result.append(worker.evict({BLAMED}))
+        done.set()
+
+    threading.Thread(target=evict, daemon=True).start()
+    try:
+        assert done.wait(2), "eviction waited on the read of a victim that does not fit"
+    finally:
+        pending.set_result(None)
+    assert result == [None]
+    assert not kv.is_offloaded(SMALL)
 
 
 def test_requests_outside_the_batch_are_still_tried_first():
