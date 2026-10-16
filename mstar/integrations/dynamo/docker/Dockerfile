@@ -63,11 +63,14 @@ COPY . .
 # The torch/torchcodec pins ride along so the resolver can't upgrade them
 # (breaking the flash-attn wheel match or the torch pairing) to satisfy a
 # newer extra; the installed +cu12x/+cu13x builds already satisfy them.
+# setuptools arrives with torch from the torch index, which serves 78.1.0
+# (CVE-2025-47273, fixed in 78.1.1); the floor pulls a fixed one from PyPI.
 RUN uv pip install --python /opt/mstar/venv/bin/python -e ".[all]" \
         torch==${TORCH_VERSION} \
         torchvision==${TORCHVISION_VERSION} \
         torchaudio==${TORCHAUDIO_VERSION} \
-        torchcodec==${TORCHCODEC_VERSION}
+        torchcodec==${TORCHCODEC_VERSION} \
+        "setuptools>=78.1.1"
 
 # The venv must lead PATH: FlashInfer's JIT invokes ninja (installed in the
 # venv) via PATH lookup at request time.
