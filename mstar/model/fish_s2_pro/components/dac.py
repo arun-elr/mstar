@@ -58,11 +58,11 @@ def _extra_padding_for_conv1d(length: int, kernel_size: int, stride: int, paddin
 class CausalConvNet(nn.Module):
     """Left-padded ``Conv1d``; right-padded only to complete the last stride."""
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int,
-                 dilation: int = 1, stride: int = 1, groups: int = 1):
+    def __init__(
+        self, in_channels: int, out_channels: int, kernel_size: int, dilation: int = 1, stride: int = 1, groups: int = 1
+    ):
         super().__init__()
-        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size,
-                              stride=stride, dilation=dilation, groups=groups)
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size, stride=stride, dilation=dilation, groups=groups)
         self.stride = stride
         self.kernel_size = (kernel_size - 1) * dilation + 1
         self.padding = self.kernel_size - self.stride
@@ -140,10 +140,13 @@ def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
     """Interleaved RoPE. ``x``: ``[B, T, H, D]``; ``freqs_cis``: ``[B, T, D/2, 2]``."""
     xshaped = x.float().reshape(*x.shape[:-1], -1, 2)
     freqs_cis = freqs_cis.unsqueeze(2)
-    out = torch.stack([
-        xshaped[..., 0] * freqs_cis[..., 0] - xshaped[..., 1] * freqs_cis[..., 1],
-        xshaped[..., 1] * freqs_cis[..., 0] + xshaped[..., 0] * freqs_cis[..., 1],
-    ], -1)
+    out = torch.stack(
+        [
+            xshaped[..., 0] * freqs_cis[..., 0] - xshaped[..., 1] * freqs_cis[..., 1],
+            xshaped[..., 1] * freqs_cis[..., 0] + xshaped[..., 0] * freqs_cis[..., 1],
+        ],
+        -1,
+    )
     return out.flatten(3).type_as(x)
 
 
@@ -184,7 +187,10 @@ class Attention(nn.Module):
         k = apply_rotary_emb(k.view(bsz, seqlen, self.n_head, self.head_dim), freqs_cis)
         v = v.view(bsz, seqlen, self.n_head, self.head_dim)
         y = F.scaled_dot_product_attention(
-            q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), attn_mask=mask,
+            q.transpose(1, 2),
+            k.transpose(1, 2),
+            v.transpose(1, 2),
+            attn_mask=mask,
         )
         return self.wo(y.transpose(1, 2).reshape(bsz, seqlen, size))
 
@@ -222,8 +228,18 @@ class WindowLimitedTransformer(nn.Module):
     the frames' indices in their stream; ``None`` means ``0 .. T-1``.
     """
 
-    def __init__(self, dim: int, n_layer: int, n_head: int, head_dim: int, intermediate_size: int,
-                 window: int, block_size: int, rope_base: float, norm_eps: float):
+    def __init__(
+        self,
+        dim: int,
+        n_layer: int,
+        n_head: int,
+        head_dim: int,
+        intermediate_size: int,
+        window: int,
+        block_size: int,
+        rope_base: float,
+        norm_eps: float,
+    ):
         super().__init__()
         self.window = window
         self.layers = nn.ModuleList(
@@ -231,7 +247,9 @@ class WindowLimitedTransformer(nn.Module):
         )
         self.norm = RMSNorm(dim, norm_eps)
         self.register_buffer(
-            "freqs_cis", precompute_freqs_cis(block_size, head_dim, rope_base), persistent=False,
+            "freqs_cis",
+            precompute_freqs_cis(block_size, head_dim, rope_base),
+            persistent=False,
         )
 
     @property
@@ -287,8 +305,15 @@ class Encoder(nn.Module):
             transformer = None
             if n_layer:
                 transformer = WindowLimitedTransformer(
-                    d_model, n_layer, d_model // 64, 64, d_model * 3,
-                    cfg.encoder_window, cfg.encoder_block_size, cfg.rope_base, cfg.norm_eps,
+                    d_model,
+                    n_layer,
+                    d_model // 64,
+                    64,
+                    d_model * 3,
+                    cfg.encoder_window,
+                    cfg.encoder_block_size,
+                    cfg.rope_base,
+                    cfg.norm_eps,
                 )
             blocks.append(EncoderBlock(d_model, stride, transformer))
         blocks += [Snake1d(d_model), CausalConvNet(d_model, cfg.latent_dim, kernel_size=3)]
@@ -335,8 +360,15 @@ class Decoder(nn.Module):
 
 def _quantizer_transformer(cfg: FishDACConfig) -> WindowLimitedTransformer:
     return WindowLimitedTransformer(
-        cfg.latent_dim, cfg.post_layers, cfg.post_heads, cfg.post_head_dim, cfg.post_intermediate_size,
-        cfg.post_window, cfg.post_block_size, cfg.rope_base, cfg.norm_eps,
+        cfg.latent_dim,
+        cfg.post_layers,
+        cfg.post_heads,
+        cfg.post_head_dim,
+        cfg.post_intermediate_size,
+        cfg.post_window,
+        cfg.post_block_size,
+        cfg.rope_base,
+        cfg.norm_eps,
     )
 
 
@@ -350,15 +382,19 @@ class DownsampleResidualVectorQuantize(nn.Module):
         self.quantizer = ResidualVectorQuantize(dim, cfg.n_residual_codebooks, cfg.codebook_size, cfg.codebook_dim)
         if decode:
             self.post_module = _quantizer_transformer(cfg)
-            self.upsample = nn.Sequential(*[
-                nn.Sequential(CausalTransConvNet(dim, dim, kernel_size=f, stride=f), ConvNeXtBlock(dim))
-                for f in reversed(cfg.downsample_factor)
-            ])
+            self.upsample = nn.Sequential(
+                *[
+                    nn.Sequential(CausalTransConvNet(dim, dim, kernel_size=f, stride=f), ConvNeXtBlock(dim))
+                    for f in reversed(cfg.downsample_factor)
+                ]
+            )
         else:
-            self.downsample = nn.Sequential(*[
-                nn.Sequential(CausalConvNet(dim, dim, kernel_size=f, stride=f), ConvNeXtBlock(dim))
-                for f in cfg.downsample_factor
-            ])
+            self.downsample = nn.Sequential(
+                *[
+                    nn.Sequential(CausalConvNet(dim, dim, kernel_size=f, stride=f), ConvNeXtBlock(dim))
+                    for f in cfg.downsample_factor
+                ]
+            )
             self.pre_module = _quantizer_transformer(cfg)
 
     def embed(self, codes: torch.Tensor) -> torch.Tensor:
@@ -434,7 +470,11 @@ class FishDACDecoder(nn.Module):
         return self.run_conv_stack(self.latents(codes))
 
     def decode_window(
-        self, codes: torch.Tensor, start_offset: torch.Tensor, conv_start: torch.Tensor, conv_frames: int,
+        self,
+        codes: torch.Tensor,
+        start_offset: torch.Tensor,
+        conv_start: torch.Tensor,
+        conv_frames: int,
     ) -> torch.Tensor:
         """Audio of frames ``conv_start .. conv_start + conv_frames`` of each window.
 

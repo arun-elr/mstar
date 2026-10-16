@@ -36,7 +36,8 @@ _LAYER_RENAMES = (
 
 
 def remap_slow_ar_weights(
-    weights: Iterable[tuple[str, torch.Tensor]], config: FishS2ProConfig,
+    weights: Iterable[tuple[str, torch.Tensor]],
+    config: FishS2ProConfig,
 ) -> Iterator[tuple[str, torch.Tensor]]:
     """Fish ``text_model.model.*`` tensors -> HF Qwen3 names (prefix dropped).
 
@@ -73,7 +74,10 @@ class FishSlowAR(nn.Module):
         super().__init__()
         self.config = config
         self.lm = Qwen3DenseLM(
-            config.slow_ar.qwen3_lm_config(), attn_key=AR_ATTN, kv_key=AR_KV, pos_key=AR_POS,
+            config.slow_ar.qwen3_lm_config(),
+            attn_key=AR_ATTN,
+            kv_key=AR_KV,
+            pos_key=AR_POS,
         )
         # Never used: ``semantic_head`` replaces the tied 155,776-row head.
         self.lm.lm_head = nn.Identity()
@@ -88,7 +92,9 @@ class FishSlowAR(nn.Module):
         from mstar.model.loader import LLAMA_STACKED_PARAMS, load_hf_weights
 
         loaded = load_hf_weights(
-            self.lm, remap_slow_ar_weights(weights, self.config), stacked_params=LLAMA_STACKED_PARAMS,
+            self.lm,
+            remap_slow_ar_weights(weights, self.config),
+            stacked_params=LLAMA_STACKED_PARAMS,
         )
         missing = sorted(set(dict(self.lm.named_parameters())) - loaded)
         if missing:
@@ -100,10 +106,12 @@ class FishSlowAR(nn.Module):
         """Copy the embedding rows of the 4,096 semantic tokens and ``<|im_end|>``."""
         cfg = self.config
         embed = self.lm.embed_tokens.weight.data
-        self.semantic_head = torch.cat([
-            embed[cfg.semantic_start_token_id:cfg.semantic_end_token_id + 1],
-            embed[cfg.eos_token_id:cfg.eos_token_id + 1],
-        ]).contiguous()
+        self.semantic_head = torch.cat(
+            [
+                embed[cfg.semantic_start_token_id : cfg.semantic_end_token_id + 1],
+                embed[cfg.eos_token_id : cfg.eos_token_id + 1],
+            ]
+        ).contiguous()
 
     def embed(self, token_ids: torch.Tensor) -> torch.Tensor:
         return self.lm.embed(token_ids)

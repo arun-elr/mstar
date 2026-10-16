@@ -166,8 +166,13 @@ class FishDACConfig:
     conv_context_frames: int = 10
 
     def __post_init__(self) -> None:
-        for name in ("encoder_rates", "encoder_transformer_layers", "decoder_rates",
-                     "downsample_factor", "chunk_schedule"):
+        for name in (
+            "encoder_rates",
+            "encoder_transformer_layers",
+            "decoder_rates",
+            "downsample_factor",
+            "chunk_schedule",
+        ):
             setattr(self, name, tuple(int(v) for v in getattr(self, name)))
         if self.left_context_frames is None:
             self.left_context_frames = self.transformer_context_frames + self.conv_context_frames
@@ -315,7 +320,9 @@ class FishS2ProConfig:
 
     @classmethod
     def from_pretrained(
-        cls, model_dir: str | Path, codec_overrides: dict[str, Any] | None = None,
+        cls,
+        model_dir: str | Path,
+        codec_overrides: dict[str, Any] | None = None,
         generation_overrides: dict[str, Any] | None = None,
     ) -> "FishS2ProConfig":
         data = _read_json(Path(model_dir) / "config.json")

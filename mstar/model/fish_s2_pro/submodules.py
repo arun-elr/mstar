@@ -102,14 +102,17 @@ class ARSubmodule(ARNodeSubmodule):
         if self._fast_kv is None:
             self._fast_kv = torch.zeros(
                 self.fast_ar.kv_cache_shape(self.MAX_BATCH_SIZE),
-                dtype=self.fast_ar.embeddings.weight.dtype, device=self.get_device(),
+                dtype=self.fast_ar.embeddings.weight.dtype,
+                device=self.get_device(),
             )
         return self._fast_kv[:, :batch_size]
 
     def _get_decode_last_token_indices(self, batch_size: int) -> torch.Tensor:
         if self._decode_last_token_indices is None:
             self._decode_last_token_indices = torch.arange(
-                self.MAX_BATCH_SIZE, dtype=torch.long, device=self.get_device(),
+                self.MAX_BATCH_SIZE,
+                dtype=torch.long,
+                device=self.get_device(),
             )
         return self._decode_last_token_indices[:batch_size]
 
@@ -130,8 +133,9 @@ class ARSubmodule(ARNodeSubmodule):
         vq = self.fast_ar.codebook_embedding_sum(codes).to(tokens.dtype)
         return (tokens + vq) * self.config.vq_scale
 
-    def _build_prefill(self, prompt_ids: torch.Tensor, layout: torch.Tensor,
-                       ref_codes: torch.Tensor | None) -> torch.Tensor:
+    def _build_prefill(
+        self, prompt_ids: torch.Tensor, layout: torch.Tensor, ref_codes: torch.Tensor | None
+    ) -> torch.Tensor:
         """Prompt embeddings; a clone's reference frames sit after ``prefix_len`` tokens."""
         ids = prompt_ids.to(device=self.get_device(), dtype=torch.long).view(-1)
         prefix_len, ref_frames = (int(v) for v in layout.tolist()[:2])
@@ -147,12 +151,17 @@ class ARSubmodule(ARNodeSubmodule):
         return torch.cat([embeds[:prefix_len], reference.to(embeds.dtype), embeds[prefix_len:]])
 
     def prepare_inputs(
-        self, graph_walk: str, fwd_info: CurrentForwardPassInfo, inputs: NameToTensorList, **kwargs: Any,
+        self,
+        graph_walk: str,
+        fwd_info: CurrentForwardPassInfo,
+        inputs: NameToTensorList,
+        **kwargs: Any,
     ) -> ARNodeInputs:
         del kwargs
         if graph_walk in ("ar_prefill", "ar_prefill_clone"):
             input_embeds = self._build_prefill(
-                inputs["prompt_ids"][0], inputs["prompt_layout"][0],
+                inputs["prompt_ids"][0],
+                inputs["prompt_layout"][0],
                 inputs["ref_codes"][0] if "ref_codes" in inputs else None,
             )
             self.request_state(fwd_info.rid_handle).add("generated_frames", 0)
@@ -172,7 +181,10 @@ class ARSubmodule(ARNodeSubmodule):
         )
 
     def preprocess(
-        self, graph_walk: str, engine_inputs: ModelInputsFromEngine, inputs: list[ARNodeInputs],
+        self,
+        graph_walk: str,
+        engine_inputs: ModelInputsFromEngine,
+        inputs: list[ARNodeInputs],
     ) -> dict[str, torch.Tensor | Any]:
         del engine_inputs
         seq_lens = [item.input_seq_len for item in inputs]
@@ -192,8 +204,12 @@ class ARSubmodule(ARNodeSubmodule):
         return {"input_embeds": packed, "last_token_indices": last_token_indices, "suppress_eos": suppress_eos}
 
     def declare_step(
-        self, graph_walk: str, request_ids: list[str], inputs: list[ARNodeInputs],
-        slot_lease: SlotLease | None = None, **kwargs,
+        self,
+        graph_walk: str,
+        request_ids: list[str],
+        inputs: list[ARNodeInputs],
+        slot_lease: SlotLease | None = None,
+        **kwargs,
     ) -> SubmoduleStep:
         del graph_walk, slot_lease, kwargs
         return SubmoduleStep(
@@ -210,7 +226,10 @@ class ARSubmodule(ARNodeSubmodule):
         )
 
     def _run_frame(
-        self, engine_inputs: ModelInputsFromEngine, input_embeds: torch.Tensor, last_token_indices: torch.Tensor,
+        self,
+        engine_inputs: ModelInputsFromEngine,
+        input_embeds: torch.Tensor,
+        last_token_indices: torch.Tensor,
         suppress_eos: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
         """One frame for every request: semantic sample, Fast AR codebooks, next input."""
@@ -231,8 +250,13 @@ class ARSubmodule(ARNodeSubmodule):
         return {"ar_input_embeds": next_embeds, "codec_tokens": stream, "new_token": head_index}
 
     def forward(
-        self, graph_walk: str, engine_inputs: ModelInputsFromEngine, input_embeds: torch.Tensor,
-        last_token_indices: torch.Tensor, suppress_eos: torch.Tensor, **kwargs: Any,
+        self,
+        graph_walk: str,
+        engine_inputs: ModelInputsFromEngine,
+        input_embeds: torch.Tensor,
+        last_token_indices: torch.Tensor,
+        suppress_eos: torch.Tensor,
+        **kwargs: Any,
     ) -> NameToTensorList:
         del graph_walk, kwargs
         output = self._run_frame(engine_inputs, input_embeds, last_token_indices, suppress_eos)
@@ -243,14 +267,19 @@ class ARSubmodule(ARNodeSubmodule):
         }
 
     def forward_batched(
-        self, graph_walk: str, engine_inputs: ModelInputsFromEngine, input_embeds: torch.Tensor,
-        last_token_indices: torch.Tensor, suppress_eos: torch.Tensor, **kwargs: Any,
+        self,
+        graph_walk: str,
+        engine_inputs: ModelInputsFromEngine,
+        input_embeds: torch.Tensor,
+        last_token_indices: torch.Tensor,
+        suppress_eos: torch.Tensor,
+        **kwargs: Any,
     ) -> dict[str, NameToTensorList]:
         del graph_walk, kwargs
         output = self._run_frame(engine_inputs, input_embeds, last_token_indices, suppress_eos)
         return {
             request_id: {
-                "ar_input_embeds": [output["ar_input_embeds"][i:i + 1]],
+                "ar_input_embeds": [output["ar_input_embeds"][i : i + 1]],
                 "codec_tokens": [output["codec_tokens"][i]],
                 "new_token": [output["new_token"][i]],
             }
@@ -258,7 +287,10 @@ class ARSubmodule(ARNodeSubmodule):
         }
 
     def postprocess(
-        self, request_id: str, request_info: CurrentForwardPassInfo, outputs: dict[str, list[torch.Tensor]],
+        self,
+        request_id: str,
+        request_info: CurrentForwardPassInfo,
+        outputs: dict[str, list[torch.Tensor]],
         **kwargs: Any,
     ) -> None:
         """Expose the sampled head index for ``check_stop`` without a GPU sync."""
@@ -269,7 +301,10 @@ class ARSubmodule(ARNodeSubmodule):
             outputs["head_index"] = [outputs["codec_tokens"][-1].reshape(-1)[0]]
 
     def check_stop(
-        self, request_id: str, request_info: CurrentForwardPassInfo, outputs: dict[str, list[torch.Tensor]],
+        self,
+        request_id: str,
+        request_info: CurrentForwardPassInfo,
+        outputs: dict[str, list[torch.Tensor]],
     ) -> set[str]:
         """Stop on ``<|im_end|>`` or the request's frame limit.
 
@@ -306,16 +341,18 @@ class ARSubmodule(ARNodeSubmodule):
         """Capture the whole one-token decode step (both ARs and sampling) per batch bucket."""
         del tp_world_size
         dtype = self.slow_ar.semantic_head.dtype
-        return [BatchedCudaGraphConfig(
-            capture_graph_walk="ar_decode",
-            single_request_inputs=ARNodeInputs(
-                input_embeds=torch.zeros(1, self.config.slow_ar.dim, dtype=dtype, device=device),
-                input_seq_len=1,
-                tensor_inputs={"suppress_eos": torch.zeros(1, dtype=torch.bool, device=device)},
-            ),
-            capture_batch_sizes=self.DECODE_CAPTURE_BATCH_SIZES,
-            compile=False,
-        )]
+        return [
+            BatchedCudaGraphConfig(
+                capture_graph_walk="ar_decode",
+                single_request_inputs=ARNodeInputs(
+                    input_embeds=torch.zeros(1, self.config.slow_ar.dim, dtype=dtype, device=device),
+                    input_seq_len=1,
+                    tensor_inputs={"suppress_eos": torch.zeros(1, dtype=torch.bool, device=device)},
+                ),
+                capture_batch_sizes=self.DECODE_CAPTURE_BATCH_SIZES,
+                compile=False,
+            )
+        ]
 
     def can_use_cuda_graphs(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
         if batch.graph_walk != "ar_decode" or not self.can_batch(batch, model_inputs):
@@ -376,8 +413,12 @@ class CodecSubmodule(ARNodeSubmodule):
         return input_metadata.stream_chunks.get("codec_tokens") if input_metadata else None
 
     def prepare_inputs(
-        self, graph_walk: str, fwd_info: CurrentForwardPassInfo, inputs: NameToTensorList,
-        input_metadata: InputMetadata = EMPTY_INPUT_METADATA, **kwargs: Any,
+        self,
+        graph_walk: str,
+        fwd_info: CurrentForwardPassInfo,
+        inputs: NameToTensorList,
+        input_metadata: InputMetadata = EMPTY_INPUT_METADATA,
+        **kwargs: Any,
     ) -> ARNodeInputs:
         """Drop the end-of-stream frame and lay the window out as ``[10, frames]``."""
         del graph_walk, kwargs
@@ -390,8 +431,12 @@ class CodecSubmodule(ARNodeSubmodule):
         start_offset = chunk.start_offset if chunk is not None else 0
         conv_start = context - min(context, self.conv_context)
         logger.debug(
-            "codec %s: window offset=%d context=%d frames=%d final=%s", fwd_info.request_id,
-            start_offset, context, frames, chunk is not None and chunk.is_final,
+            "codec %s: window offset=%d context=%d frames=%d final=%s",
+            fwd_info.request_id,
+            start_offset,
+            context,
+            frames,
+            chunk is not None and chunk.is_final,
         )
         return ARNodeInputs(
             tensor_inputs={"codec_tokens": codes.t().contiguous()},
@@ -399,7 +444,10 @@ class CodecSubmodule(ARNodeSubmodule):
         )
 
     def preprocess(
-        self, graph_walk: str, engine_inputs: ModelInputsFromEngine, inputs: list[ARNodeInputs],
+        self,
+        graph_walk: str,
+        engine_inputs: ModelInputsFromEngine,
+        inputs: list[ARNodeInputs],
     ) -> dict[str, torch.Tensor]:
         """Stack the batch's windows, zero-padded on the right to the widest.
 
@@ -411,10 +459,12 @@ class CodecSubmodule(ARNodeSubmodule):
         has_new = any(item.kwargs["frames"] > item.kwargs["context"] for item in inputs)
         width = max(window.shape[-1] for window in windows) if has_new else 0
         device = windows[0].device
-        codec_tokens = torch.stack([
-            torch.nn.functional.pad(window[:, :width], (0, width - min(width, window.shape[-1])))
-            for window in windows
-        ])
+        codec_tokens = torch.stack(
+            [
+                torch.nn.functional.pad(window[:, :width], (0, width - min(width, window.shape[-1])))
+                for window in windows
+            ]
+        )
 
         def column(name: str) -> torch.Tensor:
             return torch.tensor([item.kwargs[name] for item in inputs], dtype=torch.long, device=device)
@@ -436,23 +486,37 @@ class CodecSubmodule(ARNodeSubmodule):
         return (wav.clamp(-1, 1) * 32767).to(torch.int16)
 
     def forward(
-        self, graph_walk: str, engine_inputs: ModelInputsFromEngine, codec_tokens: torch.Tensor,
-        start_offset: torch.Tensor, conv_start: torch.Tensor, **kwargs: Any,
+        self,
+        graph_walk: str,
+        engine_inputs: ModelInputsFromEngine,
+        codec_tokens: torch.Tensor,
+        start_offset: torch.Tensor,
+        conv_start: torch.Tensor,
+        **kwargs: Any,
     ) -> NameToTensorList:
         del graph_walk, engine_inputs, kwargs
         return {"audio_chunk": [self._decode(codec_tokens, start_offset, conv_start)[0]]}
 
     def forward_batched(
-        self, graph_walk: str, engine_inputs: ModelInputsFromEngine, codec_tokens: torch.Tensor,
-        start_offset: torch.Tensor, conv_start: torch.Tensor, **kwargs: Any,
+        self,
+        graph_walk: str,
+        engine_inputs: ModelInputsFromEngine,
+        codec_tokens: torch.Tensor,
+        start_offset: torch.Tensor,
+        conv_start: torch.Tensor,
+        **kwargs: Any,
     ) -> dict[str, NameToTensorList]:
         del graph_walk, kwargs
         wavs = self._decode(codec_tokens, start_offset, conv_start)
         return {request_id: {"audio_chunk": [wavs[i]]} for i, request_id in enumerate(engine_inputs.request_ids)}
 
     def postprocess(
-        self, request_id: str, request_info: CurrentForwardPassInfo, outputs: dict[str, list[torch.Tensor]],
-        inputs: ARNodeInputs | None = None, **kwargs: Any,
+        self,
+        request_id: str,
+        request_info: CurrentForwardPassInfo,
+        outputs: dict[str, list[torch.Tensor]],
+        inputs: ARNodeInputs | None = None,
+        **kwargs: Any,
     ) -> None:
         """Keep the new frames' samples: ``(context - conv_start) .. (frames - conv_start)`` frames in."""
         del request_info, kwargs
@@ -522,7 +586,11 @@ class RefEncoderSubmodule(NodeSubmodule):
         return hashlib.blake2b(samples.numpy().tobytes(), digest_size=16).hexdigest()
 
     def prepare_inputs(
-        self, graph_walk: str, fwd_info: CurrentForwardPassInfo, inputs: NameToTensorList, **kwargs: Any,
+        self,
+        graph_walk: str,
+        fwd_info: CurrentForwardPassInfo,
+        inputs: NameToTensorList,
+        **kwargs: Any,
     ) -> NodeInputs:
         del graph_walk, fwd_info, kwargs
         clip = inputs["audio_inputs"][0]
@@ -535,8 +603,12 @@ class RefEncoderSubmodule(NodeSubmodule):
         return codes[0].t().contiguous().long()
 
     def forward(
-        self, graph_walk: str, engine_inputs: ModelInputsFromEngine, waveform: torch.Tensor,
-        clip_key: str | None = None, **kwargs: Any,
+        self,
+        graph_walk: str,
+        engine_inputs: ModelInputsFromEngine,
+        waveform: torch.Tensor,
+        clip_key: str | None = None,
+        **kwargs: Any,
     ) -> NameToTensorList:
         del graph_walk, engine_inputs, kwargs
         if clip_key is not None and clip_key in self._codes:
