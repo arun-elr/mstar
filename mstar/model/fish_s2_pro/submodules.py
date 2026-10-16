@@ -410,6 +410,7 @@ class CodecSubmodule(ARNodeSubmodule):
             )
         self.conv_context = self.codec.conv_context_frames
         self.max_new_frames = max(*self.codec.chunk_schedule, self.codec.chunk_frames)
+        self._geometry_stager = PinnedStager(torch.long, numel=2 * self.MAX_BATCH_SIZE)
         if not self.codec.exact_streaming:
             logger.warning(
                 "Fish codec left_context_frames=%d is below the decoder's %d-frame receptive field; "
@@ -439,6 +440,7 @@ class CodecSubmodule(ARNodeSubmodule):
         chunk = self._codec_chunk(input_metadata)
         codes = inputs["codec_tokens"][0].to(device=self.get_device(), dtype=torch.long)
         codes = codes.view(-1, self.config.num_codebooks)
+        # A sync: which window holds the end-of-stream frame is not known on the host.
         codes = codes[codes[:, 0] < self.config.eos_code]
         frames = codes.shape[0]
         context = min(chunk.context_items if chunk is not None else 0, frames)
@@ -480,14 +482,12 @@ class CodecSubmodule(ARNodeSubmodule):
             ]
         )
 
-        def column(name: str) -> torch.Tensor:
-            return torch.tensor([item.kwargs[name] for item in inputs], dtype=torch.long, device=device)
-
-        return {
-            "codec_tokens": codec_tokens,
-            "start_offset": column("start_offset"),
-            "conv_start": column("conv_start"),
-        }
+        geometry = torch.empty(2, len(inputs), dtype=torch.long, device=device)
+        self._geometry_stager.copy_(
+            geometry,
+            [item.kwargs["start_offset"] for item in inputs] + [item.kwargs["conv_start"] for item in inputs],
+        )
+        return {"codec_tokens": codec_tokens, "start_offset": geometry[0], "conv_start": geometry[1]}
 
     def _decode(self, codec_tokens: torch.Tensor, start_offset: torch.Tensor, conv_start: torch.Tensor) -> torch.Tensor:
         """``[B, 10, W]`` windows -> int16 PCM ``[B, conv_frames * hop]``."""
