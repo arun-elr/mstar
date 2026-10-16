@@ -72,7 +72,7 @@ def test_valid_values_are_used(monkeypatch):
 
 
 @pytest.mark.parametrize(("var", "raw"), [
-    (LAUNCH, "5ms"), (LAUNCH, "nan"), (LAUNCH, "inf"),
+    (LAUNCH, "5ms"), (LAUNCH, "nan"), (LAUNCH, "inf"), (LAUNCH, "1e20"),
     (CAP, "5ms"), (CAP, "1e3"), (CAP, "16.0"),
 ])
 def test_a_malformed_value_is_reported_when_the_worker_is_built(monkeypatch, caplog, var, raw):

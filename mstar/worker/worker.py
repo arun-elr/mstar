@@ -150,10 +150,11 @@ def _parse_tp_async_sched(raw: str) -> tuple[bool, frozenset[str] | None]:
     return True, frozenset(n.strip() for n in raw.split(",") if n.strip())
 
 
-def _finite_float(raw: str) -> float:
+def _wait_ms(raw: str) -> float:
+    """Milliseconds for ``Event.wait``, which overflows past TIMEOUT_MAX."""
     value = float(raw)
-    if not math.isfinite(value):
-        raise ValueError(f"{raw!r} is not finite")
+    if not math.isfinite(value) or value / 1000.0 > threading.TIMEOUT_MAX:
+        raise ValueError(f"{raw!r} is not a usable wait")
     return value
 
 
@@ -337,7 +338,7 @@ class Worker:
         # to reach the launch. submit_spec often sits on this cap, but raising
         # it to 8ms did not help; tunable for another look.
         self._launch_wait_s = _env_number(
-            "MSTAR_LAUNCH_WAIT_MS", 5.0, _finite_float, 0.0,
+            "MSTAR_LAUNCH_WAIT_MS", 5.0, _wait_ms, 0.0,
         ) / 1000.0
         self._max_consecutive_spec = _env_number(
             "MSTAR_MAX_CONSECUTIVE_SPEC_STEPS", 1024, int, 0,
