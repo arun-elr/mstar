@@ -16,6 +16,7 @@
 #   --build-arg CUDA_IMAGE=docker.io/nvidia/cuda:12.8.1-devel-ubuntu24.04
 #   --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu128
 #   --build-arg FLASH_ATTN_WHEEL=<your cu12 torch2.10 wheel>
+#   --build-arg MOONCAKE_PACKAGE=mooncake-transfer-engine
 
 # A -devel base is required at runtime, not just at build time: the vendored
 # MoE align kernel and FlashInfer both JIT-compile CUDA kernels on first use
@@ -37,10 +38,18 @@ ARG TORCHCODEC_VERSION=0.10.0
 # flash-attn ships no PyPI wheels; install the GitHub release wheel whose
 # cu1x / torchX.Y / cpXY tags match the torch above (docs/installation.rst).
 ARG FLASH_ATTN_WHEEL=https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu13torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+# Mooncake publishes one wheel per CUDA major: -cuda13 here, plain
+# mooncake-transfer-engine (the extras' default) for CUDA 12.
+ARG MOONCAKE_PACKAGE=mooncake-transfer-engine-cuda13
 
+# libibverbs1, ibverbs-providers (libmlx5) and libcurl4: Mooncake's engine
+# links them, and the CUDA base image ships none of them.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         ffmpeg \
+        ibverbs-providers \
+        libcurl4 \
+        libibverbs1 \
         libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -82,6 +91,18 @@ RUN uv pip install --python /opt/mstar/venv/bin/python -e ".[all]" \
 # Qwen3-TTS's speech tokenizer is not in [all]: --no-deps keeps its
 # transformers==4.57.3 pin out of the environment (docs/installation.rst).
 RUN uv pip install --python /opt/mstar/venv/bin/python --no-deps "qwen-tts==0.1.1"
+
+# Mooncake's default wheel is built for CUDA 12 (it links libcudart.so.12), so
+# a CUDA 13 image swaps it for the -cuda13 build of the version the extras
+# resolved (#480). --no-deps keeps the resolver away from the pins above. The
+# extras still name the CUDA 12 package; `uv pip check` passes because it
+# skips extra-only requirements. Re-running the .[all] install puts the CUDA
+# 12 wheel back.
+RUN if [ "${MOONCAKE_PACKAGE}" != mooncake-transfer-engine ]; then \
+        v=$(/opt/mstar/venv/bin/python -c "import importlib.metadata as m; print(m.version('mooncake-transfer-engine'))") \
+        && uv pip uninstall --python /opt/mstar/venv/bin/python mooncake-transfer-engine \
+        && uv pip install --python /opt/mstar/venv/bin/python --no-deps "${MOONCAKE_PACKAGE}==${v}"; \
+    fi
 
 # The venv must lead PATH: FlashInfer's JIT invokes ninja (installed in the
 # venv) via PATH lookup at request time.

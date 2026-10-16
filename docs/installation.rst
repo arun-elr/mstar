@@ -229,7 +229,9 @@ The GPU model families depend on:
 - **mooncake-transfer-engine** (0.3.13.post1 or newer) — RDMA tensor transport for
   multi-GPU, disaggregated deployments. Single-node deployments can use shared-memory
   (``SHM``) or ``TCP`` transport instead (see :doc:`serving`, which also covers the network
-  it needs).
+  it needs). The extras install Mooncake's CUDA 12 wheel; next to a CUDA 13 torch
+  (``+cu130``) swap in its CUDA 13 build, as the Docker images do (see
+  :ref:`mooncake-cuda13`).
 
 Apart from ``flash-attn`` and ``flash-attn-4``, these are installed by the extras above. Your
 installed ``torch`` must match your system CUDA toolkit — ``--torch-backend=auto`` handles
