@@ -127,6 +127,24 @@ def test_default_fast_path_is_stock_to_rounding(monkeypatch, vae, dtype) -> None
     assert torch.equal(_forward(sub, z), first)
 
 
+def test_compiled_calls_see_one_layout_whatever_the_clip_length(monkeypatch, vae) -> None:
+    """The compiled step's inputs have the same shape and strides for every
+    clip length at one resolution, so a new frame count does not recompile."""
+    sub = _decoder(monkeypatch, vae, fast=True)
+    step = sub._fast_step
+    seen = []
+
+    def spy(x, **kw):
+        seen.append((tuple(x.shape), x.stride()))
+        return step._decoder(x, **kw)
+
+    step._fn = spy
+    for frames in (4, 7):
+        _forward(sub, _latents(frames))
+    assert len(seen) == (4 - 2) + (7 - 2)
+    assert len(set(seen)) == 1
+
+
 def test_channels_last_eager_is_stock_to_rounding(monkeypatch, vae) -> None:
     sub = _decoder(monkeypatch, vae, fast=False)
     wan_vae.to_channels_last(sub.vae)
