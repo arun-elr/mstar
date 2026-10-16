@@ -331,6 +331,25 @@ def test_an_abort_for_an_id_never_seen_still_tombstones_it():
     assert _remove_targets(c, "r1") == {PREPROCESS}
 
 
+def test_late_messages_after_an_abort_that_outran_its_ingest_spare_a_rerun():
+    """The abort outran NEW_REQUEST, so ingest dropped the request. The API
+    server's own release still sends a READS_DONE, and may send another abort,
+    after that; neither may drop or pre-ack a re-run of the id."""
+    c = _conductor({})
+    admitted = _admitting(c)
+    c._abort_request("r1")
+    c._ingest_request(_new_request("r1"))
+
+    c._abort_request("r1")
+    c._handle_reads_done(ReadsDone(request_id="r1", entity_id=PREPROCESS))
+    assert "r1" not in c._early_reads_done
+    c._ingest_request(_new_request("r1"))
+    assert admitted == ["r1"]
+    c.requests["r1"] = _request_data()
+    c._process_request_done("r1")
+    assert c.draining["r1"].expected_acks == {PREPROCESS}
+
+
 def test_an_abort_for_a_rerun_in_flight_tears_it_down():
     c = _conductor({"r1": _request_data()})
     _complete_and_tear_down(c, "r1")

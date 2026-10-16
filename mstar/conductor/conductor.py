@@ -895,6 +895,7 @@ class Conductor:
             self._early_abort_requests.discard(body.request_id)
             self._early_reads_done.pop(body.request_id, None)
             self._send_remove_to_preprocess_worker(body.request_id)
+            self._mark_torn_down(body.request_id)
             logger.info(
                 "Request %s was aborted before ingest; dropping", body.request_id
             )
