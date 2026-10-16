@@ -119,7 +119,7 @@ def test_finished_request_re_queued_fails_alone_instead_of_asserting():
     _step(dit, live, first)
 
     batch = SimpleNamespace(
-        node_name="dit", request_ids=[1, 2],
+        node_name="dit", request_ids=[1, 2], graph_walk=VIDEO_GEN_AR_WALK,
         step_context=SimpleNamespace(graph_walk=VIDEO_GEN_AR_WALK),
         per_request_info_wrapped={
             r: SimpleNamespace(rid_handle=r, random_seed=0) for r in (1, 2)
