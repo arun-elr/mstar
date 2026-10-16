@@ -319,9 +319,15 @@ class RealtimeTranscription:
         await self.send(_event("transcription_session.created", session=self._session_view()))
         try:
             while True:
-                message = await self.ws.receive_text()
+                # receive_text() raises KeyError on a binary frame
+                message = await self.ws.receive()
+                if message["type"] == "websocket.disconnect":
+                    raise WebSocketDisconnect(message.get("code", 1000), message.get("reason"))
+                if message.get("text") is None:
+                    await self.send(_error("an event must be a JSON text message, not binary"))
+                    continue
                 try:
-                    event = json.loads(message)
+                    event = json.loads(message["text"])
                 # ValueError covers JSONDecodeError and integers past Python's
                 # int-string digit limit; RecursionError is deep nesting
                 except (ValueError, RecursionError):
@@ -414,7 +420,9 @@ class RealtimeTranscription:
             logger.exception("realtime step failed")
             await self.send(_error(str(exc), kind="server_error"))
             return
-        s.chunk_id += 1
+        # a coalesced step counts every chunk it heard, so the prefix that keeps
+        # sent text fixed starts after the same audio as with one step per chunk
+        s.chunk_id += max(1, chunk.size // s.chunk_samples)
         text = self.current_text()
         if final or tokenizer is None:
             hold = 0
