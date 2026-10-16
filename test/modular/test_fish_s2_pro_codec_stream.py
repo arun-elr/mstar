@@ -46,12 +46,28 @@ SEMANTIC_CODES, RESIDUAL_CODES = 32, 8
 
 def tiny_codec(**overrides) -> FishDACConfig:
     values = dict(
-        encoder_dim=16, encoder_rates=(2, 2), encoder_transformer_layers=(0, 1), encoder_window=4,
-        encoder_block_size=256, decoder_dim=32, decoder_rates=(2, 2), latent_dim=32, downsample_factor=(2, 2),
-        semantic_codebook_size=SEMANTIC_CODES, codebook_size=RESIDUAL_CODES, codebook_dim=4,
-        n_residual_codebooks=NUM_CODEBOOKS - 1, post_layers=2, post_heads=2, post_head_dim=16,
-        post_intermediate_size=48, post_window=4, post_block_size=256,
-        chunk_schedule=(2, 3), chunk_frames=5, conv_context_frames=24,
+        encoder_dim=16,
+        encoder_rates=(2, 2),
+        encoder_transformer_layers=(0, 1),
+        encoder_window=4,
+        encoder_block_size=256,
+        decoder_dim=32,
+        decoder_rates=(2, 2),
+        latent_dim=32,
+        downsample_factor=(2, 2),
+        semantic_codebook_size=SEMANTIC_CODES,
+        codebook_size=RESIDUAL_CODES,
+        codebook_dim=4,
+        n_residual_codebooks=NUM_CODEBOOKS - 1,
+        post_layers=2,
+        post_heads=2,
+        post_head_dim=16,
+        post_intermediate_size=48,
+        post_window=4,
+        post_block_size=256,
+        chunk_schedule=(2, 3),
+        chunk_frames=5,
+        conv_context_frames=24,
     )
     values.update(overrides)
     return FishDACConfig(**values)
@@ -59,11 +75,30 @@ def tiny_codec(**overrides) -> FishDACConfig:
 
 def tiny_config(**codec) -> FishS2ProConfig:
     return FishS2ProConfig(
-        semantic_start_token_id=100, semantic_end_token_id=100 + SEMANTIC_CODES - 1, eos_token_id=99,
-        slow_ar=FishSlowARConfig(dim=32, n_layer=2, n_head=4, n_local_heads=2, head_dim=8,
-                                 intermediate_size=48, vocab_size=140, max_seq_len=512),
-        fast_ar=FishFastARConfig(dim=32, text_dim=32, n_layer=2, n_head=4, n_local_heads=2, head_dim=8,
-                                 intermediate_size=48, vocab_size=SEMANTIC_CODES, num_codebooks=NUM_CODEBOOKS),
+        semantic_start_token_id=100,
+        semantic_end_token_id=100 + SEMANTIC_CODES - 1,
+        eos_token_id=99,
+        slow_ar=FishSlowARConfig(
+            dim=32,
+            n_layer=2,
+            n_head=4,
+            n_local_heads=2,
+            head_dim=8,
+            intermediate_size=48,
+            vocab_size=140,
+            max_seq_len=512,
+        ),
+        fast_ar=FishFastARConfig(
+            dim=32,
+            text_dim=32,
+            n_layer=2,
+            n_head=4,
+            n_local_heads=2,
+            head_dim=8,
+            intermediate_size=48,
+            vocab_size=SEMANTIC_CODES,
+            num_codebooks=NUM_CODEBOOKS,
+        ),
         codec=tiny_codec(**codec),
         generation=FishGenerationConfig(max_new_tokens=64),
     )
@@ -82,10 +117,13 @@ def random_decoder(config: FishS2ProConfig, seed: int = 0) -> FishDACDecoder:
 def stream_codes(num_frames: int, seed: int = 1, eos: bool = True) -> torch.Tensor:
     """``[T (+1), 4]`` frames as the AR streams them; the last one is <|im_end|>."""
     g = torch.Generator().manual_seed(seed)
-    codes = torch.cat([
-        torch.randint(0, SEMANTIC_CODES, (num_frames, 1), generator=g),
-        torch.randint(0, RESIDUAL_CODES, (num_frames, NUM_CODEBOOKS - 1), generator=g),
-    ], dim=1)
+    codes = torch.cat(
+        [
+            torch.randint(0, SEMANTIC_CODES, (num_frames, 1), generator=g),
+            torch.randint(0, RESIDUAL_CODES, (num_frames, NUM_CODEBOOKS - 1), generator=g),
+        ],
+        dim=1,
+    )
     if eos:
         codes = torch.cat([codes, torch.tensor([[SEMANTIC_CODES, 0, 0, 0]])])
     return codes
@@ -106,7 +144,9 @@ def run_streams(submodule: CodecSubmodule, frames: dict[str, torch.Tensor]):
     buffers = {}
     for rid, request_frames in frames.items():
         buffers[rid] = StreamBuffer(
-            request_id=rid, edge_name="codec_tokens", from_partition="AR",
+            request_id=rid,
+            edge_name="codec_tokens",
+            from_partition="AR",
             policy=ScheduledLeftContextChunkPolicy(cfg.chunk_schedule, cfg.chunk_frames, cfg.left_context_frames),
         )
         for i, frame in enumerate(request_frames):
@@ -121,8 +161,9 @@ def run_streams(submodule: CodecSubmodule, frames: dict[str, torch.Tensor]):
         meta = {rid: InputMetadata(stream_chunks={"codec_tokens": chunk.info}) for rid, chunk in chunks.items()}
         engine_inputs = ModelInputsFromEngine(request_ids=rids, per_request_info={})
         items = [
-            submodule.prepare_inputs("codec_chunk", infos[rid], {"codec_tokens": [chunks[rid].data["data"]]},
-                                     input_metadata=meta[rid])
+            submodule.prepare_inputs(
+                "codec_chunk", infos[rid], {"codec_tokens": [chunks[rid].data["data"]]}, input_metadata=meta[rid]
+            )
             for rid in rids
         ]
         assert submodule.can_batch(None, items)
@@ -250,7 +291,7 @@ def test_context_only_terminal_flush_decodes_nothing(config, decoder):
     steps = steps["r"]
 
     info, audio = steps[-1]
-    assert info.is_final and info.num_items - info.context_items == 1   # just <|im_end|>
+    assert info.is_final and info.num_items - info.context_items == 1  # just <|im_end|>
     assert audio.numel() == 0
     assert decodes == len(steps) - 1
 
@@ -259,7 +300,9 @@ def test_codec_drops_the_end_of_stream_frame(config, decoder):
     submodule = CodecSubmodule(decoder, config)
     frames = stream_codes(3)
     item = submodule.prepare_inputs(
-        "codec_chunk", SimpleNamespace(request_id="r", rid_handle="r"), {"codec_tokens": [frames]},
+        "codec_chunk",
+        SimpleNamespace(request_id="r", rid_handle="r"),
+        {"codec_tokens": [frames]},
     )
     assert item.tensor_inputs["codec_tokens"].shape == (NUM_CODEBOOKS, 3)
     assert item.kwargs == {"frames": 3, "context": 0, "conv_start": 0, "start_offset": 0}
@@ -297,8 +340,9 @@ def test_codec_state_loads_completely_and_rejects_gaps(config, decoder):
         assert torch.equal(param, state[name]), name
 
     with pytest.raises(RuntimeError, match="did not initialize"):
-        load_codec_state(FishDACDecoder(config.codec), {k: v for k, v in state.items() if "decoder.model.0" not in k},
-                         prefixes)
+        load_codec_state(
+            FishDACDecoder(config.codec), {k: v for k, v in state.items() if "decoder.model.0" not in k}, prefixes
+        )
     with pytest.raises(RuntimeError, match="no place"):
         load_codec_state(FishDACDecoder(config.codec), {**state, "decoder.extra.weight": torch.zeros(1)}, prefixes)
     bad_rope = dict(state, **{"quantizer.post_module.freqs_cis": torch.zeros(256, 8, 2, dtype=torch.bfloat16)})
@@ -316,9 +360,12 @@ def test_ref_encoder_emits_frames_and_memoises_by_clip(config):
     submodule.encode = lambda waveform: calls.append(1) or original(waveform)
     info = SimpleNamespace(request_id="r", rid_handle="r")
 
-    first = submodule.forward("ar_prefill_clone", None, **submodule.prepare_inputs(
-        "ar_prefill_clone", info, {"audio_inputs": [clip]}).tensor_inputs,
-        clip_key=RefEncoderSubmodule.clip_digest(clip))["ref_codes"][0]
+    first = submodule.forward(
+        "ar_prefill_clone",
+        None,
+        **submodule.prepare_inputs("ar_prefill_clone", info, {"audio_inputs": [clip]}).tensor_inputs,
+        clip_key=RefEncoderSubmodule.clip_digest(clip),
+    )["ref_codes"][0]
     again = submodule.forward("ar_prefill_clone", None, waveform=clip, clip_key=RefEncoderSubmodule.clip_digest(clip))
 
     assert first.shape == (config.codec.frames_for_samples(clip.numel()), NUM_CODEBOOKS) == (6, NUM_CODEBOOKS)

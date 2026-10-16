@@ -110,7 +110,10 @@ class RopeManager(PositionManager):
             if rotary_dim is None:
                 raise ValueError("rope_table_dtype needs PositionConfig.rotary_dim or the KV cache's head_dim")
             self._rope_table = self._build_rope_cache(
-                rotary_dim, config.rope_scale, config.rope_theta, config.rope_table_dtype,
+                rotary_dim,
+                config.rope_scale,
+                config.rope_theta,
+                config.rope_table_dtype,
             ).float()
 
         # rid -> label -> next pos of stream

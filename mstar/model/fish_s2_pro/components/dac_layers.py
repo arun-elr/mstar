@@ -100,9 +100,9 @@ class ResidualVectorQuantize(nn.Module):
         super().__init__()
         self.n_codebooks = n_codebooks
         self.codebook_size = codebook_size
-        self.quantizers = nn.ModuleList([
-            VectorQuantize(input_dim, codebook_size, codebook_dim) for _ in range(n_codebooks)
-        ])
+        self.quantizers = nn.ModuleList(
+            [VectorQuantize(input_dim, codebook_size, codebook_dim) for _ in range(n_codebooks)]
+        )
 
     def quantize(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """``[B, D, T]`` -> (quantized ``[B, D, T]``, codes ``[B, N, T]``)."""

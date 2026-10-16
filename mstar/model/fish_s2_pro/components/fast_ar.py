@@ -33,7 +33,9 @@ class FastARAttention(nn.Module):
         self.n_local_heads = cfg.n_local_heads
         self.head_dim = cfg.head_dim
         self.wqkv = nn.Linear(
-            cfg.dim, (cfg.n_head + 2 * cfg.n_local_heads) * cfg.head_dim, bias=cfg.attention_qkv_bias,
+            cfg.dim,
+            (cfg.n_head + 2 * cfg.n_local_heads) * cfg.head_dim,
+            bias=cfg.attention_qkv_bias,
         )
         self.wo = nn.Linear(cfg.n_head * cfg.head_dim, cfg.dim, bias=cfg.attention_o_bias)
         if cfg.attention_qk_norm:
@@ -43,7 +45,11 @@ class FastARAttention(nn.Module):
             self.q_norm = self.k_norm = None
 
     def forward(
-        self, x: torch.Tensor, freqs_cis: torch.Tensor, kv_cache: torch.Tensor, pos: int,
+        self,
+        x: torch.Tensor,
+        freqs_cis: torch.Tensor,
+        kv_cache: torch.Tensor,
+        pos: int,
     ) -> torch.Tensor:
         """One position. ``x`` ``[B, 1, D]``; ``kv_cache`` ``[B, 2, P, H_kv, head_dim]``."""
         bsz = x.shape[0]
@@ -57,12 +63,12 @@ class FastARAttention(nn.Module):
             q, k = self.q_norm(q), self.k_norm(k)
         q = apply_rotary_emb(q, freqs_cis)
         k = apply_rotary_emb(k, freqs_cis)
-        kv_cache[:, 0, pos:pos + 1].copy_(k)
-        kv_cache[:, 1, pos:pos + 1].copy_(v)
+        kv_cache[:, 0, pos : pos + 1].copy_(k)
+        kv_cache[:, 1, pos : pos + 1].copy_(v)
         y = F.scaled_dot_product_attention(
             q.transpose(1, 2),
-            kv_cache[:, 0, :pos + 1].transpose(1, 2),
-            kv_cache[:, 1, :pos + 1].transpose(1, 2),
+            kv_cache[:, 0, : pos + 1].transpose(1, 2),
+            kv_cache[:, 1, : pos + 1].transpose(1, 2),
             enable_gqa=self.n_head != self.n_local_heads,
         )
         return self.wo(y.transpose(1, 2).reshape(bsz, 1, q_size))
@@ -98,19 +104,21 @@ class FishFastAR(nn.Module):
     def __init__(self, cfg: FishFastARConfig):
         super().__init__()
         self.config = cfg
-        self.project_in: nn.Module = (
-            nn.Linear(cfg.text_dim, cfg.dim) if cfg.text_dim != cfg.dim else nn.Identity()
-        )
+        self.project_in: nn.Module = nn.Linear(cfg.text_dim, cfg.dim) if cfg.text_dim != cfg.dim else nn.Identity()
         self.codebook_embeddings = nn.Embedding(cfg.vocab_size * cfg.num_codebooks, cfg.text_dim)
         self.embeddings = nn.Embedding(cfg.vocab_size, cfg.dim)
         self.layers = nn.ModuleList(FastARBlock(cfg) for _ in range(cfg.n_layer))
         self.norm = nn.RMSNorm(cfg.dim, cfg.norm_eps)
         self.output = nn.Linear(cfg.dim, cfg.vocab_size, bias=False)
         self.register_buffer(
-            "freqs_cis", precompute_freqs_cis(cfg.num_codebooks, cfg.head_dim, cfg.rope_base), persistent=False,
+            "freqs_cis",
+            precompute_freqs_cis(cfg.num_codebooks, cfg.head_dim, cfg.rope_base),
+            persistent=False,
         )
         self.register_buffer(
-            "codebook_offsets", torch.arange(cfg.num_codebooks) * cfg.vocab_size, persistent=False,
+            "codebook_offsets",
+            torch.arange(cfg.num_codebooks) * cfg.vocab_size,
+            persistent=False,
         )
 
     def rematerialize_buffers(self) -> None:
@@ -126,7 +134,7 @@ class FishFastAR(nn.Module):
 
     def step(self, x: torch.Tensor, kv_cache: torch.Tensor, pos: int) -> torch.Tensor:
         """Run every layer at depth position ``pos``; returns the final-normed hidden state."""
-        freqs_cis = self.freqs_cis[pos:pos + 1].unsqueeze(0)
+        freqs_cis = self.freqs_cis[pos : pos + 1].unsqueeze(0)
         for layer_idx, layer in enumerate(self.layers):
             x = layer(x, freqs_cis, kv_cache[layer_idx], pos)
         return self.norm(x)

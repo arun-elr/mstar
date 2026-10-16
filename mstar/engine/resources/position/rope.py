@@ -46,8 +46,12 @@ def _rope_apply_qk_inplace_cuda(
     if cos_sin_cache is not None:
         # a precomputed (rounded) table: PositionConfig.rope_table_dtype
         flashinfer.rope.apply_rope_with_cos_sin_cache_inplace(
-            pos_ids, q.view(q.shape[0], -1), k.view(k.shape[0], -1), q.shape[-1],
-            cos_sin_cache, is_neox=not interleave,
+            pos_ids,
+            q.view(q.shape[0], -1),
+            k.view(k.shape[0], -1),
+            q.shape[-1],
+            cos_sin_cache,
+            is_neox=not interleave,
         )
         return
     rope_kwargs = dict(

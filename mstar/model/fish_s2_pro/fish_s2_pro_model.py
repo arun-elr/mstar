@@ -107,12 +107,13 @@ class FishS2ProModel(Model):
         self.codec_exact_fp32 = bool(kwargs.get("codec_exact_fp32", True))
         self.local_dir = _resolve_snapshot(model_path_hf, cache_dir, list(METADATA_FILES))
         self.config = FishS2ProConfig.from_pretrained(
-            self.local_dir, codec_overrides={k: kwargs[k] for k in CODEC_KWARGS if k in kwargs},
+            self.local_dir,
+            codec_overrides={k: kwargs[k] for k in CODEC_KWARGS if k in kwargs},
         )
         self.tokenizer = AutoTokenizer.from_pretrained(self.local_dir)
-        self._special_ids = {
-            int(token_id) for token_id in self.tokenizer.all_special_ids
-        } | {int(token_id) for token_id in self.tokenizer.added_tokens_decoder}
+        self._special_ids = {int(token_id) for token_id in self.tokenizer.all_special_ids} | {
+            int(token_id) for token_id in self.tokenizer.added_tokens_decoder
+        }
         self._special_ids -= set(self.tokenizer.convert_tokens_to_ids(list(ALLOWED_TEXT_SPECIAL_TOKENS)))
         self._submodule_cache: dict[str, NodeSubmodule | None] = {}
 
@@ -146,15 +147,21 @@ class FishS2ProModel(Model):
             KVSpec(resource_key=AR_KV, nodes={"AR"}, config=kv),
             AttentionSpec(resource_key=AR_ATTN, nodes={"AR"}, config=AttentionConfig(kv_cache=AR_KV)),
             PositionSpec(
-                resource_key=AR_POS, nodes={"AR"},
+                resource_key=AR_POS,
+                nodes={"AR"},
                 config=PositionConfig(
-                    kv_cache=AR_KV, interleave=True, rope_theta=slow.rope_base,
-                    rotary_dim=slow.head_dim, rope_table_dtype=torch.bfloat16,
+                    kv_cache=AR_KV,
+                    interleave=True,
+                    rope_theta=slow.rope_base,
+                    rotary_dim=slow.head_dim,
+                    rope_table_dtype=torch.bfloat16,
                 ),
             ),
             SamplerSpec(
-                resource_key=AR_SAMPLER, nodes={"AR"},
-                vocab_size=self.config.semantic_head_size, enable_repetion_penalty=True,
+                resource_key=AR_SAMPLER,
+                nodes={"AR"},
+                vocab_size=self.config.semantic_head_size,
+                enable_repetion_penalty=True,
             ),
         ]
 
@@ -181,14 +188,16 @@ class FishS2ProModel(Model):
 
         return {
             "ar_prefill": ar_node(list(self.PREFILL_INPUTS), prefill=True),
-            "ar_prefill_clone": Sequential([
-                GraphNode(
-                    name="RefEncoder",
-                    input_names=list(self.REF_ENCODER_INPUTS),
-                    outputs=[GraphEdge(next_node="AR", name="ref_codes")],
-                ),
-                ar_node([*self.PREFILL_INPUTS, "ref_codes"], prefill=True),
-            ]),
+            "ar_prefill_clone": Sequential(
+                [
+                    GraphNode(
+                        name="RefEncoder",
+                        input_names=list(self.REF_ENCODER_INPUTS),
+                        outputs=[GraphEdge(next_node="AR", name="ref_codes")],
+                    ),
+                    ar_node([*self.PREFILL_INPUTS, "ref_codes"], prefill=True),
+                ]
+            ),
             "ar_decode": Loop(
                 name="ar_decode_loop",
                 section=ar_node(["ar_input_embeds"], prefill=False),
@@ -212,7 +221,10 @@ class FishS2ProModel(Model):
                 producer_partitions=[],
             ),
             PartitionDefinition(
-                name="Codec", graph_walks={"codec_chunk"}, initial_walk=None, producer_partitions=["AR"],
+                name="Codec",
+                graph_walks={"codec_chunk"},
+                initial_walk=None,
+                producer_partitions=["AR"],
             ),
         ]
 
@@ -402,8 +414,10 @@ class FishS2ProModel(Model):
                 if partition_metadata.kwargs["ar_max_tokens"] <= 1:
                     # the prefill sampled the only frame allowed; a stop from prefill is dropped
                     return ForwardPassArgs(
-                        full_metadata=partition_metadata, inputs=[],
-                        unpersist_tensors=list(persist_signals.get("ar_input_embeds", [])), request_done=True,
+                        full_metadata=partition_metadata,
+                        inputs=[],
+                        unpersist_tensors=list(persist_signals.get("ar_input_embeds", [])),
+                        request_done=True,
                     )
                 partition_metadata.graph_walk = "ar_decode"
                 partition_metadata.is_prefill = False
@@ -417,7 +431,10 @@ class FishS2ProModel(Model):
                 )
             if partition_metadata.graph_walk == "ar_decode":
                 return ForwardPassArgs(
-                    full_metadata=partition_metadata, inputs=[], unpersist_tensors=[], request_done=True,
+                    full_metadata=partition_metadata,
+                    inputs=[],
+                    unpersist_tensors=[],
+                    request_done=True,
                 )
             raise ValueError(f"AR entered an unexpected graph walk: {partition_metadata.graph_walk!r}")
         if partition_name == "Codec":
@@ -434,7 +451,9 @@ class FishS2ProModel(Model):
     # -----------------------------------------------------------------------
 
     def get_request_resource_configs(
-        self, partition_fwd_args: dict[str, ForwardPassArgs], model_kwargs: dict | None = None,
+        self,
+        partition_fwd_args: dict[str, ForwardPassArgs],
+        model_kwargs: dict | None = None,
     ) -> dict[str, ResourceReqConfig]:
         """Semantic-code sampling; ``do_sample=False`` is greedy. Residual codebooks are argmax."""
         del partition_fwd_args
@@ -456,7 +475,8 @@ class FishS2ProModel(Model):
 
     def get_max_output_tokens(self, **model_kwargs: Any) -> int:
         requested = model_kwargs.get(
-            "max_output_tokens", model_kwargs.get("max_new_tokens", self.config.generation.max_new_tokens),
+            "max_output_tokens",
+            model_kwargs.get("max_new_tokens", self.config.generation.max_new_tokens),
         )
         requested = int(requested)
         if not 1 <= requested <= self.config.codec.max_frames:
@@ -524,7 +544,8 @@ class FishS2ProModel(Model):
         fast_ar = fast_ar.to(dtype).to_empty(device=device)
         slow_ar.load_weights(iter_safetensors_shards(self.local_dir, device=device, prefix="text_model."))
         load_fast_ar_weights(
-            fast_ar, iter_safetensors_shards(self.local_dir, device=device, prefix="audio_decoder."),
+            fast_ar,
+            iter_safetensors_shards(self.local_dir, device=device, prefix="audio_decoder."),
         )
         fast_ar.rematerialize_buffers()
         return ARSubmodule(slow_ar.eval(), fast_ar.eval(), self.config)
@@ -553,11 +574,17 @@ class FishS2ProModel(Model):
 
 # codec.pth subtrees each direction loads; together they cover the file.
 DECODER_CODEC_PREFIXES = (
-    "quantizer.semantic_quantizer.", "quantizer.quantizer.", "quantizer.post_module.", "quantizer.upsample.",
+    "quantizer.semantic_quantizer.",
+    "quantizer.quantizer.",
+    "quantizer.post_module.",
+    "quantizer.upsample.",
     "decoder.",
 )
 ENCODER_CODEC_PREFIXES = (
-    "encoder.", "quantizer.semantic_quantizer.", "quantizer.quantizer.", "quantizer.downsample.",
+    "encoder.",
+    "quantizer.semantic_quantizer.",
+    "quantizer.quantizer.",
+    "quantizer.downsample.",
     "quantizer.pre_module.",
 )
 
