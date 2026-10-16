@@ -15,7 +15,7 @@ Entries marked *open PR* are not on `main` yet. Check the checkout; if your port
 |---|---|---|
 | a cache that grows with the request | paged KV (`KVSpec` + `PagedKVConfig`), optionally a `RetentionPolicy` | any length; retention keeps a protected prefix plus the newest pages |
 | attention within one forward, no cache | `RaggedAttentionSpec` | block-diagonal per span, optionally causal |
-| | `RaggedCrossAttentionSpec` | one contiguous key range per query segment |
+| | `RaggedCrossAttentionSpec` (#372, *open PR*) | one contiguous key range per query segment |
 | | `RaggedBlockCausalAttentionSpec` (#381, *open PR*) | each block attends its span's prefix of blocks |
 | a fixed-size cache per request: a sink plus a sliding window, optionally after a shared read-only prefix | bounded KV (`BoundedKVSpec`, #383, *open PR*) | rows at any position in one batch; per-row source; a per-distance score term |
 | fixed-size opaque state per request (recurrent, conv tails) | `RecurrentStatePool` | slots read and written through the step's addressing (`gather` / `scatter_`, #383, *open PR*) |
