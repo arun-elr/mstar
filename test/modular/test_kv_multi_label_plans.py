@@ -167,6 +167,37 @@ def test_padding_under_some_labels_only_plans_from_the_streams():
     assert kv.plan_cache_stats["mismatch"] == 0
 
 
+def test_padded_combined_labels_keep_their_real_rows():
+    """Real rows first, then one padding row on every label, and two combined
+    plan labels: in AB, A's padding comes before B's real rows, which a hit
+    must not take for padding (the counts alone match the step's padding)."""
+    real = (("a", "A"), ("a", "B"), ("b", "B"), ("a", "C"), ("a", "D"), ("b", "D"))
+    layout = real + tuple(("pad0", lab) for lab in "ABCD")
+    combined = {("A", "B"): "AB", ("C", "D"): "CD"}
+    plans = {}
+    for mode in (0, 1):
+        kv = _manager(mode, ring=False)
+        for rid in ("a", "b"):
+            kv.ingest_request(rid, KVReqConfig())
+        step = KVStep(segments=tuple(Segment(r, lab, 5) for r, lab in real))
+        ctx = StepContext(request_ids=("a", "b"), graph_walk="prefill", slot=0, capture=False)
+        assert kv.admit(step, ctx).ok
+        kv.plan(step, ctx)
+        kv.commit(step, ctx)
+        plans[mode] = []
+        for t in range(4):
+            step = KVStep(segments=tuple(Segment(r, lab, 1) for r, lab in layout), combined_labels=combined)
+            ctx = StepContext(
+                request_ids=("a", "b"), graph_walk=P.WALK, slot=t % 2, capture=False,
+                slot_lease=SlotLease(slot=t % 2, bucket=BucketKey(graph_walk=P.WALK, bs=3, num_tokens=10)),
+            )
+            ctx.set_padded_rids(("a", "b", "pad0"))
+            assert kv.admit(step, ctx).ok
+            plans[mode].append(P._flat(kv.plan(step, ctx)))
+            kv.commit(step, ctx)
+    assert plans[1] == plans[0]
+
+
 def test_a_plans_arrays_outlive_the_next_plan():
     """The ring hands a set back after two plans, whatever the label count:
     one plan's arrays are intact while the next plan is built."""

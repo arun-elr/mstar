@@ -1561,8 +1561,12 @@ class KVManager(AttentionResource):
                     break
                 n_real += 1
             real, pad = views[:n_real], views[n_real:]
-            # a hit rebuilds each label's padding from all the step's padding rows
-            if (len(pad), pad[0].to_compute if pad else 0) != cache.pad_layout:
+            # a hit rebuilds each label's padding from all the step's padding
+            # rows; in a combined label, a later source label's real rows can
+            # follow an earlier one's padding
+            if [(v.request_id, v.label, v.to_compute) for v in pad] != [
+                (seg.request_id, seg.label, seg.span) for seg in cache.step_segments[cache.n_real:]
+            ]:
                 return None
             streams = []
             for v in real:
