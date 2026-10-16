@@ -99,7 +99,9 @@ def _request_seed(model_kwargs: dict, request_id: str) -> int:
 def _seed_id(body: NewRequestConductor) -> str:
     """The id a derived seed comes from: the client's, so a pinned request_id
     reproduces the same noise whatever key the API server ran it under."""
-    return body.client_request_id or body.request_id
+    if body.client_request_id is None:
+        return body.request_id
+    return body.client_request_id
 
 
 def _pick_free_tcp_port() -> int:
