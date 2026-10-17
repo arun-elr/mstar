@@ -155,7 +155,8 @@ def case(kind, **ck):
     (case("duplex", tol=0.1), [{"take_turn_rate_base": 0.9, "take_turn_rate_head": 0.5}], {}, "FAIL"),
     (case("status_match"), [{"n": 5, "diffs": []}], {}, "pass"),
     (case("status_match"), [{"n": 5, "diffs": [{"case": "x", "base": "200", "head": "500"}]}], {}, "FAIL"),
-    (case("psnr", min_db=30), [{"missing": ["head"]}], {}, "incomplete"),
+    (case("psnr", min_db=30), [{"missing": ["base"]}], {}, "incomplete"),
+    (case("psnr", min_db=30), [{"missing": ["head"]}], {}, "FAIL"),
     (case("psnr", min_db=30), [], {}, "incomplete"),
 ])
 def test_judge_correct(c, facts, errors, want):
@@ -621,7 +622,11 @@ def test_one_model_runs_both_arms_on_a_remote_slot_and_reports(tmp_path, monkeyp
     runner.cache = tmp_path / "cache"
     fake_tree(runner.cache / "src" / base.sha)
     fake_tree(runner.cache / "src" / head.sha, suffix=" indeed")
+    stale = run_dir / "results" / "fake" / "head" / "s0" / "text" / "e2e-old-c2.json"   # a lost attempt's pull
+    stale.parent.mkdir(parents=True)
+    stale.write_text("{}")
     assert runner.run_one(slot, "fake") is None
+    assert not stale.exists()
     host_dir = home / "mstar-eval"
     assert slot.host_dir == str(host_dir) and (host_dir / "evalfw" / runner.evalfw / "benchmark" / "eval").is_dir()
     res = run_dir / "results" / "fake"
@@ -735,9 +740,9 @@ def test_every_session_is_judged_and_more_head_errors_fail_even_without_outputs(
     assert v == "FAIL" and detail.startswith("session 2: 0/16 identical")
     v, detail = report.judge_correct(c, [good, good], {})
     assert v == "pass" and "all 2 sessions pass" in detail
-    v, detail = report.judge_correct(c, [{"missing": ["head"]}], {"base": 0, "head": 48})
+    v, detail = report.judge_correct(c, [{"missing": ["base", "head"]}], {"base": 0, "head": 48})
     assert v == "FAIL" and detail.endswith("errors 0 vs 48")
-    assert report.judge_correct(c, [{"missing": ["head"]}], {})[0] == "incomplete"
+    assert report.judge_correct(c, [{"missing": ["base", "head"]}], {})[0] == "incomplete"
 
 
 def test_report_reasons_carry_no_paths_addresses_or_host_names(tmp_path):
@@ -784,3 +789,47 @@ def test_a_job_whose_lease_is_not_renewed_stops_itself_and_its_servers(tmp_path)
     assert r.returncode != 0 and done["status"] == "interrupted" and "lease not renewed" in done["reason"]
     assert json.loads((out / "base" / "s0" / "startup.json").read_text())["healthy"]
     assert not procs_under(runner.cache / "src")
+
+
+def test_head_gaps_missing_outputs_and_nan_actions_fail(tmp_path):
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    (md / "head" / "s0" / "c" / "x-head-c8.json").unlink()                # head timed out at c=8
+    finish(rd, md)
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.flagged and r.correct_detail.startswith("head wrote no results for s0 c=8")
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir(), b.mkdir()
+    for i in range(3):
+        (a / f"{i:03d}.txt").write_text("hi"), (b / f"{i:03d}.txt").write_text("hi")
+        np.zeros(24000, np.int16).tofile(a / f"{i:03d}.pcm")
+    np.zeros(24000, np.int16).tofile(b / "000.pcm")                       # head kept the text, lost the audio
+    f = checks.saved(a, b)
+    assert f["only_base"] == ["001.pcm", "002.pcm"] and f["audio_s_base"] == 3.0 and f["audio_s_head"] == 1.0
+    v, detail = report.judge_correct(case("audio_len", pct=25), [f], {})
+    assert v == "FAIL" and detail.startswith("head lacks 2 outputs")
+    assert report.judge_correct(case("psnr", min_db=30), [{"missing": ["head"]}], {})[0] == "FAIL"
+    c, d = tmp_path / "c", tmp_path / "d"
+    c.mkdir(), d.mkdir()
+    for name, x, y in (("000.f32", [0.0, 1.0], [0.0, 1.0]), ("001.f32", [0.0, 1.0], [float("nan"), 1.0])):
+        np.array(x, np.float32).tofile(c / name), np.array(y, np.float32).tofile(d / name)
+    assert checks.saved(c, d)["action_max_abs_diff"] == math.inf
+
+
+def test_signals_wait_until_server_teardown_is_done():
+    import os as _os
+    import signal as _signal
+
+    from benchmark.eval.e2e import arm
+
+    old = _signal.signal(_signal.SIGTERM, arm._on_term)
+    try:
+        finished = []
+        with pytest.raises(SystemExit) as e:
+            with arm.signals_deferred():
+                _os.kill(_os.getpid(), _signal.SIGTERM)
+                finished.append(True)                  # the teardown keeps going after the signal
+        assert finished == [True] and e.value.code == 128 + _signal.SIGTERM
+    finally:
+        _signal.signal(_signal.SIGTERM, old)

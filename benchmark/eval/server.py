@@ -132,6 +132,11 @@ class ManagedServer:
             start_new_session=True,
         )
 
+    @property
+    def pid(self) -> int | None:
+        """The launched process; it leads its own session and process group (API server, conductor, workers)."""
+        return self._proc.pid if self._proc is not None else None
+
     def wait_ready(self) -> None:
         assert self._proc is not None
         deadline = self._t0 + self.startup_timeout_s
