@@ -291,7 +291,8 @@ class Runner:
                     continue   # mid-write; read it on the next poll
             elif text.startswith("DEAD"):
                 dead += 1
-                if dead >= 2:
+                if dead >= 2:   # killed outright (OOM, SIGKILL): its server's session may still hold the GPU
+                    t.sh(kill, timeout=180)
                     done = {"status": "error", "reason": "the job exited without a result (see arm.log)"}
             else:
                 dead = 0

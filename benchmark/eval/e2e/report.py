@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from benchmark.eval.e2e.manifest import Case, Model
-from benchmark.eval.schema import scrub
+from benchmark.eval.schema import scrub, validate
 
 DASHES = ("\u2014", "\u2013")
 RERUN_TAG = "__abba"
@@ -423,7 +423,18 @@ class _Arms:
         return out
 
     def files(self, case_id: str) -> dict[str, list[Path]]:
-        return {arm: sorted((self.md / arm).glob(f"s*/{case_id}/*-c*.json")) for arm in ("base", "head")}
+        """Each arm's results files for a case; a file that is not a complete mstar-eval result (a client that died
+        while writing it) does not count, so its point shows up as missing."""
+        return {arm: [f for f in sorted((self.md / arm).glob(f"s*/{case_id}/*-c*.json")) if _complete(f)]
+                for arm in ("base", "head")}
+
+
+def _complete(f: Path) -> bool:
+    try:
+        js = json.loads(f.read_text())
+    except (OSError, ValueError):
+        return False
+    return validate(js) == [] and bool(js["repeats"])
 
 
 def calibration_key(gpu: str, model: str, case: str, metric: str, conc: int) -> str:

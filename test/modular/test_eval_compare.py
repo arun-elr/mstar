@@ -228,7 +228,9 @@ def write_arm(md: Path, arm: str, reqs1, reqsn, wall_n: float, audio=False, sess
         metrics = {"lat_p50_s": p50, "e2e_s_p50": p50, "req_per_s": len(rows) / wall,
                    "audio_s_per_s": sum(ln for _, ln in reqs) / wall, "errors": errors}
         reps = [{"index": k, "wall_s": wall, "metrics": metrics, "requests": rows} for k in range(passes)]
-        (d / f"x-{arm}-c{conc}.json").write_text(json.dumps({"schema": "mstar-eval/1", "repeats": reps, "summary": {}}))
+        (d / f"x-{arm}-c{conc}.json").write_text(json.dumps({"schema": "mstar-eval/1", "suite": "e2e", "label": "x",
+                                                             "config": {}, "meta": {}, "repeats": reps,
+                                                             "summary": {}}))
 
 
 def finish(rd: Path, md: Path, facts=None, run=None):
@@ -917,3 +919,14 @@ def test_sse_errors_dead_servers_undecodable_outputs_and_base_only_gaps(tmp_path
     f = checks.saved(a, b)
     assert f["head_undecodable"] == ["000.png"]
     assert report.judge_correct(case("psnr", min_db=30), [f], {})[0] == "FAIL"
+
+
+def test_a_truncated_results_file_counts_as_a_missing_point(tmp_path):
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    f = md / "head" / "s0" / "c" / "x-head-c8.json"
+    f.write_text(f.read_text()[:200])                                      # the client died while saving
+    finish(rd, md)
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.flagged and r.correct_detail.startswith("head wrote no results for s0 c=8")
