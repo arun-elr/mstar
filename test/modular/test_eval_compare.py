@@ -1246,7 +1246,8 @@ def test_a_local_ref_resolves_to_this_checkout_not_the_remote(tmp_path):
     assert head.sha == local and head.label == f"HEAD ({local[:9]})"
     assert trees.resolve(clone, "v1", remote="origin").sha == local
     assert trees.resolve(clone, "HEAD~1", remote="origin").sha == trees.git(repo, "rev-parse", "HEAD")
-    assert trees.resolve(clone, "main", remote="origin").sha == trees.git(repo, "rev-parse", "HEAD")  # a branch: fresh
+    for name in ("main", "heads/main", "refs/heads/main"):                       # a branch, however named: fresh
+        assert trees.resolve(clone, name, remote="origin").sha == trees.git(repo, "rev-parse", "HEAD")
 
 
 def test_truncated_text_replies_fail_even_when_enough_others_are_identical():
