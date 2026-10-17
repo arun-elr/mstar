@@ -176,21 +176,33 @@ MIN_REF_AUDIO_SAMPLE_RATE = 8000
 
 
 def save_base64_audio(b64: str, upload_dir: Path, decoder: str) -> str | None:
-    """Persist bare base64 that ``decoder`` opens as audio; return its path, or
-    None (leaving nothing behind) when it is not base64 or not loadable audio.
+    """Persist bare base64 that passes :func:`check_ref_audio`; return its path,
+    or None (leaving nothing behind) when it is not base64 or not loadable audio.
 
-    ``decoder`` is the library the model's ``load_audio`` uses, ``"soundfile"``
-    or ``"torchcodec"``, and it opens the saved file the way the model will.
-    torchcodec decodes the clip, not just its header: some FFmpeg builds
-    parse a container header (MAT4, MAT5) they cannot decode. A clip whose
-    header rate is below ``MIN_REF_AUDIO_SAMPLE_RATE`` is refused before any
-    decode. A path such as ``/etc/passwd`` is valid base64 too, so the alphabet
-    cannot tell them apart; the decoder can.
+    A path such as ``/etc/passwd`` is valid base64 too, so the alphabet cannot
+    tell them apart; the decoder can.
     """
     try:
         _, path = save_base64(b64, "wav", "audio", upload_dir)
     except ValueError:
         return None
+    try:
+        check_ref_audio(path, decoder)
+    except ValueError:
+        return None
+    return path
+
+
+def check_ref_audio(path: str, decoder: str) -> None:
+    """Open the reference clip at ``path`` the way the model's ``load_audio``
+    will; on failure delete it and raise ValueError.
+
+    ``decoder`` is the library that ``load_audio`` uses, ``"soundfile"`` or
+    ``"torchcodec"``. torchcodec decodes the clip, not just its header: some
+    FFmpeg builds parse a container header (MAT4, MAT5) they cannot decode. A
+    clip whose header rate is below ``MIN_REF_AUDIO_SAMPLE_RATE`` is refused
+    before any decode.
+    """
     try:
         if decoder == "torchcodec":
             from torchcodec.decoders import AudioDecoder
@@ -203,10 +215,11 @@ def save_base64_audio(b64: str, upload_dir: Path, decoder: str) -> str | None:
             import soundfile
 
             _require_ref_audio_rate(soundfile.info(path).samplerate)
-    except Exception:  # noqa: BLE001 — not loadable here, so the model cannot load it either
+    except Exception as exc:  # noqa: BLE001 — not loadable here, so the model cannot load it either
         Path(path).unlink(missing_ok=True)
-        return None
-    return path
+        raise ValueError(
+            f"ref_audio must be audio the model can decode, at {MIN_REF_AUDIO_SAMPLE_RATE} Hz or more"
+        ) from exc
 
 
 def _require_ref_audio_rate(rate: int | None) -> None:

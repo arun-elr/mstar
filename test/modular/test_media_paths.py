@@ -282,6 +282,99 @@ def test_qwen3_tts_refuses_a_clip_below_the_rate_floor(rate, dirs):
     assert set(uploads.iterdir()) == before
 
 
+UNDECODABLE = "ref_audio must be audio the model can decode"
+
+
+def _stub_decoder(monkeypatch, rate, decodes=True):
+    """A torchcodec stand-in whose header reports ``rate``; returns the list
+    each sample decode appends to."""
+    import types
+
+    decoded = []
+
+    class AudioDecoder:
+        def __init__(self, source, **kwargs):
+            open(source, "rb").close()
+            self.metadata = types.SimpleNamespace(sample_rate=rate)
+
+        def get_all_samples(self):
+            decoded.append(True)
+            if not decodes:
+                raise RuntimeError("decode_av_frame failed")
+            return object()
+
+    _stub_torchcodec(monkeypatch, AudioDecoder)
+    return decoded
+
+
+@pytest.mark.parametrize("rate, decodes, accepted", [(24000, True, True), (1, True, False), (24000, False, False)])
+def test_omnivoice_checks_a_data_url_like_bare_base64(rate, decodes, accepted, dirs, monkeypatch):
+    """A data URL gets the rate floor and the decode check too. Stub decoder, no FFmpeg."""
+    decoded = _stub_decoder(monkeypatch, rate, decodes)
+    uploads, _ = dirs
+    before = set(uploads.iterdir())
+    ref = "data:audio/wav;base64," + base64.b64encode(b"RIFF....WAVEfmt " + bytes(64)).decode()
+    req = SpeechRequest(input="hi", ref_audio=ref, ref_text="hi")
+    if accepted:
+        (path,) = adapters.OmniVoiceAdapter().speech_to_request(req, uploads).file_paths["audio"]
+        assert path.startswith(str(uploads))
+        return
+    with pytest.raises(ValueError, match=UNDECODABLE):
+        adapters.OmniVoiceAdapter().speech_to_request(req, uploads)
+    assert set(uploads.iterdir()) == before
+    assert decoded == ([] if rate < media_io.MIN_REF_AUDIO_SAMPLE_RATE else [True])
+
+
+def test_omnivoice_checks_an_allowed_url_like_bare_base64(dirs, monkeypatch):
+    decoded = _stub_decoder(monkeypatch, rate=1)
+    uploads, _ = dirs
+    before = set(uploads.iterdir())
+    monkeypatch.setenv("MSTAR_ALLOW_REMOTE", "1")
+    monkeypatch.setattr(media_io, "save_remote_url",
+                        lambda url, d: media_io._save_bytes(b"RIFF....WAVEfmt " + bytes(64), "audio/wav", d))
+    req = SpeechRequest(input="hi", ref_audio="https://example.com/voice.wav", ref_text="hi")
+    with pytest.raises(ValueError, match=UNDECODABLE):
+        adapters.OmniVoiceAdapter().speech_to_request(req, uploads)
+    assert decoded == [] and set(uploads.iterdir()) == before
+
+
+@pytest.mark.parametrize("rate", [1, 24000])
+@pytest.mark.parametrize("adapter", [adapters.OmniVoiceAdapter, adapters.Qwen3TTSAdapter])
+def test_a_wav_data_url_is_held_to_the_rate_floor(adapter, rate, dirs):
+    """Real decoders: a 1 Hz clip used to reach the data worker's 24 kHz decode."""
+    if adapter is adapters.OmniVoiceAdapter:
+        _audio_decoder()
+    uploads, _ = dirs
+    before = set(uploads.iterdir())
+    clip = _clip("WAV", "FILE", None, rate=rate, seconds=32000 / rate)
+    req = SpeechRequest(input="hi", ref_audio="data:audio/wav;base64," + clip, ref_text="hi")
+    if rate >= media_io.MIN_REF_AUDIO_SAMPLE_RATE:
+        (path,) = adapter().speech_to_request(req, uploads).file_paths["audio"]
+        assert path.startswith(str(uploads))
+        return
+    with pytest.raises(ValueError, match=UNDECODABLE):
+        adapter().speech_to_request(req, uploads)
+    assert set(uploads.iterdir()) == before
+
+
+@pytest.mark.parametrize("adapter, accepted", [(adapters.OmniVoiceAdapter, False), (adapters.Qwen3TTSAdapter, True)])
+def test_a_mat5_data_url_is_checked_by_the_model_decoder(adapter, accepted, dirs):
+    """torchcodec (OmniVoice) cannot decode MAT5 samples, so the data worker returned
+    a 500; soundfile (Qwen3-TTS) reads it, so it stays accepted there."""
+    if adapter is adapters.OmniVoiceAdapter:
+        _audio_decoder()
+    uploads, _ = dirs
+    before = set(uploads.iterdir())
+    req = SpeechRequest(input="hi", ref_audio="data:audio/wav;base64," + _clip("MAT5", "FILE", None), ref_text="hi")
+    if accepted:
+        (path,) = adapter().speech_to_request(req, uploads).file_paths["audio"]
+        assert path.startswith(str(uploads))
+        return
+    with pytest.raises(ValueError, match=UNDECODABLE):
+        adapter().speech_to_request(req, uploads)
+    assert set(uploads.iterdir()) == before
+
+
 RATES = [8000, 16000, 24000, 44100, 48000]
 
 
