@@ -175,16 +175,28 @@ def whisper(url: str, inputs: Path, scratch: Path) -> dict:
         t, data=b"abc", headers={"content-type": "multipart/form-data"}, timeout=60)))
 
     async def realtime():
+        """The event types the server sends after a session update (up to the update's acknowledgement), and an
+        error if one of them is an error event."""
+        events: list[str] = []
+        out: dict = {}
         try:
             async with websockets.connect(url.replace("http", "ws") + "/v1/realtime?intent=transcription",
                                           max_size=None) as ws:
                 await ws.send(json.dumps({"type": "transcription_session.update", "session": {}}))
                 try:
-                    return {"first": str(await asyncio.wait_for(ws.recv(), 10))[:120]}
+                    while len(events) < 4 and not any(e.endswith(".updated") for e in events):
+                        msg = json.loads(await asyncio.wait_for(ws.recv(), 10))
+                        events.append(str(msg.get("type")))
+                        if msg.get("type") == "error" or msg.get("error"):
+                            out["error"] = str(msg.get("error") or msg)[:200]
+                            break
                 except websockets.ConnectionClosed as e:
-                    return {"close_code": e.rcvd.code if e.rcvd else None}
+                    out["close_code"] = e.rcvd.code if e.rcvd else None
+                except (TimeoutError, ValueError):
+                    pass
         except Exception as e:  # noqa: BLE001
             return {"exception": type(e).__name__, "detail": str(e)[:200]}
+        return {**out, "events": ",".join(events)}
 
     call("realtime_ws", r, lambda: asyncio.run(realtime()))
     h11_cases(url, r)

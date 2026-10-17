@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -49,17 +50,33 @@ def resolve(repo: Path, spec: str, remote: str | None = None) -> Ref:
     remote = remote or upstream_remote(repo)
     m = re.fullmatch(r"#?(\d{1,6})", s)
     if m:
-        git(repo, "fetch", "-q", remote, f"pull/{m.group(1)}/head")
-        return _ref(repo, s, git(repo, "rev-parse", "FETCH_HEAD"), f"PR #{m.group(1)}")
+        sha = _fetch(repo, remote, f"pull/{m.group(1)}/head")
+        if sha is None:
+            raise TreeError(f"cannot fetch PR #{m.group(1)} from {remote}")
+        return _ref(repo, s, sha, f"PR #{m.group(1)}")
     if not re.fullmatch(r"[0-9a-f]{7,40}", s):
         for r in dict.fromkeys((remote, "origin")):
-            fetched = subprocess.run(["git", "-C", str(repo), "fetch", "-q", r, s], capture_output=True, check=False)
-            if fetched.returncode == 0:
-                return _ref(repo, s, git(repo, "rev-parse", "FETCH_HEAD"), s)
+            sha = _fetch(repo, r, s)
+            if sha:
+                return _ref(repo, s, sha, s)
     sha = git(repo, "rev-parse", "--verify", "-q", f"{s}^{{commit}}", check=False)
     if not sha:
         raise TreeError(f"cannot resolve {spec!r}: not a PR number, a branch on {remote} or origin, or a commit")
     return _ref(repo, s, sha, sha[:9] if sha.startswith(s) else s)
+
+
+def _fetch(repo: Path, remote: str, ref: str) -> str | None:
+    """The commit ``ref`` names on ``remote``, fetched into a ref of its own (FETCH_HEAD is shared by every
+    concurrent fetch in the checkout), or None."""
+    tmp = f"refs/mstar-eval/{uuid.uuid4().hex}"
+    r = subprocess.run(["git", "-C", str(repo), "fetch", "-q", "--no-write-fetch-head", remote, f"+{ref}:{tmp}"],
+                       capture_output=True, check=False)
+    if r.returncode != 0:
+        return None
+    try:
+        return git(repo, "rev-parse", tmp)
+    finally:
+        git(repo, "update-ref", "-d", tmp, check=False)
 
 
 def _ref(repo: Path, spec: str, sha: str, label: str) -> Ref:

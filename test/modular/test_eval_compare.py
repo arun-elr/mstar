@@ -752,6 +752,14 @@ def test_trees_resolve_and_export(tmp_path):
     assert by_sha.sha == ref.sha and by_sha.label == ref.sha[:9]
     with pytest.raises(trees.TreeError, match="cannot resolve"):
         trees.resolve(repo, "no-such-branch", remote="origin")
+    clone = tmp_path / "clone"                                                 # a branch fetched from a remote
+    subprocess.run(["git", "clone", "-q", str(repo), str(clone)], check=True)
+    subprocess.run([*git, "checkout", "-q", "-b", "feat"], check=True)
+    (repo / "a.txt").write_text("two")
+    subprocess.run([*git, "commit", "-q", "-am", "two"], check=True)
+    feat = trees.resolve(clone, "feat", remote="origin")
+    assert feat.label == "feat" and feat.sha == trees.git(repo, "rev-parse", "feat") != ref.sha
+    assert not trees.git(clone, "for-each-ref", "refs/mstar-eval")                # the temporary ref is gone
     out = trees.export(repo, ref.sha, tmp_path / "src" / ref.sha)
     assert (out / "a.txt").read_text() == "one" and (out / ".complete").exists()
     assert compare.gpu_type("NVIDIA H200") == "h200" and compare.gpu_type("NVIDIA B200") == "b200"
@@ -869,12 +877,17 @@ def test_in_band_stream_errors_count_as_a_changed_outcome(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     a.mkdir(), b.mkdir()
     (a / "rp.json").write_text(json.dumps({"gen": {"status": 200, "text": "hi"}, "ws": {"j1": "hi"},
-                                           "sse": {"status": 200, "sse_done": True}}))
+                                           "sse": {"status": 200, "sse_done": True},
+                                           "rt": {"events": "transcription_session.updated"},
+                                           "rt2": {"events": "transcription_session.updated"}}))
     (b / "rp.json").write_text(json.dumps({"gen": {"status": 200, "error": "boom", "error_status": 500},
                                            "ws": {"j1": "", "j1_error": "boom"},
-                                           "sse": {"status": 200, "sse_done": False}}))
+                                           "sse": {"status": 200, "sse_done": False},
+                                           "rt": {"events": "error", "error": "bad session"},
+                                           "rt2": {"events": "transcription_session.created"}}))
     diffs = {d["case"]: d for d in checks.rp_facts(a, b)["diffs"]}
     assert diffs["gen"]["head"] == "200+error 500" and diffs["ws"]["head"] == "ok+error" and "sse" in diffs
+    assert diffs["rt"]["head"] == "ok+error" and "rt2" in diffs                 # an error event, other events
 
 
 def test_points_neither_arm_wrote_leave_the_row_incomplete(tmp_path):
