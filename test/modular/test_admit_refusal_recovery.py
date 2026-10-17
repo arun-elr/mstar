@@ -124,6 +124,7 @@ def test_a_submitted_speculation_fails_with_its_step():
     w = _worker()
     pending = _pending([1, 2])
     spec = _yield_away([3, 4])
+    spec.submitted = True
     submitted = _pending([3, 4])
     submitted.batch = spec.scheduled_batch
 
