@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -445,6 +446,13 @@ def correct_key(gpu: str, model: str, case: str) -> str:
     return f"{gpu}:{model}/{case}/correct"
 
 
+_ROOT_HOME = re.compile(r"/root(?=/|\b)")
+
+
+def _public(text: str) -> str:
+    return _ROOT_HOME.sub("~", scrub(text))
+
+
 def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict) -> Row:
     done = a.done
     note = "" if done["status"] == "done" else (
@@ -505,7 +513,7 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
             corr, detail = "incomplete", f"no results for {', '.join(absent)}; {detail}"
     with_data = [p for p in (lat, thru) if p and p.base.mean is not None and p.head.mean is not None]
     rp = scrub((a.compare.get(c.id) or [None])[0]) if c.driver in ("rp", "invariants") else None
-    note, detail = scrub(note), scrub(detail)   # reasons can quote server errors: no paths or addresses
+    note, detail = _public(note), _public(detail)   # reasons can quote server errors: no paths or addresses
     return Row(model=m.name, family=m.family, case=c.id, modality=c.modality, starts=a.starts, correct=corr,
                correct_detail=detail, latency=lat, throughput=thru, extra=extra, startup_s=a.startup,
                peak_vram_gb=a.vram, errors=errs, request_path=rp, note=note,

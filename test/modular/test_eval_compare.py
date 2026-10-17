@@ -684,6 +684,7 @@ def test_stopping_compare_stops_the_job_and_its_servers(tmp_path, monkeypatch):
     th.join(60)
     assert not th.is_alive() and runner.state["models"]["fake"]["status"] == "interrupted"
     assert json.loads((out / "done.json").read_text())["status"] == "interrupted"
+    assert json.loads((run_dir / "results" / "fake" / "done.json").read_text())["status"] == "interrupted"
     assert not Path(f"/proc/{pid}").exists()
     assert not procs_under(runner.cache / "src")          # servers run with their checkout as working directory
 
@@ -735,6 +736,8 @@ def test_trees_resolve_and_export(tmp_path):
     out = trees.export(repo, ref.sha, tmp_path / "src" / ref.sha)
     assert (out / "a.txt").read_text() == "one" and (out / ".complete").exists()
     assert compare.gpu_type("NVIDIA H200") == "h200" and compare.gpu_type("NVIDIA B200") == "b200"
+    assert [compare.gpu_type(n) for n in ("NVIDIA L4", "NVIDIA L40", "NVIDIA L40S", "NVIDIA GB200",
+                                          "NVIDIA A100-SXM4-80GB")] == ["l4", "l40", "l40s", "gb200", "a100"]
 
 
 def test_every_session_is_judged_and_more_head_errors_fail_even_without_outputs():
@@ -753,14 +756,17 @@ def test_every_session_is_judged_and_more_head_errors_fail_even_without_outputs(
 def test_report_reasons_carry_no_paths_addresses_or_host_names(tmp_path):
     rd, md = tmp_path, tmp_path / "results" / "m"
     md.mkdir(parents=True)
-    (md / "done.json").write_text(json.dumps({"status": "error", "reason": "OSError: /home/alice/x on 10.1.2.3"}))
+    (md / "done.json").write_text(json.dumps({"status": "error",
+                                              "reason": "OSError: /home/alice/x on 10.1.2.3, log /root/w/server.log"}))
     (rd / "run.json").write_text(json.dumps({**RUN, "models": ["m"]}))
     text = report.render_md(report.build_rows(rd, [chat_model()], calibration={}), RUN)
-    assert "error: OSError" in text and "/home/alice" not in text and "10.1.2.3" not in text
+    assert "error: OSError" in text and "/home/alice" not in text and "10.1.2.3" not in text and "/root" not in text
     runner = compare.Runner.__new__(compare.Runner)
     runner.slots = [hosts.Slot(hosts.SSHTransport("bench@gpu7.example"), 0)]
     assert runner.redact("HostLostError: bench@gpu7.example: refused by gpu7.example") == \
         "HostLostError: <host>: refused by <host>"
+    runner.slots[0].host_dir = "/data/eval"
+    assert runner.redact("see /data/eval/runs/r/m.1/arm.log", runner.slots[0]) == "see <work dir>/runs/r/m.1/arm.log"
 
 
 def test_a_reused_run_directory_is_refused(tmp_path):
@@ -985,3 +991,14 @@ def test_sigterm_to_compare_stops_the_remote_job_before_compare_exits(tmp_path):
     state = json.loads((tmp_path / "run" / "state.json").read_text())
     assert state["models"]["fake"]["status"] == "interrupted"
     assert not procs_under(tmp_path / "home")
+
+
+def test_a_job_killed_during_head_fails_the_rows_head_never_answered(tmp_path):
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    (md / "head" / "s0").mkdir(parents=True)
+    (md / "head" / "s0" / "startup.json").write_text(json.dumps({"healthy": True, "startup_s": 10}))
+    finish(rd, md)
+    (md / "done.json").write_text(json.dumps({"status": "error", "reason": "the job exited without a result"}))
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.flagged and r.correct_detail.startswith("head wrote no results for s0 c=1, s0 c=8")
