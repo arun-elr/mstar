@@ -107,6 +107,7 @@ class ManagedServer:
         startup_timeout_s: float = 1800.0,
         command: list[str] | None = None,
         python: str | None = None,
+        cwd: str | Path | None = None,
     ):
         self.model = model
         self.python = python or sys.executable
@@ -119,6 +120,7 @@ class ManagedServer:
         self.log_path = Path(log_path) if log_path else None
         self.startup_timeout_s = startup_timeout_s
         self._command = command
+        self.cwd = cwd
         self._proc: subprocess.Popen | None = None
         self._log = None
         self._scratch: tempfile.TemporaryDirectory | None = None
@@ -176,6 +178,7 @@ class ManagedServer:
             stdout=self._log or subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
             env=self.environment(),
+            cwd=self.cwd,
             start_new_session=True,
         )
 

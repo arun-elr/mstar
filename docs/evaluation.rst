@@ -76,6 +76,12 @@ Suites
   it yielded; plus wall time per frame and whether each session kept up with real
   time. ``data duplex-synth`` builds turn-taking and barge-in clips from any 16 kHz
   ASR manifest.
+``e2e``
+  The request kinds ``compare`` needs beyond speech (``--kind``): greedy chat with text, image, audio or video in
+  and optionally speech out, seeded image and video generation, voice-clone uploads, VLA actions and streamed
+  world-model frames. Latency percentiles, time to first output and requests/s; the kept repeat's outputs are
+  saved for ``compare`` to diff. It builds its own prompts, so ``--data`` is optional (``gen_clone`` takes a
+  voice-clone manifest) and ``--media`` points at ``data e2e``'s ``media/``.
 
 Datasets
 --------
@@ -163,6 +169,58 @@ since it would score the redaction::
 
     python -m benchmark.eval rescore results/tts --data eval-data/fleurs_en/manifest.jsonl \
         --normalizer seedtts --out results/tts_seedtts
+
+Base vs head: ``compare``
+-------------------------
+
+``compare`` serves two trees (usually ``main`` and a PR) on the same GPUs and checks, per model and case, that
+the PR keeps its outputs and does not get slower::
+
+    python -m benchmark.eval compare --base main --head 548                    # every model, local GPUs
+    python -m benchmark.eval compare --base main --head 548 --models tag:tts,qwen3_omni --rp
+    python -m benchmark.eval compare --base main --head 548 --hosts bench@gpu1,bench@gpu2:1
+    python -m benchmark.eval compare --list                                    # models, tags, cases
+
+``--head`` and ``--base`` take a branch, a commit or a PR number. Both trees are exported from the checkout
+running ``compare`` (each arm imports its own tree and builds its own ``rust/`` extension, in one Python
+environment); the client, the checks and the report always come from that checkout, so ``main`` can be measured
+before it has this framework. Each model runs on one GPU: base and head back to back, arm order alternating from
+model to model, every case at each concurrency in its ``conc`` with ``repeats`` passes after warmup waves.
+``--sessions 2`` runs two server sessions per arm (ABBA). With ``--hosts``, idle hosts take whatever models are
+still queued; a host that stops answering is dropped and its model requeued. Hosts need key-based ``ssh``,
+``rsync``, an M\* environment (``--host-python``) and the Hugging Face Hub (with a login for gated repos such
+as Orpheus) or a warm cache. Machines that must
+be started first are a launcher's job: ``--host-provider module:factory`` supplies the hosts and is told when the
+run ends (``benchmark/eval/e2e/hosts.py``).
+
+The models and cases are ``benchmark/eval/e2e/cases.yaml``: TTS, voice clone, ASR, duplex, text, image, audio
+and video in, speech out, image and video generation, streamed frames, VLA actions, and with ``--rp`` request-path
+cases and served invariants. Speech cases use the ``tts``, ``asr`` and ``duplex`` suites; the rest use the ``e2e``
+suite (``run e2e --kind chat_image|image|video|pi05|frames|...``). Inputs are built once into ``--data-dir``
+(``python -m benchmark.eval data e2e --out DIR``: Seed-TTS and LibriSpeech sets plus generated media).
+
+The run directory holds every results file and ``report/report.md`` (a table for a PR body, details in toggles),
+``report/chart.png`` and ``report/summary.json``. A row is **flagged**, and ``compare`` exits with 1, when:
+
+* **correctness changed**: greedy text is neither identical (share at least ``min_match``) nor close (median
+  similarity 0.6 or more, length ratio 0.8 to 1.25, so empty or truncated replies fail); speech WER (Whisper
+  large-v3 round trip for TTS) rose more than ``max_increase`` points; a seeded image, video or frame stream fell
+  below ``min_db`` PSNR against base; VLA actions moved more than ``tol``; duplex take-turn or yield rates dropped
+  more than ``tol``; a request-path status code changed; or head had more request errors than base;
+* **a regression**: c=1 latency or c=max throughput is worse by more than 5%, by more than two combined standard
+  deviations of the passes, and by more than 1.5 times the largest drift that row showed between two server
+  processes of identical code (its A/A noise floor). When base and head return different output lengths for the
+  same requests, latency is compared over the requests whose lengths matched, else per token or audio second;
+* **head does not start** while base does.
+
+A perf row flagged with one session per arm is rerun with two (ABBA) before it is reported, since a server process
+can settle at one of two speeds; ``--no-rerun`` turns that off.
+
+**Calibrating.** Noise floors and correctness swings come from A/A runs (base and head the same commit), per GPU
+type, in ``benchmark/eval/e2e/calibration.json``. After a large change on ``main``, a new model, or on a new GPU
+type, run ``compare --base main --head main`` for the models concerned, then
+``python -m benchmark.eval calibrate <run dir>``; rows without a floor on the run's GPU are named in the report
+and judged on the passes' spread alone. A calibrated swing only widens a ``cases.yaml`` limit, never tightens it.
 
 Adding a suite
 --------------
