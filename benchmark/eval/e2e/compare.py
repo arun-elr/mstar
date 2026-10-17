@@ -1,0 +1,404 @@
+"""``python -m benchmark.eval compare``: serve base and head on the same GPUs, judge every case, report.
+
+Both trees are exported from this checkout; each model runs on one GPU slot (``hosts``) with both arms back to
+back, arm order alternating from model to model. A perf row flagged with one server session per arm is rerun with
+two (ABBA) before it is reported. The client side (suites, checks, this module) always comes from the checkout
+running ``compare``, so ``main`` can be measured before it has the eval framework.
+"""
+
+from __future__ import annotations
+
+import copy
+import dataclasses
+import hashlib
+import json
+import re
+import shlex
+import sys
+import threading
+import time
+from pathlib import Path
+
+from benchmark.eval.e2e import calibrate, hosts, media, report, trees
+from benchmark.eval.e2e import manifest as mf
+from benchmark.eval.e2e.report import RERUN_TAG
+
+TOOL_ROOT = Path(__file__).resolve().parents[3]
+CACHE = Path("~/.cache/mstar-eval").expanduser()
+POLL_S = 15
+GPU_TYPES = ("gb200", "b200", "h200", "h100", "a100", "l40s", "l4", "a10g")
+FETCH_EXCLUDE = ("audio/",)   # saved outputs and audio stay on the host; compare.json already holds their facts
+
+
+def gpu_type(name: str) -> str:
+    n = name.lower().replace(" ", "")
+    return next((t for t in GPU_TYPES if t in n), re.sub(r"[^a-z0-9]+", "-", n).strip("-") or "unknown")
+
+
+def add_args(sub) -> None:
+    p = sub.add_parser("compare", allow_abbrev=False, help="base vs head on the same GPUs: correctness and perf")
+    p.add_argument("--base", default="main", help="branch, commit or PR number (default main)")
+    p.add_argument("--head", help="branch, commit or PR number (548 or #548)")
+    p.add_argument("--models", default="all", help="all, names, tag:<tag>, -name / -tag:<tag>; comma-separated")
+    p.add_argument("--rp", action="store_true", help="also run the request-path and served-invariant cases")
+    p.add_argument("--sessions", type=int, default=1, help="server sessions per arm, order alternated (2 = ABBA)")
+    p.add_argument("--repeats", type=int, default=None, help="measured passes per point (default: cases.yaml)")
+    p.add_argument("--no-rerun", action="store_true", help="report a flagged perf row without the 2-session rerun")
+    p.add_argument("--gpus", default=None, help="local GPU indices to use (default: all)")
+    p.add_argument("--hosts", default=None, help="SSH targets instead of local GPUs: user@a,user@b:1 (host:gpu)")
+    p.add_argument("--host-provider", default=None, metavar="MODULE:FACTORY",
+                   help="a launcher that supplies --hosts (see benchmark/eval/e2e/hosts.py)")
+    p.add_argument("--python", default=sys.executable, help="Python of the M* environment on this machine")
+    p.add_argument("--host-python", default="python3", help="Python of the M* environment on the SSH hosts")
+    p.add_argument("--host-dir", default="mstar-eval", help="work directory on the SSH hosts (relative to home)")
+    p.add_argument("--remote", default=None, help="git remote for PR heads (default: the mstar-project/mstar one)")
+    p.add_argument("--data-dir", default=str(CACHE / "e2e-data"), help="inputs (built on first use)")
+    p.add_argument("--cases", default=str(mf.DEFAULT), help="the manifest")
+    p.add_argument("--calibration", default=str(calibrate.DEFAULT), help="A/A noise floors and swings")
+    p.add_argument("--out", default=None, help="run directory (default eval-results/compare/<time>-<head>)")
+    p.add_argument("--chart-url", default=None, help="image URL for the markdown (default: the local chart)")
+    p.add_argument("--render", default=None, metavar="RUN_DIR", help="only re-render RUN_DIR's report")
+    p.add_argument("--list", action="store_true", help="list models, tags and cases")
+    p.add_argument("--dry-run", action="store_true", help="resolve refs and slots, print the plan, run nothing")
+    c = sub.add_parser("calibrate", allow_abbrev=False, help="fold A/A compare runs into the noise floors")
+    c.add_argument("runs", nargs="+", help="run directories of compare --base X --head X")
+    c.add_argument("--cases", default=str(mf.DEFAULT))
+    c.add_argument("--calibration", default=str(calibrate.DEFAULT))
+
+
+def run_models(man: mf.Manifest, run: dict) -> list[mf.Model]:
+    return man.select(",".join(run["models"]), include_optional=run.get("include_optional", False))
+
+
+def render(run_dir: Path, man: mf.Manifest, calibration: str, chart_url: str | None = None) -> tuple[Path, int]:
+    run = json.loads((run_dir / "run.json").read_text())
+    md, rows = report.write(run_dir, run_models(man, run), chart_url, calibrate.load(calibration))
+    bare = sorted({r.model for r in rows if r.no_baseline})
+    if bare:
+        print(f"no A/A noise floor on {run.get('gpu')} for: {', '.join(bare)}. Calibrate with python -m "
+              f"benchmark.eval compare --base main --head main --models {','.join(bare)}, then python -m "
+              "benchmark.eval calibrate <that run dir>", file=sys.stderr)
+    return md, 1 if any(r.flagged for r in rows) else 0
+
+
+def cmd_calibrate(args) -> int:
+    man = mf.load(args.cases)
+    for d in map(Path, args.runs):
+        run = json.loads((d / "run.json").read_text())
+        n = calibrate.add_run(d, run_models(man, run), args.calibration)
+        print(f"{d}: {n} entries added to {args.calibration}")
+    return 0
+
+
+def public_command(args) -> str:
+    """The command for the report: no host names, paths or provider modules."""
+    parts = ["python -m benchmark.eval compare", f"--base {shlex.quote(args.base)}", f"--head {shlex.quote(args.head)}"]
+    if args.models != "all":
+        parts.append(f"--models {shlex.quote(args.models)}")
+    for flag in ("rp", "no_rerun"):
+        if getattr(args, flag):
+            parts.append("--" + flag.replace("_", "-"))
+    if args.sessions != 1:
+        parts.append(f"--sessions {args.sessions}")
+    if args.repeats:
+        parts.append(f"--repeats {args.repeats}")
+    if args.hosts or args.host_provider:
+        parts.append("--hosts <ssh hosts>")
+    return " ".join(parts)
+
+
+def evalfw_id(root: Path) -> str:
+    h = hashlib.sha256()
+    for f in sorted([root / "benchmark" / "__init__.py", *(root / "benchmark" / "eval").rglob("*")]):
+        if f.is_file() and "__pycache__" not in f.parts:
+            h.update(str(f.relative_to(root)).encode() + f.read_bytes())
+    return h.hexdigest()[:12]
+
+
+def is_local(slot: hosts.Slot) -> bool:
+    return isinstance(slot.transport, hosts.LocalTransport)
+
+
+def slot_python(args, slot: hosts.Slot) -> str:
+    return args.python if is_local(slot) else args.host_python
+
+
+def probe(args, slot: hosts.Slot) -> str:
+    """The slot's GPU name, after checking its Python can run the client."""
+    sel = f"-i {slot.gpu}" if slot.gpu is not None else ""
+    py = slot_python(args, slot)
+    r = slot.transport.sh(f"nvidia-smi --query-gpu=name --format=csv,noheader {sel} | head -1; "
+                          f"{shlex.quote(py)} -c 'import aiohttp, numpy, torch' && echo PY_OK", timeout=120)
+    lines = r.stdout.strip().splitlines()
+    if "PY_OK" not in lines:
+        raise RuntimeError(f"{py} cannot import aiohttp, numpy and torch ({r.stderr.strip()[-200:]})")
+    slot.gpu_name = lines[0] if lines[0] != "PY_OK" else ""
+    return slot.gpu_name
+
+
+class Runner:
+    """State of one compare run, shared by the slot threads."""
+
+    def __init__(self, args, man: mf.Manifest, models: list[mf.Model], base: trees.Ref, head: trees.Ref,
+                 run_dir: Path, slots: list[hosts.Slot]):
+        self.args, self.man, self.run_dir, self.slots = args, man, run_dir, slots
+        self.models = {m.name: m for m in models}
+        self.order = [m.name for m in models]
+        self.base, self.head = base, head
+        self.lock = threading.RLock()
+        self.stop = threading.Event()
+        self.state: dict = {"models": {n: {"status": "queued"} for n in self.order}, "slots": {}}
+        self.rerun_cases: dict[str, list[str]] = {}
+        self.host_locks: dict[str, threading.Lock] = {}
+        self.cache = CACHE / "compare"
+        self.data = Path(args.data_dir).expanduser()
+        self.evalfw = evalfw_id(TOOL_ROOT)
+
+    def log(self, msg: str) -> None:
+        line = f"[{time.strftime('%H:%M:%S')}] {msg}"
+        print(line, file=sys.stderr, flush=True)
+        with self.lock, open(self.run_dir / "events.log", "a") as f:
+            f.write(line + "\n")
+
+    def set(self, name: str, **kw) -> None:
+        with self.lock:
+            self.state["models"].setdefault(name, {}).update(kw)
+            (self.run_dir / "state.json").write_text(json.dumps(self.state, indent=1))
+
+    # --- slots -------------------------------------------------------------------------------------------------
+    def local(self, slot: hosts.Slot) -> bool:
+        return is_local(slot)
+
+    def python(self, slot: hosts.Slot) -> str:
+        return slot_python(self.args, slot)
+
+    def prepare(self, slot: hosts.Slot) -> None:
+        """Work directory, client tree, inputs and both source trees on the slot's host (once per host)."""
+        t = slot.transport
+        with self.lock:
+            host_lock = self.host_locks.setdefault(t.name, threading.Lock())
+        with host_lock:
+            if slot.ready:
+                return
+            if self.local(slot):
+                slot.host_dir = str(self.cache)
+            else:
+                same = next((s for s in self.slots if s.transport.name == t.name and s.ready), None)
+                if same:
+                    slot.host_dir, slot.ready = same.host_dir, True
+                    return
+                d = self.args.host_dir
+                r = t.sh(f"mkdir -p {shlex.quote(d)} && cd {shlex.quote(d)} && pwd", timeout=120)
+                if r.returncode:
+                    raise RuntimeError(f"{t.name}: cannot create {d}: {r.stderr.strip()[-200:]}")
+                slot.host_dir = r.stdout.strip().splitlines()[-1]
+                self.log(f"{t.name}: copying the client tree, inputs and source trees")
+                for rel in ("benchmark/__init__.py", "benchmark/eval"):
+                    t.push(TOOL_ROOT / rel, f"{slot.host_dir}/evalfw/{self.evalfw}/{rel}")
+                t.push(self.data, f"{slot.host_dir}/data")
+                for ref in (self.base, self.head):
+                    t.push(self.cache / "src" / ref.sha, f"{slot.host_dir}/src/{ref.sha}")
+            slot.ready = True
+
+    def paths(self, slot: hosts.Slot) -> dict[str, str]:
+        if self.local(slot):
+            return {"evalfw": str(TOOL_ROOT), "data": str(self.data), "src": str(self.cache / "src")}
+        return {"evalfw": f"{slot.host_dir}/evalfw/{self.evalfw}", "data": f"{slot.host_dir}/data",
+                "src": f"{slot.host_dir}/src"}
+
+    # --- one model ---------------------------------------------------------------------------------------------
+    def model_for(self, name: str) -> mf.Model:
+        m = self.models[name.split(RERUN_TAG, maxsplit=1)[0]]
+        if name in self.rerun_cases:
+            m = copy.copy(m)
+            m.cases = [c for c in m.cases if c.id in self.rerun_cases[name]]
+        if self.args.repeats:
+            m = copy.copy(m)
+            m.cases = [dataclasses.replace(c, repeats=self.args.repeats) for c in m.cases]
+        return m
+
+    def job(self, slot: hosts.Slot, name: str, out: str) -> dict:
+        m, p = self.model_for(name), self.paths(slot)
+        attempts = self.state["models"].get(name, {}).get("attempts", 0)
+        position = self.order.index(name.split(RERUN_TAG, maxsplit=1)[0]) + attempts
+        arm = lambda ref: {"sha": ref.sha, "label": ref.label, "src": f"{p['src']}/{ref.sha}",  # noqa: E731
+                           "rust_tree": ref.rust_tree}
+        return {"run_id": self.run_dir.name, "model": m.to_dict(), "out": out, "gpu": slot.gpu,
+                "sessions": 2 if name in self.rerun_cases else self.args.sessions,
+                "order": ["base", "head"] if position % 2 == 0 else ["head", "base"],
+                "python": self.python(slot), "evalfw": p["evalfw"], "data": p["data"], "host_dir": slot.host_dir,
+                "datasets": self.man.datasets, "arms": {"base": arm(self.base), "head": arm(self.head)}}
+
+    def run_one(self, slot: hosts.Slot, name: str) -> str | None:
+        self.prepare(slot)
+        t, local = slot.transport, self.local(slot)
+        dst = self.run_dir / "results" / name
+        out = str(dst) if local else f"{slot.host_dir}/runs/{self.run_dir.name}/{name}"
+        job = self.job(slot, name, out)
+        jf = self.run_dir / "jobs" / f"{name}.json"
+        jf.parent.mkdir(exist_ok=True)
+        jf.write_text(json.dumps(job, indent=1))
+        q = shlex.quote
+        t.sh(f"rm -rf {q(out)} && mkdir -p {q(out)}", timeout=120)
+        t.push(jf, f"{out}/job.json")
+        # `cd x || exit` then a plain background command: `cd x && cmd &` would background a subshell that holds
+        # the caller's stdout (so ssh waits for the job) and whose pid is not the job's.
+        r = t.sh(f"cd {q(job['evalfw'])} || exit 1; nohup setsid env PYTHONPATH={q(job['evalfw'])} "
+                 f"{q(job['python'])} -m benchmark.eval.e2e.arm {q(out)}/job.json > {q(out)}/arm.log 2>&1 "
+                 "< /dev/null & echo $!", timeout=120)
+        pid = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
+        if not pid.isdigit():
+            raise RuntimeError(f"{slot.name}: could not start the job: {r.stderr.strip()[-300:]}")
+        t0 = time.time()
+        self.set(name, status="running", slot=slot.name, started=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        self.log(f"{slot.name}: {name} started (order {' then '.join(job['order'])})")
+        done, dead = None, 0
+        while done is None:
+            if self.stop.wait(POLL_S):
+                # SIGTERM lets the job stop its server; whatever is left of its session goes after a minute.
+                t.sh(f"kill -TERM {pid} 2>/dev/null; for i in $(seq 60); do kill -0 {pid} 2>/dev/null || break; "
+                     f"sleep 1; done; kill -KILL -{pid} 2>/dev/null; true", timeout=120)
+                done = {"status": "interrupted", "reason": "compare was stopped"}
+                break
+            r = t.sh(f"cat {q(out)}/done.json 2>/dev/null || {{ kill -0 {pid} 2>/dev/null && echo ALIVE || echo DEAD; "
+                     f"cat {q(out)}/status.json 2>/dev/null; }}", timeout=60)
+            text = r.stdout.strip()
+            if text.startswith("{"):
+                try:
+                    done = json.loads(text)
+                except ValueError:
+                    continue   # mid-write; read it on the next poll
+            elif text.startswith("DEAD"):
+                dead += 1
+                if dead >= 2:
+                    done = {"status": "error", "reason": "the job exited without a result (see arm.log)"}
+            else:
+                dead = 0
+                self.set(name, progress=text.splitlines()[-1][:200] if len(text.splitlines()) > 1 else "")
+        t.pull(out, dst, FETCH_EXCLUDE)
+        elapsed = time.time() - t0
+        self.set(name, status=done.get("status"), reason=done.get("reason", ""), elapsed_s=round(elapsed, 1),
+                 gpu_s=round(elapsed, 1))
+        self.log(f"{slot.name}: {name} {done.get('status')} in {elapsed / 60:.1f} min"
+                 + (f" ({done['reason']})" if done.get("reason") else ""))
+        return self.maybe_rerun(name) if done.get("status") == "done" else None
+
+    def maybe_rerun(self, name: str) -> str | None:
+        """A perf regression with one server session per arm may be the process's speed level (some servers settle
+        at one of two speeds per process): queue those cases with two sessions, ABBA, before reporting them."""
+        if RERUN_TAG in name or self.args.sessions > 1 or self.args.no_rerun or self.stop.is_set():
+            return None
+        rows = report.build_rows(self.run_dir, [self.model_for(name)], calibrate.load(self.args.calibration))
+        flagged = report.flagged_perf_cases(rows)
+        if not flagged:
+            return None
+        rname = name + RERUN_TAG
+        with self.lock:
+            self.rerun_cases[rname] = flagged
+            self.state["models"][rname] = {"status": "queued", "cases": flagged}
+        self.log(f"{name}: flagged ({', '.join(flagged)}); rerunning those cases with 2 sessions (ABBA)")
+        return rname
+
+
+def make_slots(args) -> tuple[list[hosts.Slot], hosts.HostProvider | None]:
+    if args.hosts or args.host_provider:
+        provider = (hosts.load_provider(args.host_provider, args) if args.host_provider
+                    else hosts.HostProvider(args.hosts))
+        targets = hosts.parse_hosts(provider.hosts())
+        if not targets:
+            raise SystemExit("no hosts to run on")
+        return [hosts.Slot(hosts.SSHTransport(h), g) for h, g in targets], provider
+    gpus = [int(g) for g in args.gpus.split(",")] if args.gpus else hosts.local_gpus()
+    if not gpus:
+        raise SystemExit("no local GPU found (nvidia-smi); pass --hosts to run on other machines")
+    local = hosts.LocalTransport()
+    return [hosts.Slot(local, g) for g in gpus], None
+
+
+def cmd_compare(args) -> int:
+    man = mf.load(args.cases)
+    if args.list:
+        for m in man.models.values():
+            cases = ", ".join(c.id + ("*" if c.optional else "") for c in m.cases)
+            print(f"{m.name + ('+' if m.optional else ''):22} {m.family:7} tags: {','.join(m.tags):50} cases: {cases}")
+        print("* request path or served invariants (--rp); + optional model: name it or use its own tag")
+        return 0
+    if args.render:
+        md, code = render(Path(args.render), man, args.calibration, args.chart_url)
+        print(md)
+        return code
+    if not args.head:
+        raise SystemExit("compare needs --head (or --render / --list)")
+    models = man.select(args.models, include_optional=args.rp)
+    if not models:
+        raise SystemExit("no models selected")
+    base = trees.resolve(TOOL_ROOT, args.base, args.remote)
+    head = trees.resolve(TOOL_ROOT, args.head, args.remote)
+    slots, provider = make_slots(args)
+    try:
+        return _run(args, man, models, base, head, slots)
+    finally:
+        if provider is not None:
+            provider.release()
+
+
+def _run(args, man, models, base, head, slots) -> int:
+    print(f"base {base.label} ({base.sha[:9]}), head {head.label} ({head.sha[:9]}); {len(models)} models on "
+          f"{len(slots)} GPU slot(s): {', '.join(m.name for m in models)}", file=sys.stderr)
+    usable = []
+    for s in slots:
+        try:
+            print(f"  {s.name}: {probe(args, s)}", file=sys.stderr)
+            usable.append(s)
+        except (RuntimeError, hosts.HostLostError) as e:
+            print(f"  {s.name}: not usable: {e}", file=sys.stderr)
+    types = {gpu_type(s.gpu_name) for s in usable}
+    if not usable:
+        raise SystemExit("no usable GPU slot")
+    if len(types) > 1:
+        raise SystemExit(f"slots have different GPU types ({', '.join(sorted(types))}); one table never mixes them")
+    if args.dry_run:
+        return 0
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    run_dir = Path(args.out or f"eval-results/compare/{stamp}-{re.sub(r'[^A-Za-z0-9.-]+', '_', head.label)}")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    data = Path(args.data_dir).expanduser()
+    if not (data / "e2e-data.json").exists():
+        print(f"building the inputs into {data} (once)", file=sys.stderr)
+        media.build(data)
+    runner = Runner(args, man, models, base, head, run_dir, usable)
+    for ref in (base, head):
+        trees.export(TOOL_ROOT, ref.sha, runner.cache / "src" / ref.sha)
+    th = man.defaults.get("thresholds", {})
+    run = {"id": run_dir.name, "base": base.__dict__, "head": head.__dict__, "gpu": types.pop(),
+           "gpu_name": usable[0].gpu_name, "models": [m.name for m in models], "include_optional": args.rp,
+           "sessions": args.sessions, "repeats": args.repeats or man.defaults.get("repeats", 3),
+           "perf_pct": th.get("perf_pct", 5), "noise_sigma": th.get("noise_sigma", 2),
+           "rerun_flagged": not args.no_rerun,
+           "slots": [s.name for s in usable], "command": public_command(args),
+           "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    (run_dir / "run.json").write_text(json.dumps(run, indent=1))
+    queue = hosts.WorkQueue(runner.order, {m.name: m.est_min for m in models})
+
+    def lost(slot, name, e):
+        runner.log(f"{slot.name}: host lost during {name} ({e}); requeued for the other slots")
+
+    def error(slot, name, e):
+        runner.set(name, status="error", reason=f"{type(e).__name__}: {str(e)[:300]}")
+        runner.log(f"{slot.name}: {name} error: {e}")
+
+    def given_up(name):
+        runner.set(name, status="not run", reason="not run: no GPU slot left")
+
+    try:
+        hosts.run_slots(usable, queue, runner.run_one, lost, error, given_up, stop=runner.stop)
+    finally:
+        st = runner.state["models"]
+        run["gpu_hours"] = round(sum(s.get("gpu_s", 0) for s in st.values()) / 3600, 2)
+        run["model_status"] = {n: {k: v for k, v in s.items() if k in ("status", "reason")} for n, s in st.items()}
+        (run_dir / "run.json").write_text(json.dumps(run, indent=1))
+    md, code = render(run_dir, man, args.calibration, args.chart_url)
+    print(f"report: {md}\nGPU-hours: {run['gpu_hours']}", file=sys.stderr)
+    print(md.read_text())
+    return code
+

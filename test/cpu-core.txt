@@ -87,3 +87,4 @@ test/modular/test_sampler_trash_row.py
 test/modular/test_launch_script_socket_prefix.py
 test/modular/test_startup_graph_validation.py
 test/modular/test_eval_framework.py
+test/modular/test_eval_compare.py
