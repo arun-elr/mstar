@@ -175,6 +175,7 @@ def aa_swing(kind: str, f: dict) -> float | None:
 def correct_limit(check: dict, swings: list[float] | None) -> tuple[dict, str]:
     """The check with its limit widened to clear CORRECT_FACTOR times the largest A/A swing; the manifest value
     stays the floor (calibration only loosens a limit that noise alone would trip). Returns (check, note)."""
+    swings = [x for x in swings or [] if math.isfinite(x)]
     if not swings:
         return check, ""
     kind, ck = check["kind"], dict(check)
@@ -238,6 +239,8 @@ def _judge_session(ck: dict, f: dict) -> tuple[str, str]:
         d = f.get("action_max_abs_diff")
         if d is None:
             return "incomplete", "no actions"
+        if not math.isfinite(d):
+            return "FAIL", "actions changed shape or are not finite"
         ok = d <= float(ck["tol"])
         detail = "bit-identical" if d == 0 else f"max action diff {d:.4f}"
     elif kind == "audio_len":
@@ -333,26 +336,31 @@ def _requests(files: list[Path]) -> list[tuple[float, dict[str, tuple[float, flo
     return out
 
 
-def length_aware(case: Case, files_c1: dict[str, list[Path]], files_cn: dict[str, list[Path]],
-                 lat: Perf | None, thru: Perf | None) -> tuple[Perf | None, Perf | None]:
-    """When base and head returned different output lengths for the same c=1 requests, compare like with like:
-    c=1 latency over only the requests whose lengths matched (when at least MIN_MATCHED per pass did), else latency
-    per output token or audio second; c=max throughput as output tokens (audio seconds) per second. Unchanged when
-    every length matched, or for fixed-size outputs."""
-    if case.kind not in LENGTH_KINDS:
-        return lat, thru
-    rb, rh = _requests(files_c1["base"]), _requests(files_c1["head"])
+def _matched(files: dict[str, list[Path]]):
+    """Per-pass request maps of both arms at one concurrency, the request ids every pass has, and those whose
+    lengths matched in every pass (one fixed set: a subset that changed from pass to pass would add its own
+    spread). None when the arms share no requests."""
+    rb, rh = _requests(files["base"]), _requests(files["head"])
     pairs = [(b, h, sorted(b.keys() & h.keys())) for (_, b), (_, h) in zip(rb, rh, strict=False)]
     pairs = [p for p in pairs if p[2]]
     if not pairs:
-        return lat, thru
+        return None
     every = set.intersection(*(set(ids) for _, _, ids in pairs))
-    # One fixed set across every pass and session: a subset that changed from pass to pass would add its own spread.
     same = sorted(i for i in every if all(same_len(b[i][1], h[i][1], b[i][2]) for b, h, _ in pairs))
-    if len(same) == len(every):
+    return rb, rh, pairs, every, same, pairs[0][0][pairs[0][2][0]][2]
+
+
+def length_aware(case: Case, files_c1: dict[str, list[Path]], files_cn: dict[str, list[Path]],
+                 lat: Perf | None, thru: Perf | None) -> tuple[Perf | None, Perf | None]:
+    """When base and head returned different output lengths for the same requests, compare like with like: c=1
+    latency over only the requests whose lengths matched (when at least MIN_MATCHED per pass did), else latency per
+    output token or audio second; c=max throughput as output tokens (audio seconds) per second. Each concurrency
+    is judged on its own outputs' lengths; unchanged when every length matched, or for fixed-size outputs."""
+    if case.kind not in LENGTH_KINDS:
         return lat, thru
-    unit = pairs[0][0][pairs[0][2][0]][2]
-    if lat and lat.metric in E2E_LATENCY:
+    m1 = _matched(files_c1)
+    if lat and lat.metric in E2E_LATENCY and m1 and len(m1[4]) < len(m1[3]):
+        rb, rh, pairs, every, same, unit = m1
         if len(same) >= MIN_MATCHED and len(same) >= 0.25 * len(every):
             vb = [statistics.median(b[i][0] for i in same) for b, _, _ in pairs]
             vh = [statistics.median(h[i][0] for i in same) for _, h, _ in pairs]
@@ -364,11 +372,14 @@ def length_aware(case: Case, files_c1: dict[str, list[Path]], files_cn: dict[str
 
             lat = Perf(f"s_per_{unit}_p50", lat.conc, Stat.of(per_unit(rb)), Stat.of(per_unit(rh)), True,
                        basis=f"per {UNIT_NAME[unit]}, lengths differ in {len(every) - len(same)}/{len(every)}")
-    if thru and thru.metric != f"{unit}_per_s":
+    mn = _matched(files_cn)
+    if thru and mn and len(mn[4]) < len(mn[3]) and thru.metric != f"{mn[5]}_per_s":
+        rb, rh, _, _, _, unit = mn
+
         def rate(passes):
             return [sum(ln for _, ln, _ in reqs.values()) / wall for wall, reqs in passes if wall > 0 and reqs]
 
-        tb, th = rate(_requests(files_cn["base"])), rate(_requests(files_cn["head"]))
+        tb, th = rate(rb), rate(rh)
         if tb and th:
             thru = Perf(f"{unit}_per_s", thru.conc, Stat.of(tb), Stat.of(th), False,
                         basis=f"{UNIT_NAME[unit]}s per second, lengths differ")
@@ -458,9 +469,11 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
     else:
         swings = (calibration.get(correct_key(gpu, m.name, c.id)) or {}).get("swings")
         corr, detail = judge_correct(c, a.compare.get(c.id, []), errs, swings)
-        gaps = head_gaps(files, c) if timed else []
+        gaps, absent = point_gaps(a, files, c) if timed else ([], [])
         if gaps:
             corr, detail = "FAIL", f"head wrote no results for {', '.join(gaps)}; {detail}"
+        elif absent and corr == "pass":
+            corr, detail = "incomplete", f"no results from either arm for {', '.join(absent)}; {detail}"
     with_data = [p for p in (lat, thru) if p and p.base.mean is not None and p.head.mean is not None]
     rp = scrub((a.compare.get(c.id) or [None])[0]) if c.driver in ("rp", "invariants") else None
     note, detail = scrub(note), scrub(detail)   # reasons can quote server errors: no paths or addresses
@@ -470,13 +483,18 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
                no_baseline=bool(with_data) and all(floors.get(id(p)) is None for p in with_data))
 
 
-def head_gaps(files: dict[str, list[Path]], c: Case) -> list[str]:
-    """Session and concurrency points base wrote results for and head did not (a timeout, a server that died)."""
+def point_gaps(a: _Arms, files: dict[str, list[Path]], c: Case) -> tuple[list[str], list[str]]:
+    """(points base wrote results for and head did not, points neither arm wrote), a point being a server session
+    and a concurrency (a client that timed out, a server that died)."""
     def points(arm: str) -> set[tuple[str, int]]:
         return {(f.parent.parent.name, conc) for f in files[arm] for conc in c.conc
                 if f.name.endswith(f"-c{conc}.json")}
 
-    return [f"{s} c={conc}" for s, conc in sorted(points("base") - points("head"))]
+    base, head = points("base"), points("head")
+    sessions = {p.parent.name for arm in ("base", "head") for p in (a.md / arm).glob("s*/startup.json")}
+    expected = {(s, conc) for s in sessions for conc in c.conc}
+    fmt = lambda pts: [f"{s} c={conc}" for s, conc in sorted(pts)]  # noqa: E731
+    return fmt(base - head), fmt(expected - base - head)
 
 
 def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = None) -> list[Row]:
