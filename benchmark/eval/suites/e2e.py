@@ -179,10 +179,15 @@ class E2ESuite(Suite):
                                         timeout=timeout) as r:
                     if r.status != 200:
                         return error_row(item, f"HTTP {r.status}", await r.text())
+                    finished = False
                     async for msg in _lines(r, b"data:"):
+                        if msg is DONE:
+                            finished = True
+                            continue
                         if msg.get("error"):
                             return error_row(item, "stream error", json.dumps(msg["error"])[:500])
                         for ch in msg.get("choices", []):
+                            finished = finished or ch.get("finish_reason") is not None
                             d = ch.get("delta", {})
                             if d.get("content"):
                                 mark()
@@ -190,6 +195,8 @@ class E2ESuite(Suite):
                             if (d.get("audio") or {}).get("data"):
                                 mark()
                                 audio.extend(base64.b64decode(d["audio"]["data"]))
+                    if not finished:   # the connection ended before the reply did
+                        return error_row(item, "incomplete stream", "no finish_reason or [DONE]")
             elif a.kind in ("image", "video", "video_i2v"):
                 body = {"model": a.model_name, "prompt": GEN_PROMPTS[index % len(GEN_PROMPTS)], "size": a.size,
                         "seed": 1000 + index}
@@ -210,6 +217,8 @@ class E2ESuite(Suite):
                     if r.status != 200:
                         return error_row(item, f"HTTP {r.status}", await r.text())
                     async for msg in _lines(r):
+                        if msg is DONE:
+                            continue
                         if msg.get("modality") == "error":
                             return error_row(item, "stream error", str(msg)[:500])
                         if msg.get("data"):
@@ -262,12 +271,15 @@ async def _lines(resp: aiohttp.ClientResponse, prefix: bytes = b""):
         yield msg
 
 
+DONE: dict = {}   # sentinel for an SSE stream's [DONE]
+
+
 def _parse(line: bytes, prefix: bytes) -> dict | None:
     line = line.strip()
     if not line or (prefix and not line.startswith(prefix)):
         return None
     line = line[len(prefix):].strip()
-    return None if line == b"[DONE]" else json.loads(line)
+    return DONE if line == b"[DONE]" else json.loads(line)
 
 
 def save_outputs(rows: list[dict[str, Any]], d: Path, kind: str) -> None:

@@ -451,7 +451,7 @@ FAKE_SERVE = r'''
 import argparse, json, sys, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-DELAY, SUFFIX = {delay}, {suffix!r}
+DELAY, SUFFIX, DONE = {delay}, {suffix!r}, {done}
 p = argparse.ArgumentParser()
 p.add_argument("cmd"); p.add_argument("model"); p.add_argument("--port", type=int)
 a, _ = p.parse_known_args()
@@ -475,7 +475,8 @@ class H(BaseHTTPRequestHandler):
             time.sleep(DELAY)
             msg = {{"choices": [{{"delta": {{"content": w + " "}}}}]}}
             self.wfile.write(b"data: " + json.dumps(msg).encode() + b"\n\n"); self.wfile.flush()
-        self.wfile.write(b"data: [DONE]\n\n"); self.wfile.flush()
+        if DONE:
+            self.wfile.write(b"data: [DONE]\n\n"); self.wfile.flush()
         self.close_connection = True
 
 
@@ -483,12 +484,12 @@ ThreadingHTTPServer(("127.0.0.1", a.port), H).serve_forever()
 '''
 
 
-def fake_tree(d: Path, delay: float = 0.0, suffix: str = "") -> Path:
+def fake_tree(d: Path, delay: float = 0.0, suffix: str = "", done: bool = True) -> Path:
     """A checkout whose `python -m mstar.cli.main serve` is a stdlib chat server streaming the prompt back."""
     (d / "mstar" / "cli").mkdir(parents=True)
     (d / "mstar" / "__init__.py").write_text("")
     (d / "mstar" / "cli" / "__init__.py").write_text("")
-    (d / "mstar" / "cli" / "main.py").write_text(FAKE_SERVE.format(delay=delay, suffix=suffix))
+    (d / "mstar" / "cli" / "main.py").write_text(FAKE_SERVE.format(delay=delay, suffix=suffix, done=done))
     (d / ".complete").touch()
     return d
 
@@ -509,6 +510,12 @@ def test_e2e_suite_runs_without_data_and_saves_outputs(tmp_path):
     assert row["ok"] and row["n_chunks"] == len(row["text"].split()) and "_audio" not in row
     saved = checks.saved_dir(out, 1)
     assert sorted(p.name for p in saved.iterdir()) == ["000.txt", "001.txt", "002.txt", "003.txt"]
+    cut = fake_tree(tmp_path / "cut", done=False)                             # replies that end without [DONE]
+    main(["run", "e2e", "--kind", "chat_text", "--serve-cmd",
+          f"{sys.executable} {cut}/mstar/cli/main.py serve fake --port {{port}}", "--limit", "2",
+          "--concurrency", "1", "--repeats", "1", "--warmup", "0", "--label", "cut", "--out", str(out)])
+    rows = RunResult.load(out / "e2e-cut-c1.json").repeats[0].requests
+    assert [r["error"] for r in rows] == ["incomplete stream"] * 2
     with pytest.raises(SystemExit, match="needs --data"):
         main(["run", "tts", "--url", "http://127.0.0.1:1"])
     with pytest.raises(SystemExit, match="needs --media"):
