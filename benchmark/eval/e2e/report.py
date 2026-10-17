@@ -206,6 +206,9 @@ def _judge_session(ck: dict, f: dict) -> tuple[str, str]:
         return ("FAIL" if f["missing"] == ["head"] else "incomplete"), f"outputs missing ({', '.join(f['missing'])})"
     if f.get("only_base"):
         return "FAIL", f"head lacks {len(f['only_base'])} outputs base returned ({', '.join(f['only_base'][:3])})"
+    if f.get("head_undecodable"):
+        bad = f["head_undecodable"]
+        return "FAIL", f"{len(bad)} head outputs do not decode ({', '.join(bad[:3])})"
     kind = ck["kind"]
     ok, detail = True, ""
     if kind == "text_match":
@@ -410,6 +413,15 @@ class _Arms:
             vram[arm] = max(vs) if vs else None
         return cls(done, compare, starts, startup, vram, md)
 
+    def alive_after(self, case_id: str) -> dict[str, dict[str, bool | None]]:
+        """Per session: whether each arm's server still answered /health after this case."""
+        out: dict[str, dict[str, bool | None]] = {}
+        for arm in ("base", "head"):
+            for p in sorted((self.md / arm).glob("s*/startup.json")):
+                case = json.loads(p.read_text()).get("cases", {}).get(case_id) or {}
+                out.setdefault(p.parent.name, {"base": None, "head": None})[arm] = case.get("server_alive_after")
+        return out
+
     def files(self, case_id: str) -> dict[str, list[Path]]:
         return {arm: sorted((self.md / arm).glob(f"s*/{case_id}/*-c*.json")) for arm in ("base", "head")}
 
@@ -470,10 +482,13 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
         swings = (calibration.get(correct_key(gpu, m.name, c.id)) or {}).get("swings")
         corr, detail = judge_correct(c, a.compare.get(c.id, []), errs, swings)
         gaps, absent = point_gaps(a, files, c) if timed else ([], [])
+        died = [s for s, alive in a.alive_after(c.id).items() if alive["head"] is False and alive["base"] is not False]
         if gaps:
             corr, detail = "FAIL", f"head wrote no results for {', '.join(gaps)}; {detail}"
+        elif died:
+            corr, detail = "FAIL", f"head server died during this case ({', '.join(died)}); {detail}"
         elif absent and corr == "pass":
-            corr, detail = "incomplete", f"no results from either arm for {', '.join(absent)}; {detail}"
+            corr, detail = "incomplete", f"no results for {', '.join(absent)}; {detail}"
     with_data = [p for p in (lat, thru) if p and p.base.mean is not None and p.head.mean is not None]
     rp = scrub((a.compare.get(c.id) or [None])[0]) if c.driver in ("rp", "invariants") else None
     note, detail = scrub(note), scrub(detail)   # reasons can quote server errors: no paths or addresses
@@ -484,7 +499,7 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
 
 
 def point_gaps(a: _Arms, files: dict[str, list[Path]], c: Case) -> tuple[list[str], list[str]]:
-    """(points base wrote results for and head did not, points neither arm wrote), a point being a server session
+    """(points base wrote results for and head did not, points base did not write), a point being a server session
     and a concurrency (a client that timed out, a server that died)."""
     def points(arm: str) -> set[tuple[str, int]]:
         return {(f.parent.parent.name, conc) for f in files[arm] for conc in c.conc
@@ -494,7 +509,7 @@ def point_gaps(a: _Arms, files: dict[str, list[Path]], c: Case) -> tuple[list[st
     sessions = {p.parent.name for arm in ("base", "head") for p in (a.md / arm).glob("s*/startup.json")}
     expected = {(s, conc) for s in sessions for conc in c.conc}
     fmt = lambda pts: [f"{s} c={conc}" for s, conc in sorted(pts)]  # noqa: E731
-    return fmt(base - head), fmt(expected - base - head)
+    return fmt(base - head), fmt(expected - base)   # base missing a point: nothing to judge head against
 
 
 def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = None) -> list[Row]:

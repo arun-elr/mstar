@@ -45,6 +45,13 @@ def load(p: Path) -> Any:
     return p.read_text(encoding="utf-8")
 
 
+def _try_load(p: Path) -> Any:
+    try:
+        return load(p)
+    except Exception:  # noqa: BLE001 - a truncated PNG or MP4 is a finding about that arm, not a crash
+        return None
+
+
 def text_facts(pairs: list[tuple[str, str]]) -> dict:
     """Identity plus how close the texts are: greedy decoding forks at near-ties across server processes, so a
     late fork is not a regression, while an empty, truncated or unrelated reply is."""
@@ -64,9 +71,13 @@ def saved(a: Path | None, b: Path | None) -> dict:
     if a is None or b is None or not a.is_dir() or not b.is_dir():
         return {"missing": [arm for arm, x in (("base", a), ("head", b)) if x is None or not x.is_dir()]}
     na, nb = {p.name for p in a.iterdir()}, {p.name for p in b.iterdir()}
-    texts, ps, act = [], [], []
+    texts, ps, act, bad = [], [], [], []
     for n in sorted(na & nb):
-        x, y = load(a / n), load(b / n)
+        x, y = _try_load(a / n), _try_load(b / n)
+        if y is None and x is not None:   # base's output decodes and head's does not
+            bad.append(n)
+        if x is None or y is None:
+            continue
         if isinstance(x, str):
             texts.append((x, y))
         elif n.endswith(".f32"):
@@ -76,7 +87,7 @@ def saved(a: Path | None, b: Path | None) -> dict:
             ps.append(psnr(x, y))
     # Outputs base returned and head did not (speech without its audio, an empty reply) fail on their own.
     out: dict = {"n_base": len({n.split(".")[0] for n in na}), "n_head": len({n.split(".")[0] for n in nb}),
-                 "only_base": sorted(na - nb)}
+                 "only_base": sorted(na - nb), "head_undecodable": bad}
     pcm = {arm: sum(f.stat().st_size for f in d.glob("*.pcm")) / 2 / PCM_RATE for arm, d in (("base", a), ("head", b))}
     if texts:
         out.update(text_facts(texts))

@@ -855,7 +855,7 @@ def test_points_neither_arm_wrote_leave_the_row_incomplete(tmp_path):
         (md / arm / "s0" / "c" / f"x-{arm}-c8.json").unlink()            # both c=8 clients timed out
     finish(rd, md)
     r = report.build_rows(rd, [chat_model()], calibration={})[0]
-    assert r.correct == "incomplete" and r.correct_detail.startswith("no results from either arm for s0 c=8")
+    assert r.correct == "incomplete" and r.correct_detail.startswith("no results for s0 c=8")
     assert "No regressions:" not in report.render_md([r], RUN)
 
 
@@ -884,3 +884,36 @@ def test_non_finite_actions_fail_and_never_calibrate_a_limit(tmp_path):
     m = Model(name="m", serve="m", family="VLA", tags=[], cases=[c])
     calibrate.add_run(rd, [m], tmp_path / "cal.json")
     assert "h200:m/c/correct" not in calibrate.load(tmp_path / "cal.json")
+
+
+def test_sse_errors_dead_servers_undecodable_outputs_and_base_only_gaps(tmp_path):
+    from benchmark.eval.e2e import request_path
+
+    class Resp:
+        status_code, headers = 200, {"content-type": "text/event-stream"}
+        content = b'data: {"error": {"message": "boom", "code": 500}}\n\ndata: [DONE]\n\n'
+
+    s = request_path.summarize(Resp())
+    assert s["error_status"] == 500 and checks.status_of(s) == "200+error 500"
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    for arm, alive in (("base", True), ("head", False)):
+        (md / arm / "s0" / "startup.json").write_text(json.dumps(
+            {"healthy": True, "startup_s": 10, "cases": {"c": {"rc": 0, "server_alive_after": alive}}}))
+    finish(rd, md)
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.flagged and r.correct_detail.startswith("head server died during this case (s0)")
+    (md / "head" / "s0" / "startup.json").write_text(json.dumps({"healthy": True, "startup_s": 10}))
+    (md / "base" / "s0" / "c" / "x-base-c8.json").unlink()                 # only head wrote c=8
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.correct == "incomplete" and r.correct_detail.startswith("no results for s0 c=8")
+    from PIL import Image
+
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir(), b.mkdir()
+    Image.fromarray(np.zeros((8, 8, 3), np.uint8)).save(a / "000.png")
+    (b / "000.png").write_bytes(b"\x89PNG truncated")
+    f = checks.saved(a, b)
+    assert f["head_undecodable"] == ["000.png"]
+    assert report.judge_correct(case("psnr", min_db=30), [f], {})[0] == "FAIL"
