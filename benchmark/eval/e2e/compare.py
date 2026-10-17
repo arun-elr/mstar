@@ -112,6 +112,15 @@ def public_command(args) -> str:
     return " ".join(parts)
 
 
+def tree_id(root: Path) -> str:
+    """Content key of an inputs directory (relative paths and sizes): runs with different inputs never share a copy
+    on a host, and the same inputs are copied once."""
+    h = hashlib.sha256()
+    for f in sorted(p for p in root.rglob("*") if p.is_file()):
+        h.update(f"{f.relative_to(root)}:{f.stat().st_size}\n".encode())
+    return h.hexdigest()[:12]
+
+
 def evalfw_id(root: Path) -> str:
     h = hashlib.sha256()
     for f in sorted([root / "benchmark" / "__init__.py", *(root / "benchmark" / "eval").rglob("*")]):
@@ -173,6 +182,7 @@ class Runner:
         self.cache = CACHE / "compare"
         self.data = Path(args.data_dir).expanduser()
         self.evalfw = evalfw_id(TOOL_ROOT)
+        self.data_id = tree_id(self.data)
 
     def redact(self, text: str, slot: hosts.Slot | None = None) -> str:
         """Host names and the slot's work directory out of anything that can reach the report."""
@@ -224,7 +234,7 @@ class Runner:
                 self.log(f"{t.name}: copying the client tree, inputs and source trees")
                 for rel in ("benchmark/__init__.py", "benchmark/eval"):
                     t.push(TOOL_ROOT / rel, f"{slot.host_dir}/evalfw/{self.evalfw}/{rel}")
-                t.push(self.data, f"{slot.host_dir}/data")
+                t.push(self.data, f"{slot.host_dir}/data/{self.data_id}")
                 for ref in (self.base, self.head):
                     t.push(self.cache / "src" / ref.sha, f"{slot.host_dir}/src/{ref.sha}")
             slot.ready = True
@@ -232,7 +242,7 @@ class Runner:
     def paths(self, slot: hosts.Slot) -> dict[str, str]:
         if self.local(slot):
             return {"evalfw": str(TOOL_ROOT), "data": str(self.data), "src": str(self.cache / "src")}
-        return {"evalfw": f"{slot.host_dir}/evalfw/{self.evalfw}", "data": f"{slot.host_dir}/data",
+        return {"evalfw": f"{slot.host_dir}/evalfw/{self.evalfw}", "data": f"{slot.host_dir}/data/{self.data_id}",
                 "src": f"{slot.host_dir}/src"}
 
     # --- one model ---------------------------------------------------------------------------------------------
@@ -423,7 +433,7 @@ def _run(args, man, models, base, head, slots) -> int:
     for ref in (base, head):
         trees.export(TOOL_ROOT, ref.sha, runner.cache / "src" / ref.sha)
     th = man.defaults.get("thresholds", {})
-    run = {"id": run_dir.name, "base": base.__dict__, "head": head.__dict__, "gpu": types.pop(),
+    run = {"id": runner.run_key, "base": base.__dict__, "head": head.__dict__, "gpu": types.pop(),
            "gpu_name": usable[0].gpu_name, "models": [m.name for m in models], "include_optional": args.rp,
            "sessions": args.sessions, "repeats": args.repeats or man.defaults.get("repeats", 3),
            "perf_pct": th.get("perf_pct", 5), "noise_sigma": th.get("noise_sigma", 2),
