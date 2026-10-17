@@ -54,6 +54,11 @@ def resolve(repo: Path, spec: str, remote: str | None = None) -> Ref:
         if sha is None:
             raise TreeError(f"cannot fetch PR #{m.group(1)} from {remote}")
         return _ref(repo, s, sha, f"PR #{m.group(1)}")
+    local = git(repo, "rev-parse", "--verify", "-q", f"{s}^{{commit}}", check=False)
+    branch = git(repo, "rev-parse", "--verify", "-q", f"refs/heads/{s}", check=False)
+    if local and not branch:
+        # HEAD, HEAD~1, a tag, a remote-tracking ref, a commit: this checkout's commit, never the remote's HEAD
+        return _ref(repo, s, local, local[:9] if local.startswith(s) else f"{s} ({local[:9]})")
     if not re.fullmatch(r"[0-9a-f]{7,40}", s):
         for r in dict.fromkeys((remote, "origin")):
             sha = _fetch(repo, r, s)

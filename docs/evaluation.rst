@@ -181,14 +181,15 @@ the PR keeps its outputs and does not get slower::
     python -m benchmark.eval compare --base main --head 548 --hosts bench@gpu1,bench@gpu2:1
     python -m benchmark.eval compare --list                                    # models, tags, cases
 
-``--head`` and ``--base`` take a branch, a commit or a PR number. Both trees are exported from the checkout
+``--head`` and ``--base`` take a branch (fetched fresh from ``mstar-project/mstar``, then ``origin``), a PR
+number, a commit, or another local ref such as ``HEAD`` or a tag (this checkout's commit). Both trees are exported from the checkout
 running ``compare`` (each arm imports its own tree and builds its own ``rust/`` extension, in one Python
 environment); the client, the checks and the report always come from that checkout, so ``main`` can be measured
 before it has this framework. Each model runs on one GPU: base and head back to back, arm order alternating from
 model to model, every case at each concurrency in its ``conc`` with ``repeats`` passes after warmup waves.
 ``--sessions 2`` runs two server sessions per arm (ABBA). With ``--hosts``, idle hosts take whatever models are
 still queued; a host that stops answering is dropped and its model requeued. Hosts need key-based ``ssh``,
-``rsync``, an M\* environment (``--host-python``) and the Hugging Face Hub (with a login for gated repos such
+``rsync`` 3.2.3 or newer at both ends, an M\* environment (``--host-python``) and the Hugging Face Hub (with a login for gated repos such
 as Orpheus) or a warm cache. Machines that must
 be started first are a launcher's job: ``--host-provider module:factory`` supplies the hosts and is told when the
 run ends (``benchmark/eval/e2e/hosts.py``).
@@ -200,10 +201,13 @@ suite (``run e2e --kind chat_image|image|video|pi05|frames|...``). Inputs are bu
 (``python -m benchmark.eval data e2e --out DIR``: Seed-TTS and LibriSpeech sets plus generated media).
 
 The run directory holds every results file and ``report/report.md`` (a table for a PR body, details in toggles),
-``report/chart.png`` and ``report/summary.json``. A row is **flagged**, and ``compare`` exits with 1, when:
+``report/chart.png`` and ``report/summary.json``. ``compare`` exits with 1 when any row is flagged, else with 2
+when any row has no verdict (its job failed or was interrupted, the model was skipped or never got a GPU, or base
+is broken), else 0. A row is **flagged** when:
 
 * **correctness changed**: greedy text is neither identical (share at least ``min_match``) nor close (median
-  similarity 0.6 or more, length ratio 0.8 to 1.25, so empty or truncated replies fail); speech WER (Whisper
+  similarity 0.6 or more, length ratio 0.8 to 1.25), or any head reply is base's cut below 80% of its length
+  (empty replies included); speech WER (Whisper
   large-v3 round trip for TTS) rose more than ``max_increase`` points; a seeded image, video or frame stream fell
   below ``min_db`` PSNR against base; VLA actions moved more than ``tol``; duplex take-turn or yield rates dropped
   more than ``tol``; a request-path status code changed; or head had more request errors than base;
@@ -211,7 +215,8 @@ The run directory holds every results file and ``report/report.md`` (a table for
   deviations of the passes, and by more than 1.5 times the largest drift that row showed between two server
   processes of identical code (its A/A noise floor). When base and head return different output lengths for the
   same requests, latency is compared over the requests whose lengths matched, else per token or audio second;
-* **head does not start** while base does.
+* **head does not build** (its ``rust/`` extension or Rust frontend) while base does, or **head does not start**
+  while base does.
 
 A perf row flagged with one session per arm is rerun with two (ABBA) before it is reported, since a server process
 can settle at one of two speeds; ``--no-rerun`` turns that off.

@@ -77,6 +77,7 @@ class Row:
     note: str = ""
     no_baseline: bool = False           # perf row with no A/A noise floor for this GPU (calibrate it)
     rerun: str = ""                     # flagged with one session, judged on a 2-session (ABBA) rerun
+    broken: str = ""                    # the one arm whose rust/ (or Rust frontend) did not build
 
     @property
     def flagged(self) -> bool:
@@ -84,7 +85,14 @@ class Row:
         lost = self.starts.get("head") is False and self.starts.get("base")
         return bool(perf_bad or self.correct == "FAIL" or lost)
 
+    @property
+    def unfinished(self) -> bool:
+        """No verdict either way (job error, interrupted, skipped, not run, or base broken): exit 2 unless flagged."""
+        return self.correct in ("incomplete", "base broken") and not self.flagged
+
     def verdict(self) -> str:
+        if self.broken:
+            return "**head does not build**" if self.broken == "head" else "base does not build"
         if self.starts.get("base") is False and self.starts.get("head") is False:
             return "neither arm started" + (f" ({self.note})" if self.note else "")
         if self.starts.get("head") is False:
@@ -218,10 +226,13 @@ def _judge_session(ck: dict, f: dict) -> tuple[str, str]:
             return "incomplete", "no text outputs"
         sim, lr = f.get("text_sim_median"), f.get("text_len_ratio_median")
         close = sim is not None and sim >= float(ck.get("min_sim", 0.6)) and 0.8 <= (lr or 0) <= 1.25
-        ok = same / n >= float(ck["min_match"]) or close
+        cut = int(f.get("text_truncated", 0))
+        ok = (same / n >= float(ck["min_match"]) or close) and not cut
         detail = f"{same}/{n} identical"
         if same < n and sim is not None:
             detail += f", similarity {sim:.2f}, length ratio {lr:.2f}"
+        if cut:
+            detail += f", {cut} head replies are base's cut short"
     elif kind == "wer":
         wb, wh = f.get("wer_base"), f.get("wer_head")
         if wb is None or wh is None:
@@ -502,7 +513,10 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
     extra = [p for p in (perf(x, min(c.conc)) for x in c.perf.get("extra", [])) if p]
     for p in extra:
         judge_perf(p, perf_pct, sigma, floor_of(p, p.metric))
-    if a.starts.get("base") is False:
+    broken = done.get("broken") if done["status"] == "error" and done.get("broken") in ("base", "head") else ""
+    if broken:
+        corr, detail = ("FAIL" if broken == "head" else "base broken"), f"{broken} did not build; {note}"
+    elif a.starts.get("base") is False:
         corr, detail = "base broken", "base did not start"
     elif a.starts.get("head") is False:
         corr, detail = "FAIL", "head did not start"
@@ -527,7 +541,7 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
     note, detail = _public(note), _public(detail)   # reasons can quote server errors: no paths or addresses
     return Row(model=m.name, family=m.family, case=c.id, modality=c.modality, starts=a.starts, correct=corr,
                correct_detail=detail, latency=lat, throughput=thru, extra=extra, startup_s=a.startup,
-               peak_vram_gb=a.vram, errors=errs, request_path=rp, note=note,
+               peak_vram_gb=a.vram, errors=errs, request_path=rp, note=note, broken=broken,
                no_baseline=bool(with_data) and all(floors.get(id(p)) is None for p in with_data))
 
 
@@ -633,12 +647,12 @@ def render_md(rows: list[Row], run: dict, chart_url: str | None = None) -> str:
     perf_rows = [r for r in rows if r.latency or r.throughput]
     rp_rows = [r for r in rows if not (r.latency or r.throughput)]
     flagged = [r for r in rows if r.flagged]
-    unfinished = [r for r in rows if r.correct in ("incomplete", "base broken") and not r.flagged]
+    unfinished = [r for r in rows if r.unfinished]
     models = sorted({r.model for r in rows})
     lines = [f"## Base vs head matrix: {head['label']} against {base['label']}", ""]
     if flagged:
         lines.append(f"**{len(flagged)} of {len(rows)} rows flagged** (regression over {pct}% beyond noise, a "
-                     "correctness change, or a server that no longer starts).")
+                     "correctness change, or a head that no longer builds or starts).")
     elif not unfinished:
         lines.append(f"No regressions: {len(rows)} rows across {len(models)} models, every one starts, keeps its "
                      f"outputs, and stays within {pct}% (or within noise).")
