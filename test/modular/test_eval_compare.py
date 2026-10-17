@@ -432,12 +432,15 @@ def test_rp_and_suite_facts(tmp_path):
 
     def write(d, wer, hyps):
         reqs = [{"id": f"i{k}", "ok": True, "hyp": h} for k, h in enumerate(hyps)]
-        (d / "x-c1.json").write_text(json.dumps({"schema": "mstar-eval/1", "summary": {"wer": {"mean": wer}},
-                                                 "repeats": [{"requests": reqs}]}))
+        (d / "x-c1.json").write_text(json.dumps({"schema": "mstar-eval/1", "suite": "asr", "label": "x", "config": {},
+                                                 "meta": {}, "summary": {"wer": {"mean": wer}},
+                                                 "repeats": [{"index": 0, "metrics": {}, "requests": reqs}]}))
     write(a, 0.02, ["a", "b", "c"])
     write(b, 0.03, ["a", "b", "d"])
     f = checks.suite_facts(a, b, 1)
     assert f["wer_base"] == 0.02 and f["wer_head"] == 0.03 and f["text_identical"] == 2 and f["text_n"] == 3
+    (b / "x-c1.json").write_text((b / "x-c1.json").read_text()[:40])      # truncated head results
+    assert checks.suite_facts(a, b, 1) == {"missing": ["head"]}
 
 
 # ---------------------------------------------------------------- the e2e suite and the CLI
@@ -634,7 +637,7 @@ def test_one_model_runs_both_arms_on_a_remote_slot_and_reports(tmp_path, monkeyp
     res = run_dir / "results" / "fake"
     assert json.loads((res / "done.json").read_text())["status"] == "done"
     assert not list(res.rglob("audio"))                       # saved outputs stay on the host
-    assert list((host_dir / "runs" / "run" / "fake").rglob("audio/*-c1/r1/000.txt"))
+    assert list((host_dir / "runs" / "run" / "fake.1").rglob("audio/*-c1/r1/000.txt"))     # attempt 1
     for arm in ("base", "head"):
         info = json.loads((res / arm / "s0" / "startup.json").read_text())
         assert info["healthy"] and info["mstar_from_arm_src"] and info["cases"]["text"]["rc"] == 0
@@ -668,7 +671,7 @@ def test_stopping_compare_stops_the_job_and_its_servers(tmp_path, monkeypatch):
     runner.cache = tmp_path / "cache"
     for ref in (base, head):
         fake_tree(runner.cache / "src" / ref.sha, delay=0.05)
-    out = run_dir / "results" / "fake"
+    out = run_dir / "attempts" / "fake.1"
     th = threading.Thread(target=runner.run_one, args=(slot, "fake"))
     th.start()
     for _ in range(300):

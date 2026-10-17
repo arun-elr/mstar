@@ -487,6 +487,9 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
         corr, detail = "base broken", "base did not start"
     elif a.starts.get("head") is False:
         corr, detail = "FAIL", "head did not start"
+    elif done["status"] == "error" and timed and point_gaps(a, files, c)[0]:
+        gaps = point_gaps(a, files, c)[0]   # the job broke, and head is the arm that lacks results
+        corr, detail = "FAIL", f"head wrote no results for {', '.join(gaps)}; {note}"
     elif done["status"] != "done":
         corr, detail = "incomplete", note
     else:

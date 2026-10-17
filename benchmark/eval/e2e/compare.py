@@ -152,6 +152,7 @@ class Runner:
         self.state: dict = {"models": {n: {"status": "queued"} for n in self.order}, "slots": {}}
         self.rerun_cases: dict[str, list[str]] = {}
         self.host_locks: dict[str, threading.Lock] = {}
+        self.attempt: dict[str, int] = {}
         self.cache = CACHE / "compare"
         self.data = Path(args.data_dir).expanduser()
         self.evalfw = evalfw_id(TOOL_ROOT)
@@ -243,10 +244,13 @@ class Runner:
         self.prepare(slot)
         t, local = slot.transport, self.local(slot)
         dst = self.run_dir / "results" / name
-        out = str(dst) if local else f"{slot.host_dir}/runs/{self.run_dir.name}/{name}"
+        with self.lock:   # every attempt its own directory and lease: an abandoned one cannot touch this one
+            self.attempt[name] = self.attempt.get(name, 0) + 1
+            n = self.attempt[name]
+        out = (str(self.run_dir / "attempts" / f"{name}.{n}") if local
+               else f"{slot.host_dir}/runs/{self.run_dir.name}/{name}.{n}")
         job = self.job(slot, name, out)
-        if not local:
-            shutil.rmtree(dst, ignore_errors=True)   # nothing from a lost attempt may survive into this one
+        shutil.rmtree(dst, ignore_errors=True)   # nothing from a lost attempt may survive into this one
         jf = self.run_dir / "jobs" / f"{name}.json"
         jf.parent.mkdir(exist_ok=True)
         jf.write_text(json.dumps(job, indent=1))
@@ -297,12 +301,11 @@ class Runner:
             else:
                 dead = 0
                 self.set(name, progress=text.splitlines()[-1][:200] if len(text.splitlines()) > 1 else "")
-        if not local:   # into a fresh directory, published only once the copy is complete
-            part = dst.with_name(dst.name + ".partial")
-            shutil.rmtree(part, ignore_errors=True)
-            t.pull(out, part, FETCH_EXCLUDE)
-            shutil.rmtree(dst, ignore_errors=True)
-            part.rename(dst)
+        part = dst.with_name(dst.name + ".partial")   # published only once the copy is complete
+        shutil.rmtree(part, ignore_errors=True)
+        t.pull(out, part, FETCH_EXCLUDE)
+        shutil.rmtree(dst, ignore_errors=True)
+        part.rename(dst)
         elapsed = time.time() - t0
         self.set(name, status=done.get("status"), reason=self.redact(done.get("reason", "")),
                  elapsed_s=round(elapsed, 1), gpu_s=round(elapsed, 1))
