@@ -172,7 +172,7 @@ def rp_facts(a: Path, b: Path) -> dict:
         va, vb = ja.get(k), jb.get(k)
         sa = status_of(va) if isinstance(va, dict) else "absent"
         sb = status_of(vb) if isinstance(vb, dict) else "absent"
-        flags = [f for f in ("identical", "ok", "sse_done") if isinstance(va, dict) and f in va]
+        flags = [f for f in ("identical", "ok", "sse_done", "events") if isinstance(va, dict) and f in va]
         if sa != sb or any(va.get(f) != (vb or {}).get(f) for f in flags):
             diffs.append({"case": k, "base": sa, "head": sb, **{f"{f}_base": va.get(f) for f in flags},
                           **{f"{f}_head": (vb or {}).get(f) for f in flags}})
