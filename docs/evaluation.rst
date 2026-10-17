@@ -217,7 +217,7 @@ A perf row flagged with one session per arm is rerun with two (ABBA) before it i
 can settle at one of two speeds; ``--no-rerun`` turns that off.
 
 **Calibrating.** Noise floors and correctness swings come from A/A runs (base and head the same commit), per GPU
-type, in ``benchmark/eval/e2e/calibration.json``. After a large change on ``main``, a new model, or on a new GPU
+type, in ``benchmark/eval/e2e/calibration.yaml``. After a large change on ``main``, a new model, or on a new GPU
 type, run ``compare --base main --head main`` for the models concerned, then
 ``python -m benchmark.eval calibrate <run dir>``; rows without a floor on the run's GPU are named in the report
 and judged on the passes' spread alone. A calibrated swing only widens a ``cases.yaml`` limit, never tightens it.

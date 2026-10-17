@@ -113,11 +113,14 @@ def public_command(args) -> str:
 
 
 def tree_id(root: Path) -> str:
-    """Content key of an inputs directory (relative paths and sizes): runs with different inputs never share a copy
-    on a host, and the same inputs are copied once."""
+    """Content key of an inputs directory (paths and bytes): runs with different inputs never share a copy on a
+    host, and the same inputs are copied once."""
     h = hashlib.sha256()
     for f in sorted(p for p in root.rglob("*") if p.is_file()):
-        h.update(f"{f.relative_to(root)}:{f.stat().st_size}\n".encode())
+        h.update(f"{f.relative_to(root)}\0".encode())
+        with open(f, "rb") as fh:
+            for block in iter(lambda: fh.read(1 << 20), b""):
+                h.update(block)
     return h.hexdigest()[:12]
 
 

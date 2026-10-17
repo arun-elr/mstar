@@ -7,7 +7,8 @@ it calls the row faster or a regression. The same runs record how far each row's
 points, identical-text share, audio length, PSNR ...), and the report widens a manifest limit that this noise alone
 would trip (``report.correct_limit``).
 
-``calibration.json`` next to this file is the shared baseline; ``--calibration PATH`` keeps a private one.
+``calibration.yaml`` next to this file is the shared baseline; ``--calibration PATH`` keeps a private one (YAML,
+or JSON for a ``.json`` path).
 """
 
 from __future__ import annotations
@@ -16,15 +17,31 @@ import json
 import math
 from pathlib import Path
 
+import yaml
+
 from benchmark.eval.e2e import report
 from benchmark.eval.e2e.manifest import Model
 
-DEFAULT = Path(__file__).with_name("calibration.json")
+DEFAULT = Path(__file__).with_name("calibration.yaml")
+HEADER = ("# A/A noise floors and correctness swings per GPU type (benchmark/eval/e2e/calibrate.py); written by\n"
+          "# `python -m benchmark.eval calibrate`.\n")
 
 
 def load(path: str | Path = DEFAULT) -> dict:
     path = Path(path)
-    return json.loads(path.read_text()) if path.exists() else {}
+    if not path.exists():
+        return {}
+    text = path.read_text()
+    return (json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)) or {}
+
+
+def save(cal: dict, path: str | Path = DEFAULT) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.suffix == ".json":
+        path.write_text(json.dumps(cal, indent=1, sort_keys=True) + "\n")
+    else:
+        path.write_text(HEADER + yaml.safe_dump(cal, sort_keys=True, default_flow_style=None, width=120))
 
 
 def floor_pct(cal: dict, key: str) -> float | None:
@@ -50,7 +67,10 @@ def add_run(run_dir: Path, models: list[Model], path: str | Path = DEFAULT) -> i
         return 0
     n = 0
     if run["id"] not in seen:
-        for r in report.build_rows(run_dir, models, calibration={}):
+        # The one-session drift that triggered an ABBA rerun is cross-process noise too: keep it beside the rerun's.
+        first = report.build_rows(run_dir, models, calibration={}, reruns=False)
+        reruns = [r for r in report.build_rows(run_dir, models, calibration={}) if r.rerun]
+        for r in first + reruns:
             for p in [r.latency, r.throughput, *r.extra]:
                 if p and p.delta_pct is not None:
                     key = report.calibration_key(gpu, r.model, r.case, p.metric, p.conc)
@@ -71,6 +91,5 @@ def add_run(run_dir: Path, models: list[Model], path: str | Path = DEFAULT) -> i
                         n += 1
     cal["_runs"] = sorted(seen | {run["id"]})
     cal["_runs_correct"] = sorted(seen_c | {run["id"]})
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cal, indent=1, sort_keys=True) + "\n")
+    save(cal, path)
     return n
