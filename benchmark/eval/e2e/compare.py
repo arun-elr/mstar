@@ -364,19 +364,23 @@ class Runner:
         return rname
 
 
-def make_slots(args) -> tuple[list[hosts.Slot], hosts.HostProvider | None]:
-    if args.hosts or args.host_provider:
-        provider = (hosts.load_provider(args.host_provider, args) if args.host_provider
-                    else hosts.HostProvider(args.hosts))
+def make_provider(args) -> hosts.HostProvider | None:
+    if args.host_provider:
+        return hosts.load_provider(args.host_provider, args)
+    return hosts.HostProvider(args.hosts) if args.hosts else None
+
+
+def make_slots(args, provider: hosts.HostProvider | None) -> list[hosts.Slot]:
+    if provider is not None:
         targets = hosts.parse_hosts(provider.hosts())
         if not targets:
             raise SystemExit("no hosts to run on")
-        return [hosts.Slot(hosts.SSHTransport(h), g) for h, g in targets], provider
+        return [hosts.Slot(hosts.SSHTransport(h), g) for h, g in targets]
     gpus = [int(g) for g in args.gpus.split(",")] if args.gpus else hosts.local_gpus()
     if not gpus:
         raise SystemExit("no local GPU found (nvidia-smi); pass --hosts to run on other machines")
     local = hosts.LocalTransport()
-    return [hosts.Slot(local, g) for g in gpus], None
+    return [hosts.Slot(local, g) for g in gpus]
 
 
 def cmd_compare(args) -> int:
@@ -400,9 +404,9 @@ def cmd_compare(args) -> int:
         raise SystemExit("no models selected")
     base = trees.resolve(TOOL_ROOT, args.base, args.remote)
     head = trees.resolve(TOOL_ROOT, args.head, args.remote)
-    slots, provider = make_slots(args)
-    try:
-        return _run(args, man, models, base, head, slots)
+    provider = make_provider(args)
+    try:   # from here on the provider may hold machines: release them whatever happens
+        return _run(args, man, models, base, head, make_slots(args, provider))
     finally:
         if provider is not None:
             provider.release()

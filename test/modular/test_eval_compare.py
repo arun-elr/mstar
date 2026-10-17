@@ -534,11 +534,26 @@ def test_parse_hosts_and_provider_hook(monkeypatch):
     mod.make = lambda args: Launcher()
     monkeypatch.setitem(sys.modules, "fake_launcher", mod)
     args = Namespace(hosts=None, host_provider="fake_launcher:make")
-    slots, provider = compare.make_slots(args)
+    provider = compare.make_provider(args)
+    slots = compare.make_slots(args, provider)
     assert [s.name for s in slots] == ["u@vm1:0", "u@vm2:1"]
     assert all(isinstance(s.transport, hosts.SSHTransport) for s in slots)
     provider.release()
     assert released == [True]
+
+    class Broken(Launcher):
+        def hosts(self):
+            raise RuntimeError("quota")
+
+    mod.make = lambda args: Broken()
+    from benchmark.eval.cli import build_parser
+
+    cli_args = build_parser().parse_args(["compare", "--head", "main", "--host-provider", "fake_launcher:make",
+                                          "--out", "/nonexistent-run-dir"])
+    monkeypatch.setattr(trees, "resolve", lambda repo, spec, remote=None: trees.Ref(spec, "a" * 40, spec))
+    with pytest.raises(RuntimeError, match="quota"):
+        compare.cmd_compare(cli_args)
+    assert released == [True, True]                     # released although hosts() failed
 
 
 def slot(name: str) -> hosts.Slot:
@@ -1131,3 +1146,18 @@ def test_a_lost_host_retires_all_its_gpus_so_the_retry_lands_elsewhere():
 
     hosts.run_slots([bad0, bad1, good], q, run_one, on_lost=lost, on_given_up=gave_up.append)
     assert ran == [("u@good:0", "a")] and not gave_up
+
+
+def test_an_abba_rerun_keeps_a_correctness_failure_from_the_first_run(tmp_path):
+    rd, md, rr = tmp_path, tmp_path / "results" / "m", tmp_path / "results" / "m__abba"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.2, 96)] * 8, [(1.2, 96)] * 8, wall_n=2.4, errors=2)
+    finish(rd, md)
+    for s in (0, 1):
+        write_arm(rr, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0, session=s)
+        write_arm(rr, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0, session=s)
+    (rr / "done.json").write_text(json.dumps({"status": "done"}))
+    (rr / "compare.json").write_text(json.dumps({"c": [{"text_n": 8, "text_identical": 8}] * 2}))
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.rerun and r.latency.verdict == "same"                               # the timings come from the rerun
+    assert r.flagged and r.correct == "FAIL" and r.correct_detail.startswith("first run:") and r.errors["head"] > 0

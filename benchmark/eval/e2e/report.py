@@ -566,6 +566,10 @@ def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = No
                                 if p and p.verdict == "regression")
                 r2.rerun = f"flagged with 1 session ({was or r.verdict()}); judged on a 2-session ABBA rerun"
                 r2.startup_s, r2.peak_vram_gb = r.startup_s, r.peak_vram_gb
+                # The rerun replaces the timings only: a hard failure seen in the first run stays.
+                r2.errors = {arm: r.errors.get(arm, 0) + r2.errors.get(arm, 0) for arm in ("base", "head")}
+                if r.correct == "FAIL":
+                    r2.correct, r2.correct_detail = "FAIL", f"first run: {r.correct_detail}"
                 r = r2
             rows.append(r)
     return rows
