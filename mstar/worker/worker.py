@@ -1974,7 +1974,7 @@ class Worker:
         Every retryable admit failure needs the push-back; only an
         ``AllocationFailed`` also needs an eviction. ``RequestOffloading`` means
         the rid is already on its way to the host, so evicting anything else is
-        wasted work — the retry is gated on ``check_ready`` reloading it. An
+        wasted work: the retry is gated on ``check_ready`` reloading it. An
         ``AdmitRuntimeError`` is terminal: retrying the same step would refuse
         it again on every pass, so the request it names fails instead.
         """
