@@ -28,13 +28,15 @@ TOOL_ROOT = Path(__file__).resolve().parents[3]
 CACHE = Path("~/.cache/mstar-eval").expanduser()
 POLL_S = 15
 LEASE_S = 600           # a job whose lease compare has not renewed this long stops itself (arm.watch_lease)
-GPU_TYPES = ("gb200", "b200", "h200", "h100", "a100", "l40s", "l4", "a10g")
+GPU_TYPES = ("gb200", "b200", "h200", "h100", "a100", "l40s", "l40", "l4", "a10g")
 FETCH_EXCLUDE = ("audio/",)   # saved outputs and audio stay on the host; compare.json already holds their facts
 
 
 def gpu_type(name: str) -> str:
-    n = name.lower().replace(" ", "")
-    return next((t for t in GPU_TYPES if t in n), re.sub(r"[^a-z0-9]+", "-", n).strip("-") or "unknown")
+    """``NVIDIA H200`` -> ``h200``; whole model names only, so an L40 is not an L4."""
+    n = name.lower()
+    return next((t for t in GPU_TYPES if re.search(rf"(?<![a-z0-9]){t}(?![a-z0-9])", n)),
+                re.sub(r"[^a-z0-9]+", "-", n).strip("-") or "unknown")
 
 
 def add_args(sub) -> None:
@@ -157,8 +159,10 @@ class Runner:
         self.data = Path(args.data_dir).expanduser()
         self.evalfw = evalfw_id(TOOL_ROOT)
 
-    def redact(self, text: str) -> str:
-        """Host names out of anything that can reach the report (run state reasons)."""
+    def redact(self, text: str, slot: hosts.Slot | None = None) -> str:
+        """Host names and the slot's work directory out of anything that can reach the report."""
+        if slot is not None and slot.host_dir:
+            text = text.replace(slot.host_dir, "<work dir>")
         names = {n for s in self.slots for n in (s.transport.name, s.transport.name.rpartition("@")[2])}
         for name in sorted(names - {"local", ""}, key=len, reverse=True):
             text = text.replace(name, "<host>")
@@ -304,10 +308,14 @@ class Runner:
         part = dst.with_name(dst.name + ".partial")   # published only once the copy is complete
         shutil.rmtree(part, ignore_errors=True)
         t.pull(out, part, FETCH_EXCLUDE)
+        # The report reads done.json: write compare's own verdict when the job left none (killed, stopped), and
+        # keep host names and host paths out of the reason.
+        done = {**done, "reason": self.redact(done.get("reason", ""), slot)}
+        (part / "done.json").write_text(json.dumps(done))
         shutil.rmtree(dst, ignore_errors=True)
         part.rename(dst)
         elapsed = time.time() - t0
-        self.set(name, status=done.get("status"), reason=self.redact(done.get("reason", "")),
+        self.set(name, status=done.get("status"), reason=done.get("reason", ""),
                  elapsed_s=round(elapsed, 1), gpu_s=round(elapsed, 1))
         self.log(f"{slot.name}: {name} {done.get('status')} in {elapsed / 60:.1f} min"
                  + (f" ({done['reason']})" if done.get("reason") else ""))
