@@ -84,3 +84,4 @@ test/modular/test_kv_plan_host_lens.py
 test/modular/test_sampler_trash_row.py
 test/modular/test_fish_s2_pro_codec_stream.py
 test/modular/test_fish_s2_pro_model.py
+test/modular/test_position_rope_table.py
