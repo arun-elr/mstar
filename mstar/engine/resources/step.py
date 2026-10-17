@@ -175,7 +175,10 @@ class AdmitRuntimeError(AdmitFailedReason):
 
     Terminal, unlike the two above: no eviction and no reload makes it go
     away, so the caller's answer is to fail the request, not to retry it.
+    ``request_id`` names the request at fault when the refusal is about one;
+    None means it is about the step as a whole.
     """
+    request_id: str | None = None
 
 
 class AdmitOutcome(NamedTuple):
