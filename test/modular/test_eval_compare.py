@@ -637,7 +637,9 @@ def test_one_model_runs_both_arms_on_a_remote_slot_and_reports(tmp_path, monkeyp
     res = run_dir / "results" / "fake"
     assert json.loads((res / "done.json").read_text())["status"] == "done"
     assert not list(res.rglob("audio"))                       # saved outputs stay on the host
-    assert list((host_dir / "runs" / "run" / "fake.1").rglob("audio/*-c1/r1/000.txt"))     # attempt 1
+    assert list((host_dir / "runs" / runner.run_key / "fake.1").rglob("audio/*-c1/r1/000.txt"))     # attempt 1
+    assert runner.run_key.startswith("run-") and runner.run_key != compare.Runner(
+        args, man, models, base, head, run_dir, [slot]).run_key                    # unique per invocation
     for arm in ("base", "head"):
         info = json.loads((res / arm / "s0" / "startup.json").read_text())
         assert info["healthy"] and info["mstar_from_arm_src"] and info["cases"]["text"]["rc"] == 0
@@ -978,7 +980,12 @@ def test_sigterm_to_compare_stops_the_remote_job_before_compare_exits(tmp_path):
     stopped their jobs (Thread.join can return early after an interrupted join)."""
     code = SIGTERM_RUN.format(root=str(compare.TOOL_ROOT), tests=str(Path(__file__).parent), tmp=str(tmp_path))
     proc = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    status = tmp_path / "home" / "mstar-eval" / "runs" / "run" / "fake.1" / "status.json"
+    for _ in range(300):
+        found = list((tmp_path / "home" / "mstar-eval" / "runs").glob("run-*/fake.1/status.json"))
+        if found:
+            break
+        threading.Event().wait(0.1)
+    status = found[0]
     for _ in range(300):
         if '"phase": "case"' in (status.read_text() if status.exists() else "") and procs_under(tmp_path / "home"):
             break
@@ -1011,3 +1018,34 @@ def test_poll_output_parsing_treats_a_truncated_done_json_as_absent():
     assert p('A:0\nS:{"phase": "case"}\nD:{"status": "do') == (False, '{"phase": "case"}', None)
     assert p('A:0\nS:\nD:{"status": "skipped"}') == (False, "", {"status": "skipped"})   # ended before any status
     assert p("") == (False, "", None)
+
+
+def test_unreadable_run_files_leave_the_report_standing(tmp_path):
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    finish(rd, md)
+    (md / "head" / "s0" / "startup.json").write_text('{"healthy": tr')        # killed while writing
+    (md / "compare.json").write_text('{"c": [')
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.starts["head"] is False and r.flagged                               # unknown health is not a start
+    (md / "head" / "s0" / "startup.json").write_text(json.dumps({"healthy": True}))
+    assert report.build_rows(rd, [chat_model()], calibration={})[0].correct == "incomplete"
+
+
+def test_a_zombie_job_counts_as_dead():
+    script = 'sleep 0.2 & z=$!; exec sleep 3'                    # the child exits; nobody reaps it
+    p = subprocess.Popen(["bash", "-c", script])
+    try:
+        threading.Event().wait(1.0)
+        kids = subprocess.run(["ps", "-o", "pid=,stat=", "--ppid", str(p.pid)], capture_output=True, text=True,
+                              check=False).stdout.split()
+        zombie = kids[0] if len(kids) >= 2 and kids[1].startswith("Z") else None
+        if zombie is None:
+            pytest.skip("could not make a zombie here")
+        alive = f'case "$(ps -o stat= -p {zombie} 2>/dev/null)" in ""|Z*) false;; *) true;; esac'
+        assert subprocess.run(["bash", "-c", f"kill -0 {zombie}"], check=False).returncode == 0   # kill -0 says alive
+        assert subprocess.run(["bash", "-c", alive], check=False).returncode != 0
+    finally:
+        p.kill()
+        p.wait()

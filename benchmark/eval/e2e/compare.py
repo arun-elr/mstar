@@ -18,6 +18,7 @@ import shutil
 import sys
 import threading
 import time
+import uuid
 from pathlib import Path
 
 from benchmark.eval.e2e import calibrate, hosts, media, report, trees
@@ -167,6 +168,8 @@ class Runner:
         self.rerun_cases: dict[str, list[str]] = {}
         self.host_locks: dict[str, threading.Lock] = {}
         self.attempt: dict[str, int] = {}
+        # Remote namespace: unique per invocation, whatever --out is called (two runs may share a host).
+        self.run_key = f"{run_dir.name}-{uuid.uuid4().hex[:8]}"
         self.cache = CACHE / "compare"
         self.data = Path(args.data_dir).expanduser()
         self.evalfw = evalfw_id(TOOL_ROOT)
@@ -249,7 +252,7 @@ class Runner:
         position = self.order.index(name.split(RERUN_TAG, maxsplit=1)[0]) + attempts
         arm = lambda ref: {"sha": ref.sha, "label": ref.label, "src": f"{p['src']}/{ref.sha}",  # noqa: E731
                            "rust_tree": ref.rust_tree}
-        return {"run_id": self.run_dir.name, "model": m.to_dict(), "out": out, "gpu": slot.gpu,
+        return {"run_id": self.run_key, "model": m.to_dict(), "out": out, "gpu": slot.gpu,
                 "sessions": 2 if name in self.rerun_cases else self.args.sessions,
                 "order": ["base", "head"] if position % 2 == 0 else ["head", "base"],
                 "python": self.python(slot), "evalfw": p["evalfw"], "data": p["data"], "host_dir": slot.host_dir,
@@ -264,7 +267,7 @@ class Runner:
             self.attempt[name] = self.attempt.get(name, 0) + 1
             n = self.attempt[name]
         out = (str(self.run_dir / "attempts" / f"{name}.{n}") if local
-               else f"{slot.host_dir}/runs/{self.run_dir.name}/{name}.{n}")
+               else f"{slot.host_dir}/runs/{self.run_key}/{name}.{n}")
         job = self.job(slot, name, out)
         shutil.rmtree(dst, ignore_errors=True)   # nothing from a lost attempt may survive into this one
         jf = self.run_dir / "jobs" / f"{name}.json"
@@ -285,7 +288,9 @@ class Runner:
         self.set(name, status="running", slot=slot.name, started=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         self.log(f"{slot.name}: {name} started (order {' then '.join(job['order'])})")
         # SIGTERM lets the job stop its server (up to 50 s); after two minutes, its session and the server's go.
-        kill = (f"kill -TERM {pid} 2>/dev/null; for i in $(seq 120); do kill -0 {pid} 2>/dev/null || break; "
+        # A zombie (a container whose init does not reap) answers kill -0, so liveness reads the process state.
+        is_alive = f'case "$(ps -o stat= -p {pid} 2>/dev/null)" in ""|Z*) false;; *) true;; esac'
+        kill = (f"kill -TERM {pid} 2>/dev/null; for i in $(seq 120); do {is_alive} || break; "
                 f"sleep 1; done; kill -KILL -{pid} 2>/dev/null; g=$(cat {q(out)}/server.pgid 2>/dev/null) && "
                 "kill -KILL -- -$g 2>/dev/null; true")
         done, dead = None, 0
@@ -295,7 +300,7 @@ class Runner:
                 done = {"status": "interrupted", "reason": "compare was stopped"}
                 break
             try:
-                r = t.sh(f"touch {q(out)}/lease; kill -0 {pid} 2>/dev/null && echo A:1 || echo A:0; "
+                r = t.sh(f"touch {q(out)}/lease; {is_alive} && echo A:1 || echo A:0; "
                          f"echo \"S:$(cat {q(out)}/status.json 2>/dev/null)\"; "
                          f"echo \"D:$(cat {q(out)}/done.json 2>/dev/null)\"", timeout=60)
             except hosts.HostLostError:
