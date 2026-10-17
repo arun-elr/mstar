@@ -26,6 +26,7 @@ from benchmark.eval.e2e.report import RERUN_TAG
 TOOL_ROOT = Path(__file__).resolve().parents[3]
 CACHE = Path("~/.cache/mstar-eval").expanduser()
 POLL_S = 15
+LEASE_S = 600           # a job whose lease compare has not renewed this long stops itself (arm.watch_lease)
 GPU_TYPES = ("gb200", "b200", "h200", "h100", "a100", "l40s", "l4", "a10g")
 FETCH_EXCLUDE = ("audio/",)   # saved outputs and audio stay on the host; compare.json already holds their facts
 
@@ -154,6 +155,13 @@ class Runner:
         self.data = Path(args.data_dir).expanduser()
         self.evalfw = evalfw_id(TOOL_ROOT)
 
+    def redact(self, text: str) -> str:
+        """Host names out of anything that can reach the report (run state reasons)."""
+        names = {n for s in self.slots for n in (s.transport.name, s.transport.name.rpartition("@")[2])}
+        for name in sorted(names - {"local", ""}, key=len, reverse=True):
+            text = text.replace(name, "<host>")
+        return text
+
     def log(self, msg: str) -> None:
         line = f"[{time.strftime('%H:%M:%S')}] {msg}"
         print(line, file=sys.stderr, flush=True)
@@ -227,7 +235,8 @@ class Runner:
                 "sessions": 2 if name in self.rerun_cases else self.args.sessions,
                 "order": ["base", "head"] if position % 2 == 0 else ["head", "base"],
                 "python": self.python(slot), "evalfw": p["evalfw"], "data": p["data"], "host_dir": slot.host_dir,
-                "datasets": self.man.datasets, "arms": {"base": arm(self.base), "head": arm(self.head)}}
+                "datasets": self.man.datasets, "arms": {"base": arm(self.base), "head": arm(self.head)},
+                "lease_s": LEASE_S}
 
     def run_one(self, slot: hosts.Slot, name: str) -> str | None:
         self.prepare(slot)
@@ -239,7 +248,7 @@ class Runner:
         jf.parent.mkdir(exist_ok=True)
         jf.write_text(json.dumps(job, indent=1))
         q = shlex.quote
-        t.sh(f"rm -rf {q(out)} && mkdir -p {q(out)}", timeout=120)
+        t.sh(f"rm -rf {q(out)} && mkdir -p {q(out)} && touch {q(out)}/lease", timeout=120)
         t.push(jf, f"{out}/job.json")
         # `cd x || exit` then a plain background command: `cd x && cmd &` would background a subshell that holds
         # the caller's stdout (so ssh waits for the job) and whose pid is not the job's.
@@ -252,16 +261,24 @@ class Runner:
         t0 = time.time()
         self.set(name, status="running", slot=slot.name, started=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         self.log(f"{slot.name}: {name} started (order {' then '.join(job['order'])})")
+        # SIGTERM lets the job stop its servers; whatever is left of its session goes after a minute.
+        kill = (f"kill -TERM {pid} 2>/dev/null; for i in $(seq 60); do kill -0 {pid} 2>/dev/null || break; "
+                f"sleep 1; done; kill -KILL -{pid} 2>/dev/null; true")
         done, dead = None, 0
         while done is None:
             if self.stop.wait(POLL_S):
-                # SIGTERM lets the job stop its server; whatever is left of its session goes after a minute.
-                t.sh(f"kill -TERM {pid} 2>/dev/null; for i in $(seq 60); do kill -0 {pid} 2>/dev/null || break; "
-                     f"sleep 1; done; kill -KILL -{pid} 2>/dev/null; true", timeout=120)
+                t.sh(kill, timeout=120)
                 done = {"status": "interrupted", "reason": "compare was stopped"}
                 break
-            r = t.sh(f"cat {q(out)}/done.json 2>/dev/null || {{ kill -0 {pid} 2>/dev/null && echo ALIVE || echo DEAD; "
-                     f"cat {q(out)}/status.json 2>/dev/null; }}", timeout=60)
+            try:
+                r = t.sh(f"touch {q(out)}/lease; cat {q(out)}/done.json 2>/dev/null || {{ kill -0 {pid} 2>/dev/null "
+                         f"&& echo ALIVE || echo DEAD; cat {q(out)}/status.json 2>/dev/null; }}", timeout=60)
+            except hosts.HostLostError:
+                try:   # best effort; otherwise the job stops itself when its lease runs out
+                    t.sh(kill, timeout=90)
+                except Exception:  # noqa: BLE001
+                    pass
+                raise
             text = r.stdout.strip()
             if text.startswith("{"):
                 try:
@@ -277,8 +294,8 @@ class Runner:
                 self.set(name, progress=text.splitlines()[-1][:200] if len(text.splitlines()) > 1 else "")
         t.pull(out, dst, FETCH_EXCLUDE)
         elapsed = time.time() - t0
-        self.set(name, status=done.get("status"), reason=done.get("reason", ""), elapsed_s=round(elapsed, 1),
-                 gpu_s=round(elapsed, 1))
+        self.set(name, status=done.get("status"), reason=self.redact(done.get("reason", "")),
+                 elapsed_s=round(elapsed, 1), gpu_s=round(elapsed, 1))
         self.log(f"{slot.name}: {name} {done.get('status')} in {elapsed / 60:.1f} min"
                  + (f" ({done['reason']})" if done.get("reason") else ""))
         return self.maybe_rerun(name) if done.get("status") == "done" else None
@@ -329,6 +346,8 @@ def cmd_compare(args) -> int:
         return code
     if not args.head:
         raise SystemExit("compare needs --head (or --render / --list)")
+    if args.out and (Path(args.out) / "run.json").exists():
+        raise SystemExit(f"{args.out} already holds a run; pass a new --out (reruns and results would mix)")
     models = man.select(args.models, include_optional=args.rp)
     if not models:
         raise SystemExit("no models selected")
@@ -384,7 +403,7 @@ def _run(args, man, models, base, head, slots) -> int:
         runner.log(f"{slot.name}: host lost during {name} ({e}); requeued for the other slots")
 
     def error(slot, name, e):
-        runner.set(name, status="error", reason=f"{type(e).__name__}: {str(e)[:300]}")
+        runner.set(name, status="error", reason=runner.redact(f"{type(e).__name__}: {str(e)[:300]}"))
         runner.log(f"{slot.name}: {name} error: {e}")
 
     def given_up(name):
