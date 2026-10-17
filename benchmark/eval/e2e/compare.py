@@ -42,8 +42,8 @@ def gpu_type(name: str) -> str:
 
 def add_args(sub) -> None:
     p = sub.add_parser("compare", allow_abbrev=False, help="base vs head on the same GPUs: correctness and perf")
-    p.add_argument("--base", default="main", help="branch, commit or PR number (default main)")
-    p.add_argument("--head", help="branch, commit or PR number (548 or #548)")
+    p.add_argument("--base", default="main", help="branch, PR number, commit or local ref such as HEAD (default main)")
+    p.add_argument("--head", help="branch, PR number (548 or #548), commit or local ref such as HEAD")
     p.add_argument("--models", default="all", help="all, names, tag:<tag>, -name / -tag:<tag>; comma-separated")
     p.add_argument("--rp", action="store_true", help="also run the request-path and served-invariant cases")
     p.add_argument("--sessions", type=int, default=1, help="server sessions per arm, order alternated (2 = ABBA)")
@@ -83,7 +83,7 @@ def render(run_dir: Path, man: mf.Manifest, calibration: str, chart_url: str | N
         print(f"no A/A noise floor on {run.get('gpu')} for: {', '.join(bare)}. Calibrate with python -m "
               f"benchmark.eval compare --base main --head main --models {','.join(bare)}, then python -m "
               "benchmark.eval calibrate <that run dir>", file=sys.stderr)
-    return md, 1 if any(r.flagged for r in rows) else 0
+    return md, 1 if any(r.flagged for r in rows) else 2 if any(r.unfinished for r in rows) else 0
 
 
 def cmd_calibrate(args) -> int:

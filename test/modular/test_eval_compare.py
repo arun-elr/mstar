@@ -1194,3 +1194,67 @@ def test_a_truncated_request_path_result_fails_its_row_and_spares_the_others(tmp
     res = checks.compare_model(md, cases, 1)
     assert res["rp"] == [{"missing": ["head"]}] and res["t"] == [{"missing": ["base", "head"]}]
     assert report.judge_correct(case("status_match"), res["rp"], {})[0] == "FAIL"
+
+
+def test_a_head_that_does_not_build_is_flagged_and_rows_without_a_verdict_exit_2(tmp_path, monkeypatch):
+    from benchmark.eval.e2e import arm
+    m = chat_model()
+    man = mf.Manifest(models={"m": m}, datasets={}, defaults={})
+    calib = tmp_path / "calib.yaml"
+    calib.write_text("{}\n")
+    monkeypatch.setattr(arm, "build_rust", lambda a: "mstar_rust build failed: boom" if a["src"] == "h" else None)
+    monkeypatch.setattr(arm, "job", {"model": {"name": "m", "cases": [], "serve_args": []}, "order": ["base", "head"],
+                                     "sessions": 1, "arms": {"base": {"src": "b", "rust_tree": "t1"},
+                                                             "head": {"src": "h", "rust_tree": "t2"}}})
+    rd = tmp_path / "run"
+    md = rd / "results" / "m"
+    md.mkdir(parents=True)
+    monkeypatch.setattr(arm, "out", md)
+    arm.run()
+    assert json.loads((md / "done.json").read_text())["broken"] == "head"
+    (rd / "run.json").write_text(json.dumps({**RUN, "models": ["m"]}))
+    r = report.build_rows(rd, [m], calibration={})[0]
+    assert r.flagged and r.correct == "FAIL" and r.verdict() == "**head does not build**"
+    assert compare.render(rd, man, str(calib))[1] == 1
+    for broken, verdict, code in (("base", "base does not build", 2), (None, "error: job failed", 2)):
+        (md / "done.json").write_text(json.dumps({"status": "error", "reason": "job failed",
+                                                  **({"broken": broken} if broken else {})}))
+        r = report.build_rows(rd, [m], calibration={})[0]
+        assert not r.flagged and r.unfinished and r.verdict() == verdict
+        assert compare.render(rd, man, str(calib))[1] == code
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    finish(rd, md)
+    assert compare.render(rd, man, str(calib))[1] == 0
+
+
+def test_a_local_ref_resolves_to_this_checkout_not_the_remote(tmp_path):
+    repo, clone = tmp_path / "repo", tmp_path / "clone"
+    repo.mkdir()
+    git = ["-c", "user.email=t@t", "-c", "user.name=t"]
+    subprocess.run(["git", "-C", str(repo), *git, "init", "-q", "-b", "main"], check=True)
+    (repo / "a.txt").write_text("one")
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repo), *git, "commit", "-q", "-m", "one"], check=True)
+    subprocess.run(["git", "clone", "-q", str(repo), str(clone)], check=True)
+    (clone / "a.txt").write_text("unpushed")
+    subprocess.run(["git", "-C", str(clone), *git, "commit", "-q", "-am", "unpushed"], check=True)
+    subprocess.run(["git", "-C", str(clone), "tag", "v1"], check=True)
+    local = trees.git(clone, "rev-parse", "HEAD")
+    assert local != trees.git(repo, "rev-parse", "HEAD")
+    head = trees.resolve(clone, "HEAD", remote="origin")
+    assert head.sha == local and head.label == f"HEAD ({local[:9]})"
+    assert trees.resolve(clone, "v1", remote="origin").sha == local
+    assert trees.resolve(clone, "HEAD~1", remote="origin").sha == trees.git(repo, "rev-parse", "HEAD")
+    assert trees.resolve(clone, "main", remote="origin").sha == trees.git(repo, "rev-parse", "HEAD")  # a branch: fresh
+
+
+def test_truncated_text_replies_fail_even_when_enough_others_are_identical():
+    fox = "the quick brown fox jumps over the lazy dog"
+    facts = checks.text_facts([(fox, fox)] * 8 + [(fox, fox[:14])] * 4 + [(fox, "")] * 4)
+    assert facts["text_identical"] == 8 and facts["text_truncated"] == 8
+    assert checks.text_facts([(fox, fox.replace("the lazy", "a lazy")), (fox, fox[:-4])])["text_truncated"] == 0
+    c = case("text_match", min_match=0.5)
+    v, detail = report.judge_correct(c, [facts], {})
+    assert v == "FAIL" and "8 head replies are base's cut short" in detail
+    assert report.judge_correct(c, [{**facts, "text_truncated": 0}], {})[0] == "pass"

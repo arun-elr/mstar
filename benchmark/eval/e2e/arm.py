@@ -292,6 +292,12 @@ def watch_lease(lease_s: float) -> None:
             return
 
 
+def _broken(problems: dict[str, str | None]) -> dict:
+    """``{"broken": arm}`` when exactly one arm failed to build: the report fails a head that cannot build."""
+    bad = [a for a, p in problems.items() if p]
+    return {"broken": bad[0]} if len(bad) == 1 else {}
+
+
 def run() -> None:
     model = job["model"]
     arms = job["arms"]
@@ -305,12 +311,15 @@ def run() -> None:
     problems = {a: built[arm.get("rust_tree")][0] for a, arm in arms.items()}
     if any(problems.values()) and arms["base"].get("rust_tree") != arms["head"].get("rust_tree"):
         bad = [f"{a}: {p}" for a, p in problems.items() if p]
-        return done("error", reason="base and head have different rust/ trees and one did not build: " + "; ".join(bad))
+        return done("error", reason="base and head have different rust/ trees and one did not build: " + "; ".join(bad),
+                    **_broken(problems))
     if any("{rust_server_bin}" in a for a in model.get("serve_args", [])):
-        for arm in arms.values():
-            problem = build_rust_server(arm)
-            if problem:
-                return done("skipped", reason=problem)
+        if not shutil.which("cargo"):
+            return done("skipped", reason="the Rust frontend needs cargo on the host")
+        problems = {a: build_rust_server(arm) for a, arm in arms.items()}
+        if any(problems.values()):
+            bad = [f"{a}: {p}" for a, p in problems.items() if p]
+            return done("error", reason="; ".join(bad), **_broken(problems))
     missing = {a: requirements_problem(arm) for a, arm in arms.items()}
     if all(missing.values()):
         return done("skipped", reason=f"environment lacks: {missing['base']}")

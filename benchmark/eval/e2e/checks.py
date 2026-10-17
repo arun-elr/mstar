@@ -20,6 +20,7 @@ import numpy as np
 from benchmark.eval.schema import validate
 
 PCM_RATE = 24000
+TRUNCATED_RATIO = 0.8   # a head reply that is base's reply cut below this share of its length is truncated
 
 
 def psnr(a: np.ndarray, b: np.ndarray) -> float:
@@ -57,8 +58,10 @@ def _try_load(p: Path) -> Any:
 
 def text_facts(pairs: list[tuple[str, str]]) -> dict:
     """Identity plus how close the texts are: greedy decoding forks at near-ties across server processes, so a
-    late fork is not a regression, while an empty, truncated or unrelated reply is."""
+    late fork is not a regression, while an empty, truncated or unrelated reply is. ``text_truncated`` counts head
+    replies that are base's reply cut short (a strict prefix under ``TRUNCATED_RATIO`` of its length)."""
     sims, prefix, ratio = [], [], []
+    cut = [x != y and x.startswith(y) and len(y) < TRUNCATED_RATIO * len(x) for x, y in pairs]
     for x, y in pairs:
         sims.append(difflib.SequenceMatcher(None, x, y, autojunk=False).ratio() if x or y else 1.0)
         k = next((i for i, (u, v) in enumerate(zip(x, y, strict=False)) if u != v), min(len(x), len(y)))
@@ -66,7 +69,8 @@ def text_facts(pairs: list[tuple[str, str]]) -> dict:
         ratio.append(len(y) / len(x) if x else (1.0 if not y else 0.0))
     return {"text_identical": sum(x == y for x, y in pairs), "text_n": len(pairs),
             "text_sim_median": statistics.median(sims), "text_prefix_median": statistics.median(prefix),
-            "text_len_ratio_median": statistics.median(ratio), "text_len_ratio_min": min(ratio)}
+            "text_len_ratio_median": statistics.median(ratio), "text_len_ratio_min": min(ratio),
+            "text_truncated": sum(cut)}
 
 
 def saved(a: Path | None, b: Path | None) -> dict:
