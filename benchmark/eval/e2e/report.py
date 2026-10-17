@@ -545,7 +545,8 @@ def point_gaps(a: _Arms, files: dict[str, list[Path]], c: Case) -> tuple[list[st
     return fmt(base - head), fmt(expected - base)   # base missing a point: nothing to judge head against
 
 
-def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = None) -> list[Row]:
+def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = None,
+               reruns: bool = True) -> list[Row]:
     if calibration is None:
         from benchmark.eval.e2e import calibrate
 
@@ -556,7 +557,7 @@ def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = No
     res = run_dir / "results"
     for m in models:
         first = _Arms.load(res / m.name)
-        rerun = _Arms.load(res / (m.name + RERUN_TAG)) if (res / (m.name + RERUN_TAG)).exists() else None
+        rerun = _Arms.load(res / (m.name + RERUN_TAG)) if reruns and (res / (m.name + RERUN_TAG)).exists() else None
         for c in m.cases:
             r = _row(first, m, c, status.get(m.name, {}), gpu, calibration)
             if rerun and rerun.done.get("status") == "done" and any(rerun.files(c.id).values()):

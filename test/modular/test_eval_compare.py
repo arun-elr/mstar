@@ -108,9 +108,11 @@ def test_shipped_manifest():
     for x in m.models.values():
         for c in x.cases:
             assert not c.data or c.data in m.datasets
-    # every calibration entry names a shipped model and case
+    # the shipped calibration is in the tree and every entry names a shipped model and case
     cases = {(x.name, c.id) for x in m.models.values() for c in x.cases}
-    for key in (k for k in calibrate.load() if not k.startswith("_")):
+    shipped = calibrate.load()
+    assert len(shipped) > 100 and calibrate.DEFAULT.suffix == ".yaml"
+    for key in (k for k in shipped if not k.startswith("_")):
         model, case = key.split(":", 1)[1].split("/")[:2]
         assert (model, case) in cases, key
 
@@ -1053,7 +1055,7 @@ def test_a_zombie_job_counts_as_dead():
 
 def test_inputs_are_keyed_by_content_and_calibration_by_invocation(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
-    for d, text in ((a, "one"), (b, "three")):
+    for d, text in ((a, "one"), (b, "two")):                                 # same names, same sizes
         (d / "media").mkdir(parents=True)
         (d / "media" / "x.txt").write_text(text)
     assert compare.tree_id(a) != compare.tree_id(b) and compare.tree_id(a) == compare.tree_id(a)
@@ -1065,3 +1067,49 @@ def test_inputs_are_keyed_by_content_and_calibration_by_invocation(tmp_path):
         finish(rd, md, run={"head": RUN["base"], "id": f"aa-{root}"})
         assert calibrate.add_run(rd, [chat_model()], path) > 0
     assert len(calibrate.load(path)["h200:m/c/lat_p50_s@c1"]["deltas"]) == 2
+
+
+def test_calibration_keeps_the_drift_that_triggered_an_abba_rerun(tmp_path):
+    rd, md, rr = tmp_path, tmp_path / "results" / "m", tmp_path / "results" / "m__abba"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.1, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)       # one session: -10% at c=1
+    finish(rd, md, run={"head": RUN["base"], "id": "aa"})
+    for s, (b, h) in enumerate(((1.0, 1.1), (1.1, 1.0))):                       # ABBA: it cancels out
+        write_arm(rr, "base", [(b, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0, session=s)
+        write_arm(rr, "head", [(h, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0, session=s)
+    (rr / "done.json").write_text(json.dumps({"status": "done"}))
+    (rr / "compare.json").write_text(json.dumps({"c": [{"text_n": 8, "text_identical": 8}] * 2}))
+    path = tmp_path / "cal.yaml"
+    calibrate.add_run(rd, [chat_model()], path)
+    deltas = calibrate.load(path)["h200:m/c/lat_p50_s@c1"]["deltas"]
+    assert -10.0 in deltas and calibrate.floor_pct(calibrate.load(path), "h200:m/c/lat_p50_s@c1") == 15.0
+    assert path.read_text().startswith("# A/A noise floors")
+    calibrate.save(calibrate.load(path), tmp_path / "cal.json")                  # a private JSON copy round-trips
+    assert calibrate.load(tmp_path / "cal.json") == calibrate.load(path)
+
+
+def test_concurrent_exports_of_one_commit_both_get_a_whole_tree(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git = ["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t"]
+    subprocess.run([*git, "init", "-q", "-b", "main"], check=True)
+    for i in range(200):
+        (repo / f"f{i}.txt").write_text("x" * 1000)
+    subprocess.run([*git, "add", "."], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "one"], check=True)
+    sha = trees.resolve(repo, "main", remote="origin").sha
+    dest, errors = tmp_path / "src" / sha, []
+
+    def go():
+        try:
+            trees.export(repo, sha, dest)
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    ts = [threading.Thread(target=go) for _ in range(4)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert not errors and len(list(dest.glob("f*.txt"))) == 200 and (dest / ".complete").exists()
+    assert {p.name for p in dest.parent.iterdir()} == {sha, f".{sha}.lock"}           # no temp dirs left

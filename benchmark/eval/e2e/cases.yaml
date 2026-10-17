@@ -25,7 +25,7 @@
 #
 # Perf: `latency` is the c=1 metric (lower is better), `throughput` the c=max metric (higher is better), `extra` are
 # shown in the details. A delta is a regression when it is worse than perf_pct, beyond noise_sigma combined standard
-# deviations of the passes, and beyond the row's A/A noise floor (calibration.json).
+# deviations of the passes, and beyond the row's A/A noise floor (calibration.yaml).
 #
 # `est_min` (GPU minutes per arm, H200) only orders the queue: longest model first.
 

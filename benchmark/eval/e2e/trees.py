@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import fcntl
 import re
 import shutil
 import subprocess
 import tarfile
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -66,17 +68,28 @@ def _ref(repo: Path, spec: str, sha: str, label: str) -> Ref:
 
 
 def export(repo: Path, sha: str, dest: Path) -> Path:
-    """``git archive`` of the commit into ``dest`` (once; ``.complete`` marks a finished export)."""
+    """``git archive`` of the commit into ``dest``, once: built beside it and renamed into place under a lock, so
+    concurrent runs exporting the same commit never see or disturb a half-written tree."""
     if (dest / ".complete").exists():
         return dest
-    shutil.rmtree(dest, ignore_errors=True)
-    dest.mkdir(parents=True)
-    tar = dest.with_suffix(".tar")
-    with open(tar, "wb") as f:
-        if subprocess.run(["git", "-C", str(repo), "archive", "--format=tar", sha], stdout=f, check=False).returncode:
-            raise TreeError(f"git archive {sha} failed")
-    with tarfile.open(tar) as t:
-        t.extractall(dest, filter="data")
-    tar.unlink()
-    (dest / ".complete").touch()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with open(dest.parent / f".{dest.name}.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if (dest / ".complete").exists():
+            return dest
+        work = Path(tempfile.mkdtemp(prefix=f".{dest.name}.", dir=dest.parent))
+        try:
+            tar = work / "src.tar"
+            with open(tar, "wb") as f:
+                if subprocess.run(["git", "-C", str(repo), "archive", "--format=tar", sha], stdout=f,
+                                  check=False).returncode:
+                    raise TreeError(f"git archive {sha} failed")
+            tree = work / "tree"
+            with tarfile.open(tar) as t:
+                t.extractall(tree, filter="data")
+            (tree / ".complete").touch()
+            shutil.rmtree(dest, ignore_errors=True)   # a partial tree from an older, unlocked attempt
+            tree.rename(dest)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
     return dest
