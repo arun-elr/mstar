@@ -616,8 +616,8 @@ class Qwen3TTSModel(Model):
     # -----------------------------------------------------------------------
 
     # Prompt templates of the reference ``qwen_tts`` inference wrapper. The
-    # assistant wrapper is fixed at 3 + 5 tokens (see ``_validate_chatml``),
-    # which is how the text span is located inside the tokenized turn.
+    # assistant wrapper is fixed at 3 + 5 tokens (``_check_chatml`` verifies it
+    # on the host), which is how the text span is located inside the tokenized turn.
     ASSISTANT_TEMPLATE = "<|im_start|>assistant\n{text}<|im_end|>\n<|im_start|>assistant\n"
     INSTRUCT_TEMPLATE = "<|im_start|>user\n{instruct}<|im_end|>\n"
     REFERENCE_TEMPLATE = "<|im_start|>assistant\n{text}<|im_end|>\n"
