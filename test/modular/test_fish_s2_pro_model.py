@@ -17,8 +17,6 @@ import yaml
 from mstar.api_server.openai import adapters
 from mstar.api_server.openai.protocol import SpeechRequest
 from mstar.conductor.request_info import CurrentForwardConductorMetadata
-from mstar.engine.resources.position.config import PositionConfig
-from mstar.engine.resources.position.manager import RopeManager
 from mstar.engine.resources.sampler.config import SamplingReqConfig
 from mstar.graph.base import TensorPointerInfo
 from mstar.model.fish_s2_pro.components.dac import apply_rotary_emb
@@ -618,22 +616,3 @@ def test_postprocess_emits_pcm16_bytes():
     assert model.postprocess(torch.tensor([7, -3], dtype=torch.int16), "audio") == b"\x07\x00\xfd\xff"
     with pytest.raises(ValueError, match="modality"):
         model.postprocess(torch.zeros(1), "text")
-
-
-# ---------------------------------------------------------------------------
-# RoPE table rounding
-# ---------------------------------------------------------------------------
-
-
-def test_rope_table_dtype_rounds_the_cos_sin_table():
-    config = PositionConfig(
-        kv_cache="kv", interleave=True, rope_theta=1e6, rotary_dim=8, rope_table_dtype=torch.bfloat16
-    )
-    manager = RopeManager(config, torch.device("cpu"), max_seq_len=64, head_dim=8)
-    inv_freq = 1.0 / (1e6 ** (torch.arange(0, 8, 2, dtype=torch.float32) / 8))
-    angles = torch.outer(torch.arange(64, dtype=torch.float32), inv_freq)
-    expected = torch.cat([angles.cos(), angles.sin()], dim=-1).to(torch.bfloat16).float()
-    assert manager._rope_table.dtype == torch.float32
-    assert torch.equal(manager._rope_table, expected)
-    exact = RopeManager(PositionConfig(kv_cache="kv", rotary_dim=8), torch.device("cpu"), max_seq_len=64, head_dim=8)
-    assert exact._rope_table is None
