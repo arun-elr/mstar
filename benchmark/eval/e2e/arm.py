@@ -47,12 +47,19 @@ def log(msg: str) -> None:
     print(f"[{now()}] {msg}", flush=True)
 
 
+def _publish(name: str, data: dict) -> None:
+    """Written whole or not at all (a reader never sees a truncated file), on one line."""
+    tmp = out / f".{name}.tmp"
+    tmp.write_text(json.dumps(data))
+    os.replace(tmp, out / name)
+
+
 def status(**kw) -> None:
-    (out / "status.json").write_text(json.dumps({"t": now(), **kw}))
+    _publish("status.json", {"t": now(), **kw})
 
 
 def done(state: str, **kw) -> None:
-    (out / "done.json").write_text(json.dumps({"status": state, "t": now(), **kw}))
+    _publish("done.json", {"status": state, "t": now(), **kw})
 
 
 def gpu_mem_mb() -> int:

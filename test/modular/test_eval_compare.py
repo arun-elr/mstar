@@ -1002,3 +1002,12 @@ def test_a_job_killed_during_head_fails_the_rows_head_never_answered(tmp_path):
     (md / "done.json").write_text(json.dumps({"status": "error", "reason": "the job exited without a result"}))
     r = report.build_rows(rd, [chat_model()], calibration={})[0]
     assert r.flagged and r.correct_detail.startswith("head wrote no results for s0 c=1, s0 c=8")
+
+
+def test_poll_output_parsing_treats_a_truncated_done_json_as_absent():
+    p = compare.parse_poll
+    assert p('A:1\nS:{"phase": "case"}\nD:\n') == (True, '{"phase": "case"}', None)
+    assert p('A:0\nS:{"phase": "done"}\nD:{"status": "done"}') == (False, '{"phase": "done"}', {"status": "done"})
+    assert p('A:0\nS:{"phase": "case"}\nD:{"status": "do') == (False, '{"phase": "case"}', None)
+    assert p('A:0\nS:\nD:{"status": "skipped"}') == (False, "", {"status": "skipped"})   # ended before any status
+    assert p("") == (False, "", None)
