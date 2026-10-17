@@ -386,6 +386,10 @@ class ExecutingBatch:
         if not rids:
             return
         self.request_ids = [rid for rid in self.request_ids if rid not in rids]
+        # A row that does not run this step must not end its streams on it:
+        # the worker would stop its loop and finalize a row it no longer has.
+        self.final_stream_rids.difference_update(rids)
+        self.stream_partition_done_rids.difference_update(rids)
         self.per_request_info = {
             rid: info for rid, info in self.per_request_info.items()
             if rid not in rids
