@@ -245,7 +245,7 @@ def run_slots(slots: list[Slot], queue: WorkQueue, run_one: Callable[[Slot, str]
         while any(t.is_alive() for t in threads):
             for t in threads:
                 t.join(timeout=1)
-    except KeyboardInterrupt:
+    except BaseException:   # Ctrl-C, or SIGTERM / SIGHUP turned into SystemExit by the CLI
         queue.stop()
         if stop is not None:
             stop.set()   # run_one sees it, stops its job on the host and returns

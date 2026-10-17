@@ -16,6 +16,8 @@ from typing import Any
 
 import numpy as np
 
+from benchmark.eval.schema import validate
+
 PCM_RATE = 24000
 
 
@@ -110,9 +112,13 @@ def saved_dir(case_dir: Path, conc: int) -> Path | None:
 
 
 def eval_file(d: Path, conc: int) -> dict | None:
+    """The point's results, or None when there are none or the file is not a complete result (truncated)."""
     for f in sorted(d.glob(f"*-c{conc}.json")):
-        js = json.loads(f.read_text())
-        if js.get("schema") == "mstar-eval/1":
+        try:
+            js = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        if validate(js) == [] and js["repeats"] and isinstance(js.get("summary"), dict):
             return js
     return None
 

@@ -86,7 +86,8 @@ def wait_gpu_idle(limit_s: float = 180) -> int:
 
 
 def base_env() -> dict[str, str]:
-    env = {"PYTHONUNBUFFERED": "1"}
+    # As if the environment were activated: JIT builds (FlashInfer's ninja, Triton) look for tools on PATH.
+    env = {"PYTHONUNBUFFERED": "1", "PATH": f"{Path(sys.executable).parent}{os.pathsep}{os.environ.get('PATH', '')}"}
     if job.get("gpu") is not None:
         env["CUDA_VISIBLE_DEVICES"] = str(job["gpu"])
     return env
