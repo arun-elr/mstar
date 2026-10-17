@@ -1113,3 +1113,21 @@ def test_concurrent_exports_of_one_commit_both_get_a_whole_tree(tmp_path):
         t.join()
     assert not errors and len(list(dest.glob("f*.txt"))) == 200 and (dest / ".complete").exists()
     assert {p.name for p in dest.parent.iterdir()} == {sha, f".{sha}.lock"}           # no temp dirs left
+
+
+def test_a_lost_host_retires_all_its_gpus_so_the_retry_lands_elsewhere():
+    q = hosts.WorkQueue(["a"], {})
+    bad0, bad1, good = (hosts.Slot(Namespace(name=n), g) for n, g in (("u@bad", 0), ("u@bad", 1), ("u@good", 0)))
+    ran, gave_up, release = [], [], threading.Event()
+
+    def run_one(s, name):
+        if s.transport.name == "u@bad":
+            raise hosts.HostLostError("gone")
+        release.wait(2)             # usually a slot of the bad host took "a" first and lost it
+        ran.append((s.name, name))
+
+    def lost(s, name, e):
+        release.set()
+
+    hosts.run_slots([bad0, bad1, good], q, run_one, on_lost=lost, on_given_up=gave_up.append)
+    assert ran == [("u@good:0", "a")] and not gave_up

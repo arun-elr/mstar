@@ -179,6 +179,13 @@ class WorkQueue:
                 self.items.insert(0, rerun)
             self.cv.notify_all()
 
+    def give_back(self, name: str) -> None:
+        """Back to the front untried (the slot that took it may not run it)."""
+        with self.cv:
+            self.running.discard(name)
+            self.items.insert(0, name)
+            self.cv.notify_all()
+
     def requeue(self, name: str) -> bool:
         """Back to the front after a lost host; False once it has had MAX_ATTEMPTS."""
         with self.cv:
@@ -229,16 +236,22 @@ def run_slots(slots: list[Slot], queue: WorkQueue, run_one: Callable[[Slot, str]
                 if running[0] == 0:
                     all_done.set()
 
+    dead_hosts: set[str] = set()
+
     def work(slot: Slot) -> None:
         while True:
             name = queue.take(n_live)
             if name is None:
                 break
+            if slot.transport.name in dead_hosts:   # another GPU of this host lost it: leave the model to others
+                queue.give_back(name)
+                return
             try:
                 rerun = run_one(slot, name)
             except HostLostError as e:
-                with lock:
-                    live.discard(slot.name)
+                with lock:   # every GPU slot of that host retires, so a retry lands on another host
+                    dead_hosts.add(slot.transport.name)
+                    live.difference_update(s.name for s in slots if s.transport.name == slot.transport.name)
                 on_lost(slot, name, e)
                 if not queue.requeue(name):
                     on_given_up(name)
