@@ -1181,3 +1181,16 @@ def test_an_abba_rerun_keeps_a_correctness_failure_from_the_first_run(tmp_path):
     r = report.build_rows(rd, [chat_model()], calibration={})[0]
     assert r.rerun and r.latency.verdict == "same"                               # the timings come from the rerun
     assert r.flagged and r.correct == "FAIL" and r.correct_detail.startswith("first run:") and r.errors["head"] > 0
+
+
+def test_a_truncated_request_path_result_fails_its_row_and_spares_the_others(tmp_path):
+    md = tmp_path / "m"
+    for arm in ("base", "head"):
+        (md / arm / "s0" / "rp").mkdir(parents=True)
+        (md / arm / "s0" / "rp" / "rp.json").write_text(json.dumps({"x": {"status": 200}}))
+        (md / arm / "s0" / "t").mkdir(parents=True)
+    (md / "head" / "s0" / "rp" / "rp.json").write_text('{"x": {"sta')            # killed while writing
+    cases = [{"id": "rp", "driver": "rp", "conc": [1]}, {"id": "t", "driver": "suite", "conc": [1]}]
+    res = checks.compare_model(md, cases, 1)
+    assert res["rp"] == [{"missing": ["head"]}] and res["t"] == [{"missing": ["base", "head"]}]
+    assert report.judge_correct(case("status_match"), res["rp"], {})[0] == "FAIL"
