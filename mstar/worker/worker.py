@@ -2841,6 +2841,9 @@ class Worker:
                 valid_rids.discard(stopped_rid)
                 batch_N.batch.request_to_worker_graph.pop(stopped_rid, None)
                 batch_N.node_batch.per_request_info.pop(stopped_rid, None)
+                # its loop already stopped; see ExecutingBatch.drop_rids
+                batch_N.node_batch.final_stream_rids.discard(stopped_rid)
+                batch_N.node_batch.stream_partition_done_rids.discard(stopped_rid)
         # keep the forward's order: other code walks this list positionally
         batch_N.node_batch.request_ids = [
             rid for rid in batch_N.node_batch.request_ids if rid in valid_rids
@@ -2936,6 +2939,10 @@ class Worker:
             failed = dict(batch_N.node_batch.failed_requests)
             self._drop_failed_rids(batch_N, outputs, failed)
             self._fail_requests(failed)
+            # `stops` was filled above, before these rows left the batch;
+            # stopping one would finalize state the drop just removed
+            for rid in failed:
+                stops.pop(rid, None)
             if not batch_N.node_batch.request_ids:
                 if self.enable_nvtx:
                     range_pop(synchronize=False)
@@ -3507,6 +3514,9 @@ class Worker:
             # rids (check_stop, below the forward) can tell its own from these
             # and doesn't report them to the conductor twice.
             pending.node_batch.failed_requests.pop(rid, None)
+            # its streams do not end here; see ExecutingBatch.drop_rids
+            pending.node_batch.final_stream_rids.discard(rid)
+            pending.node_batch.stream_partition_done_rids.discard(rid)
         pending.node_batch.request_ids = [
             rid for rid in pending.node_batch.request_ids
             if rid not in failed_requests
