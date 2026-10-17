@@ -377,7 +377,9 @@ def main(argv: list[str] | None = None) -> None:
     with tempfile.TemporaryDirectory(prefix="mstar-rp-") as scratch:
         res = SUITES[a.suite](a.url.rstrip("/"), Path(a.inputs), Path(scratch))
     res["_elapsed_s"] = round(time.perf_counter() - t0, 1)
-    Path(a.out).write_text(json.dumps(res, indent=1))
+    tmp = Path(a.out).with_suffix(".tmp")   # whole or not at all
+    tmp.write_text(json.dumps(res, indent=1))
+    os.replace(tmp, a.out)
 
 
 if __name__ == "__main__":

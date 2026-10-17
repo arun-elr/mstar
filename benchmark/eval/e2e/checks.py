@@ -161,11 +161,18 @@ def status_of(v: dict) -> str:
     return out
 
 
+def _rp(d: Path) -> dict | None:
+    try:
+        js = json.loads((d / "rp.json").read_text())
+    except (OSError, ValueError):   # absent, or cut short by a killed client
+        return None
+    return js if isinstance(js, dict) else None
+
+
 def rp_facts(a: Path, b: Path) -> dict:
-    fa, fb = a / "rp.json", b / "rp.json"
-    if not fa.exists() or not fb.exists():
-        return {"missing": [arm for arm, f in (("base", fa), ("head", fb)) if not f.exists()]}
-    ja, jb = json.loads(fa.read_text()), json.loads(fb.read_text())
+    ja, jb = _rp(a), _rp(b)
+    if ja is None or jb is None:
+        return {"missing": [arm for arm, j in (("base", ja), ("head", jb)) if j is None]}
     diffs = []
     keys = sorted(k for k in set(ja) | set(jb) if not k.startswith("_"))
     for k in keys:
@@ -187,12 +194,15 @@ def compare_model(model_dir: Path, cases: list[dict], sessions: int) -> dict:
         per_session = []
         for s in range(sessions):
             a, b = (model_dir / arm / f"s{s}" / case["id"] for arm in ("base", "head"))
-            if case["driver"] == "client":
-                facts = saved(saved_dir(a, conc), saved_dir(b, conc))
-            elif case["driver"] == "suite":
-                facts = suite_facts(a, b, conc)
-            else:
-                facts = rp_facts(a, b)
+            try:   # one unreadable case must not take the other cases' facts with it
+                if case["driver"] == "client":
+                    facts = saved(saved_dir(a, conc), saved_dir(b, conc))
+                elif case["driver"] == "suite":
+                    facts = suite_facts(a, b, conc)
+                else:
+                    facts = rp_facts(a, b)
+            except Exception as e:  # noqa: BLE001
+                facts = {"missing": ["base", "head"], "error": f"{type(e).__name__}: {str(e)[:200]}"}
             per_session.append(facts)
         if sessions > 1 and case["driver"] == "client":
             # Base against itself across two server processes: the noise floor for the identity checks.
