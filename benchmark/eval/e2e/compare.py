@@ -119,6 +119,18 @@ def evalfw_id(root: Path) -> str:
     return h.hexdigest()[:12]
 
 
+def parse_poll(text: str) -> tuple[bool, str, dict | None]:
+    """(job alive, status.json, done.json when it holds a whole JSON object) from the poll's ``A:``, ``S:`` and
+    ``D:`` lines (both files are one line). An unreadable done.json counts as none, so a job that died writing it
+    still ends up DEAD."""
+    fields = {ln[:2]: ln[2:].strip() for ln in text.splitlines() if ln[:2] in ("A:", "S:", "D:")}
+    try:
+        done = json.loads(fields["D:"]) if fields.get("D:") else None
+    except ValueError:
+        done = None
+    return fields.get("A:") == "1", fields.get("S:", ""), done if isinstance(done, dict) else None
+
+
 def is_local(slot: hosts.Slot) -> bool:
     return isinstance(slot.transport, hosts.LocalTransport)
 
@@ -283,28 +295,24 @@ class Runner:
                 done = {"status": "interrupted", "reason": "compare was stopped"}
                 break
             try:
-                r = t.sh(f"touch {q(out)}/lease; cat {q(out)}/done.json 2>/dev/null || {{ kill -0 {pid} 2>/dev/null "
-                         f"&& echo ALIVE || echo DEAD; cat {q(out)}/status.json 2>/dev/null; }}", timeout=60)
+                r = t.sh(f"touch {q(out)}/lease; kill -0 {pid} 2>/dev/null && echo A:1 || echo A:0; "
+                         f"echo \"S:$(cat {q(out)}/status.json 2>/dev/null)\"; "
+                         f"echo \"D:$(cat {q(out)}/done.json 2>/dev/null)\"", timeout=60)
             except hosts.HostLostError:
                 try:   # best effort; otherwise the job stops itself when its lease runs out
                     t.sh(kill, timeout=180)
                 except Exception:  # noqa: BLE001
                     pass
                 raise
-            text = r.stdout.strip()
-            if text.startswith("{"):
-                try:
-                    done = json.loads(text)
-                except ValueError:
-                    continue   # mid-write; read it on the next poll
-            elif text.startswith("DEAD"):
+            alive, progress, done = parse_poll(r.stdout)
+            if done is None and not alive:
                 dead += 1
                 if dead >= 2:   # killed outright (OOM, SIGKILL): its server's session may still hold the GPU
                     t.sh(kill, timeout=180)
                     done = {"status": "error", "reason": "the job exited without a result (see arm.log)"}
-            else:
+            elif done is None:
                 dead = 0
-                self.set(name, progress=text.splitlines()[-1][:200] if len(text.splitlines()) > 1 else "")
+                self.set(name, progress=progress[:200])
         part = dst.with_name(dst.name + ".partial")   # published only once the copy is complete
         shutil.rmtree(part, ignore_errors=True)
         t.pull(out, part, FETCH_EXCLUDE)
