@@ -426,8 +426,13 @@ def _run(args, man, models, base, head, slots) -> int:
     if args.dry_run:
         return 0
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    run_dir = Path(args.out or f"eval-results/compare/{stamp}-{re.sub(r'[^A-Za-z0-9.-]+', '_', head.label)}")
+    label = re.sub(r"[^A-Za-z0-9.-]+", "_", head.label)
+    run_dir = Path(args.out or f"eval-results/compare/{stamp}-{label}-{uuid.uuid4().hex[:6]}")
     run_dir.mkdir(parents=True, exist_ok=True)
+    try:   # reserve the directory: two invocations can never share one
+        (run_dir / "run.json").open("x").close()
+    except FileExistsError:
+        raise SystemExit(f"{run_dir} already holds a run; pass a new --out") from None
     data = Path(args.data_dir).expanduser()
     if not (data / "e2e-data.json").exists():
         print(f"building the inputs into {data} (once)", file=sys.stderr)
