@@ -66,8 +66,12 @@ class _Runtime:
     """Answers ``stop_loops_batched`` like the real runtime for a running
     dynamic loop: it does not know a rid failed until the REMOVE arrives."""
 
-    def __init__(self):
+    def __init__(self, pending_stops=()):
         self.stopped: list[int] = []
+        self.pending_stops = set(pending_stops)
+
+    def pending_loop_stop_rids(self, graph_walk, loop_name):
+        return set(self.pending_stops)
 
     def cleanup_consumed_inputs(self, node, rids, wgs):
         return [], []
@@ -128,10 +132,12 @@ def _worker(eng, runtime):
     return w
 
 
-def _postprocess(sub, rids=(1, 2)):
+def _postprocess(sub, rids=(1, 2), pending_stops=()):
     """What ``Worker.run`` does with a finished step: drop and report the rows
-    a per-rid stage failed, then postprocess the rest."""
-    eng, runtime = _engine(sub), _Runtime()
+    a per-rid stage failed, then postprocess the rest. ``pending_stops`` makes
+    the step a speculative new loop iteration whose rows in it already
+    stopped a step earlier."""
+    eng, runtime = _engine(sub), _Runtime(pending_stops)
     batch = _batch(rids)
     eng.prepare_inputs(batch)
     outputs = BatchedModelOutput(per_rid_outputs={
@@ -144,7 +150,8 @@ def _postprocess(sub, rids=(1, 2)):
             request_to_worker_graph=dict.fromkeys(rids, 0),
         ),
         node_batch=batch, node_name=NODE, partition="p", graph_walk=WALK,
-        future=Future(),
+        future=Future(), speculative_new_iter=bool(pending_stops),
+        loop_name=LOOP,
     )
     if batch.failed_requests:
         failed = dict(batch.failed_requests)
@@ -179,5 +186,13 @@ def test_a_failed_check_stop_row_does_not_fail_the_batch():
     batch, runtime, w = _postprocess(_Sub(bad={2}, stage="check_stop"))
     assert runtime.stopped == [1]
     assert set(w.reported) == {2}
+    assert batch.final_stream_rids == {1}
+    assert batch.stream_partition_done_rids == {1}
+
+
+def test_a_row_that_overstayed_its_loop_stop_is_not_stopped_again():
+    batch, runtime, w = _postprocess(_Sub(), pending_stops={2})
+    assert runtime.stopped == [1]
+    assert not w.reported
     assert batch.final_stream_rids == {1}
     assert batch.stream_partition_done_rids == {1}
