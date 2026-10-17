@@ -844,9 +844,9 @@ def _private_small_dev_shm_cmd(inner: str) -> list[str]:
             "mount -t tmpfs -o size=16m,mode=1777 tmpfs /dev/shm && " + inner]
 
 
-def test_a_full_dev_shm_spills_instead_of_crashing(tmp_path):
-    """Real tmpfs exhaustion: before segments were preallocated, the second
-    producer's copy into a sparse segment died with SIGBUS."""
+def _run_in_small_dev_shm(tmp_path, source: str, *args: str):
+    """Run ``source`` as this user, in a private 16 MiB /dev/shm; skip where
+    that mount is not possible."""
     import shlex
     import shutil
     import subprocess
@@ -860,19 +860,69 @@ def test_a_full_dev_shm_spills_instead_of_crashing(tmp_path):
         pytest.skip("cannot mount a private tmpfs: "
                     f"{probe.stderr.decode(errors='replace').strip()}")
     script = tmp_path / "small_dev_shm.py"
-    script.write_text(_SMALL_DEV_SHM_SCRIPT)
-    spill_dir = tmp_path / "spill"
-    spill_dir.mkdir()
+    script.write_text(source)
     env = [f"{k}={v}" for k, v in os.environ.items()
            if not k.startswith("MSTAR_SHM_ARENA")]
     inner = shlex.join([
         "setpriv", f"--reuid={os.getuid()}", f"--regid={os.getgid()}",
         "--clear-groups", "env", "-i", *env,
-        sys.executable, str(script), str(spill_dir)])
+        sys.executable, str(script), *args])
     proc = subprocess.run(_private_small_dev_shm_cmd("exec " + inner),
                           check=False, capture_output=True, text=True,
                           timeout=300)
     assert proc.returncode == 0, (
         f"exit {proc.returncode}\n{proc.stdout}\n{proc.stderr}")
+    return proc
+
+
+def test_a_full_dev_shm_spills_instead_of_crashing(tmp_path):
+    """Real tmpfs exhaustion: before segments were preallocated, the second
+    producer's copy into a sparse segment died with SIGBUS."""
+    spill_dir = tmp_path / "spill"
+    spill_dir.mkdir()
+    proc = _run_in_small_dev_shm(tmp_path, _SMALL_DEV_SHM_SCRIPT, str(spill_dir))
     spilled = int(proc.stdout.strip().rsplit("=", 1)[1])
     assert spilled > 0, proc.stdout
+
+
+# /dev/shm keeps 3 MiB free, less than one 4 MiB segment. Preallocating there
+# would fill the tmpfs and then fail; the arena must see the shortfall up
+# front, not repeat the growth on every send, and grow once room is back.
+_LESS_THAN_A_SEGMENT_FREE_SCRIPT = """
+import os, time
+from mstar_rust import SegmentedShmArena
+
+MiB = 1 << 20
+filler = f"/dev/shm/filler_{os.getpid()}"
+with open(filler, "wb") as f:
+    f.write(b"\\1" * (9 * MiB))
+a = SegmentedShmArena.create(f"mstar_test_lowroom_{os.getpid()}", 4 * MiB, 4)
+assert a.reserve(4 * MiB) == (0, 0)
+st = os.statvfs("/dev/shm")
+free = st.f_bavail * st.f_frsize
+assert 0 < free < 4 * MiB, free
+failed_at = time.monotonic()
+for i in range(3):
+    try:
+        a.reserve(256)
+    except RuntimeError as e:
+        msg = str(e)
+    else:
+        raise AssertionError("grew a segment /dev/shm cannot hold")
+    assert msg.startswith("arena full: no space"), msg
+    if i == 0:
+        assert f"only {free} B free" in msg, msg
+    else:  # a stall past the 1 s window legitimately allows the retry
+        assert "not retried" in msg or time.monotonic() - failed_at >= 1, msg
+    st = os.statvfs("/dev/shm")
+    assert st.f_bavail * st.f_frsize == free
+os.remove(filler)
+time.sleep(1.1)
+assert a.reserve(256) == (1, 0) and a.num_segments == 2
+print("ok")
+"""
+
+
+def test_less_than_a_segment_free_fails_growth_up_front(tmp_path):
+    proc = _run_in_small_dev_shm(tmp_path, _LESS_THAN_A_SEGMENT_FREE_SCRIPT)
+    assert proc.stdout.strip() == "ok", proc.stdout

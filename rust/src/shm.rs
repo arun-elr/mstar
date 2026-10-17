@@ -143,11 +143,27 @@ fn shm_path(name: &str) -> String {
 /// Size the segment file AND commit its blocks. `set_len` alone leaves a
 /// sparse tmpfs file: a full /dev/shm then surfaces as SIGBUS on the first
 /// write to an unbacked page, instead of as an error here.
+///
+/// The free-space check comes first because tmpfs's `fallocate` only
+/// compares the size with the filesystem's total: short of free space, it
+/// commits and zeroes every free page before failing and undoing them
+/// (about 90 ms with 200 MiB free), and meanwhile other writers to
+/// /dev/shm see it full.
 #[cfg(target_os = "linux")]
 fn preallocate(file: &std::fs::File, size: usize) -> std::io::Result<()> {
     use std::os::fd::AsRawFd;
     let len =
         libc::off_t::try_from(size).map_err(|_| std::io::Error::from_raw_os_error(libc::EFBIG))?;
+    let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+    if unsafe { libc::fstatvfs(file.as_raw_fd(), &mut st) } == 0 && st.f_blocks != 0 {
+        let free = (st.f_bavail as u128) * (st.f_frsize as u128);
+        if free < size as u128 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::StorageFull,
+                format!("only {free} B free"),
+            ));
+        }
+    }
     loop {
         // Returns the error number rather than setting errno.
         match unsafe { libc::posix_fallocate(file.as_raw_fd(), 0, len) } {
@@ -335,6 +351,22 @@ pub struct SegmentedShmArena {
     // call (stats, free) raise "Already mutably borrowed".
     // Growth serializes on this lock instead of the PyCell borrow.
     segments: Mutex<Vec<std::sync::Arc<ShmArena>>>,
+    // The last growth that failed for lack of space; only touched with
+    // `segments` held.
+    failed_growth: Mutex<Option<FailedGrowth>>,
+}
+
+/// How long a growth that failed for lack of space is not tried again for
+/// the same size or larger. Sends that miss the existing segments meanwhile
+/// fail at once (spill, or strict mode's backpressure loop retrying every
+/// 2 ms) instead of each repeating the failure, which the free-space check
+/// cannot always predict (tmpfs quotas, a race with another writer).
+const GROWTH_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(1);
+
+struct FailedGrowth {
+    size: usize,
+    at: std::time::Instant,
+    reason: String,
 }
 
 impl SegmentedShmArena {
@@ -355,6 +387,7 @@ impl SegmentedShmArena {
             segment_size,
             max_segments,
             segments: Mutex::new(vec![std::sync::Arc::new(first)]),
+            failed_growth: Mutex::new(None),
         })
     }
 
@@ -378,7 +411,43 @@ impl SegmentedShmArena {
         };
         let idx = segments.len();
         let size = self.segment_size.max(aligned);
-        let seg = ShmArena::create(&format!("{}.seg{idx}", self.base), size)?;
+        let name = format!("{}.seg{idx}", self.base);
+        let mut failed = self.failed_growth.lock().expect("failed_growth lock");
+        if let Some(f) = failed
+            .as_ref()
+            .filter(|f| size >= f.size && f.at.elapsed() < GROWTH_RETRY_AFTER)
+        {
+            return Err(ShmError::NoSpace {
+                path: shm_path(&name),
+                size,
+                source: std::io::Error::new(
+                    std::io::ErrorKind::StorageFull,
+                    format!(
+                        "{} (a {} B segment failed {} ms ago; not retried for {} ms)",
+                        f.reason,
+                        f.size,
+                        f.at.elapsed().as_millis(),
+                        GROWTH_RETRY_AFTER.as_millis()
+                    ),
+                ),
+            });
+        }
+        let seg = match ShmArena::create(&name, size) {
+            Ok(seg) => seg,
+            Err(e) => {
+                if let ShmError::NoSpace { source, .. } = &e {
+                    *failed = Some(FailedGrowth {
+                        size,
+                        at: std::time::Instant::now(),
+                        reason: source.to_string(),
+                    });
+                }
+                return Err(e);
+            }
+        };
+        if failed.as_ref().is_some_and(|f| size >= f.size) {
+            *failed = None;
+        }
         let off = seg.reserve(nbytes)?; // fresh segment sized to fit: infallible
         segments.push(std::sync::Arc::new(seg));
         Ok((idx, off))
@@ -554,21 +623,25 @@ mod tests {
         assert_eq!(a.stats(), (1024, 1024, 1024));
     }
 
-    /// A segment larger than the whole filesystem behind the arena fails
-    /// preallocation with ENOSPC before touching a page (tmpfs checks the
-    /// size against its limit up front), so this exercises the mapping
-    /// without filling the real /dev/shm.
+    /// A size larger than the whole filesystem behind the arena: creating
+    /// a segment that big fails before touching a page, so tests exercise
+    /// the no-space paths without filling the real /dev/shm. `None` on an
+    /// unlimited tmpfs, which has no size to exceed.
     #[cfg(target_os = "linux")]
-    #[test]
-    fn segment_larger_than_the_filesystem_is_no_space_and_leaves_no_file() {
+    fn bigger_than_the_filesystem() -> Option<usize> {
         let dir = shm_path("x");
         let dir = std::ffi::CString::new(dir.strip_suffix("/x").unwrap()).unwrap();
         let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
         assert_eq!(unsafe { libc::statvfs(dir.as_ptr(), &mut st) }, 0);
-        if st.f_blocks == 0 {
-            return; // an unlimited tmpfs has no size to exceed
-        }
-        let too_big = (st.f_blocks as usize) * (st.f_frsize as usize) + (1 << 20);
+        (st.f_blocks != 0).then(|| (st.f_blocks as usize) * (st.f_frsize as usize) + (1 << 20))
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn segment_larger_than_the_filesystem_is_no_space_and_leaves_no_file() {
+        let Some(too_big) = bigger_than_the_filesystem() else {
+            return;
+        };
 
         let n = name("nospace");
         assert!(matches!(
@@ -582,5 +655,37 @@ mod tests {
         assert_eq!(a.num_segments(), 1);
         assert!(!Path::new(&shm_path(&a.segment_name(1))).exists());
         assert!(matches!(a.reserve(100), Ok((0, 0))));
+    }
+
+    /// Sends that keep missing the existing segments must not repeat a
+    /// growth that just failed for lack of space; a smaller growth is still
+    /// tried, and the failed size is tried again once the window passes.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn failed_growth_is_not_retried_within_the_window() {
+        let Some(too_big) = bigger_than_the_filesystem() else {
+            return;
+        };
+        let a = SegmentedShmArena::create(&name("regrow"), 4096, 3).unwrap();
+        let failed_at = std::time::Instant::now();
+        let first = a.reserve(too_big).unwrap_err().to_string();
+        assert!(first.starts_with("arena full: no space"), "{first}");
+        assert!(!first.contains("not retried"), "{first}");
+        // A stall past the window legitimately allows the retry.
+        let remembered =
+            |e: &str| e.contains("not retried") || failed_at.elapsed() >= GROWTH_RETRY_AFTER;
+        let again = a.reserve(too_big).unwrap_err();
+        assert!(matches!(again, ShmError::NoSpace { .. }));
+        assert!(remembered(&again.to_string()), "{again}");
+
+        assert_eq!(a.reserve(4096).unwrap(), (0, 0));
+        assert_eq!(a.reserve(100).unwrap(), (1, 0));
+        let still = a.reserve(too_big).unwrap_err().to_string();
+        assert!(remembered(&still), "{still}");
+
+        std::thread::sleep(GROWTH_RETRY_AFTER + std::time::Duration::from_millis(50));
+        let later = a.reserve(too_big).unwrap_err().to_string();
+        assert!(!later.contains("not retried"), "{later}");
+        assert_eq!(a.num_segments(), 2);
     }
 }
