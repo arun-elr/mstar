@@ -1049,3 +1049,19 @@ def test_a_zombie_job_counts_as_dead():
     finally:
         p.kill()
         p.wait()
+
+
+def test_inputs_are_keyed_by_content_and_calibration_by_invocation(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    for d, text in ((a, "one"), (b, "three")):
+        (d / "media").mkdir(parents=True)
+        (d / "media" / "x.txt").write_text(text)
+    assert compare.tree_id(a) != compare.tree_id(b) and compare.tree_id(a) == compare.tree_id(a)
+    path = tmp_path / "cal.json"
+    for root, drift in (("one", 1.08), ("two", 1.30)):                      # two A/A runs, both called aa
+        rd, md = tmp_path / root / "aa", tmp_path / root / "aa" / "results" / "m"
+        write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+        write_arm(md, "head", [(drift, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+        finish(rd, md, run={"head": RUN["base"], "id": f"aa-{root}"})
+        assert calibrate.add_run(rd, [chat_model()], path) > 0
+    assert len(calibrate.load(path)["h200:m/c/lat_p50_s@c1"]["deltas"]) == 2
