@@ -201,6 +201,9 @@ class Speculation:
     dropped: set[int] = field(default_factory=set)
 
     plan_future: Future | None = None
+    # Handed to the GPU thread: its rids are that step's now, and the error
+    # handler fails them with it instead of giving them back.
+    submitted: bool = False
     # TP async scheduling: the broadcast seq of this speculation (leader:
     # assigned at broadcast; follower: the head's). PendingBatch.tp_seq on submit.
     tp_seq: int = -1
@@ -3602,11 +3605,7 @@ class Worker:
         if batch is not None:
             failed_rids.update(batch.request_to_worker_graph)
             self._clear_in_flight_flag(batch)
-        submitted = speculation is not None and any(
-            stale is not None and stale.batch is speculation.scheduled_batch
-            for stale in in_flight
-        )
-        if speculation is not None and not submitted:
+        if speculation is not None and not speculation.submitted:
             # Built but never submitted. Its fresh rids came off their queues
             # (a yield-away step is all fresh rids), so they go back or nothing
             # would schedule them again; the continuing ones belong to the
@@ -4150,9 +4149,10 @@ class Worker:
                                 spec_batch, spec_node_batch,
                                 speculation.plan_future,
                             )
-                            # the GPU thread owns the pre-plan from here; see
-                            # _handle_main_loop_error
+                            # the GPU thread owns the pre-plan and the rids
+                            # from here; see _handle_main_loop_error
                             speculation.plan_future = None
+                            speculation.submitted = True
                             self.wakeup_event.register_future(spec_future)
                             if self.enable_nvtx:
                                 range_pop(synchronize=False)
