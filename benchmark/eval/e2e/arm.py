@@ -201,47 +201,68 @@ def run_arm(arm_name: str, session: int) -> dict:
                            python=job["python"], cwd=arm["src"])
     cases: dict = {}
     try:
-        with server:
-            info.update(healthy=True, startup_s=round(server.startup_s, 1))
-            prov = subprocess.run([job["python"], "-c", "import mstar; print(mstar.__file__)"],
-                                  env={**os.environ, **server_env(arm)}, cwd=arm["src"], capture_output=True,
-                                  text=True, timeout=120, check=False)
-            imported = os.path.realpath(prov.stdout.strip() or "/nonexistent")
-            info["mstar_from_arm_src"] = imported.startswith(os.path.realpath(arm["src"]) + os.sep)
-            log(f"{arm_name} s{session}: healthy after {info['startup_s']} s")
-            for case in model["cases"] if info["mstar_from_arm_src"] else []:
-                cd = d / case["id"]
-                cd.mkdir(parents=True, exist_ok=True)
-                status(phase="case", arm=arm_name, session=session, case=case["id"])
-                t0, rc = time.monotonic(), 0
-                with open(cd / "client.log", "w") as f:
-                    for cmd in case_cmds(case, server.url, f"{model['name']}-{case['id']}-{arm_name}", cd):
-                        try:
-                            r = subprocess.run(cmd, env=client_env(), cwd=job["evalfw"], stdout=f,
-                                               stderr=subprocess.STDOUT, timeout=CASE_TIMEOUT_S, check=False)
-                            rc = r.returncode or rc
-                        except subprocess.TimeoutExpired:
-                            rc = "timeout"
-                alive = is_healthy(server.url, timeout=10)
-                cases[case["id"]] = {"rc": rc, "elapsed_s": round(time.monotonic() - t0, 1),
-                                     "server_alive_after": alive}
-                log(f"{arm_name} s{session}: {case['id']} rc={rc} {cases[case['id']]['elapsed_s']} s alive={alive}")
-                if not alive:
-                    log(f"{arm_name} s{session}: server died during {case['id']}; skipping its remaining cases")
-                    break
+        server.start()
+        (out / "server.pgid").write_text(str(server.pid))   # compare's last-resort kill reaches it
+        server.wait_ready()
+        info.update(healthy=True, startup_s=round(server.startup_s, 1))
+        prov = subprocess.run([job["python"], "-c", "import mstar; print(mstar.__file__)"],
+                              env={**os.environ, **server_env(arm)}, cwd=arm["src"], capture_output=True,
+                              text=True, timeout=120, check=False)
+        imported = os.path.realpath(prov.stdout.strip() or "/nonexistent")
+        info["mstar_from_arm_src"] = imported.startswith(os.path.realpath(arm["src"]) + os.sep)
+        log(f"{arm_name} s{session}: healthy after {info['startup_s']} s")
+        for case in model["cases"] if info["mstar_from_arm_src"] else []:
+            cd = d / case["id"]
+            cd.mkdir(parents=True, exist_ok=True)
+            status(phase="case", arm=arm_name, session=session, case=case["id"])
+            t0, rc = time.monotonic(), 0
+            with open(cd / "client.log", "w") as f:
+                for cmd in case_cmds(case, server.url, f"{model['name']}-{case['id']}-{arm_name}", cd):
+                    try:
+                        r = subprocess.run(cmd, env=client_env(), cwd=job["evalfw"], stdout=f,
+                                           stderr=subprocess.STDOUT, timeout=CASE_TIMEOUT_S, check=False)
+                        rc = r.returncode or rc
+                    except subprocess.TimeoutExpired:
+                        rc = "timeout"
+            alive = is_healthy(server.url, timeout=10)
+            cases[case["id"]] = {"rc": rc, "elapsed_s": round(time.monotonic() - t0, 1),
+                                 "server_alive_after": alive}
+            log(f"{arm_name} s{session}: {case['id']} rc={rc} {cases[case['id']]['elapsed_s']} s alive={alive}")
+            if not alive:
+                log(f"{arm_name} s{session}: server died during {case['id']}; skipping its remaining cases")
+                break
     except ServerError as e:
         info.update(healthy=False, error=str(e)[-500:])
         log(f"{arm_name} s{session}: did not start: {e}")
-    finally:   # also when interrupted, after `with server:` has stopped the server
-        sampler.stop_ev.set()
-        info["peak_vram_gb"] = round(sampler.peak / 1024, 1) if sampler.peak > 0 else None
-        info["cases"] = cases
-        (d / "startup.json").write_text(json.dumps(info, indent=1))
+    finally:   # also when interrupted; a signal must not cut the process-group sweep short
+        with signals_deferred():
+            server.stop()
+            (out / "server.pgid").unlink(missing_ok=True)
+            sampler.stop_ev.set()
+            info["peak_vram_gb"] = round(sampler.peak / 1024, 1) if sampler.peak > 0 else None
+            info["cases"] = cases
+            (d / "startup.json").write_text(json.dumps(info, indent=1))
     return info
 
 
+SIGNALS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
+
+
 def _on_term(signum, frame) -> None:  # noqa: ARG001
-    raise SystemExit(128 + signum)   # unwinds through `with server:`, so no GPU workers are left behind
+    raise SystemExit(128 + signum)   # unwinds to run_arm's finally, which stops the server
+
+
+@contextmanager
+def signals_deferred():
+    pending: list[int] = []
+    old = {s: signal.signal(s, lambda n, f: pending.append(n)) for s in SIGNALS}
+    try:
+        yield
+    finally:
+        for s, h in old.items():
+            signal.signal(s, h)
+        if pending:
+            raise SystemExit(128 + pending[0])
 
 
 def watch_lease(lease_s: float) -> None:
@@ -296,7 +317,7 @@ def main(argv: list[str] | None = None) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / "done.json").unlink(missing_ok=True)
     (out / "pid").write_text(str(os.getpid()))
-    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+    for sig in SIGNALS:
         signal.signal(sig, _on_term)
     if job.get("lease_s"):
         threading.Thread(target=watch_lease, args=(float(job["lease_s"]),), daemon=True).start()

@@ -14,6 +14,7 @@ import hashlib
 import json
 import re
 import shlex
+import shutil
 import sys
 import threading
 import time
@@ -244,6 +245,8 @@ class Runner:
         dst = self.run_dir / "results" / name
         out = str(dst) if local else f"{slot.host_dir}/runs/{self.run_dir.name}/{name}"
         job = self.job(slot, name, out)
+        if not local:
+            shutil.rmtree(dst, ignore_errors=True)   # nothing from a lost attempt may survive into this one
         jf = self.run_dir / "jobs" / f"{name}.json"
         jf.parent.mkdir(exist_ok=True)
         jf.write_text(json.dumps(job, indent=1))
@@ -261,13 +264,14 @@ class Runner:
         t0 = time.time()
         self.set(name, status="running", slot=slot.name, started=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         self.log(f"{slot.name}: {name} started (order {' then '.join(job['order'])})")
-        # SIGTERM lets the job stop its servers; whatever is left of its session goes after a minute.
-        kill = (f"kill -TERM {pid} 2>/dev/null; for i in $(seq 60); do kill -0 {pid} 2>/dev/null || break; "
-                f"sleep 1; done; kill -KILL -{pid} 2>/dev/null; true")
+        # SIGTERM lets the job stop its server (up to 50 s); after two minutes, its session and the server's go.
+        kill = (f"kill -TERM {pid} 2>/dev/null; for i in $(seq 120); do kill -0 {pid} 2>/dev/null || break; "
+                f"sleep 1; done; kill -KILL -{pid} 2>/dev/null; g=$(cat {q(out)}/server.pgid 2>/dev/null) && "
+                "kill -KILL -- -$g 2>/dev/null; true")
         done, dead = None, 0
         while done is None:
             if self.stop.wait(POLL_S):
-                t.sh(kill, timeout=120)
+                t.sh(kill, timeout=180)
                 done = {"status": "interrupted", "reason": "compare was stopped"}
                 break
             try:
@@ -275,7 +279,7 @@ class Runner:
                          f"&& echo ALIVE || echo DEAD; cat {q(out)}/status.json 2>/dev/null; }}", timeout=60)
             except hosts.HostLostError:
                 try:   # best effort; otherwise the job stops itself when its lease runs out
-                    t.sh(kill, timeout=90)
+                    t.sh(kill, timeout=180)
                 except Exception:  # noqa: BLE001
                     pass
                 raise
@@ -292,7 +296,12 @@ class Runner:
             else:
                 dead = 0
                 self.set(name, progress=text.splitlines()[-1][:200] if len(text.splitlines()) > 1 else "")
-        t.pull(out, dst, FETCH_EXCLUDE)
+        if not local:   # into a fresh directory, published only once the copy is complete
+            part = dst.with_name(dst.name + ".partial")
+            shutil.rmtree(part, ignore_errors=True)
+            t.pull(out, part, FETCH_EXCLUDE)
+            shutil.rmtree(dst, ignore_errors=True)
+            part.rename(dst)
         elapsed = time.time() - t0
         self.set(name, status=done.get("status"), reason=self.redact(done.get("reason", "")),
                  elapsed_s=round(elapsed, 1), gpu_s=round(elapsed, 1))

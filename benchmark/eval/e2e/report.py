@@ -201,8 +201,10 @@ def correct_limit(check: dict, swings: list[float] | None) -> tuple[dict, str]:
 
 def _judge_session(ck: dict, f: dict) -> tuple[str, str]:
     """(verdict, detail) of one session's facts against the (already widened) check."""
-    if "missing" in f:
-        return "incomplete", f"outputs missing ({', '.join(f['missing'])})"
+    if "missing" in f:   # head alone produced nothing where base did: a failure, not a gap
+        return ("FAIL" if f["missing"] == ["head"] else "incomplete"), f"outputs missing ({', '.join(f['missing'])})"
+    if f.get("only_base"):
+        return "FAIL", f"head lacks {len(f['only_base'])} outputs base returned ({', '.join(f['only_base'][:3])})"
     kind = ck["kind"]
     ok, detail = True, ""
     if kind == "text_match":
@@ -456,6 +458,9 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
     else:
         swings = (calibration.get(correct_key(gpu, m.name, c.id)) or {}).get("swings")
         corr, detail = judge_correct(c, a.compare.get(c.id, []), errs, swings)
+        gaps = head_gaps(files, c) if timed else []
+        if gaps:
+            corr, detail = "FAIL", f"head wrote no results for {', '.join(gaps)}; {detail}"
     with_data = [p for p in (lat, thru) if p and p.base.mean is not None and p.head.mean is not None]
     rp = scrub((a.compare.get(c.id) or [None])[0]) if c.driver in ("rp", "invariants") else None
     note, detail = scrub(note), scrub(detail)   # reasons can quote server errors: no paths or addresses
@@ -463,6 +468,15 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
                correct_detail=detail, latency=lat, throughput=thru, extra=extra, startup_s=a.startup,
                peak_vram_gb=a.vram, errors=errs, request_path=rp, note=note,
                no_baseline=bool(with_data) and all(floors.get(id(p)) is None for p in with_data))
+
+
+def head_gaps(files: dict[str, list[Path]], c: Case) -> list[str]:
+    """Session and concurrency points base wrote results for and head did not (a timeout, a server that died)."""
+    def points(arm: str) -> set[tuple[str, int]]:
+        return {(f.parent.parent.name, conc) for f in files[arm] for conc in c.conc
+                if f.name.endswith(f"-c{conc}.json")}
+
+    return [f"{s} c={conc}" for s, conc in sorted(points("base") - points("head"))]
 
 
 def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = None) -> list[Row]:

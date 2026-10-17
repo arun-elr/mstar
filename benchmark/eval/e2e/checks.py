@@ -64,18 +64,20 @@ def saved(a: Path | None, b: Path | None) -> dict:
     if a is None or b is None or not a.is_dir() or not b.is_dir():
         return {"missing": [arm for arm, x in (("base", a), ("head", b)) if x is None or not x.is_dir()]}
     na, nb = {p.name for p in a.iterdir()}, {p.name for p in b.iterdir()}
-    texts, ps, act, dur = [], [], [], []
+    texts, ps, act = [], [], []
     for n in sorted(na & nb):
         x, y = load(a / n), load(b / n)
         if isinstance(x, str):
             texts.append((x, y))
-        elif n.endswith(".pcm"):
-            dur.append((len(x) / PCM_RATE, len(y) / PCM_RATE))
         elif n.endswith(".f32"):
-            act.append(float(np.max(np.abs(x - y))) if x.shape == y.shape else float("inf"))
-        else:
+            d = float(np.max(np.abs(x - y))) if x.shape == y.shape else math.inf
+            act.append(math.inf if math.isnan(d) else d)   # max() would skip a NaN
+        elif not n.endswith(".pcm"):
             ps.append(psnr(x, y))
-    out: dict = {"n_base": len({n.split(".")[0] for n in na}), "n_head": len({n.split(".")[0] for n in nb})}
+    # Outputs base returned and head did not (speech without its audio, an empty reply) fail on their own.
+    out: dict = {"n_base": len({n.split(".")[0] for n in na}), "n_head": len({n.split(".")[0] for n in nb}),
+                 "only_base": sorted(na - nb)}
+    pcm = {arm: sum(f.stat().st_size for f in d.glob("*.pcm")) / 2 / PCM_RATE for arm, d in (("base", a), ("head", b))}
     if texts:
         out.update(text_facts(texts))
     if ps:
@@ -83,9 +85,8 @@ def saved(a: Path | None, b: Path | None) -> dict:
         out["psnr_min_db"] = min(finite) if len(finite) == len(ps) else None
         out["psnr_median_db"] = float(np.median(finite)) if finite else None
         out["shape_mismatch"] = len(ps) - len(finite)
-    if dur:
-        out["audio_s_base"] = round(sum(x for x, _ in dur), 2)
-        out["audio_s_head"] = round(sum(y for _, y in dur), 2)
+    if any(n.endswith(".pcm") for n in na | nb):
+        out["audio_s_base"], out["audio_s_head"] = round(pcm["base"], 2), round(pcm["head"], 2)
     if act:
         out["action_max_abs_diff"] = max(act)
     return out
