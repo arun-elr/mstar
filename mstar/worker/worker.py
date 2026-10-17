@@ -2841,6 +2841,9 @@ class Worker:
                 valid_rids.discard(stopped_rid)
                 batch_N.batch.request_to_worker_graph.pop(stopped_rid, None)
                 batch_N.node_batch.per_request_info.pop(stopped_rid, None)
+                # its loop already stopped; see ExecutingBatch.drop_rids
+                batch_N.node_batch.final_stream_rids.discard(stopped_rid)
+                batch_N.node_batch.stream_partition_done_rids.discard(stopped_rid)
         # keep the forward's order: other code walks this list positionally
         batch_N.node_batch.request_ids = [
             rid for rid in batch_N.node_batch.request_ids if rid in valid_rids
