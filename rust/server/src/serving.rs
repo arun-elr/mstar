@@ -60,13 +60,14 @@ pub type OutStream = Pin<Box<dyn Stream<Item = Out> + Send>>;
 struct AbortGuard {
     bridge: Arc<Bridge>,
     rid: String,
+    sub: u64,
     done: bool,
 }
 
 impl Drop for AbortGuard {
     fn drop(&mut self) {
         if !self.done {
-            self.bridge.abort(&self.rid);
+            self.bridge.abort(&self.rid, self.sub);
         }
     }
 }
@@ -127,10 +128,11 @@ fn raw_result_stream(
 ) -> OutStream {
     match &state.bridge {
         Some(b) => {
-            let rx = b.submit(args, request_id, streaming);
+            let (sub, rx) = b.submit(args, request_id, streaming);
             let guard = AbortGuard {
                 bridge: b.clone(),
                 rid: request_id.to_string(),
+                sub,
                 done: false,
             };
             let deadline = Instant::now() + state.request_timeout;

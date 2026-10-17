@@ -12,13 +12,19 @@
 //!
 //! Wire format is msgpack (the conductor speaks msgpack), sent as the
 //! `ZmqCommunicator`'s opaque byte payload:
-//!   frontend -> conductor: SubmitMsg {t:"submit", rid, text, file_paths,
+//!   frontend -> conductor: SubmitMsg {t:"submit", rid, sub, text, file_paths,
 //!       input_modalities, output_modalities, model_kwargs, prompt_parts,
 //!       streaming}, `prompt_parts` present for a chat only
-//!   conductor -> frontend: {t:"chunk", rid, modality, data(bin), metadata}
-//!                        | {t:"done",  rid}
+//!                        | {t:"abort", rid, sub}
+//!   conductor -> frontend: {t:"chunk", rid, sub, modality, data(bin), metadata}
+//!                        | {t:"done",  rid, sub}
+//!
+//! `sub` names one submission and is never reused; `rid` is the client's id,
+//! which a client may reuse as soon as it drops a stream (an abort and the
+//! retry's submit can cross), so routes and aborts go by `sub`.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -55,6 +61,7 @@ pub enum StreamItem {
 struct SubmitMsg<'a> {
     t: &'static str,
     rid: &'a str,
+    sub: u64,
     text: Option<&'a str>,
     /// Pre-tokenized prompt (frontend-tokenizes path); `text` is None then.
     tokens: Option<&'a [u32]>,
@@ -80,7 +87,8 @@ fn no_parts(parts: &&[Part]) -> bool {
 #[derive(Deserialize)]
 struct Inbound {
     t: String,
-    rid: String,
+    #[serde(default)]
+    sub: Option<u64>,
     #[serde(default)]
     modality: String,
     #[serde(default)]
@@ -91,10 +99,13 @@ struct Inbound {
     msg: String, // error message for t == "err"
 }
 
+/// sub -> the serving task's sender; the demux thread routes chunks here.
+type Routes = Mutex<HashMap<u64, UnboundedSender<StreamItem>>>;
+
 pub struct Bridge {
     mbox: Arc<RawZmqCommunicator>,
-    // rid -> the serving task's sender; the demux thread routes chunks here.
-    routes: Arc<Mutex<HashMap<String, UnboundedSender<StreamItem>>>>,
+    routes: Arc<Routes>,
+    next_sub: AtomicU64,
 }
 
 impl Bridge {
@@ -104,20 +115,16 @@ impl Bridge {
         let mbox = Arc::new(
             RawZmqCommunicator::bind("frontend", socket_dir).map_err(|e| e.to_string())?,
         );
-        let routes: Arc<Mutex<HashMap<String, UnboundedSender<StreamItem>>>> =
-            Arc::new(Mutex::new(HashMap::new()));
+        let routes: Arc<Routes> = Arc::new(Mutex::new(HashMap::new()));
 
         let mbox_r = mbox.clone();
         let routes_r = routes.clone();
         std::thread::spawn(move || Self::demux_loop(mbox_r, routes_r));
 
-        Ok(Self { mbox, routes })
+        Ok(Self { mbox, routes, next_sub: AtomicU64::new(1) })
     }
 
-    fn demux_loop(
-        mbox: Arc<RawZmqCommunicator>,
-        routes: Arc<Mutex<HashMap<String, UnboundedSender<StreamItem>>>>,
-    ) {
+    fn demux_loop(mbox: Arc<RawZmqCommunicator>, routes: Arc<Routes>) {
         loop {
             let Some(payload) = mbox.recv_timeout(Duration::from_millis(500)) else {
                 continue;
@@ -135,56 +142,13 @@ impl Bridge {
                     continue;
                 }
             };
-            let (item, done) = match msg.t.as_str() {
-                // A failed request is delivered in-band as a terminal chunk with
-                // modality "error" (message in `data`, HTTP status in
-                // `metadata.status`) that ends cleanly — the backend does NOT
-                // raise. Surface it as a terminal Error so non-streaming handlers
-                // return the real status instead of a 200 with the error chunk
-                // buried in `outputs` (/generate) or silently filtered out
-                // (chat/speech/images/videos).
-                "chunk" if msg.modality == "error" => {
-                    let status = msg
-                        .metadata
-                        .get("status")
-                        .and_then(Value::as_u64)
-                        .unwrap_or(500) as u16;
-                    let message = String::from_utf8_lossy(&msg.data.into_vec()).into_owned();
-                    (Some(StreamItem::Error { status, message }), true)
-                }
-                "chunk" => (
-                    Some(StreamItem::Chunk(ResultChunk {
-                        modality: msg.modality,
-                        data: msg.data.into_vec(),
-                        metadata: msg.metadata,
-                    })),
-                    false,
-                ),
-                // Legacy out-of-band error (the bridge relay caught an exception
-                // and sent `t="err"`); no status carried, default to 500.
-                "err" => (
-                    Some(StreamItem::Error { status: 500, message: msg.msg }),
-                    true,
-                ),
-                "done" => (Some(StreamItem::Done), true),
-                // Liveness reply: completes the ping's route like a request.
-                "pong" => (Some(StreamItem::Done), true),
-                _ => (None, false),
-            };
-            if let Some(item) = item {
-                let mut routes = routes.lock().expect("routes lock");
-                if let Some(tx) = routes.get(&msg.rid) {
-                    let _ = tx.send(item);
-                }
-                if done {
-                    routes.remove(&msg.rid);
-                }
-            }
+            deliver(&routes, msg);
         }
     }
 
-    /// Submit a flattened request under `request_id`; returns a receiver that
-    /// yields `ResultChunk`s until `Done`. The `request_id` is caller-supplied
+    /// Submit a flattened request under `request_id`; returns its `sub` (for
+    /// [`Bridge::abort`]) and a receiver that yields `ResultChunk`s until
+    /// `Done`. The `request_id` is caller-supplied
     /// (the serving handler mints `chatcmpl-…`/`speech-…`), matching mstar,
     /// whose per-request RNG seed derives from `hash(request_id)`.
     pub fn submit(
@@ -192,15 +156,14 @@ impl Bridge {
         args: &SubmitArgs,
         request_id: &str,
         streaming: bool,
-    ) -> UnboundedReceiver<StreamItem> {
+    ) -> (u64, UnboundedReceiver<StreamItem>) {
         let (tx, rx) = unbounded_channel();
-        self.routes
-            .lock()
-            .expect("routes lock")
-            .insert(request_id.to_string(), tx.clone());
+        let sub = self.next_sub.fetch_add(1, Ordering::Relaxed);
+        self.routes.lock().expect("routes lock").insert(sub, tx.clone());
         let msg = SubmitMsg {
             t: "submit",
             rid: request_id,
+            sub,
             text: args.text.as_deref(),
             tokens: args.tokens.as_deref(),
             frontend_detok: args.tokens.is_some(),
@@ -220,9 +183,9 @@ impl Bridge {
                 status: 500,
                 message: "backend unreachable (bridge send failed)".to_string(),
             });
-            self.routes.lock().expect("routes lock").remove(request_id);
+            self.routes.lock().expect("routes lock").remove(&sub);
         }
-        rx
+        (sub, rx)
     }
 
     /// Liveness round-trip for the deep health check: send `{t:"ping"}` and
@@ -231,28 +194,78 @@ impl Bridge {
     pub async fn ping(&self, timeout: Duration) -> bool {
         let rid = format!("ping-{}", uuid::Uuid::new_v4());
         let (tx, mut rx) = unbounded_channel();
-        self.routes
-            .lock()
-            .expect("routes lock")
-            .insert(rid.clone(), tx);
-        let msg = serde_json::json!({"t": "ping", "rid": rid});
+        let sub = self.next_sub.fetch_add(1, Ordering::Relaxed);
+        self.routes.lock().expect("routes lock").insert(sub, tx);
+        let msg = serde_json::json!({"t": "ping", "rid": rid, "sub": sub});
         if let Ok(payload) = rmp_serde::to_vec_named(&msg) {
             let _ = self.mbox.send("bridge", &payload);
         }
         let ok = tokio::time::timeout(timeout, rx.recv()).await.is_ok();
-        self.routes.lock().expect("routes lock").remove(&rid);
+        self.routes.lock().expect("routes lock").remove(&sub);
         ok
     }
 
-    /// Abort a request (client disconnected or timed out): tell the conductor
-    /// to release its state (idempotent — a finished rid is a no-op there)
-    /// and drop the local route.
-    pub fn abort(&self, request_id: &str) {
-        self.routes.lock().expect("routes lock").remove(request_id);
-        let msg = serde_json::json!({"t": "abort", "rid": request_id});
+    /// Abort submission `sub` of `request_id` (client disconnected or timed
+    /// out): tell the backend to release its state (a finished submission is
+    /// a no-op there) and drop the local route. A newer submission under the
+    /// same `request_id` is untouched.
+    pub fn abort(&self, request_id: &str, sub: u64) {
+        self.routes.lock().expect("routes lock").remove(&sub);
+        let msg = serde_json::json!({"t": "abort", "rid": request_id, "sub": sub});
         if let Ok(payload) = rmp_serde::to_vec_named(&msg) {
             let _ = self.mbox.send("bridge", &payload);
         }
+    }
+}
+
+/// Route one inbound message to its submission's serving task; a terminal one
+/// (error, done, pong) also drops the route.
+fn deliver(routes: &Routes, msg: Inbound) {
+    let (item, done) = match msg.t.as_str() {
+        // A failed request is delivered in-band as a terminal chunk with
+        // modality "error" (message in `data`, HTTP status in
+        // `metadata.status`) that ends cleanly — the backend does NOT
+        // raise. Surface it as a terminal Error so non-streaming handlers
+        // return the real status instead of a 200 with the error chunk
+        // buried in `outputs` (/generate) or silently filtered out
+        // (chat/speech/images/videos).
+        "chunk" if msg.modality == "error" => {
+            let status = msg
+                .metadata
+                .get("status")
+                .and_then(Value::as_u64)
+                .unwrap_or(500) as u16;
+            let message = String::from_utf8_lossy(&msg.data.into_vec()).into_owned();
+            (Some(StreamItem::Error { status, message }), true)
+        }
+        "chunk" => (
+            Some(StreamItem::Chunk(ResultChunk {
+                modality: msg.modality,
+                data: msg.data.into_vec(),
+                metadata: msg.metadata,
+            })),
+            false,
+        ),
+        // Legacy out-of-band error (the bridge relay caught an exception
+        // and sent `t="err"`); no status carried, default to 500.
+        "err" => (
+            Some(StreamItem::Error { status: 500, message: msg.msg }),
+            true,
+        ),
+        "done" => (Some(StreamItem::Done), true),
+        // Liveness reply: completes the ping's route like a request.
+        "pong" => (Some(StreamItem::Done), true),
+        _ => (None, false),
+    };
+    let (Some(item), Some(sub)) = (item, msg.sub) else {
+        return;
+    };
+    let mut routes = routes.lock().expect("routes lock");
+    if let Some(tx) = routes.get(&sub) {
+        let _ = tx.send(item);
+    }
+    if done {
+        routes.remove(&sub);
     }
 }
 
@@ -267,6 +280,7 @@ mod tests {
         let msg = SubmitMsg {
             t: "submit",
             rid: "r",
+            sub: 1,
             text: Some("hi"),
             tokens: None,
             frontend_detok: false,
@@ -302,5 +316,29 @@ mod tests {
             ]),
             "a part did not travel as a map of PromptPart's fields"
         );
+    }
+
+    fn inbound(t: &str, sub: u64) -> Inbound {
+        let msg = json!({"t": t, "rid": "X", "sub": sub, "modality": "text"});
+        rmp_serde::from_slice(&rmp_serde::to_vec_named(&msg).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn an_older_submission_s_end_does_not_reach_a_retry_under_its_id() {
+        // The client dropped submission 1 of X and retried as submission 2;
+        // 1's done crosses 2's submit.
+        let routes: Routes = Mutex::new(HashMap::new());
+        let (old_tx, _old_rx) = unbounded_channel();
+        let (new_tx, mut new_rx) = unbounded_channel();
+        routes.lock().unwrap().insert(1, old_tx);
+        routes.lock().unwrap().insert(2, new_tx);
+
+        deliver(&routes, inbound("done", 1));
+        deliver(&routes, inbound("chunk", 2));
+
+        assert!(routes.lock().unwrap().contains_key(&2), "the retry's route was dropped");
+        assert!(!routes.lock().unwrap().contains_key(&1));
+        assert!(matches!(new_rx.try_recv(), Ok(StreamItem::Chunk(_))));
+        assert!(new_rx.try_recv().is_err(), "the retry got the older submission's end");
     }
 }
