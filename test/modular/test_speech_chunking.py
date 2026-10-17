@@ -443,7 +443,7 @@ def test_release_request_aborts_only_requests_still_running():
         pending_requests={"done#1": types.SimpleNamespace(event=done),
                           "running#2": types.SimpleNamespace(event=running)},
         _retire=lambda key: None,
-        _abort_key=aborted.append,
+        abort_submission=aborted.append,
     )
     APIServer.release_request(server, "done")
     APIServer.release_request(server, "running")

@@ -828,6 +828,13 @@ class APIServer:
             key = self._live.get(request_id)
             return key, self.pending_requests.get(key)
 
+    def submission_key(self, request_id: str) -> str | None:
+        """The key of the newest submission under ``request_id``, for a caller
+        that aborts it later, when the id may have been submitted again:
+        take it right after ``submit_request`` and pass it to
+        :meth:`abort_submission`."""
+        return self._bind(request_id)[0]
+
     def iter_result_chunk_batches(self, request_id: str):
         """Yield the :class:`ResultChunk` objects as they arrive, as one list
         per drain: everything the message thread appended since the last
@@ -926,7 +933,7 @@ class APIServer:
                     pass
         finally:
             if not finished:
-                self._abort_key(key)
+                self.abort_submission(key)
 
     def async_stream_results(self, request_id: str, binary: bool = False):
         """Yield the serialized body of ``/generate`` one piece at a time.
@@ -1018,10 +1025,10 @@ class APIServer:
             if done:
                 break
             if time.time() - start > self.timeout_seconds:
-                self._abort_key(key)
+                self.abort_submission(key)
                 raise HTTPException(status_code=500, detail="Request timed out")
             if raw_request is not None and await raw_request.is_disconnected():
-                self._abort_key(key)
+                self.abort_submission(key)
                 return []
             await asyncio.sleep(0.005)
 
@@ -1076,9 +1083,11 @@ class APIServer:
         Acts on the newest submission under ``request_id``."""
         with self.request_lock:
             key = self._live.get(request_id)
-        self._abort_key(key)
+        self.abort_submission(key)
 
-    def _abort_key(self, key: str | None) -> None:
+    def abort_submission(self, key: str | None) -> None:
+        """:meth:`abort_request` for one submission, by its key
+        (:meth:`submission_key`); a newer submission under the id is untouched."""
         if key is None:
             return
         with self.request_lock:
@@ -1105,7 +1114,7 @@ class APIServer:
                 self.pending_requests.pop(key)
                 self._retire(key)
         if not finished:
-            self._abort_key(key)
+            self.abort_submission(key)
 
     # ----------------------------------------------------------
     # Cleanup

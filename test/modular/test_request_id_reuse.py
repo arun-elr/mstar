@@ -510,29 +510,79 @@ def test_an_openai_chat_stream_is_bound_before_it_is_iterated():
     assert [c.data for c in s.pending_requests[pw.inputs[1].request_id].chunks] == [b"second"]
 
 
-def test_rust_bridge_relays_each_read_their_own_submission():
-    """Two submits under X in one receive batch: each relay is bound when it
-    is scheduled, so the first relays its 409 and the second its answer."""
+def _bridge(s):
     from mstar.api_server.rust_frontend import RustFrontendBridge
 
-    pw = _PreprocessWorker()
-    s = _api_server(pw)
     bridge = RustFrontendBridge.__new__(RustFrontendBridge)
     bridge.server = s
+    bridge._keys = {}
     sent = []
     bridge._send = sent.append
-    submit = {"t": "submit", "rid": "X", "text": "first", **TEXT}
+    return bridge, sent
+
+
+def test_rust_bridge_relays_each_read_their_own_submission():
+    """Two submits under X in one receive batch: each relay is bound when it
+    is scheduled, so the first relays its 409 and the second its answer, each
+    under its own sub."""
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    bridge, sent = _bridge(s)
+    submit = {"t": "submit", "rid": "X", "sub": 1, "text": "first", **TEXT}
 
     async def run():
         bridge._submit(submit)
-        bridge._submit({**submit, "text": "second"})
+        bridge._submit({**submit, "sub": 2, "text": "second"})
         _complete(s, pw.inputs[1].request_id, b"second")
         await _await(lambda: [m["t"] for m in sent].count("done") == 2)
 
     asyncio.run(run())
 
-    chunks = [(m["modality"], m["data"], m["metadata"].get("status")) for m in sent if m["t"] == "chunk"]
-    assert sorted(chunks) == [("error", SUPERSEDED_ERROR.encode(), 409), ("text", b"second", None)]
+    chunks = [
+        (m["sub"], m["modality"], m["data"], m["metadata"].get("status"))
+        for m in sent if m["t"] == "chunk"
+    ]
+    assert sorted(chunks) == [
+        (1, "error", SUPERSEDED_ERROR.encode(), 409),
+        (2, "text", b"second", None),
+    ]
+
+
+@pytest.mark.parametrize("abort_first", [True, False])
+def test_rust_bridge_abort_of_a_dropped_stream_spares_the_retry(abort_first):
+    """The client drops submission 1 of X and resubmits X as submission 2. The
+    frontend sends 1's abort when it notices the drop, before or after 2's
+    submit; either way the abort reaches 1 only, and nothing of 1 is sent
+    under 2's sub."""
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    bridge, sent = _bridge(s)
+    submit = {"t": "submit", "rid": "X", "sub": 1, "text": "first", **TEXT}
+    abort = {"t": "abort", "rid": "X", "sub": 1}
+    retry = {**submit, "sub": 2, "text": "retry"}
+
+    async def run():
+        bridge._submit(submit)
+        await asyncio.sleep(0)
+        for msg in [abort, retry] if abort_first else [retry, abort]:
+            if msg["t"] == "abort":
+                bridge._abort(msg)
+            else:
+                bridge._submit(msg)
+        await _await(lambda: [m["sub"] for m in sent if m["t"] == "done"] == [1])
+        _complete(s, pw.inputs[1].request_id, b"retry")
+        await _await(lambda: [m["sub"] for m in sent if m["t"] == "done"] == [1, 2])
+
+    asyncio.run(run())
+
+    first, second = (inp.request_id for inp in pw.inputs)
+    assert pw.aborted == [first], "the dropped stream's abort reached the retry"
+    assert [(m["t"], m.get("modality"), m.get("data")) for m in sent if m["sub"] == 2] == [
+        ("chunk", "text", b"retry"),
+        ("done", None, None),
+    ]
+    assert bridge._keys == {}
+    assert second not in s.pending_requests and s._live == {}
 
 
 def test_nothing_is_kept_once_the_request_is_done():

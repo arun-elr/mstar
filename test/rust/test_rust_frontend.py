@@ -67,6 +67,13 @@ class _StubAPIServer:
     def abort_request(self, request_id):
         self.aborted.append(request_id)
 
+    def submission_key(self, request_id):
+        return request_id
+
+    def abort_submission(self, key):
+        if key is not None:
+            self.aborted.append(key)
+
 
 def _free_port() -> int:
     with socket.socket() as s:
@@ -565,3 +572,96 @@ def test_images_generations_on_cosmos3():
         assert len(stub.submitted) == 2
         assert len(out["data"]) == 2
         assert base64.b64decode(out["data"][0]["b64_json"]) == b"\x89PNG\r\n\x1a\nFAKE"
+
+
+class _KeyedStub(_StubAPIServer):
+    """Submissions as ``APIServer`` runs them: each under a key of its own, a
+    stream bound to the newest submission under its id when it is created,
+    ``abort_request`` acting on the newest, ``abort_submission`` on one, and a
+    submission while the previous one under the id still runs superseding it
+    (that stream ends with an in-band 409). Each submission streams ``tokens``
+    text chunks, a few ms apart, unless aborted or superseded."""
+
+    def __init__(self, tokens):
+        super().__init__()
+        self.tokens = tokens
+        self.n = 0
+        self.live = {}
+        self.running = set()
+        self.superseded = set()
+
+    def submit_request(self, *, request_id=None, **kwargs):
+        self.n += 1
+        key = f"{request_id}#{self.n}"
+        previous = self.live.get(request_id)
+        if previous in self.running:
+            self.running.discard(previous)
+            self.superseded.add(previous)
+        self.live[request_id] = key
+        self.running.add(key)
+        return request_id
+
+    def submission_key(self, request_id):
+        return self.live.get(request_id)
+
+    def iter_result_chunks(self, request_id):
+        return self._stream(self.live[request_id])
+
+    async def _stream(self, key):
+        import asyncio
+
+        for _ in range(self.tokens):
+            if key in self.superseded:
+                yield _Chunk("error", b"superseded", {"status": 409})
+                return
+            if key not in self.running:
+                return
+            yield _Chunk("text", b"t")
+            await asyncio.sleep(0.003)
+        self.running.discard(key)
+
+    def abort_request(self, request_id):
+        self.abort_submission(self.live.get(request_id))
+
+    def abort_submission(self, key):
+        if key in self.running:
+            self.running.discard(key)
+            self.aborted.append(key)
+
+
+def test_a_retry_right_after_a_dropped_stream_is_served():
+    """The client reads 3 chunks of a /generate stream under X, drops it and
+    resubmits X at once, typically before the frontend has noticed the drop:
+    the older stream's abort and end cross the retry's submit. The retry must
+    get its whole answer, and so must the next reuse of X once that answer is
+    read, round after round. (An older submission's end or 409 landing on a
+    newer request's route ended it early while it kept running, so the next
+    reuse superseded it and got the 409 in turn.)"""
+    import urllib.parse
+
+    stub = _KeyedStub(tokens=200)
+    form = urllib.parse.urlencode({
+        "text": "count", "request_id": "X", "streaming": "true",
+        "output_modalities": "text"}).encode()
+
+    def answer(url):
+        with urllib.request.urlopen(url, data=form, timeout=10) as r:
+            lines = [json.loads(line) for line in r.read().splitlines() if line.strip()]
+        return [line["modality"] for line in lines], lines[-1:]
+
+    with _model_stack("qwen3_omni", stub) as (port, _up):
+        url = f"http://127.0.0.1:{port}/generate"
+        for _ in range(5):
+            with urllib.request.urlopen(url, data=form, timeout=10) as r:
+                for _ in range(3):
+                    assert r.readline()
+            for request in ("retry", "reuse"):
+                modalities, last = answer(url)
+                assert modalities == ["text"] * 200, (
+                    f"the {request} got {len(modalities)} chunks, ending {last}")
+        deadline = time.time() + 5
+        while len(stub.aborted) + len(stub.superseded) < 5 and time.time() < deadline:
+            time.sleep(0.01)
+    dropped = {f"X#{n}" for n in (1, 4, 7, 10, 13)}
+    assert set(stub.aborted) | stub.superseded == dropped, "a retry or reuse was cut short"
+    assert len(stub.aborted) + len(stub.superseded) == 5
