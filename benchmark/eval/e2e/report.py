@@ -390,6 +390,17 @@ def length_aware(case: Case, files_c1: dict[str, list[Path]], files_cn: dict[str
     return lat, thru
 
 
+def _read(path: Path, absent: dict, unreadable: dict) -> dict:
+    """A run file, or ``absent`` / ``unreadable`` (a job killed while writing it) instead of an error."""
+    if not path.exists():
+        return absent
+    try:
+        js = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return unreadable
+    return js if isinstance(js, dict) else unreadable
+
+
 @dataclass
 class _Arms:
     """What one results directory (a model, or its ABBA rerun) says about both arms."""
@@ -402,13 +413,13 @@ class _Arms:
 
     @classmethod
     def load(cls, md: Path) -> _Arms:
-        done = json.loads((md / "done.json").read_text()) if (md / "done.json").exists() else {"status": "not run"}
-        compare = json.loads((md / "compare.json").read_text()) if (md / "compare.json").exists() else {}
+        done = _read(md / "done.json", {"status": "not run"}, {"status": "error", "reason": "unreadable done.json"})
+        compare = _read(md / "compare.json", {}, {})
         starts, startup, vram = {}, {}, {}
         for arm in ("base", "head"):
-            infos = [json.loads(p.read_text()) for p in sorted((md / arm).glob("s*/startup.json"))]
+            infos = [_read(p, {}, {"healthy": None}) for p in sorted((md / arm).glob("s*/startup.json"))]
             starts[arm] = all(i.get("healthy") for i in infos) if infos else None
-            ups = [i["startup_s"] for i in infos if i.get("healthy")]
+            ups = [i["startup_s"] for i in infos if i.get("healthy") and i.get("startup_s") is not None]
             startup[arm] = min(ups) if ups else None
             vs = [i.get("peak_vram_gb") for i in infos if i.get("peak_vram_gb")]
             vram[arm] = max(vs) if vs else None
@@ -419,7 +430,7 @@ class _Arms:
         out: dict[str, dict[str, bool | None]] = {}
         for arm in ("base", "head"):
             for p in sorted((self.md / arm).glob("s*/startup.json")):
-                case = json.loads(p.read_text()).get("cases", {}).get(case_id) or {}
+                case = _read(p, {}, {}).get("cases", {}).get(case_id) or {}
                 out.setdefault(p.parent.name, {"base": None, "head": None})[arm] = case.get("server_alive_after")
         return out
 

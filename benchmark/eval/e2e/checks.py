@@ -10,6 +10,7 @@ from __future__ import annotations
 import difflib
 import json
 import math
+import os
 import statistics
 from pathlib import Path
 from typing import Any
@@ -198,5 +199,7 @@ def compare_model(model_dir: Path, cases: list[dict], sessions: int) -> dict:
             s0, s1 = (model_dir / "base" / f"s{s}" / case["id"] for s in (0, 1))
             per_session.append({"self_base": saved(saved_dir(s0, conc), saved_dir(s1, conc))})
         res[case["id"]] = per_session
-    (model_dir / "compare.json").write_text(json.dumps(res, indent=1, default=str))
+    tmp = model_dir / ".compare.json.tmp"   # whole or not at all
+    tmp.write_text(json.dumps(res, indent=1, default=str))
+    os.replace(tmp, model_dir / "compare.json")
     return res

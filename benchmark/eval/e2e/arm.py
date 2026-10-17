@@ -47,11 +47,12 @@ def log(msg: str) -> None:
     print(f"[{now()}] {msg}", flush=True)
 
 
-def _publish(name: str, data: dict) -> None:
+def _publish(name: str, data: dict, where: Path | None = None) -> None:
     """Written whole or not at all (a reader never sees a truncated file), on one line."""
-    tmp = out / f".{name}.tmp"
+    where = where or out
+    tmp = where / f".{name}.tmp"
     tmp.write_text(json.dumps(data))
-    os.replace(tmp, out / name)
+    os.replace(tmp, where / name)
 
 
 def status(**kw) -> None:
@@ -249,7 +250,7 @@ def run_arm(arm_name: str, session: int) -> dict:
             sampler.stop_ev.set()
             info["peak_vram_gb"] = round(sampler.peak / 1024, 1) if sampler.peak > 0 else None
             info["cases"] = cases
-            (d / "startup.json").write_text(json.dumps(info, indent=1))
+            _publish("startup.json", info, d)
     return info
 
 
