@@ -725,3 +725,62 @@ def test_trees_resolve_and_export(tmp_path):
     out = trees.export(repo, ref.sha, tmp_path / "src" / ref.sha)
     assert (out / "a.txt").read_text() == "one" and (out / ".complete").exists()
     assert compare.gpu_type("NVIDIA H200") == "h200" and compare.gpu_type("NVIDIA B200") == "b200"
+
+
+def test_every_session_is_judged_and_more_head_errors_fail_even_without_outputs():
+    c = case("text_match", min_match=0.5)
+    good, bad = {"text_n": 16, "text_identical": 16}, {"text_n": 16, "text_identical": 0, "text_sim_median": 0.1,
+                                                       "text_len_ratio_median": 0.2}
+    v, detail = report.judge_correct(c, [good, bad, {"self_base": good}], {})
+    assert v == "FAIL" and detail.startswith("session 2: 0/16 identical")
+    v, detail = report.judge_correct(c, [good, good], {})
+    assert v == "pass" and "all 2 sessions pass" in detail
+    v, detail = report.judge_correct(c, [{"missing": ["head"]}], {"base": 0, "head": 48})
+    assert v == "FAIL" and detail.endswith("errors 0 vs 48")
+    assert report.judge_correct(c, [{"missing": ["head"]}], {})[0] == "incomplete"
+
+
+def test_report_reasons_carry_no_paths_addresses_or_host_names(tmp_path):
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    md.mkdir(parents=True)
+    (md / "done.json").write_text(json.dumps({"status": "error", "reason": "OSError: /home/alice/x on 10.1.2.3"}))
+    (rd / "run.json").write_text(json.dumps({**RUN, "models": ["m"]}))
+    text = report.render_md(report.build_rows(rd, [chat_model()], calibration={}), RUN)
+    assert "error: OSError" in text and "/home/alice" not in text and "10.1.2.3" not in text
+    runner = compare.Runner.__new__(compare.Runner)
+    runner.slots = [hosts.Slot(hosts.SSHTransport("bench@gpu7.example"), 0)]
+    assert runner.redact("HostLostError: bench@gpu7.example: refused by gpu7.example") == \
+        "HostLostError: <host>: refused by <host>"
+
+
+def test_a_reused_run_directory_is_refused(tmp_path):
+    from benchmark.eval.cli import build_parser
+
+    (tmp_path / "run.json").write_text("{}")
+    args = build_parser().parse_args(["compare", "--head", "main", "--out", str(tmp_path)])
+    with pytest.raises(SystemExit, match="already holds a run"):
+        compare.cmd_compare(args)
+
+
+def test_a_job_whose_lease_is_not_renewed_stops_itself_and_its_servers(tmp_path):
+    man = mf.parse({"defaults": {"conc": [1], "repeats": 50, "warmup": 0, "startup_timeout_s": 60}, "models": {
+        "fake": {"serve": "fake", "family": "LLM", "cases": [
+            {"id": "text", "client": "chat_text", "n": 4, "check": {"kind": "text_match", "min_match": 0.5},
+             "perf": {"latency": "lat_p50_s"}}]}}})
+    base = trees.Ref("main", "a" * 40, "main")
+    args = Namespace(python=sys.executable, data_dir=str(tmp_path / "data"), sessions=1, repeats=None)
+    slot = hosts.Slot(hosts.LocalTransport(), None, host_dir=str(tmp_path / "host"))
+    runner = compare.Runner(args, man, man.select("all"), base, base, tmp_path / "run", [slot])
+    runner.cache = tmp_path / "cache"
+    fake_tree(runner.cache / "src" / base.sha, delay=0.05)
+    out = tmp_path / "out"
+    out.mkdir()
+    job = {**runner.job(slot, "fake", str(out)), "lease_s": 1.5}
+    (out / "job.json").write_text(json.dumps(job))
+    (out / "lease").touch()
+    r = subprocess.run([sys.executable, "-m", "benchmark.eval.e2e.arm", str(out / "job.json")], capture_output=True,
+                       text=True, timeout=120, check=False, env={**os.environ, "PYTHONPATH": str(compare.TOOL_ROOT)})
+    done = json.loads((out / "done.json").read_text())
+    assert r.returncode != 0 and done["status"] == "interrupted" and "lease not renewed" in done["reason"]
+    assert json.loads((out / "base" / "s0" / "startup.json").read_text())["healthy"]
+    assert not procs_under(runner.cache / "src")

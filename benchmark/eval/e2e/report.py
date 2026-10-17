@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from benchmark.eval.e2e.manifest import Case, Model
+from benchmark.eval.schema import scrub
 
 DASHES = ("\u2014", "\u2013")
 RERUN_TAG = "__abba"
@@ -198,37 +199,26 @@ def correct_limit(check: dict, swings: list[float] | None) -> tuple[dict, str]:
     return ck, note
 
 
-def judge_correct(case: Case, facts: list[dict], errors: dict[str, int],
-                  swings: list[float] | None = None) -> tuple[str, str]:
-    """(verdict, detail) from compare.json facts for one case; worse than base is a FAIL. ``swings`` are this row's
-    A/A swings (calibrate) that widen the manifest limit."""
-    if not facts:
-        return "incomplete", "no comparison"
-    f = facts[0]
+def _judge_session(ck: dict, f: dict) -> tuple[str, str]:
+    """(verdict, detail) of one session's facts against the (already widened) check."""
     if "missing" in f:
         return "incomplete", f"outputs missing ({', '.join(f['missing'])})"
-    ck, limit_note = correct_limit(case.check, swings)
     kind = ck["kind"]
-    eb, eh = errors.get("base", 0), errors.get("head", 0)
-    err_note = f"; errors {eb} vs {eh}" if eb or eh else ""
     ok, detail = True, ""
     if kind == "text_match":
         n, same = f.get("text_n", 0), f.get("text_identical", 0)
         if not n:
-            return "incomplete", "no text outputs" + err_note
+            return "incomplete", "no text outputs"
         sim, lr = f.get("text_sim_median"), f.get("text_len_ratio_median")
         close = sim is not None and sim >= float(ck.get("min_sim", 0.6)) and 0.8 <= (lr or 0) <= 1.25
         ok = same / n >= float(ck["min_match"]) or close
         detail = f"{same}/{n} identical"
         if same < n and sim is not None:
             detail += f", similarity {sim:.2f}, length ratio {lr:.2f}"
-        selfb = next((x["self_base"] for x in facts[1:] if "self_base" in x), None)
-        if selfb and selfb.get("text_n"):
-            detail += f" (base vs base {selfb['text_identical']}/{selfb['text_n']})"
     elif kind == "wer":
         wb, wh = f.get("wer_base"), f.get("wer_head")
         if wb is None or wh is None:
-            return "incomplete", "no WER" + err_note
+            return "incomplete", "no WER"
         ok = (wh - wb) * 100 <= float(ck["max_increase"])
         detail = f"WER {wb * 100:.2f}% to {wh * 100:.2f}%"
         if f.get("text_n"):
@@ -238,20 +228,20 @@ def judge_correct(case: Case, facts: list[dict], errors: dict[str, int],
         if f.get("shape_mismatch"):
             ok, detail = False, f"{f['shape_mismatch']} outputs changed shape"
         elif mn is None and med is None:
-            return "incomplete", "no media outputs" + err_note
+            return "incomplete", "no media outputs"
         else:
             ok = mn is None or mn >= float(ck["min_db"])
             detail = "bit-identical" if mn == math.inf else f"PSNR min {mn:.1f} dB, median {med:.1f} dB"
     elif kind == "action_diff":
         d = f.get("action_max_abs_diff")
         if d is None:
-            return "incomplete", "no actions" + err_note
+            return "incomplete", "no actions"
         ok = d <= float(ck["tol"])
         detail = "bit-identical" if d == 0 else f"max action diff {d:.4f}"
     elif kind == "audio_len":
         ab, ah = f.get("audio_s_base"), f.get("audio_s_head")
         if not ab:
-            return "incomplete", "no audio" + err_note
+            return "incomplete", "no audio"
         ok = abs(ah - ab) / ab * 100 <= float(ck["pct"])
         detail = f"audio {ab:.1f} s to {ah:.1f} s"
         if f.get("text_n"):
@@ -261,7 +251,7 @@ def judge_correct(case: Case, facts: list[dict], errors: dict[str, int],
         tb, th = f.get("take_turn_rate_base"), f.get("take_turn_rate_head")
         yb, yh = f.get("yield_rate_base"), f.get("yield_rate_head")
         if tb is None or th is None:
-            return "incomplete", "no duplex metrics" + err_note
+            return "incomplete", "no duplex metrics"
         ok = th >= tb - tol and (yb is None or yh is None or yh >= yb - tol)
         detail = f"take-turn {tb:.2f} to {th:.2f}"
         if yb is not None and yh is not None:
@@ -271,9 +261,31 @@ def judge_correct(case: Case, facts: list[dict], errors: dict[str, int],
         ok = not diffs
         detail = f"{f.get('n', 0) - len(diffs)}/{f.get('n', 0)} same" + (
             "; " + ", ".join(f"{d['case']} {d['base']} to {d['head']}" for d in diffs[:4]) if diffs else "")
-    if eh > eb:
-        ok = False
-    return ("pass" if ok else "FAIL"), detail + (f" ({limit_note})" if limit_note else "") + err_note
+    return ("pass" if ok else "FAIL"), detail
+
+
+def judge_correct(case: Case, facts: list[dict], errors: dict[str, int],
+                  swings: list[float] | None = None) -> tuple[str, str]:
+    """(verdict, detail) from compare.json facts for one case: every session must pass, and head must not have
+    more request errors than base (even when outputs are missing). ``swings`` are this row's A/A swings
+    (calibrate) that widen the manifest limit."""
+    ck, limit_note = correct_limit(case.check, swings)
+    eb, eh = errors.get("base", 0), errors.get("head", 0)
+    sessions = [f for f in facts if "self_base" not in f]
+    results = [_judge_session(ck, f) for f in sessions] or [("incomplete", "no comparison")]
+    label = (lambda i: f"session {i + 1}: ") if len(results) > 1 else (lambda i: "")
+    worst = next((i for want in ("FAIL", "incomplete") for i, r in enumerate(results) if r[0] == want), None)
+    verdict, detail = (results[worst][0], label(worst) + results[worst][1]) if worst is not None else results[0]
+    if worst is None and len(results) > 1:
+        detail += f"; all {len(results)} sessions pass"
+    selfb = next((x["self_base"] for x in facts if "self_base" in x), None)
+    if ck["kind"] == "text_match" and selfb and selfb.get("text_n"):
+        detail += f" (base vs base {selfb['text_identical']}/{selfb['text_n']})"
+    if limit_note:
+        detail += f" ({limit_note})"
+    if eb or eh:
+        detail += f"; errors {eb} vs {eh}"
+    return ("FAIL" if eh > eb else verdict), detail
 
 
 # Output length is the model's choice for these (greedy text can fork, sampled speech varies); latency then measures
@@ -445,7 +457,8 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
         swings = (calibration.get(correct_key(gpu, m.name, c.id)) or {}).get("swings")
         corr, detail = judge_correct(c, a.compare.get(c.id, []), errs, swings)
     with_data = [p for p in (lat, thru) if p and p.base.mean is not None and p.head.mean is not None]
-    rp = (a.compare.get(c.id) or [None])[0] if c.driver in ("rp", "invariants") else None
+    rp = scrub((a.compare.get(c.id) or [None])[0]) if c.driver in ("rp", "invariants") else None
+    note, detail = scrub(note), scrub(detail)   # reasons can quote server errors: no paths or addresses
     return Row(model=m.name, family=m.family, case=c.id, modality=c.modality, starts=a.starts, correct=corr,
                correct_detail=detail, latency=lat, throughput=thru, extra=extra, startup_s=a.startup,
                peak_vram_gb=a.vram, errors=errs, request_path=rp, note=note,

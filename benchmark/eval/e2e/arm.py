@@ -36,6 +36,7 @@ IDLE_MB = 2000
 
 job: dict = {}
 out = Path(".")
+stop_reason = ""
 
 
 def now() -> str:
@@ -231,16 +232,34 @@ def run_arm(arm_name: str, session: int) -> dict:
     except ServerError as e:
         info.update(healthy=False, error=str(e)[-500:])
         log(f"{arm_name} s{session}: did not start: {e}")
-    finally:
+    finally:   # also when interrupted, after `with server:` has stopped the server
         sampler.stop_ev.set()
-    info["peak_vram_gb"] = round(sampler.peak / 1024, 1) if sampler.peak > 0 else None
-    info["cases"] = cases
-    (d / "startup.json").write_text(json.dumps(info, indent=1))
+        info["peak_vram_gb"] = round(sampler.peak / 1024, 1) if sampler.peak > 0 else None
+        info["cases"] = cases
+        (d / "startup.json").write_text(json.dumps(info, indent=1))
     return info
 
 
 def _on_term(signum, frame) -> None:  # noqa: ARG001
     raise SystemExit(128 + signum)   # unwinds through `with server:`, so no GPU workers are left behind
+
+
+def watch_lease(lease_s: float) -> None:
+    """Stop (servers included) once ``compare`` has not renewed ``out/lease`` for ``lease_s``: it was killed, or
+    its host lost the connection and requeued this model elsewhere."""
+    global stop_reason
+    path = out / "lease"
+    while True:
+        time.sleep(min(30.0, lease_s / 4))
+        try:
+            age = time.time() - path.stat().st_mtime
+        except FileNotFoundError:
+            age = float("inf")
+        if age > lease_s:
+            stop_reason = f"lease not renewed for {lease_s:.0f} s (compare stopped polling)"
+            log(stop_reason)
+            os.kill(os.getpid(), signal.SIGTERM)
+            return
 
 
 def run() -> None:
@@ -279,11 +298,13 @@ def main(argv: list[str] | None = None) -> None:
     (out / "pid").write_text(str(os.getpid()))
     for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(sig, _on_term)
+    if job.get("lease_s"):
+        threading.Thread(target=watch_lease, args=(float(job["lease_s"]),), daemon=True).start()
     t0 = time.time()
     try:
         run()
     except SystemExit as e:
-        done("interrupted", reason=f"signal {int(e.code or 0) - 128}")
+        done("interrupted", reason=stop_reason or f"signal {int(e.code or 0) - 128}")
         raise
     except Exception as e:  # noqa: BLE001 - always leave a done.json behind
         done("error", reason=f"{type(e).__name__}: {str(e)[:400]}")
