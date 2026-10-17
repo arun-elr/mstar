@@ -65,7 +65,8 @@ def _kv_rollout(dit, rid):
 
 def _prepare(dit, rid, inputs):
     return dit.prepare_inputs(
-        VIDEO_GEN_AR_WALK, SimpleNamespace(rid_handle=rid, random_seed=0), inputs,
+        VIDEO_GEN_AR_WALK,
+        SimpleNamespace(request_id=f"req-{rid}", rid_handle=rid, random_seed=0), inputs,
     )
 
 
@@ -122,7 +123,8 @@ def test_finished_request_re_queued_fails_alone_instead_of_asserting():
         node_name="dit", request_ids=[1, 2], graph_walk=VIDEO_GEN_AR_WALK,
         step_context=SimpleNamespace(graph_walk=VIDEO_GEN_AR_WALK),
         per_request_info_wrapped={
-            r: SimpleNamespace(rid_handle=r, random_seed=0) for r in (1, 2)
+            r: SimpleNamespace(request_id=f"req-{r}", rid_handle=r, random_seed=0)
+            for r in (1, 2)
         },
         per_request_input_tensors={
             1: {},
@@ -145,3 +147,6 @@ def test_finished_request_re_queued_fails_alone_instead_of_asserting():
     assert batch.request_ids == [2], "the live request must still run"
     assert list(batch.failed_requests) == [1]
     assert "ran all 4 steps" in batch.failed_requests[1]
+    # The error reaches the conductor and the client, so it names the
+    # request by its id, not by this worker's recycled handle.
+    assert "request req-1 " in batch.failed_requests[1]

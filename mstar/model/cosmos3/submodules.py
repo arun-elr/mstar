@@ -453,7 +453,7 @@ class Cosmos3DiTSubmodule(ARNodeSubmodule):
         return scheduler
 
     @staticmethod
-    def _check_scheduler_has_step(st, rid, step_index: int) -> None:
+    def _check_scheduler_has_step(st, request_id: str, step_index: int) -> None:
         """Refuse a denoise step the request's scheduler has already run out
         for. The scheduler counts its own steps, and one past its last
         timestep asserts inside diffusers (UniPC ``this_order > 0``) in the
@@ -464,7 +464,7 @@ class Cosmos3DiTSubmodule(ARNodeSubmodule):
         done = sched.step_index
         if done is not None and done >= len(sched.timesteps):
             raise RuntimeError(
-                f"Cosmos3 DiT: request {rid} was dispatched denoise step "
+                f"Cosmos3 DiT: request {request_id} was dispatched denoise step "
                 f"{step_index} after its scheduler ran all {len(sched.timesteps)} "
                 "steps; refusing to step it again"
             )
@@ -1122,7 +1122,7 @@ class Cosmos3DiTSubmodule(ARNodeSubmodule):
             step_index = local
         elif step_index >= len(scheduler.timesteps):
             return None
-        self._check_scheduler_has_step(st, fwd_info.rid_handle, step_index)
+        self._check_scheduler_has_step(st, fwd_info.request_id, step_index)
         tensors = {"latents": latents, "time_index": time_index}
         # The CUDA-graph capture reads the timestep, rotary positions and the
         # clean/noisy token mask as static buffers (it can't reach the
@@ -1195,7 +1195,7 @@ class Cosmos3DiTSubmodule(ARNodeSubmodule):
         step_index = int(time_index.reshape(-1)[0].item())
         if step_index >= len(scheduler.timesteps):
             return None
-        self._check_scheduler_has_step(st, fwd_info.rid_handle, step_index)
+        self._check_scheduler_has_step(st, fwd_info.request_id, step_index)
         return ARNodeInputs(
             input_seq_len=st["cond"]["num_vision_tokens"] + st["num_sound"],
             tensor_inputs={
@@ -1239,7 +1239,7 @@ class Cosmos3DiTSubmodule(ARNodeSubmodule):
         step_index = int(time_index.reshape(-1)[0].item())
         if step_index >= len(scheduler.timesteps):
             return None
-        self._check_scheduler_has_step(st, fwd_info.rid_handle, step_index)
+        self._check_scheduler_has_step(st, fwd_info.request_id, step_index)
         return ARNodeInputs(
             input_seq_len=st["cond"]["num_vision_tokens"] + st["cond"]["num_action_tokens"],
             tensor_inputs={"latents": latents, "action_latents": action_latents, "time_index": time_index},
