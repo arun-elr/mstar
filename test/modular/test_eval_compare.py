@@ -933,3 +933,55 @@ def test_a_truncated_results_file_counts_as_a_missing_point(tmp_path):
     finish(rd, md)
     r = report.build_rows(rd, [chat_model()], calibration={})[0]
     assert r.flagged and r.correct_detail.startswith("head wrote no results for s0 c=8")
+
+
+SIGTERM_RUN = r"""
+import json, signal, sys
+sys.path[:0] = [{root!r}, {tests!r}]
+from argparse import Namespace
+from pathlib import Path
+import test_eval_compare as T
+from benchmark.eval import cli
+from benchmark.eval.e2e import compare, hosts, manifest as mf, trees
+
+compare.POLL_S = 0.2
+tmp = Path({tmp!r})
+man = mf.parse({{"defaults": {{"conc": [1], "repeats": 200, "warmup": 0, "startup_timeout_s": 60}}, "models": {{
+    "fake": {{"serve": "fake", "family": "LLM", "cases": [
+        {{"id": "text", "client": "chat_text", "n": 4, "check": {{"kind": "text_match", "min_match": 0.5}},
+         "perf": {{"latency": "lat_p50_s"}}}}]}}}}}})
+base = trees.Ref("main", "a" * 40, "main")
+(tmp / "run").mkdir()
+(tmp / "run" / "run.json").write_text(json.dumps({{**T.RUN, "models": ["fake"]}}))
+(tmp / "data").mkdir()
+args = Namespace(python=sys.executable, host_python=sys.executable, host_dir="mstar-eval", data_dir=str(tmp / "data"),
+                 sessions=1, repeats=None, no_rerun=True, calibration=str(tmp / "cal.json"))
+(tmp / "home").mkdir()
+slot = hosts.Slot(T.FakeRemote(tmp / "home"), None)
+runner = compare.Runner(args, man, man.select("all"), base, base, tmp / "run", [slot])
+runner.cache = tmp / "cache"
+T.fake_tree(runner.cache / "src" / base.sha, delay=0.05)
+for sig in (signal.SIGTERM, signal.SIGHUP):
+    signal.signal(sig, cli._exit_on_signal)
+hosts.run_slots([slot], hosts.WorkQueue(["fake"], {{}}), runner.run_one, stop=runner.stop)
+"""
+
+
+def test_sigterm_to_compare_stops_the_remote_job_before_compare_exits(tmp_path):
+    """A signal that lands while the main thread waits must not let compare exit before its slot threads have
+    stopped their jobs (Thread.join can return early after an interrupted join)."""
+    code = SIGTERM_RUN.format(root=str(compare.TOOL_ROOT), tests=str(Path(__file__).parent), tmp=str(tmp_path))
+    proc = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    status = tmp_path / "home" / "mstar-eval" / "runs" / "run" / "fake.1" / "status.json"
+    for _ in range(300):
+        if '"phase": "case"' in (status.read_text() if status.exists() else "") and procs_under(tmp_path / "home"):
+            break
+        threading.Event().wait(0.1)
+    assert procs_under(tmp_path / "home")
+    proc.send_signal(subprocess.signal.SIGTERM)
+    proc.wait(120)
+    done = json.loads((status.parent / "done.json").read_text())
+    assert done["status"] == "interrupted"
+    state = json.loads((tmp_path / "run" / "state.json").read_text())
+    assert state["models"]["fake"]["status"] == "interrupted"
+    assert not procs_under(tmp_path / "home")

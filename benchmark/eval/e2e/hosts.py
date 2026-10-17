@@ -217,7 +217,19 @@ def run_slots(slots: list[Slot], queue: WorkQueue, run_one: Callable[[Slot, str]
         with lock:
             return len(live)
 
+    all_done = threading.Event()
+    running = [len(slots)]
+
     def worker(slot: Slot) -> None:
+        try:
+            work(slot)
+        finally:
+            with lock:
+                running[0] -= 1
+                if running[0] == 0:
+                    all_done.set()
+
+    def work(slot: Slot) -> None:
         while True:
             name = queue.take(n_live)
             if name is None:
@@ -238,19 +250,20 @@ def run_slots(slots: list[Slot], queue: WorkQueue, run_one: Callable[[Slot, str]
             finished[slot.name].append(name)
             queue.finish(name, rerun)
 
-    threads = [threading.Thread(target=worker, args=(s,), name=s.name, daemon=True) for s in slots]
-    for t in threads:
-        t.start()
+    if not slots:
+        all_done.set()
+    for s in slots:
+        threading.Thread(target=worker, args=(s,), name=s.name, daemon=True).start()
+    # Waiting on an Event, not Thread.join: a signal that interrupts join() can leave the thread marked as
+    # stopped while it still runs, and every later join() then returns at once (CPython bpo-45274 handling).
     try:
-        while any(t.is_alive() for t in threads):
-            for t in threads:
-                t.join(timeout=1)
+        while not all_done.wait(timeout=1):
+            pass
     except BaseException:   # Ctrl-C, or SIGTERM / SIGHUP turned into SystemExit by the CLI
         queue.stop()
         if stop is not None:
             stop.set()   # run_one sees it, stops its job on the host and returns
-        for t in threads:
-            t.join(timeout=300)
+        all_done.wait(timeout=300)
         raise
     for name in queue.pending():   # every slot was lost before these could run
         on_given_up(name)
