@@ -124,15 +124,23 @@ def suite_facts(a: Path, b: Path, conc: int) -> dict:
 
 
 def status_of(v: dict) -> str:
+    """A request's effective outcome: its status, plus an in-band error (an NDJSON or SSE error event, a WebSocket
+    error message) that rides on an HTTP 200."""
     if "status" in v:
-        return str(v["status"])
-    if "status_line" in v:
-        return v["status_line"].split(" ")[1] if " " in v["status_line"] else v["status_line"]
-    if "close_code" in v:
-        return f"ws{v['close_code']}"
-    if "exception" in v:
+        out = str(v["status"])
+    elif "status_line" in v:
+        out = v["status_line"].split(" ")[1] if " " in v["status_line"] else v["status_line"]
+    elif "close_code" in v:
+        out = f"ws{v['close_code']}"
+    elif "exception" in v:
         return f"exc:{v['exception']}"
-    return "?"
+    else:
+        out = "ok"
+    if v.get("error_status"):
+        return f"{out}+error {v['error_status']}"
+    if v.get("error") or any(k.endswith("_error") for k in v):
+        return f"{out}+error"
+    return out
 
 
 def rp_facts(a: Path, b: Path) -> dict:
@@ -146,7 +154,7 @@ def rp_facts(a: Path, b: Path) -> dict:
         va, vb = ja.get(k), jb.get(k)
         sa = status_of(va) if isinstance(va, dict) else "absent"
         sb = status_of(vb) if isinstance(vb, dict) else "absent"
-        flags = [f for f in ("identical", "ok") if isinstance(va, dict) and f in va]
+        flags = [f for f in ("identical", "ok", "sse_done") if isinstance(va, dict) and f in va]
         if sa != sb or any(va.get(f) != (vb or {}).get(f) for f in flags):
             diffs.append({"case": k, "base": sa, "head": sb, **{f"{f}_base": va.get(f) for f in flags},
                           **{f"{f}_head": (vb or {}).get(f) for f in flags}})

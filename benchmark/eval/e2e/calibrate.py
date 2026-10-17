@@ -13,6 +13,7 @@ would trip (``report.correct_limit``).
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from benchmark.eval.e2e import report
@@ -62,7 +63,7 @@ def add_run(run_dir: Path, models: list[Model], path: str | Path = DEFAULT) -> i
                 compare = json.loads(f.read_text()) if f.exists() else {}
                 for c in m.cases:
                     swings = [s for s in (report.aa_swing(c.check["kind"], x) for x in compare.get(c.id, []))
-                              if s is not None]
+                              if s is not None and math.isfinite(s)]
                     if swings:
                         key = report.correct_key(gpu, m.name, c.id)
                         entry = cal.setdefault(key, {"kind": c.check["kind"], "swings": []})

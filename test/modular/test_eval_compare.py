@@ -833,3 +833,54 @@ def test_signals_wait_until_server_teardown_is_done():
         assert finished == [True] and e.value.code == 128 + _signal.SIGTERM
     finally:
         _signal.signal(_signal.SIGTERM, old)
+
+
+def test_in_band_stream_errors_count_as_a_changed_outcome(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir(), b.mkdir()
+    (a / "rp.json").write_text(json.dumps({"gen": {"status": 200, "text": "hi"}, "ws": {"j1": "hi"},
+                                           "sse": {"status": 200, "sse_done": True}}))
+    (b / "rp.json").write_text(json.dumps({"gen": {"status": 200, "error": "boom", "error_status": 500},
+                                           "ws": {"j1": "", "j1_error": "boom"},
+                                           "sse": {"status": 200, "sse_done": False}}))
+    diffs = {d["case"]: d for d in checks.rp_facts(a, b)["diffs"]}
+    assert diffs["gen"]["head"] == "200+error 500" and diffs["ws"]["head"] == "ok+error" and "sse" in diffs
+
+
+def test_points_neither_arm_wrote_leave_the_row_incomplete(tmp_path):
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    for arm in ("base", "head"):
+        (md / arm / "s0" / "c" / f"x-{arm}-c8.json").unlink()            # both c=8 clients timed out
+    finish(rd, md)
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.correct == "incomplete" and r.correct_detail.startswith("no results from either arm for s0 c=8")
+    assert "No regressions:" not in report.render_md([r], RUN)
+
+
+def test_cmax_throughput_is_normalized_on_its_own_lengths(tmp_path):
+    """Identical c=1 replies, but at c=8 head's replies are twice as long and take twice as long: the same
+    tokens per second, not a 50% drop in requests per second."""
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(2.0, 192)] * 8, wall_n=4.0)
+    finish(rd, md)
+    r = report.build_rows(rd, [chat_model()], calibration={})[0]
+    assert r.latency.metric == "lat_p50_s" and not r.latency.basis
+    assert r.throughput.metric == "tok_per_s" and r.throughput.verdict == "same" and not r.flagged
+
+
+def test_non_finite_actions_fail_and_never_calibrate_a_limit(tmp_path):
+    c = case("action_diff", tol=0.05)
+    assert report.judge_correct(c, [{"action_max_abs_diff": math.inf}], {})[0] == "FAIL"
+    assert report.judge_correct(c, [{"action_max_abs_diff": math.inf}], {}, swings=[math.inf])[0] == "FAIL"
+    assert report.correct_limit(c.check, [math.inf]) == (c.check, "")
+    rd, md = tmp_path / "aa", tmp_path / "aa" / "results" / "m"
+    md.mkdir(parents=True)
+    (md / "done.json").write_text(json.dumps({"status": "done"}))
+    (md / "compare.json").write_text(json.dumps({"c": [{"action_max_abs_diff": math.inf}]}))
+    (rd / "run.json").write_text(json.dumps({**RUN, "head": RUN["base"], "id": "aa", "models": ["m"]}))
+    m = Model(name="m", serve="m", family="VLA", tags=[], cases=[c])
+    calibrate.add_run(rd, [m], tmp_path / "cal.json")
+    assert "h200:m/c/correct" not in calibrate.load(tmp_path / "cal.json")
