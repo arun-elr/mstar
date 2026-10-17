@@ -296,7 +296,13 @@ def run() -> None:
     model = job["model"]
     arms = job["arms"]
     log(f"{model['name']}: order {job['order']}, {job['sessions']} session(s)")
-    problems = {a: build_rust(arm) for a, arm in arms.items()}
+    built: dict = {}   # one build per tree: arms that share a tree always share its result
+    for arm in arms.values():
+        tree = arm.get("rust_tree")
+        if tree not in built:
+            built[tree] = (build_rust(arm), arm.get("rust_site"))
+        arm["rust_site"] = built[tree][1]
+    problems = {a: built[arm.get("rust_tree")][0] for a, arm in arms.items()}
     if any(problems.values()) and arms["base"].get("rust_tree") != arms["head"].get("rust_tree"):
         bad = [f"{a}: {p}" for a, p in problems.items() if p]
         return done("error", reason="base and head have different rust/ trees and one did not build: " + "; ".join(bad))
