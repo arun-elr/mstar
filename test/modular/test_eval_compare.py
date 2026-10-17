@@ -791,10 +791,10 @@ def test_report_reasons_carry_no_paths_addresses_or_host_names(tmp_path):
     rd, md = tmp_path, tmp_path / "results" / "m"
     md.mkdir(parents=True)
     (md / "done.json").write_text(json.dumps({"status": "error",
-                                              "reason": "OSError: /home/alice/x on 10.1.2.3, log /root/w/server.log"}))
+                                              "reason": "OSError: /home/alice/x on 192.0.2.7, log /root/w/server.log"}))
     (rd / "run.json").write_text(json.dumps({**RUN, "models": ["m"]}))
     text = report.render_md(report.build_rows(rd, [chat_model()], calibration={}), RUN)
-    assert "error: OSError" in text and "/home/alice" not in text and "10.1.2.3" not in text and "/root" not in text
+    assert "error: OSError" in text and "/home/alice" not in text and "192.0.2.7" not in text and "/root" not in text
     runner = compare.Runner.__new__(compare.Runner)
     runner.slots = [hosts.Slot(hosts.SSHTransport("bench@gpu7.example"), 0)]
     assert runner.redact("HostLostError: bench@gpu7.example: refused by gpu7.example") == \
