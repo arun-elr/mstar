@@ -67,6 +67,11 @@ def summarize(r: requests.Response) -> dict:
                 js = json.loads(ln[5:])
             except Exception:  # noqa: BLE001
                 continue
+            err = js.get("error") if isinstance(js, dict) else None
+            if err or js.get("type") == "error":   # an error event on an HTTP 200 stream
+                err = err if isinstance(err, dict) else {"message": err or js.get("message")}
+                out["error"] = str(err.get("message", err))[:300]
+                out["error_status"] = err.get("code") or err.get("status") or "error"
             if js.get("type") == "transcript.text.done":
                 out["text"] = js.get("text")
             if js.get("type") == "transcript.text.delta":
