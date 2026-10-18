@@ -385,9 +385,16 @@ class VoxCPM2Model(Model):
             "text_inputs": [torch.tensor(ids, dtype=torch.long)],
             "gen_params": [torch.tensor([cfg_value], dtype=torch.float32)],
         }
-        metadata = {PATCH_BUDGET_KEY: max_patches, PROMPT_MODE_KEY: mode, MIN_LEN_KEY: min_len, REF_DIGEST_KEY: digest}
-        if mode == MODE_REF_CONTINUATION:
-            metadata[STREAM_LEAD_KEY] = min(self.config.prompt_context_patches, ref_patches)
+        # every key is set in every mode: the data worker lays this over the
+        # request's own kwargs, so a key left out stays client-controlled
+        lead = min(self.config.prompt_context_patches, ref_patches) if mode == MODE_REF_CONTINUATION else 0
+        metadata = {
+            PATCH_BUDGET_KEY: max_patches,
+            PROMPT_MODE_KEY: mode,
+            MIN_LEN_KEY: min_len,
+            REF_DIGEST_KEY: digest,
+            STREAM_LEAD_KEY: lead,
+        }
         return ProcessPromptOutput(outputs, metadata)
 
     # -- conductor state machine -------------------------------------------------

@@ -444,6 +444,25 @@ def test_initial_args_route_reference_audio_and_stream_lead(model):
     assert {edge.next_node for edge in plain.inputs} == {"Talker"}
 
 
+@pytest.mark.parametrize("ref_text, lead", [(None, 0), ("", 0), ("world", 3)])
+def test_a_client_cannot_set_the_stream_lead(model, ref_text, lead):
+    """The data worker lays the prompt metadata over the request's kwargs, so
+    the lead must be the server's in every mode: a client value past the
+    stream's context would raise in the worker's ingest, outside any one
+    request's failure path."""
+    clip = None if ref_text is None else torch.zeros(16000)
+    modalities = ["text"] if clip is None else ["text", "audio"]
+    tensors = None if clip is None else {"audio_inputs": [clip]}
+    client = {STREAM_LEAD_KEY: 999}
+    _, metadata = model.process_prompt(
+        "hello", modalities, ["audio"], tensors=tensors, ref_text=ref_text, **client
+    )
+    vae = model.get_initial_forward_pass_args(
+        "VAEDecoder", modalities, ["audio"], {}, model_kwargs={**client, **metadata}
+    )
+    assert vae.stream_lead_items == ({STREAM_EDGE: lead} if lead else {})
+
+
 def test_postprocess_encodes_pcm16(model):
     pcm = model.postprocess(torch.tensor([0.0, 0.5, -2.0]), "audio")
     assert torch.frombuffer(bytearray(pcm), dtype=torch.int16).tolist() == [0, 16383, -32767]
