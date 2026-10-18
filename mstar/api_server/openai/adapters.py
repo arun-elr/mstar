@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from mstar.api_server import media_io
+from mstar.api_server.openai.speech_chunking import split_sentences
 from mstar.model.multimodal import PromptPart
 from mstar.model.registry import qwen_3_5_dense_sizes as QWEN_3_5_DENSE_SIZES
 
@@ -293,6 +294,10 @@ class OpenAIAdapter:
     speech_chunk_lookahead: int = 2
     # most sub-requests one input may split into; longer inputs get a 400
     speech_chunk_max_pieces: int = 32
+
+    def split_speech_text(self, text: str) -> list[str]:
+        """The sentence chunks of a ``/v1/audio/speech`` input that chunking applies to."""
+        return split_sentences(text, max_chars=self.speech_chunk_max_chars)
 
     def chat_to_request(self, req: ChatCompletionRequest, upload_dir: Path) -> SubmitArgs:  # noqa: ARG002
         # Output modalities vary by model: e.g. Qwen3-Omni speech output also
@@ -632,7 +637,10 @@ def _resolve_ref_audio(ref: str, upload_dir: Path, decoder: str) -> str:
     if not isinstance(ref, str):
         raise ValueError(f"ref_audio must be a data URL or base64 string, got {type(ref).__name__}")
     if ref.startswith("data:") or ref.split(":", 1)[0].lower() in ("http", "https"):
-        path = media_io.resolve_media_ref(ref, upload_dir)[1]
+        try:
+            path = media_io.resolve_media_ref(ref, upload_dir)[1]
+        except (OSError, http.client.HTTPException) as exc:  # urllib errors, timeouts, truncated bodies
+            raise ValueError(f"could not fetch ref_audio: {exc!r}") from exc
         media_io.check_ref_audio(path, decoder)
         return path
     path = media_io.save_base64_audio(ref, upload_dir, decoder)
@@ -726,53 +734,36 @@ class FishS2ProAdapter(OpenAIAdapter):
         )
 
 
-def _uploaded_ref_audio(ref, upload_dir: Path) -> str:
-    """A reference clip from the request, saved under ``upload_dir``: a data URL,
-    an http(s) URL (fetched only when ``MSTAR_ALLOW_REMOTE`` allows it) or bare
-    base64 that soundfile opens. No string names a file on the server, not even
-    one under ``upload_dir``: ``/etc/passwd`` is valid base64, so it is decoded
-    into a new file and refused when that file is not audio, with nothing left
-    behind and nothing client-named opened."""
-    if not isinstance(ref, str):
-        raise ValueError(f"ref_audio must be a data URL or base64 audio, got {type(ref).__name__}")
-    if ref.startswith("data:") or ref.split(":", 1)[0].lower() in ("http", "https"):
-        try:
-            return media_io.resolve_media_ref(ref, upload_dir, allow_remote=False)[1]
-        except (OSError, http.client.HTTPException) as exc:  # urllib errors, timeouts, truncated bodies
-            raise ValueError(f"could not fetch ref_audio: {exc!r}") from exc
-    try:
-        _, path = media_io.save_base64(ref, "wav", "audio", upload_dir)
-    except ValueError:
-        path = None
-    if path is not None:
-        try:
-            import soundfile
-
-            soundfile.info(path)
-            return path
-        except Exception:  # noqa: BLE001 - not audio the model's loader opens (or no soundfile)
-            Path(path).unlink(missing_ok=True)
-    # A path such as /etc/passwd also decodes as base64, so one message covers
-    # both a server path and base64 that is not audio.
-    raise ValueError(
-        "ref_audio is not audio the server can read; send a data URL, an http(s) URL "
-        "or base64 audio (server file paths are refused)"
-    )
-
-
 class CosyVoice3Adapter(OpenAIAdapter):
     """Fun-CosyVoice3: TTS that always clones a voice.
 
     ``voice`` names a preset in the deployment's ``voices_dir`` (with its
     transcript in ``<voice>.txt``); ``ref_audio`` in ``extra_body`` uploads a
-    clip instead (see ``_uploaded_ref_audio``), with its transcript in
+    clip instead (a data URL, an http(s) URL when the server allows remote
+    media, or bare base64 audio; never a server path), with its transcript in
     ``ref_text``. ``instructions`` becomes ``instruct``. ``temperature``,
     ``top_p`` and ``seed`` are the standard fields; ``top_k``, ``ras_window``,
     ``ras_tau``, ``n_cfm_timesteps`` and ``max_new_tokens`` (25 Hz speech
     tokens) pass through ``extra_body``. ``speed`` is dropped.
+
+    Long text is synthesized in sentence chunks, as the reference frontend
+    (``text_normalize``) does: pieces of about 80 tokens, or 80 characters
+    for text with Chinese, cut at sentence ends, with a short tail merged
+    into the piece before it. In one request the LM ends long text early or
+    garbles its end. Characters stand in for tokens: English runs about
+    ``_CHARS_PER_TOKEN`` characters per token of the model's Qwen2 BPE.
     """
 
     supports_speech = True
+    _CHARS_PER_TOKEN = 4
+    speech_chunk_max_chars = 80 * _CHARS_PER_TOKEN
+    # nothing shorter than the smallest piece (80 characters of Chinese) is split
+    speech_chunk_min_chars = 81
+
+    def split_speech_text(self, text: str) -> list[str]:
+        if re.search(r"[\u4e00-\u9fff]", text):  # the reference's ``contains_chinese``
+            return split_sentences(text, max_chars=80, min_chars=20)
+        return split_sentences(text, max_chars=self.speech_chunk_max_chars, min_chars=20 * self._CHARS_PER_TOKEN)
 
     def speech_to_request(self, req: SpeechRequest, upload_dir: Path) -> SubmitArgs:
         mk = _passthrough(req)
@@ -786,7 +777,7 @@ class CosyVoice3Adapter(OpenAIAdapter):
         input_modalities = ["text"]
         ref_audio = mk.pop("ref_audio", None)
         if ref_audio:
-            file_paths = {"audio": [_uploaded_ref_audio(ref_audio, upload_dir)]}
+            file_paths = {"audio": [_resolve_ref_audio(ref_audio, upload_dir, decoder="soundfile")]}
             input_modalities = ["text", "audio"]
         return SubmitArgs(
             text=req.input,
