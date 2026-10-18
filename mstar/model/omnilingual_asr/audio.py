@@ -12,6 +12,7 @@ bit-identical to the reference's input.
 
 from __future__ import annotations
 
+import math
 import struct
 from pathlib import Path
 
@@ -102,11 +103,29 @@ def _decode_pcm_wav(path: str) -> tuple[torch.Tensor, int]:
     return torch.from_numpy(np.ascontiguousarray(audio)), int(rate)
 
 
+_MAX_SAMPLE_RATE = 768_000
+# torchaudio's resampling kernel holds about (rate / g) * (16000 / g) floats,
+# g = gcd(rate, 16000): 70,560 for 44.1 kHz, 16000 * rate for a rate coprime
+# to 16000 (gigabytes from one crafted header)
+_MAX_RESAMPLE_KERNEL = 1 << 20
+
+
+def check_sample_rate(sample_rate: int) -> None:
+    """Refuse a rate the resampler can't take at a bounded cost. Every common
+    rate from 8 kHz to 192 kHz, 11.025 kHz and its multiples included, passes."""
+    if not 1 <= sample_rate <= _MAX_SAMPLE_RATE:
+        raise ValueError(f"unsupported sample rate {sample_rate} Hz")
+    g = math.gcd(sample_rate, SAMPLE_RATE)
+    if (sample_rate // g) * (SAMPLE_RATE // g) > _MAX_RESAMPLE_KERNEL:
+        raise ValueError(f"unsupported sample rate {sample_rate} Hz; resample the audio to a standard rate")
+
+
 def to_16k_mono(audio: torch.Tensor, sample_rate: int) -> torch.Tensor:
     """Resample each channel to 16 kHz, then average the channels, as the
     reference does (resample, then ``convert_to_mono``'s in-order sum and divide)."""
     if audio.dim() > 2:
         raise ValueError(f"audio must be (time,) or (time, channels); got shape {tuple(audio.shape)}")
+    check_sample_rate(sample_rate)
     if sample_rate != SAMPLE_RATE:
         # the reference's heuristic: the longer axis is time
         transpose = audio.dim() == 2 and audio.shape[0] > audio.shape[1]

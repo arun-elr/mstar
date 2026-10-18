@@ -270,6 +270,29 @@ def test_wav_upload_decodes_at_its_rate_then_resamples(tmp_path, monkeypatch):
     assert torch.equal(audio.load_waveform(str(path)), audio.to_16k_mono(pcm, 44100))
 
 
+@pytest.mark.parametrize("rate", [8000, 11025, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000, 176400, 192000])
+def test_common_sample_rates_resample(rate):
+    audio.check_sample_rate(rate)
+
+
+def test_a_header_rate_coprime_to_16k_is_refused_before_resampling(tmp_path, monkeypatch):
+    """The header's rate is the client's: resampling from 24007 Hz builds a
+    kernel of about 16000 x 24007 floats (6.6 GB peak) for a 48 KB file."""
+    monkeypatch.setitem(sys.modules, "soundfile", None)
+    monkeypatch.setitem(sys.modules, "torchcodec", None)
+    monkeypatch.setitem(sys.modules, "torchcodec.decoders", None)
+
+    def no_resample(*args, **kwargs):
+        raise AssertionError("resampled from an unsupported rate")
+
+    monkeypatch.setattr(torchaudio.functional, "resample", no_resample)
+    for rate in (24007, 0, 10**9):
+        path = tmp_path / f"r{rate}.wav"
+        path.write_bytes(_riff(1, 1, rate, 16, b"\x00\x00" * 24000))
+        with pytest.raises(ValueError, match="unsupported sample rate"):
+            audio.load_waveform(str(path))
+
+
 def _riff(fmt_tag: int, channels: int, rate: int, bits: int, payload: bytes, extensible: bool = False) -> bytes:
     block = channels * bits // 8
     if extensible:
