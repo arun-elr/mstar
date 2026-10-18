@@ -75,6 +75,8 @@ class DockerPinTests(unittest.TestCase):
             self.assertIn("uv pip uninstall --python /opt/mstar/venv/bin/python mooncake-transfer-engine", step)
             # same version as the extras resolved, without letting the resolver near the torch pins
             self.assertIn('--no-deps "${MOONCAKE_PACKAGE}==${v}"', step)
+            # a re-run after another .[all] install must rewrite the shared mooncake/ files
+            self.assertIn('--reinstall --no-deps "${MOONCAKE_PACKAGE}', step)
             self.assertIn("m.version('mooncake-transfer-engine')", step)
 
     def test_the_cuda_base_image_gets_mooncakes_system_libraries(self):

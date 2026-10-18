@@ -83,13 +83,15 @@ RUN uv pip install --python /opt/mstar/venv/bin/python --no-deps "qwen-tts==0.1.
 # Mooncake's default wheel is built for CUDA 12 (it links libcudart.so.12), so
 # a CUDA 13 image swaps it for the -cuda13 build of the version the extras
 # resolved (#480). --no-deps keeps the resolver away from the pins above. The
-# extras still name the CUDA 12 package; `uv pip check` passes because it
-# skips extra-only requirements. Re-running the .[all] install puts the CUDA
-# 12 wheel back.
+# extras still name the CUDA 12 package; `uv pip check` doesn't flag that
+# because it skips extra-only requirements. Both wheels ship the same
+# `mooncake/` files, so re-running the .[all] install puts the CUDA 12 wheel
+# back over them and its uninstall then deletes them: --reinstall rewrites
+# them even when the -cuda13 dist-info is still registered.
 RUN if [ "${MOONCAKE_PACKAGE}" != mooncake-transfer-engine ]; then \
         v=$(/opt/mstar/venv/bin/python -c "import importlib.metadata as m; print(m.version('mooncake-transfer-engine'))") \
         && uv pip uninstall --python /opt/mstar/venv/bin/python mooncake-transfer-engine \
-        && uv pip install --python /opt/mstar/venv/bin/python --no-deps "${MOONCAKE_PACKAGE}==${v}"; \
+        && uv pip install --python /opt/mstar/venv/bin/python --reinstall --no-deps "${MOONCAKE_PACKAGE}==${v}"; \
     fi
 
 # The venv must lead PATH: FlashInfer's JIT invokes ninja (installed in the
