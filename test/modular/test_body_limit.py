@@ -139,6 +139,40 @@ def test_root_path_prefix_is_matched(monkeypatch):
     assert sent[0]["status"] == 413
 
 
+def test_streamed_chunks_are_forwarded_as_the_app_sends_them():
+    """A streamed response (SSE, /generate's chunk stream) is not held back:
+    each message reaches the server before the app's send returns, and a
+    disconnect still reaches the app once the body is read."""
+    import asyncio
+
+    from mstar.api_server.body_limit import BodyLimitMiddleware
+
+    sent = []
+    seen_by_app = []
+
+    async def app(scope, receive, send):
+        await receive()
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        for i in range(3):
+            message = {"type": "http.response.body", "body": b"c%d" % i, "more_body": True}
+            await send(message)
+            seen_by_app.append(sent[-1] is message)
+        seen_by_app.append((await receive())["type"])
+
+    inbox = [{"type": "http.request", "body": b"{}", "more_body": False}, {"type": "http.disconnect"}]
+
+    async def receive():
+        return inbox.pop(0)
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {"type": "http", "path": "/v1/chat/completions", "headers": [(b"content-length", b"2")]}
+    asyncio.run(BodyLimitMiddleware(app, max_bytes=MIB)(scope, receive, send))
+    assert seen_by_app == [True, True, True, "http.disconnect"]
+    assert [m.get("body") for m in sent[1:]] == [b"c0", b"c1", b"c2"]
+
+
 def test_images_edits_names_its_upload_limit(monkeypatch):
     # the route checks the file itself too, so the limit holds when the router
     # is mounted without the entrypoint's middleware
