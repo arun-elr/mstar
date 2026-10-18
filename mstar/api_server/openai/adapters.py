@@ -957,7 +957,7 @@ class VoxCPM2Adapter(OpenAIAdapter):
         input_modalities = ["text"]
         ref_audio = mk.pop("ref_audio", None)
         if ref_audio:
-            file_paths = {"audio": [self._reference_clip(ref_audio, upload_dir)]}
+            file_paths = {"audio": [_resolve_ref_audio(ref_audio, upload_dir, decoder="soundfile")]}
             input_modalities = ["text", "audio"]
         return SubmitArgs(
             text=req.input,
@@ -965,34 +965,6 @@ class VoxCPM2Adapter(OpenAIAdapter):
             input_modalities=input_modalities,
             output_modalities=["audio"],
             model_kwargs=mk,
-        )
-
-    @staticmethod
-    def _reference_clip(ref, upload_dir: Path) -> str:
-        """Every refusal is the same and accesses no client-named server file.
-        ``/etc/passwd`` is valid base64, so bare base64 is decoded into
-        ``upload_dir`` and kept only if soundfile opens it as audio."""
-        if not isinstance(ref, str):
-            raise ValueError(f"ref_audio must be a data URL or base64 string, got {type(ref).__name__}")
-        if ref.startswith("data:") or ref.split(":", 1)[0].lower() in ("http", "https"):
-            # a URL is fetched only when the server allows it (MSTAR_ALLOW_REMOTE)
-            try:
-                return media_io.resolve_media_ref(ref, upload_dir, allow_remote=False)[1]
-            except (OSError, http.client.HTTPException) as exc:  # urllib errors, timeouts, truncated bodies
-                raise ValueError(f"could not fetch ref_audio: {exc!r}") from exc
-        path = None
-        try:
-            _, path = media_io.save_base64(ref, "wav", "audio", upload_dir)
-            import soundfile
-
-            soundfile.info(path)
-            return path
-        except Exception:  # noqa: BLE001 - not base64 audio the model can load
-            if path:
-                Path(path).unlink(missing_ok=True)
-        raise ValueError(
-            "server file paths are refused; ref_audio must be a data URL, an http(s) URL "
-            "or base64 audio the model can decode"
         )
 
 
