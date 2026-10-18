@@ -368,6 +368,53 @@ def test_replayed_pcm16_calls_equal_the_eager_ones_and_finals_pad_into_a_capture
     assert (eager_streams[2].caches - replay_streams[2].caches).abs().max() < 1e-5
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA graph capture needs CUDA")
+def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
+    """The engine's piecewise runner captures ``_mark_pcm16`` per length and
+    batch bucket; replays (batch padded up to the bucket) give the eager
+    call's samples and caches exactly, and leave the runner's state clean
+    for the next replay."""
+    from mstar.engine.cuda_graph_runner import PiecewiseCudaGraphRunner
+
+    class NoResources:
+        def build_cuda_graph_buffers(self, *args, **kwargs):
+            pass
+
+        def ingest_capture_row(self, rid):
+            pass
+
+    frame = 320 * 6
+    wmk = AudioSealWatermarker(_random_generator().cuda(), AudioWatermarkConfig(enabled=True, message=0xBEEF),
+                               import_audioseal()[1])
+    configs = wmk.piecewise_configs([frame, 3 * frame], [1, 2, 4])
+    pool = torch.cuda.graphs.graph_pool_handle()
+    runners = {}
+    for label, config in configs.items():
+        runner = PiecewiseCudaGraphRunner(
+            label=label, config=config, resources={}, step_runner=NoResources(), device=torch.device("cuda"),
+            autocast_dtype=None, num_slots=1, memory_pool=pool,
+        )
+        runner.warmup_and_capture()
+        assert runner.any_graphs and not runner.dropped_shapes
+        runners[label] = runner
+    pcm = [(_speechlike(7 * frame, seed=s).clamp(-1, 1) * 32767).to(torch.int16).cuda() for s in (30, 31, 32)]
+    replayed, eager = [WatermarkStream() for _ in pcm], [WatermarkStream() for _ in pcm]
+    for lo, hi in [(0, frame), (frame, 4 * frame), (4 * frame, 7 * frame)]:
+        chunks = [x[lo:hi] for x in pcm]
+        got = wmk.apply_pcm16(chunks, replayed, runners=runners)
+        want = wmk.apply_pcm16(chunks, eager)
+        for g, w in zip(got, want, strict=True):
+            assert torch.equal(g, w)
+        for r, e in zip(replayed, eager, strict=True):
+            assert torch.equal(r.caches, e.caches)
+    # two streams then finish with 2 frames, padded into the 3-frame capture
+    tail = [x[:2 * frame] for x in pcm[:2]]
+    got = wmk.apply_pcm16(tail, replayed[:2], [True, True], runners=runners)
+    want = wmk.apply_pcm16(tail, eager[:2], [True, True])
+    for g, w in zip(got, want, strict=True):
+        assert g.shape == w.shape and (g.int() - w.int()).abs().max() <= 1
+
+
 def test_capture_lengths_must_be_whole_frames():
     wmk = _watermarker()
     with pytest.raises(ValueError, match="whole"):

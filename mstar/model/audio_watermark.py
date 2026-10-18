@@ -26,9 +26,11 @@ AudioSeal 0.2.0's ``model.streaming(batch_size)`` does not deliver that: its
 state propagation walks ``named_children()`` and stops at the
 ``nn.Sequential`` holding the layers, so no conv caches anything and every
 chunk is watermarked as if it began the stream (upstream issue #105). This
-module keeps each request's stream state itself, as plain tensors, and
-installs it in the generator's streaming layers around each call. That also
-lets requests at the same point share one batched call.
+module keeps each request's stream state itself, as one flat row of tensors,
+and runs the generator's layers as a function of it: the same ops AudioSeal's
+streaming layers run, with the state passed in and out. That lets requests
+at the same point share one batched call, and lets the engine capture that
+call per (batch, chunk length) bucket.
 
 The generator works on whole 320-sample frames (its total stride). A chunk
 that is not a whole number of frames leaves its tail pending until the next

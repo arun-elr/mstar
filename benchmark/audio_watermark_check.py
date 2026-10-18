@@ -11,9 +11,17 @@ contrast (it does not carry history, upstream issue #105)::
     python -m benchmark.audio_watermark_check exactness --device cuda
 
 ``cost``: one ``apply_pcm16`` call per codec chunk length (1 to 25 Qwen3-TTS
-frames of 1920 samples), batch 1 and 8, streams already under way::
+frames of 1920 samples), batch 1, 8 and 32, streams already under way: the
+time until the audio is ready and until the call returns (how long it holds
+the worker loop); ``--captured`` adds the replay of the engine's captures::
 
-    python -m benchmark.audio_watermark_check cost --device cuda
+    python -m benchmark.audio_watermark_check cost --device cuda --captured
+
+``stream``: served clean WAVs marked as the codec would, all files in flight
+together with staggered starts, one call per step; ``--compare`` reports the
+int16 difference to another run, e.g. the same command on another commit::
+
+    python -m benchmark.audio_watermark_check stream --wavs off_wav --out marked --captured
 
 ``quality``: from the per-request WAVs ``benchmark.tts_speech_bench
 --save-audio-dir`` writes, one directory served with the watermark off and
