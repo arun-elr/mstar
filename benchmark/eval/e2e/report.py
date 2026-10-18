@@ -575,9 +575,12 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
         elif absent and corr == "pass":
             corr, detail = "incomplete", f"no results for {', '.join(absent)}; {detail}"
         hung = a.hung(c.id)
-        if hung["base"] is not None:   # nothing to judge head against
+        if hung["base"] is not None:   # nothing to judge head against, timings included
             corr, detail = "base broken", (f"base hung: still running after the {hung['base']:.0f} s case cap "
                                            "(stacks saved)")
+            for p in (lat, thru, *extra):
+                if p:
+                    p.verdict = "n/a"
         elif hung["head"] is not None:
             corr, detail = "FAIL", (f"head hung: still running after the {hung['head']:.0f} s case cap; base finished "
                                     "(stacks in head/s*/" + c.id + "/stacks.txt)")

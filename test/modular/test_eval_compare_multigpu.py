@@ -22,12 +22,12 @@ sys.path.insert(0, ".")
 
 pytest.importorskip("aiohttp")
 
-from test_eval_compare import RUN, fake_tree, procs_under  # noqa: E402
+from test_eval_compare import RUN, chat_model, fake_tree, finish, procs_under, write_arm  # noqa: E402
 
 from benchmark.eval.e2e import arm, compare, hosts, report, trees  # noqa: E402
 from benchmark.eval.e2e import manifest as mf  # noqa: E402
 
-SIX = {"whisper_large_tp2": 2, "qwen3omni_thinker_tp2": 3, "cosmos3_nano_sp2": 2, "qwen3tts_1p7b_split": 2,
+SIX = {"whisper_large_tp2": 2, "qwen3omni_thinker_tp2": 3, "cosmos3_nano_sp2": 2, "qwen3tts_1p7b_split": 1,
        "orpheus_pd_disaggregated": 2, "qwen3omni_pd_disaggregated": 3}
 
 ONE = {"defaults": {"conc": [1], "repeats": 1, "warmup": 0, "startup_timeout_s": 60}, "models": {
@@ -62,10 +62,10 @@ def test_shipped_multi_gpu_configs_match_their_rank_layouts():
     assert all(x.optional and x.case_timeout_s for x in picked)
     assert not {x.name for x in m.select("all")} & set(SIX)          # out of `all`
     assert all(x.gpus == 1 for x in m.models.values() if x.name not in SIX)
-    for x in picked:                                                  # the config's ranks are exactly 0..gpus-1
+    for x in picked:                                   # the config's ranks land on exactly devices 0..gpus-1
         cfg = yaml.safe_load(Path(x.config).read_text())
-        ranks = {r for g in cfg["node_groups"] for r in g["ranks"]}
-        assert ranks == set(range(x.gpus)), x.name
+        devices = {(cfg.get("rank_devices") or {}).get(r, r) for g in cfg["node_groups"] for r in g["ranks"]}
+        assert devices == set(range(x.gpus)), x.name
         assert cfg["model"] == x.serve, x.name
     for name in ("whisper_large_tp2", "qwen3omni_thinker_tp2"):      # the #332 load on the TP configs
         assert all(max(c.conc) == 16 for c in m.models[name].cases)
@@ -210,3 +210,19 @@ def test_a_base_that_hangs_is_reported_broken_not_flagged(tmp_path):
     assert rows[0].correct == "base broken" and not rows[0].flagged and rows[0].unfinished
     md, code = compare.render(tmp_path / "run", man, str(tmp_path / "none.json"))
     assert code == 2 and "base hung" in md.read_text()
+
+
+def test_a_base_that_hangs_after_some_points_gates_head_timings_too(tmp_path):
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.2, 96)] * 8, [(1.2, 96)] * 8, wall_n=2.4)       # head 20% slower at every point
+    finish(rd, md)
+    assert report.build_rows(rd, [chat_model()], calibration={})[0].flagged
+    startup = md / "base" / "s0" / "startup.json"
+    startup.write_text(json.dumps({"healthy": True, "startup_s": 10,
+                                   "cases": {"c": {"rc": "timeout", "hung": True, "cap_s": 900}}}))
+    rows = report.build_rows(rd, [chat_model()], calibration={})
+    r = rows[0]
+    assert r.correct == "base broken" and not r.flagged and r.unfinished
+    assert r.latency.verdict == r.throughput.verdict == "n/a"
+    assert report.flagged_perf_cases(rows) == []                              # no ABBA rerun for it either

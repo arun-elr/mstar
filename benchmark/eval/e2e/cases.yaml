@@ -552,11 +552,11 @@ models:
         check: {kind: psnr, min_db: 25}
         perf: {latency: lat_p50_s, throughput: req_per_s}
 
-  qwen3tts_1p7b_split:   # Talker on rank 0; codec on rank 1 (streamed codes cross GPUs)
+  qwen3tts_1p7b_split:   # Talker on rank 0, codec on rank 1, both on GPU 0 (the config's rank_devices)
     serve: qwen3_tts_1p7b
     config: configs/qwen3tts_1p7b_split.yaml
     optional: true
-    gpus: 2
+    gpus: 1
     case_timeout_s: 900
     family: TTS
     tags: [multi-gpu, split, tts, speech-out, ar]
