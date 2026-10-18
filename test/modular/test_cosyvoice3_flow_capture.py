@@ -185,6 +185,13 @@ def test_batch_sizes_past_the_node_cap_are_not_captured():
     assert node.capture_batch_sizes(64) == [1, 2]
 
 
+def test_a_bucket_past_the_flow_noise_is_not_a_region():
+    cfg = _config(flow_capture_frame_buckets=(64, 96))
+    cfg.flow.noise_frames = 80
+    node = FlowSubmodule(_flow(cfg), None, cfg)
+    assert list(node.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32)) == [flow_region(64)]
+
+
 @pytest.mark.parametrize(
     ("prompt_and_lengths", "expected"),
     [
@@ -271,8 +278,9 @@ def test_captured_solve_equals_the_eager_solve_of_the_same_padded_inputs(estimat
     """Real capture and replay: the same kernels on the same shapes give the
     same bits; padding a row to its bucket stays within the estimator's
     precision of its exact-length solve."""
-    device = torch.device("cuda")
-    cfg = _config(flow_capture_batch_sizes=(1, 2, 4))
+    device = torch.device("cuda", torch.cuda.current_device())
+    # every bucket captures batch 1, 2 and 4
+    cfg = _config(flow_capture_batch_sizes=(1, 2, 4), flow_capture_batch_frames=512)
     cfg.flow.cfm.n_timesteps = 10
     flow = _flow(cfg, dtype=torch.float32).to(device)
     if estimator_dtype != torch.float32:
@@ -297,6 +305,8 @@ def test_captured_solve_equals_the_eager_solve_of_the_same_padded_inputs(estimat
         FlowRow(_voice(cfg, 5, seed=3, dtype=torch.float32), _tokens(12, 3).to(device), 12, final=True,
                 streaming=False),
     ]
+    # 100 frames (bucket 128, batch 1); 76 and 34 (bucket 96, batch 2); all
+    # three (bucket 128, padded to batch 4)
     for batch in (rows[:1], rows[1:], rows):
         frames = max(flow.valid_frames(row) for row in batch)
         bucket = next(b for b in cfg.flow_capture_frame_buckets if b >= frames)
@@ -305,9 +315,9 @@ def test_captured_solve_equals_the_eager_solve_of_the_same_padded_inputs(estimat
         assert runner.can_run(len(batch))
         # replays of other buckets share the pool and must not disturb this one
         for other in runners.values():
-            if other is not runner and other.can_run(1):
-                other.run(static_inputs=flow.prepare_solve(rows[:1], frames=other._config.seq_len)._asdict(),
-                          real_bs=1)
+            if other is not runner:
+                short = flow.prepare_solve(rows[2:], frames=other._config.seq_len)
+                other.run(static_inputs=short._asdict(), real_bs=1)
         replayed = runner.run(static_inputs=inputs._asdict(), real_bs=len(batch))["mel"]
         with node_precision():
             eager = flow.solve_prepared(inputs, 10)
