@@ -15,6 +15,7 @@ import hmac
 import json
 import logging
 import os
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,23 @@ def resolve_api_key(flag: str | None = None) -> str | None:
     An empty value means no key."""
     key = flag if flag is not None else os.environ.get(API_KEY_ENV)
     return key or None
+
+
+def keep_api_key_from_children(api_key: str | None) -> None:
+    """Only the HTTP frontend needs the key. Drop it from the environment and
+    ``sys.argv`` (the spawn start method copies both into each child) before
+    this process spawns the conductor, workers or media subprocesses."""
+    os.environ.pop(API_KEY_ENV, None)
+    if api_key is None:
+        return
+    redacted = []
+    for arg in sys.argv:
+        if arg == api_key:
+            arg = "<redacted>"
+        elif arg.partition("=")[2] == api_key:
+            arg = arg.partition("=")[0] + "=<redacted>"
+        redacted.append(arg)
+    sys.argv[:] = redacted
 
 
 def warn_if_no_api_key(api_key: str | None, host: str, port: int) -> None:

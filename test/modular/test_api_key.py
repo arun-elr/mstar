@@ -168,6 +168,27 @@ def test_serve_main_applies_the_key_and_keeps_it_from_child_processes(monkeypatc
         entrypoint.api_key_guard.set(auth.resolve_api_key())
 
 
+def test_dynamo_worker_keeps_an_exported_key_from_child_processes(monkeypatch, tmp_path):
+    """The Dynamo worker starts its conductor without ``entrypoint.main()``."""
+    from types import SimpleNamespace
+
+    from mstar.integrations.dynamo import worker as dynamo_worker
+
+    monkeypatch.setenv(auth.API_KEY_ENV, KEY)
+    # The config is read before the model is built or anything is spawned.
+    with pytest.raises(FileNotFoundError):
+        dynamo_worker.build_server(SimpleNamespace(config=str(tmp_path / "missing.yaml")))
+    assert auth.API_KEY_ENV not in os.environ
+
+
+def test_redaction_replaces_only_the_key_argument(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["mstar-serve", "--config", "a.yaml", "--api-key", "a",
+                                     "--api-k=a", "--model-path=/models/a"])
+    auth.keep_api_key_from_children("a")
+    assert sys.argv == ["mstar-serve", "--config", "a.yaml", "--api-key", "<redacted>",
+                        "--api-k=<redacted>", "--model-path=/models/a"]
+
+
 def test_mstar_serve_forwards_the_key_and_never_prints_it(monkeypatch, capsys):
     from mstar.cli import main as cli
 
