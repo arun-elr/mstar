@@ -1240,15 +1240,19 @@ class CodecSubmodule(ARNodeSubmodule):
         self, device: torch.device, autocast_dtype: torch.dtype, tp_world_size: int = 1,
     ) -> dict[str, PiecewiseCudaGraphConfig]:
         """With the watermark on, its generator call per chunk length of the
-        schedule (a shorter final chunk pads into the next) and batch bucket."""
+        schedule (a shorter final chunk pads into the next) and batch bucket.
+        Only lengths of whole watermark frames; other chunks run eagerly."""
         del device, autocast_dtype, tp_world_size
         if self.watermarker is None:
             return {}
         codec = self.config.codec
-        frames = {*codec.chunk_schedule, codec.chunk_frames}
-        return self.watermarker.piecewise_configs(
-            [f * self.total_upsample for f in frames], self.CAPTURE_BATCH_SIZES,
-        )
+        lengths = [
+            frames * self.total_upsample for frames in {*codec.chunk_schedule, codec.chunk_frames}
+            if frames * self.total_upsample % self.watermarker.hop == 0
+        ]
+        if not lengths:
+            return {}
+        return self.watermarker.piecewise_configs(lengths, self.CAPTURE_BATCH_SIZES)
 
     def can_batch(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
         """Any mix of windows batches (``preprocess`` pads to the widest)."""

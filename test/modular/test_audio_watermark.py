@@ -391,7 +391,7 @@ def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
     runners = {}
     for label, config in configs.items():
         runner = PiecewiseCudaGraphRunner(
-            label=label, config=config, resources={}, step_runner=NoResources(), device=torch.device("cuda"),
+            label=label, config=config, resources={}, step_runner=NoResources(), device=wmk.device,
             autocast_dtype=None, num_slots=1, memory_pool=pool,
         )
         runner.warmup_and_capture()
