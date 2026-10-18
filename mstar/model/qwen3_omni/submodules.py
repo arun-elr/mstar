@@ -1812,7 +1812,9 @@ class Code2WavSubmodule(NodeSubmodule):
             codec_tokens = codec_tokens[..., :num_quantizers]
 
         # The window's leading frames that an earlier window already decoded.
-        # EOS is only ever a stream's last frame, so it never counts here.
+        # EOS is only ever a stream's last item, but it can be a context item
+        # of the final flush (the previous window's last new item). The filter
+        # above dropped it, so the clamp keeps the context within the frames.
         chunk = (input_metadata.stream_chunks.get("codec_tokens") if input_metadata is not None else None)
         orig_seq_len = codec_tokens.shape[0]
         context = min(chunk.context_items if chunk is not None else 0, orig_seq_len)

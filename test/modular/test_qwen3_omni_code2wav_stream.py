@@ -468,6 +468,28 @@ def test_real_decoder_streams_the_ramp_like_the_full_decode(tiny_code2wav, num_f
     assert [audio.numel() for _, audio, _ in steps] == _expected_samples_per_step(steps, tail)
 
 
+@pytest.mark.parametrize("num_frames", [1, 11, 12, 13, 24, 25, 26, 49, 50, 51])
+def test_a_trailing_codec_eos_frame_on_the_default_ramp(num_frames):
+    """With the default ramp, a reply that ends on a chunk boundary (12, 25,
+    50 frames) ends with a flush of context frames and the codec_eos frame
+    that decodes nothing; one frame short, the EOS frame is a context item of
+    the flush. Either way the stream is the full decode of the real frames."""
+    decoder = _LookaheadDecoder()
+    config = Qwen3OmniModelConfig()
+    submodule = Code2WavSubmodule(decoder, config)
+    codes = _codes(num_frames)
+    eos = torch.full((1, 16), config.talker.codec_eos_token_id)
+
+    steps = _stream(submodule, torch.cat([codes, eos]), _scheduled_policy)
+    # one decode per window that starts before the last real frame
+    assert decoder.calls == sum(1 for start in (0, 12, 25, 50) if start < num_frames)
+    full = _to_pcm(decoder(codes.t()[None], torch.arange(num_frames)[None]))[0, 0]
+
+    assert torch.equal(torch.cat([audio for _, audio, _ in steps]), full)
+    if num_frames in (12, 25, 50):
+        assert not steps[-1][2]
+
+
 def test_default_config_ramps_12_13_then_25():
     """The checkpoint carries no streaming fields, so the dataclass defaults
     are what serves: windows of 12 and 12 + 13 frames, then 25 + 25, all

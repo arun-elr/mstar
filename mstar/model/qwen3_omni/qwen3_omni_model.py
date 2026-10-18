@@ -1031,19 +1031,17 @@ class Qwen3OmniModel(Model):
         Same pattern as Orpheus SNAC -- the conductor just tracks whether
         there are more codec tokens to process.
         """
-        chunk_size = self.config.code2wav.codec_chunk_frames
         metadata.graph_walk = "code2wav_chunk"
-        step_metadata = {"consumed_tokens": chunk_size}
 
         # Don't predict the last chunk from token counts: the left-context
-        # policy emits an extra flush pass for the retained overlap, so a count-based
-        # guess completes the request before that final chunk is emitted. The
-        # `available <= 0` check above fires once consumption actually catches up.
+        # policy emits an extra flush pass for the retained overlap, so a
+        # count-based guess completes the request before that final chunk is
+        # emitted. The conductor ends the partition once the worker reports
+        # the pass that consumed the stream's final chunk.
         return ForwardPassArgs(
             full_metadata=metadata,
             inputs=[],
             unpersist_tensors=[],
-            step_metadata=step_metadata,
             request_done=False,
         )
 
