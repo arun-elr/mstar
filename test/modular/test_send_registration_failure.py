@@ -11,6 +11,14 @@ import torch
 
 sys.path.insert(0, ".")
 
+from test_graph_runtime import (
+    _build_on_real_manager,
+    _complete,
+    _fwd_info,
+    _ingest,
+    _RecordingCommunicator,
+)
+
 from mstar.communication.communicator import BaseCommunicator, CommProtocol
 from mstar.communication.tensors import (
     AsyncMooncakeReader,
@@ -25,13 +33,6 @@ from mstar.model.submodule_base import BatchedModelOutput
 from mstar.utils.containers import ParallelList
 from mstar.utils.ipc_format import ConductorMessageType
 from mstar.worker.worker import Worker
-from test.modular.test_graph_runtime import (
-    _build_on_real_manager,
-    _complete,
-    _fwd_info,
-    _ingest,
-    _RecordingCommunicator,
-)
 
 
 class _Communicator(BaseCommunicator):
