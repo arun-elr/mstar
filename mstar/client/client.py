@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from pathlib import Path
 from typing import Iterator
 
@@ -68,10 +69,16 @@ class MStarClient:
         session: requests.Session | None = None,
         enable_nvtx: bool = False,
         prefer_binary: bool = False,
+        api_key: str | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._session = session or requests.Session()
+        # The server's key (``--api-key`` / ``MSTAR_API_KEY``), sent as a bearer
+        # token on every request. Per request rather than on the session, so a
+        # caller's own session is left as it was passed in.
+        api_key = api_key if api_key is not None else os.environ.get("MSTAR_API_KEY")
+        self._auth_headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         # Ask for length-framed binary payloads. ``video_frame`` requests ask
         # by default (base64 NDJSON is not realtime at 720p); other modalities
         # opt in here. How to parse is decided from the response's
@@ -138,7 +145,8 @@ class MStarClient:
         url = f"{self.base_url}/generate"
         if stream:
             return self._stream(url, data, files, output_modalities=output_modalities)
-        resp = self._session.post(url, data=data, files=files or None, timeout=self.timeout)
+        resp = self._session.post(url, data=data, files=files or None, timeout=self.timeout,
+                                  headers=self._auth_headers)
         resp.raise_for_status()
         return self._parse_result(resp.json())
 
@@ -241,7 +249,8 @@ class MStarClient:
 
     def voices(self) -> list[str]:
         """The ``voice`` ids the served speech model accepts (``GET /v1/audio/voices``)."""
-        r = self._session.get(f"{self.base_url}/v1/audio/voices", timeout=self.timeout)
+        r = self._session.get(f"{self.base_url}/v1/audio/voices", timeout=self.timeout,
+                              headers=self._auth_headers)
         r.raise_for_status()
         return [v["id"] for v in r.json().get("voices", [])]
 
@@ -288,8 +297,9 @@ class MStarClient:
 
     def _stream_headers(self, output_modalities=()) -> dict[str, str]:
         if not (self._prefer_binary or "video_frame" in output_modalities):
-            return {}
+            return self._auth_headers
         return {
+            **self._auth_headers,
             "Accept": f"{BINARY_STREAM_MEDIA_TYPE}, {NDJSON_STREAM_MEDIA_TYPE};q=0.9",
             # Compressing ~11 MB of near-incompressible RGB per chunk would put
             # back the byte-proportional CPU pass this framing exists to remove.

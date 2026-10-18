@@ -188,7 +188,7 @@ def test_voices_lists_ids():
     resp.json.return_value = {"object": "list", "voices": voices}
     with mock.patch.object(c._session, "get", return_value=resp) as get:
         assert c.voices() == ["tara", "zoe"]
-    get.assert_called_once_with("http://x/v1/audio/voices", timeout=c.timeout)
+    get.assert_called_once_with("http://x/v1/audio/voices", timeout=c.timeout, headers=c._auth_headers)
     resp.raise_for_status.assert_called_once()
 
 
@@ -283,3 +283,28 @@ def test_stream_names_content_encoding_as_the_cause_on_a_compressed_binary_body(
     )
     with pytest.raises(RuntimeError, match="Content-Encoding 'gzip'"):
         _stream_with(MStarClient("http://x", prefer_binary=True), resp)
+
+
+def test_api_key_rides_on_every_request_as_a_bearer_token(monkeypatch):
+    monkeypatch.delenv("MSTAR_API_KEY", raising=False)
+    session = mock.MagicMock(headers={})
+    session.post.return_value.json.return_value = {"request_id": "r", "outputs": {}}
+    session.get.return_value.json.return_value = {"voices": []}
+    client = MStarClient("http://x", session=session, api_key="k")
+    client.generate(text="hi")
+    client.voices()
+    bearer = {"Authorization": "Bearer k"}
+    assert session.post.call_args.kwargs["headers"] == bearer
+    assert session.get.call_args.kwargs["headers"] == bearer
+    assert client._stream_headers(("video_frame",))["Authorization"] == "Bearer k"
+    assert client._stream_headers() == bearer
+    assert session.headers == {}  # the caller's session is left alone
+
+
+def test_api_key_defaults_to_the_env_and_is_absent_without_one(monkeypatch):
+    monkeypatch.setenv("MSTAR_API_KEY", "from-env")
+    assert MStarClient("http://x")._auth_headers == {"Authorization": "Bearer from-env"}
+    assert MStarClient("http://x", api_key="explicit")._auth_headers == {"Authorization": "Bearer explicit"}
+    monkeypatch.delenv("MSTAR_API_KEY")
+    assert MStarClient("http://x")._auth_headers == {}
+    assert "Authorization" not in MStarClient("http://x")._stream_headers(("video_frame",))
