@@ -271,6 +271,25 @@ def test_a_clients_prefix_keys_never_reach_process_prompt():
     )
 
 
+class _Internal(_Recording):
+    """Reports a key of its own to the conductor, and only on some prompts."""
+
+    INTERNAL_KWARGS = ("stream_lead",)
+
+
+def test_a_clients_value_for_a_model_internal_key_never_reaches_the_model_or_conductor():
+    model = _Internal(metadata={"from_process_prompt": 1})
+    worker = _worker(model, _deployment())
+
+    kwargs = _run(worker, {"stream_lead": 999, "voice": "tara"})
+
+    assert "stream_lead" not in model.handed, "process_prompt was handed the client's value"
+    assert "stream_lead" not in kwargs, (
+        "a key only the model reports reached the conductor with the client's value"
+    )
+    assert kwargs["voice"] == "tara", "the strip dropped the request's own kwargs"
+
+
 # ── the metadata fold ───────────────────────────────────────────────────
 
 

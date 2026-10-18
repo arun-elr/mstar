@@ -351,7 +351,10 @@ def test_qwen3_tts_process_prompt_matches_official_template():
     assert result.new_input_tensors["text_inputs"][0].tolist() == ASSISTANT_PREFIX + [1000] + ASSISTANT_SUFFIX
     # CustomVoice default: whole text in the prefill (stream_text = 0); no
     # reference transcript or frames. Host values, for the prefill's step metadata.
-    assert result.metadata == {PROMPT_LAYOUT_KEY: [0, 1, 0, 0, 0], SPEAKER_ID_KEY: 3065, LANGUAGE_ID_KEY: 2055}
+    assert result.metadata == {
+        PROMPT_LAYOUT_KEY: [0, 1, 0, 0, 0], SPEAKER_ID_KEY: 3065, LANGUAGE_ID_KEY: 2055,
+        Qwen3TTSModel.CODEC_STREAM_LEAD_KEY: 0,
+    }
 
 
 def test_qwen3_tts_process_prompt_rejects_a_changed_chatml_wrapper(monkeypatch):
@@ -463,7 +466,7 @@ def test_qwen3_tts_base_process_prompt_builds_in_context_clone():
     )
     assert xvec.metadata[PROMPT_LAYOUT_KEY] == [0, 1, 1, 0, 0]
     assert xvec.metadata[REF_CLIP_KEY] == clip_digest(clip.clone())
-    assert Qwen3TTSModel.CODEC_STREAM_LEAD_KEY not in xvec.metadata   # no stream lead
+    assert xvec.metadata[Qwen3TTSModel.CODEC_STREAM_LEAD_KEY] == 0   # no stream lead
 
     with pytest.raises(ValueError, match="ref_text"):
         model.process_prompt(
@@ -527,6 +530,32 @@ def test_qwen3_tts_load_audio_rejects_a_long_clip_before_decoding(tmp_path, monk
     ok = tmp_path / "ok.wav"
     soundfile.write(ok, np.zeros(2 * 8000, dtype=np.float32), 8000)
     assert model.load_audio(str(ok), "cpu").data.shape == (2 * 24000,)
+
+
+@pytest.mark.parametrize(
+    "variant, mode, lead",
+    [("custom_voice", None, 0), ("base", "x_vector", 0), ("base", "in_context", 13)],
+)
+def test_qwen3_tts_a_client_cannot_set_the_codec_stream_lead(variant, mode, lead):
+    """The data worker lays the prompt metadata over the request's kwargs, so
+    the lead must be the server's in every mode: a client value past the
+    codec's left context would raise in the worker's ingest, outside any one
+    request's failure path."""
+    model = _variant_model(variant)
+    modalities = ["text"] if mode is None else ["audio", "text"]
+    request = {} if mode is None else {"tensors": {"audio_inputs": [torch.zeros(24000 + 1)]}}
+    if mode == "x_vector":
+        request["x_vector_only_mode"] = True
+    elif mode == "in_context":
+        request["ref_text"] = "the reference says"
+    client = {Qwen3TTSModel.CODEC_STREAM_LEAD_KEY: 999}
+    result = model.process_prompt("hello", modalities, ["audio"], **request, **client)
+    codec = model.get_initial_forward_pass_args(
+        "Codec", modalities, ["audio"], {}, model_kwargs={**client, **result.metadata}
+    )
+    assert codec.stream_lead_items == ({"codec_tokens": lead} if lead else {})
+    # every key the conductor reads back is one the data worker strips from the client
+    assert set(result.metadata) <= set(model.INTERNAL_KWARGS)
 
 
 def test_qwen3_tts_base_declares_clone_walks_and_routes_reference_audio():
