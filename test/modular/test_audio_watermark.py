@@ -104,8 +104,8 @@ class _Tail(NodeSubmodule):
         if request_id == "bad":
             raise ValueError("bad request")
 
-    def postprocess_batch_tail(self, request_ids, outputs, inputs):
-        self.calls.append((list(request_ids), list(inputs)))
+    def batch_postprocess(self, outputs, request_infos, inputs):
+        self.calls.append((list(request_infos), list(inputs)))
         if self.fail:
             raise RuntimeError("tail failed")
 
@@ -272,9 +272,9 @@ def test_pcm16_round_trip_matches_offline_within_one_step():
     assert (marked.int() - expected.int()).abs().max() <= 1
 
 
-def test_watermark_runs_without_tf32_and_restores_the_flags(monkeypatch):
-    """TF32 rounds a chunk and the whole utterance apart on GPU; the engine
-    turns TF32 matmuls on, so the generator must turn both kinds off."""
+def test_watermark_runs_fp32_matmuls_and_tf32_cudnn_and_restores_the_flags(monkeypatch):
+    """cuDNN on H100 picks a far slower conv with TF32 off; matmuls, which the
+    engine turns to TF32, stay fp32."""
     wmk = _watermarker()
     seen = []
     forward = wmk.generator.encoder.forward
@@ -285,10 +285,51 @@ def test_watermark_runs_without_tf32_and_restores_the_flags(monkeypatch):
 
     monkeypatch.setattr(wmk.generator.encoder, "forward", encoder)
     monkeypatch.setattr(torch.backends.cuda.matmul, "allow_tf32", True)
-    monkeypatch.setattr(torch.backends.cudnn, "allow_tf32", True)
+    monkeypatch.setattr(torch.backends.cudnn, "allow_tf32", False)
     wmk.apply([torch.zeros(320)], [WatermarkStream()])
-    assert seen == [(False, False)]
-    assert torch.backends.cuda.matmul.allow_tf32 and torch.backends.cudnn.allow_tf32
+    assert seen == [(False, True)]
+    assert torch.backends.cuda.matmul.allow_tf32 and not torch.backends.cudnn.allow_tf32
+
+
+def test_message_embedding_is_built_once_and_matches_the_processor(monkeypatch):
+    """AudioSeal's MsgProcessor copies a host ``arange`` to the device on
+    every call; the watermarker adds the same embedding, built at init."""
+    wmk = _watermarker(message=0xBEEF)
+    hidden = torch.randn(3, wmk._message_embedding.shape[1], 7)
+    message = torch.tensor([wmk.config.message_bits()] * 3)
+    with torch.no_grad():
+        expected = wmk.generator.msg_processor(hidden, message)
+    assert torch.equal(hidden + wmk._message_embedding, expected)
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("MsgProcessor ran during a watermark call")
+
+    audio = _speechlike(1920, seed=8)
+    reference = _library_offline(wmk, audio)
+    monkeypatch.setattr(wmk.generator.msg_processor, "forward", refuse)
+    torch.testing.assert_close(wmk.offline(audio), reference, atol=1e-6, rtol=0)
+
+
+class _FakeDetector(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.zeros(1))
+        self.lengths = []
+
+    def detect_watermark(self, x):
+        self.lengths.append(x.shape[-1])
+        return torch.ones(1), torch.zeros(1, 16, dtype=torch.int)
+
+
+@pytest.mark.parametrize(("rate", "expected"), [(16_000, 24_000), (24_000, 24_000), (48_000, 24_000)])
+def test_detect_resamples_to_the_rate_the_mark_was_added_at(rate, expected):
+    from contextlib import nullcontext
+
+    from mstar.model.audio_watermark import MARK_SAMPLE_RATE, AudioSealDetector
+
+    fake = _FakeDetector()
+    AudioSealDetector(fake, nullcontext).detect(torch.zeros(rate), rate)
+    assert MARK_SAMPLE_RATE == 24_000 and fake.lengths == [expected]
 
 
 def test_stream_refuses_chunks_after_its_final_one():
@@ -340,3 +381,9 @@ def test_detector_finds_the_streamed_mark_and_its_message():
     score, message = detector.detect(streamed)
     assert score > 0.9 and message == 0xBEEF
     assert detector.detect(audio)[0] < 0.1
+    import torchaudio
+
+    for rate in (16_000, 48_000):
+        copy = torchaudio.functional.resample(streamed, 24_000, rate)
+        score, message = detector.detect(copy, rate)
+        assert score > 0.9 and message == 0xBEEF, rate

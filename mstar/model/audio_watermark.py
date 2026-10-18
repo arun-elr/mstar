@@ -16,7 +16,9 @@ detector scores a clip by the fraction of its samples it finds marked
 streaming-exact chunk by chunk; detection on one chunk is not guaranteed. On
 generated speech even 80 ms chunks scored as marked, but on a synthetic
 harmonic tone 200 ms slices scored about 0.07 and 1 s slices about 0.8, so
-detect on whole utterances, or at least a few seconds of audio.
+detect on whole utterances, or at least a few seconds of audio. The mark
+is found only at the rate it was added at (24 kHz), so the detector
+resamples a file at another rate to 24 kHz first.
 
 Streaming. Audio leaves the engine in chunks, and a chunk-by-chunk watermark
 must equal the watermark of the whole utterance, or the boundaries click.
@@ -31,7 +33,8 @@ lets requests at the same point share one batched call.
 The generator works on whole 320-sample frames (its total stride). A chunk
 that is not a whole number of frames leaves its tail pending until the next
 chunk, or until the final chunk zero-pads it, so streamed output equals the
-offline watermark of the whole utterance to float rounding. AudioSeal's own
+offline watermark of the whole utterance to float rounding (on a GPU, to a
+few int16 steps: cuDNN runs the convolutions in TF32). AudioSeal's own
 whole-utterance call pads inside each layer instead, so for an utterance
 that ends mid-frame the two differ in that last partial frame only (a few
 tens of int16 steps). Codecs whose chunks are whole frames (Qwen3-TTS: 1920
@@ -53,6 +56,8 @@ logger = logging.getLogger(__name__)
 MESSAGE_BITS = 16
 DEFAULT_GENERATOR = "audioseal_wm_streaming"
 DEFAULT_DETECTOR = "audioseal_detector_streaming"
+# the rate the mark is added at: Qwen3-TTS's output, the only codec that adds it
+MARK_SAMPLE_RATE = 24_000
 _INSTALL_HINT = "pip install 'mstar-ai[audioseal]' (or pip install 'audioseal>=0.2,<0.3')"
 
 
@@ -127,12 +132,14 @@ def import_audioseal():
 
 
 @contextmanager
-def _no_tf32():
-    """Full fp32 convolutions and matmuls. A chunk and the whole utterance
-    convolve over different lengths, and TF32 rounds them apart by a few
-    int16 steps (the engine turns TF32 matmuls on process-wide)."""
+def _watermark_precision():
+    """fp32 matmuls (the engine turns TF32 matmuls on process-wide) and TF32
+    cuDNN. With cuDNN TF32 off, cuDNN on H100 picks a conv about 18x slower
+    at batch 1 and 2; with it on, a chunk and the whole utterance, which
+    convolve over different lengths, round apart by a few int16 steps."""
     matmul, cudnn = torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32
-    torch.backends.cuda.matmul.allow_tf32 = torch.backends.cudnn.allow_tf32 = False
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = True
     try:
         yield
     finally:
@@ -170,8 +177,18 @@ class AudioSealWatermarker:
         self.device = next(generator.parameters()).device
         self.hop = int(generator.encoder.hop_length)
         self._slots = self._collect_slots(generator)
-        self._message = torch.tensor([config.message_bits()], dtype=torch.long, device=self.device)
+        self._message_embedding = self._embed_message(generator, config)
         self._fresh = self._fresh_caches()
+
+    @torch.no_grad()
+    def _embed_message(self, generator: torch.nn.Module, config: AudioWatermarkConfig) -> torch.Tensor:
+        """What AudioSeal's ``MsgProcessor`` adds to every frame, ``[1, hidden, 1]``.
+        The message is fixed per deployment, and the processor would rebuild
+        it from a host ``arange`` on every call, a copy that syncs the GPU."""
+        embedding = generator.msg_processor.msg_processor
+        bits = torch.tensor(config.message_bits(), dtype=torch.long, device=self.device)
+        indices = 2 * torch.arange(MESSAGE_BITS, device=self.device) + bits
+        return embedding(indices.unsqueeze(0)).sum(dim=-2).unsqueeze(-1)
 
     @classmethod
     def build(cls, config: AudioWatermarkConfig, device: str | torch.device) -> AudioSealWatermarker:
@@ -327,10 +344,9 @@ class AudioSealWatermarker:
         batch = audio.shape[0]
         self._install(self._stack(caches), batch)
         try:
-            with self._no_compile(), _no_tf32():
+            with self._no_compile(), _watermark_precision():
                 gen = self.generator
-                hidden = gen.encoder(audio.unsqueeze(1))
-                hidden = gen.msg_processor(hidden, self._message.expand(batch, -1))
+                hidden = gen.encoder(audio.unsqueeze(1)) + self._message_embedding
                 wm = gen.decoder(hidden)
             new = self._unstack(self._harvest(), batch)
         finally:
@@ -417,9 +433,15 @@ class AudioSealDetector:
         return cls(detector.to(device=device, dtype=torch.float32).eval().requires_grad_(False), no_compile)
 
     @torch.no_grad()
-    def detect(self, audio: torch.Tensor) -> tuple[float, int]:
-        """1-D float audio -> (fraction of samples scored watermarked, message)."""
+    def detect(self, audio: torch.Tensor, sample_rate: int = MARK_SAMPLE_RATE) -> tuple[float, int]:
+        """1-D float audio at ``sample_rate`` -> (fraction of samples scored
+        watermarked, message). The mark is found only at the rate it was
+        added at, so other rates are resampled to ``MARK_SAMPLE_RATE`` first."""
         x = audio.reshape(1, 1, -1).to(self.device, torch.float32)
+        if sample_rate != MARK_SAMPLE_RATE:
+            import torchaudio
+
+            x = torchaudio.functional.resample(x, sample_rate, MARK_SAMPLE_RATE)
         with self._no_compile():
             prob, bits = self.detector.detect_watermark(x)
         message = 0
@@ -445,7 +467,7 @@ def _main(argv: list[str] | None = None) -> None:
     detector = AudioSealDetector.build(args.device)
     for path in args.files:
         audio, sample_rate = sf.read(path, dtype="float32", always_2d=True)
-        score, message = detector.detect(torch.from_numpy(audio.mean(axis=1)))
+        score, message = detector.detect(torch.from_numpy(audio.mean(axis=1)), sample_rate)
         verdict = "watermarked" if score > args.threshold else "not watermarked"
         print(f"{path}: {verdict} (score {score:.3f}, message 0x{message:04x}, {sample_rate} Hz)")
 

@@ -918,21 +918,14 @@ class NodeSubmodule(torch.nn.Module, ABC):
         request_infos: dict[int, CurrentForwardPassInfo],
         inputs: list[NodeInputs],
     ) -> None:
-        """``postprocess`` for a rows-only step, which has no per-request
-        outputs: works on the rows of ``outputs`` in place. Optional; only
+        """Once per step, for work that batches across the step's requests
+        (e.g. watermarking the audio chunks ``postprocess`` trimmed). Works on
+        ``outputs`` in place: its rows on a rows-only step, which has no
+        per-request outputs, and otherwise the per-request outputs after
+        every request's ``postprocess``, for the requests whose
+        ``postprocess`` succeeded (``request_infos``' keys, in the order of
+        ``inputs``); a raise then fails every one of them. Optional; only
         called when overridden."""
-
-    def postprocess_batch_tail(
-        self, request_ids: list[str],
-        outputs: BatchedModelOutput,
-        inputs: list[NodeInputs],
-    ) -> None:
-        """Runs once per step after every request's ``postprocess``, for work
-        that should batch across the step's requests (e.g. watermarking the
-        audio chunks ``postprocess`` trimmed). ``request_ids`` are the
-        requests whose ``postprocess`` succeeded, with their ``inputs``.
-        Modifies ``outputs`` in place; a raise fails every request passed in.
-        Optional; only called when overridden."""
 
     def check_stop(
         self, request_id: str,

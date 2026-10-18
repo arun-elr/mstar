@@ -1486,7 +1486,7 @@ def test_qwen3_tts_codec_postprocess_uses_its_own_pass_geometry():
 def _codec_tail_step(submodule, chunks: dict[str, torch.Tensor], final: bool = False):
     outputs = {rid: {"audio_chunk": [chunk]} for rid, chunk in chunks.items()}
     inputs = [ARNodeInputs(kwargs={"is_final": final}) for _ in chunks]
-    submodule.postprocess_batch_tail(list(chunks), outputs, inputs)
+    submodule.batch_postprocess(outputs, dict.fromkeys(chunks), inputs)
     return {rid: out["audio_chunk"][0] for rid, out in outputs.items()}
 
 

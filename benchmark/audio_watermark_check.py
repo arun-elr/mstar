@@ -21,7 +21,7 @@ one with it on. The clean files are marked here chunk by chunk along the
 codec's schedule (served greedy speech does not repeat across server
 restarts, so served on/off pairs are not the same speech) for SNR, PESQ and
 streamed-vs-whole; the detector then scores every served file, whole and one
-codec chunk at a time::
+codec chunk at a time, and whole copies resampled to 16 and 48 kHz::
 
     python -m benchmark.audio_watermark_check quality --clean off_wav --marked on_wav --out quality.json
 """
@@ -43,6 +43,7 @@ MESSAGE = 0xBEEF
 FRAME = 1920  # Qwen3-TTS samples per codec frame (24 kHz)
 SCHEDULE = (1, 3, 8, 16)  # the codec's first windows, in frames
 CHUNK = 25  # frames per window after the ramp
+RESAMPLED_RATES = (16000, 48000)  # copies the detector must still find the mark in
 
 
 def _stream(wmk: AudioSealWatermarker, x: torch.Tensor, sizes: list[int]) -> torch.Tensor:
@@ -67,7 +68,7 @@ def exactness(args) -> dict:
     msg = torch.tensor([cfg.message_bits()], device=args.device)
 
     def library(audio):
-        # full fp32, as the watermarker runs: cuDNN's default TF32 convolutions round a few 1e-5 apart
+        # AudioSeal's own call in full fp32; on a GPU the watermarker's TF32 cuDNN convs land a few int16 steps off
         matmul, cudnn = torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32
         torch.backends.cuda.matmul.allow_tf32 = torch.backends.cudnn.allow_tf32 = False
         try:
@@ -159,18 +160,24 @@ def _rates(marked: list[tuple[float, int]], clean: list[tuple[float, int]], thre
     }
 
 
-def _detect(det: AudioSealDetector, files: dict[str, np.ndarray]) -> tuple[list, dict[int, list]]:
-    whole, per_chunk = [], {}
+def _detect(det: AudioSealDetector, files: dict[str, np.ndarray]) -> tuple[list, dict[int, list], dict[int, list]]:
+    import torchaudio
+
+    whole, per_chunk, resampled = [], {}, {}
     for x in files.values():
         if len(x) < FRAME:
             continue
-        whole.append(det.detect(torch.from_numpy(x.astype(np.float32) / 32767)))
+        audio = torch.from_numpy(x.astype(np.float32) / 32767)
+        whole.append(det.detect(audio))
+        for rate in RESAMPLED_RATES:
+            copy = torchaudio.functional.resample(audio, 24000, rate)
+            resampled.setdefault(rate, []).append(det.detect(copy, rate))
         edges = _chunk_edges(len(x))
         for a, b in zip(edges, edges[1:], strict=False):
             if b - a == FRAME * ((b - a) // FRAME):  # whole codec windows only
                 score = det.detect(torch.from_numpy(x[a:b].astype(np.float32) / 32767))
                 per_chunk.setdefault((b - a) // FRAME, []).append(score)
-    return whole, per_chunk
+    return whole, per_chunk, resampled
 
 
 def quality(args) -> dict:
@@ -202,9 +209,13 @@ def quality(args) -> dict:
         "streamed_vs_whole_max_lsb": max(lsb),
     }
     if args.marked:
-        on_whole, on_chunks = _detect(det, _wavs(args.marked))
-        off_whole, off_chunks = _detect(det, clean)
+        on_whole, on_chunks, on_resampled = _detect(det, _wavs(args.marked))
+        off_whole, off_chunks, off_resampled = _detect(det, clean)
         report["served_whole_files"] = _rates(on_whole, off_whole, args.threshold)
+        for rate in RESAMPLED_RATES:
+            report[f"served_whole_files_at_{rate // 1000}k"] = _rates(
+                on_resampled[rate], off_resampled[rate], args.threshold
+            )
         report["served_per_chunk"] = {
             f"{f} frames ({f * FRAME // 24} ms)": _rates(on_chunks.get(f, []), off_chunks.get(f, []), args.threshold)
             for f in sorted(set(on_chunks) | set(off_chunks))

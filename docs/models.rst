@@ -312,8 +312,9 @@ Qwen3-TTS notes
   streaming state, so a streamed utterance carries the same mark as a whole one.
   Check files with ``python -m mstar.model.audio_watermark detect out.wav``
   (``--threshold``, default 0.5; ``--device``; needs ``.[audio]`` for
-  ``soundfile``). Detect on whole utterances: a clip under a few seconds can
-  miss the mark. The helper lives in ``mstar/model/audio_watermark.py``.
+  ``soundfile``); a file at another rate than 24 kHz is resampled to 24 kHz
+  first, since the mark is found only at the rate it was added at. Detect on
+  whole utterances: a clip under a few seconds can miss the mark. The helper lives in ``mstar/model/audio_watermark.py``.
 - Weight loading checks coverage in both directions: a parameter the checkpoint
   does not fill, or a checkpoint tensor the port does not load, fails startup.
 - The 12 Hz codec does not require the system SoX executable. M* imports only

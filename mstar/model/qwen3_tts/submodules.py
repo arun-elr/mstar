@@ -1203,10 +1203,10 @@ class CodecSubmodule(ARNodeSubmodule):
             "codec %s: emit frames %d..%d (%d samples)", request_id, context, frames, max(end - start, 0)
         )
 
-    def postprocess_batch_tail(
+    def batch_postprocess(
         self,
-        request_ids: list[str],
         outputs: BatchedModelOutput,
+        request_infos: dict[str, CurrentForwardPassInfo],
         inputs: list[ARNodeInputs],
     ) -> None:
         """Watermark the step's trimmed chunks, one AudioSeal call per chunk
@@ -1215,7 +1215,7 @@ class CodecSubmodule(ARNodeSubmodule):
         if self.watermarker is None:
             return
         rids, chunks, streams, finals = [], [], [], []
-        for request_id, item in zip(request_ids, inputs, strict=True):
+        for request_id, item in zip(request_infos, inputs, strict=True):
             out = outputs.get(request_id, {})
             if "audio_chunk" not in out:
                 continue
