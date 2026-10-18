@@ -160,6 +160,37 @@ class VoxCPM2Generator(nn.Module):
         ``audio_index`` rows, embedded from ``audio_patches`` by the local
         encoder. Mirrors ``VoxCPM2Model._inference`` up to its first patch.
         """
+        lm_hidden, res_hidden = self.prefill_states(
+            token_ids, text_mask, audio_patches, audio_index, last_token_indices, label=label
+        )
+        return self.first_patch(lm_hidden, res_hidden, cond_patch, noise, cfg_value, t_span)
+
+    def first_patch(
+        self,
+        lm_hidden: torch.Tensor,
+        res_hidden: torch.Tensor,
+        cond_patch: torch.Tensor,
+        noise: torch.Tensor,
+        cfg_value: torch.Tensor,
+        t_span: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """The prefill's per-row tail: one CFM solve and the stop head on each
+        row's last position. Its shapes depend on the row count only."""
+        patch = self.predict_patch(lm_hidden, res_hidden, cond_patch, noise, cfg_value, t_span)
+        return patch, self.stop_logits(lm_hidden)
+
+    def prefill_states(
+        self,
+        token_ids: torch.Tensor,
+        text_mask: torch.Tensor,
+        audio_patches: torch.Tensor,
+        audio_index: torch.Tensor,
+        last_token_indices: torch.Tensor,
+        *,
+        label: str = "main",
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Both LMs over the packed prompts: each row's last-position
+        ``(lm_hidden, res_hidden)``, ``[rows, hidden]``."""
         text_mask = text_mask.to(self.fusion_concat_proj.weight.dtype).unsqueeze(-1)
         audio_mask = 1 - text_mask
         text_embed = self.embed_text(token_ids)
@@ -172,7 +203,4 @@ class VoxCPM2Generator(nn.Module):
             self.fusion_concat_proj(torch.cat([hidden, audio_mask * feat_embed], dim=-1)),
             label=label,
         )
-        lm_hidden = hidden.index_select(0, last_token_indices)
-        res_hidden = res.index_select(0, last_token_indices)
-        patch = self.predict_patch(lm_hidden, res_hidden, cond_patch, noise, cfg_value, t_span)
-        return patch, self.stop_logits(lm_hidden)
+        return hidden.index_select(0, last_token_indices), res.index_select(0, last_token_indices)

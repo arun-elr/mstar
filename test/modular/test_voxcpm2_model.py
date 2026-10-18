@@ -25,6 +25,7 @@ import yaml
 
 from mstar.api_server.openai import adapters
 from mstar.api_server.openai.protocol import SpeechRequest
+from mstar.engine.cuda_graph_config import PiecewiseBatchedConfig, PiecewiseCallInputs, PiecewiseCaptureShape
 from mstar.model.registry import HF_MODELS, get_model_class
 from mstar.model.submodule_base import InputMetadata
 from mstar.model.voxcpm2.components.audio_vae import AudioVAE, CausalResidualUnit, decoder_receptive_field_frames
@@ -44,7 +45,9 @@ from mstar.model.voxcpm2.config import (
     VoxCPM2Config,
 )
 from mstar.model.voxcpm2.submodules import (
+    PREFILL_TAIL,
     TALKER_LOOP,
+    VAE_WINDOW,
     RefEncoderSubmodule,
     TalkerSubmodule,
     VAEDecoderSubmodule,
@@ -55,8 +58,10 @@ from mstar.model.voxcpm2.voxcpm2_model import (
     STREAM_LEAD_KEY,
     VoxCPM2Model,
     decoder_receptive_field_patches,
+    stream_window_widths,
 )
 from mstar.streaming.chunk_policy import ScheduledLeftContextChunkPolicy
+from mstar.streaming.stream_buffer import StreamBuffer
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "voxcpm2.yaml"
 HELPERS = Path(__file__).resolve().parents[1] / "voxcpm2"
@@ -765,13 +770,13 @@ def _talker(model, timesteps: int = 4):
     return talker, plan, reset
 
 
-def _run(talker, plan, requests: dict, steps: int, trace: dict | None = None):
+def _run(talker, plan, requests: dict, steps: int, trace: dict | None = None, runners: dict | None = None):
     """Prefill every request together, then ``steps - 1`` batched decode steps,
     each postprocessed as the worker does. ``trace`` collects each decode
     step's index and noise per request."""
     rids = list(requests)
     infos = {rid: _info(rid, seed, meta) for rid, ((_, meta), seed) in requests.items()}
-    engine = SimpleNamespace(request_ids=rids)
+    engine = SimpleNamespace(request_ids=rids, piecewise_runners=runners or {})
     prepared = [talker.prepare_inputs("talker_prefill", infos[rid], requests[rid][0][0]) for rid in rids]
     plan([p.input_seq_len for p in prepared])
     out = talker.forward_batched("talker_prefill", engine, **talker.preprocess("talker_prefill", engine, prepared))
@@ -810,6 +815,53 @@ def test_talker_batches_like_single_requests_and_follows_the_seed(model):
     assert not torch.allclose(reseeded["a"], alone_a["a"])
 
 
+class _ReplayRunner:
+    """CPU stand-in for a captured piecewise region: the real rows go into the
+    region's own static buffers at the padded batch size and its capture
+    function runs on them, as a replay of the graph would."""
+
+    def __init__(self, region: PiecewiseBatchedConfig):
+        self.region = region
+        self.calls: list[tuple[int, int]] = []
+
+    def can_run(self, batch_size: int) -> bool:
+        return batch_size <= max(self.region.capture_batch_sizes)
+
+    def run(self, static_inputs: dict, real_bs: int) -> dict:
+        bs = min(s for s in self.region.capture_batch_sizes if s >= real_bs)
+        shape = PiecewiseCaptureShape(bs=bs, seq_lens=[self.region.seq_len] * bs, total_tokens=self.region.seq_len * bs)
+        buffers = self.region.make_static_inputs(shape)
+        assert set(static_inputs) == set(buffers)
+        for name, value in static_inputs.items():
+            assert value.shape[1:] == buffers[name].shape[1:] and value.dtype == buffers[name].dtype, name
+            buffers[name][:real_bs].copy_(value)
+        self.calls.append((bs, real_bs))
+        out = self.region.capture_fn(PiecewiseCallInputs(static_inputs=buffers, engine_inputs=None))
+        return {name: tensor[:real_bs] for name, tensor in out.items()}
+
+
+def test_prefill_tail_region_replays_the_eager_tail(model):
+    """Three prefills padded to the 4-row bucket give the eager prefill's
+    patches, and the decode steps after them carry on the same."""
+    talker, plan, reset = _talker(model)
+    ((label, region),) = talker.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.bfloat16).items()
+    assert label == PREFILL_TAIL and region.seq_len == 1
+    assert region.capture_batch_sizes == talker.DECODE_CAPTURE_BATCH_SIZES
+    runner = _ReplayRunner(region)
+    requests = {
+        "a": (_request(model, "hello world"), 5),
+        "b": (_request(model, "hello hello hello", cfg_value=3.0), 9),
+        "c": (_request(model, "hi"), 2),
+    }
+    with torch.inference_mode():
+        eager = _run(talker, plan, requests, steps=3)
+        reset()
+        replayed = _run(talker, plan, requests, steps=3, runners={PREFILL_TAIL: runner})
+    assert runner.calls == [(4, 3)]
+    for rid in requests:
+        torch.testing.assert_close(replayed[rid], eager[rid], rtol=1e-4, atol=1e-5)
+
+
 def test_talker_decode_steps_advance_the_patch_index_and_the_noise(model):
     """Each decode step takes the next patch index and the next draw of the
     request's seeded generator (prefill takes draw 0)."""
@@ -834,7 +886,7 @@ def test_talker_clone_prefill_streams_the_prompt_tail_as_context(model):
     assert prepared.input_seq_len == 1 + 7 + 1 + 3 + 7
     torch.testing.assert_close(prepared.tensor_inputs["cond_patch"], ref[1][-1])
     plan([prepared.input_seq_len])
-    engine = SimpleNamespace(request_ids=["c"])
+    engine = SimpleNamespace(request_ids=["c"], piecewise_runners={})
     with torch.inference_mode():
         out = talker.forward_batched(
             "talker_prefill_clone", engine, **talker.preprocess("talker_prefill_clone", engine, [prepared])
@@ -983,7 +1035,7 @@ def test_talker_packs_a_mixed_batch_like_per_request_prompts(model):
         )
         for rid, (edges, _) in requests.items()
     ]
-    engine = SimpleNamespace(request_ids=rids)
+    engine = SimpleNamespace(request_ids=rids, piecewise_runners={})
     packed = talker.preprocess("talker_prefill_clone", engine, prepared)
 
     layouts = [
@@ -1118,7 +1170,7 @@ def test_vae_batches_windows_of_different_widths(model):
         )
         for rid, (w, ctx) in windows.items()
     }
-    engine = SimpleNamespace(request_ids=list(windows))
+    engine = SimpleNamespace(request_ids=list(windows), piecewise_runners={})
     with torch.no_grad():
         out = vae_node.forward_batched(
             "vae_chunk", engine, **vae_node.preprocess("vae_chunk", engine, list(prepared.values()))
@@ -1128,6 +1180,73 @@ def test_vae_batches_windows_of_different_widths(model):
             alone = vae_node.vae.decode(w.reshape(-1, 8).t().unsqueeze(0))[0][ctx * config.patch_samples :]
             _assert_unsaturated(alone)
             assert (out[rid]["audio_chunk"][0] - alone).abs().max() <= FP64_ROUNDING
+
+
+def _window_widths(buffer: StreamBuffer) -> list[int]:
+    """Patches in each window ready on ``buffer``, popped."""
+    widths = []
+    while buffer.has_chunk_ready():
+        widths.append(buffer.pop_chunk().data["data"].reshape(-1, 4, 8).shape[0])
+    return widths
+
+
+def test_stream_window_widths_bound_every_window(model):
+    assert stream_window_widths((1, 2, 4), 8, 5) == (1, 3, 7, 13)
+    assert stream_window_widths((1, 2, 4), 8, 22) == (1, 3, 7, 15, 23, 30)
+    assert stream_window_widths((4,), 2, 0) == (2, 4)
+    widths = stream_window_widths(model.stream_schedule, model.stream_chunk_patches, model.stream_left_context)
+    for lead in (0, 2, model.stream_left_context):
+        policy = model.get_partition_topology().connections[0].chunk_policy_factory()
+        buffer = StreamBuffer(request_id="r", edge_name=STREAM_EDGE, from_partition="Talker", policy=policy)
+        if lead:
+            buffer.prime_context(lead)
+        popped: list[int] = []
+        for i in range(lead + 37):
+            buffer.pre_read_register(f"t{i}")
+            buffer.put(f"t{i}", torch.zeros(4, 8))
+            popped += _window_widths(buffer)
+        buffer.signal_done()
+        popped += _window_widths(buffer)
+        assert max(popped) <= max(widths), (lead, popped)
+        if not lead:
+            assert set(popped[:-1]) <= set(widths), popped
+
+
+def test_vae_windows_replay_at_their_bucket_and_equal_a_whole_decode(model):
+    """Every window of a stream goes through the region of the next width up,
+    padded at the end; the streamed audio still equals one whole decode."""
+    config = model.config
+    widths = stream_window_widths(model.stream_schedule, model.stream_chunk_patches, model.stream_left_context)
+    vae_node = VAEDecoderSubmodule(_random_vae(config).double(), config, window_buckets=widths)
+    regions = vae_node.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32)
+    assert list(regions) == [VAE_WINDOW.format(width) for width in widths]
+    runners = {label: _ReplayRunner(region) for label, region in regions.items()}
+    patches = torch.randn(45, 4, 8, dtype=torch.float64)
+    policy = model.get_partition_topology().connections[0].chunk_policy_factory()
+    with torch.no_grad():
+        streamed = torch.cat(stream_through(vae_node, patches, policy, runners=runners))
+        whole = vae_node.vae.decode(patches.reshape(-1, 8).t().unsqueeze(0))[0]
+    _assert_unsaturated(whole)
+    assert (streamed - whole).abs().max() <= FP64_ROUNDING
+    assert all(calls == [(1, 1)] * len(calls) for calls in (r.calls for r in runners.values()))
+    assert all(runner.calls for runner in runners.values())
+
+
+def test_vae_window_wider_than_every_bucket_decodes_eagerly(model):
+    config = model.config
+    vae_node = VAEDecoderSubmodule(_random_vae(config).double(), config, window_buckets=(1, 3))
+    runners = {
+        label: _ReplayRunner(region)
+        for label, region in vae_node.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32).items()
+    }
+    latents = torch.randn(2, 8, 4 * 5, dtype=torch.float64)
+    with torch.no_grad():
+        out = vae_node._decode(latents, runners)
+        torch.testing.assert_close(out, vae_node.vae.decode(latents), rtol=0, atol=0)
+        assert not any(runner.calls for runner in runners.values())
+        two = vae_node._decode(latents[:, :, :8], runners)
+    assert runners[VAE_WINDOW.format(3)].calls == [(2, 2)]
+    assert two.shape[-1] == 3 * config.patch_samples
 
 
 # -- adapter -------------------------------------------------------------------
