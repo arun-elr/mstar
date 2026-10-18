@@ -36,7 +36,7 @@ from test_teardown_barrier import PREPROCESS, _conductor, _remove_targets, _requ
 from mstar.api_server import entrypoint
 from mstar.api_server.data_worker import PreprocessWorker, PreprocessWorkerThread
 from mstar.api_server.entrypoint import APIServer, request_id_in_use
-from mstar.api_server.request_types import ResultChunk
+from mstar.api_server.request_types import APIServerMessage, RequestFailed, ResultChunk
 from mstar.utils.ipc_format import (
     ConductorMessageType,
     NewRequestConductor,
@@ -117,6 +117,7 @@ def _api_server(preprocess_worker):
     s._recently_completed_ttl = 15.0
     s._live = {}
     s._client_ids = {}
+    s._id_waiters = set()
     s._generation = itertools.count(1)
     s.timeout_seconds = 5
     s.log_stats = False
@@ -303,6 +304,28 @@ def test_an_empty_pinned_request_id_keeps_its_seed():
     assert seeds == {_req_id_to_seed("")}
 
 
+def _run_message_thread(s, pw, chunks=(), messages=(), until=lambda: True):
+    """Run the API server's message thread over ``chunks`` from the data worker
+    and ``messages`` from the conductor until ``until()`` holds."""
+    chunks, messages = list(chunks), list(messages)
+    pw.get_result_chunks = lambda: [chunks.pop(0)] if chunks else []
+    pw.get_profile_updates = lambda: []
+    pw.finished_reading = lambda rid, drained: None
+    s.communicator = SimpleNamespace(
+        get_all_new_messages=lambda: [messages.pop(0)] if messages else [],
+    )
+    s.conductor_proc = None
+    s._liveness_interval_s = 0.5
+    s.running = True
+    thread = threading.Thread(target=s._process_messages, daemon=True)
+    thread.start()
+    try:
+        _wait(until, timeout=10)
+    finally:
+        s.running = False
+        thread.join(timeout=10)
+
+
 def test_chunks_reach_the_client_under_its_own_request_id():
     """The engine's chunks name the request by its key; what the stream and
     collect hand back names it by the client's id."""
@@ -310,26 +333,41 @@ def test_chunks_reach_the_client_under_its_own_request_id():
     s = _api_server(pw)
     s.submit_request(text="first", request_id="X", streaming=False, **TEXT)
     key = pw.inputs[0].request_id
-    engine_chunks = [ResultChunk(request_id=key, modality="text", data=b"hi")]
-    s.preprocess_worker.get_result_chunks = lambda: [engine_chunks.pop()] if engine_chunks else []
-    s.preprocess_worker.get_profile_updates = lambda: []
-    s.communicator = SimpleNamespace(get_all_new_messages=lambda: [])
-    s.conductor_proc = None
-    s._liveness_interval_s = 0.5
-    s.running = True
-    thread = threading.Thread(target=s._process_messages, daemon=True)
-    thread.start()
-    try:
-        deadline = time.time() + 10
-        while not s.pending_requests[key].chunks and time.time() < deadline:
-            time.sleep(0.005)
-    finally:
-        s.running = False
-        thread.join(timeout=10)
+    _run_message_thread(
+        s, pw, chunks=[ResultChunk(request_id=key, modality="text", data=b"hi")],
+        until=lambda: s.pending_requests[key].chunks,
+    )
     s.pending_requests[key].event.set()
 
     chunks = asyncio.run(s.collect_results("X"))
     assert [(c.request_id, c.data) for c in chunks] == [("X", b"hi")]
+
+
+@pytest.mark.parametrize("source", ["data_worker", "engine"])
+def test_an_error_that_names_the_key_reaches_the_client_under_its_own_id(source):
+    """An error raised below the API server can format the key it knows the
+    request by (the sampler's min_p refusal does); the client sees its own id."""
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.submit_request(text="first", request_id="X", streaming=False, **TEXT)
+    key = pw.inputs[0].request_id
+    text = f"request {key}: min_p must be in [0, 1]"
+    if source == "data_worker":
+        feed = dict(chunks=[ResultChunk(
+            request_id=key, modality="error", data=text.encode(), metadata={"status": 400},
+        )])
+    else:
+        feed = dict(messages=[APIServerMessage(
+            message_type="request_failed",
+            body=RequestFailed(request_id=key, error_message=text, status=400),
+        )])
+    _run_message_thread(s, pw, **feed, until=s.pending_requests[key].event.is_set)
+
+    with pytest.raises(HTTPException) as failed:
+        asyncio.run(s.collect_results("X"))
+    assert (failed.value.status_code, failed.value.detail) == (
+        400, "request X: min_p must be in [0, 1]",
+    )
 
 
 # ── the API server alone ─────────────────────────────────────────────────────
@@ -435,6 +473,44 @@ def test_the_wait_for_a_running_id_is_bounded(monkeypatch):
     asyncio.run(s.wait_for_request_id("X"))
 
     assert 0.05 <= time.monotonic() - t0 < 1.0
+    assert s._id_waiters == set()
+
+
+def test_one_caller_at_a_time_waits_on_a_running_id(monkeypatch):
+    """N duplicates of a running id cost one poll loop: while one caller
+    waits, another returns at once (and submit_request then refuses it)."""
+    monkeypatch.setattr(entrypoint, "DUPLICATE_ID_GRACE_S", 0.3)
+    s = _api_server(_PreprocessWorker())
+    s.submit_request(text="first", request_id="X", **TEXT)
+
+    async def run():
+        first = asyncio.create_task(s.wait_for_request_id("X"))
+        await _await(lambda: "X" in s._id_waiters)
+        t0 = time.monotonic()
+        await s.wait_for_request_id("X")
+        second_s = time.monotonic() - t0
+        assert not first.done(), "the first caller stopped waiting"
+        await first
+        return second_s
+
+    assert asyncio.run(run()) < 0.1
+    assert s._id_waiters == set()
+
+
+def test_a_cancelled_wait_frees_the_id_for_the_next_caller(monkeypatch):
+    monkeypatch.setattr(entrypoint, "DUPLICATE_ID_GRACE_S", 5.0)
+    s = _api_server(_PreprocessWorker())
+    s.submit_request(text="first", request_id="X", **TEXT)
+
+    async def run():
+        waiting = asyncio.create_task(s.wait_for_request_id("X"))
+        await _await(lambda: "X" in s._id_waiters)
+        waiting.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiting
+
+    asyncio.run(run())
+    assert s._id_waiters == set()
 
 
 # ── a duplicate of a running id, through the routes ─────────────────────────
@@ -505,7 +581,7 @@ def test_a_duplicate_generate_gets_a_409_and_the_running_one_completes(monkeypat
     assert not s.pending_requests and s._live == {}
 
 
-def test_a_duplicate_websocket_request_gets_an_in_band_409(monkeypatch, tmp_path):
+def test_a_duplicate_websocket_request_gets_an_in_band_409(monkeypatch, tmp_path, caplog):
     pw = _PreprocessWorker()
     s = _api_server(pw)
     _routes(monkeypatch, s, tmp_path)
@@ -522,6 +598,7 @@ def test_a_duplicate_websocket_request_gets_an_in_band_409(monkeypatch, tmp_path
     assert chunk["request_id"] == "X" and base64.b64decode(chunk["data"]) == b"first"
     assert finish == {"request_id": "X", "finish": True}
     assert len(pw.inputs) == 1 and pw.aborted == []
+    assert not [r for r in caplog.records if r.exc_info], "an expected 409 logged a traceback"
 
 
 @pytest.mark.parametrize("path,body", [

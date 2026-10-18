@@ -26,7 +26,7 @@
 //! abort is sent before its `rid` is freed, so it reaches the backend before
 //! any retry's submit.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -108,12 +108,14 @@ struct Route {
     rid: Option<String>,
 }
 
-/// sub -> the serving task's route (the demux thread routes chunks here), and
-/// rid -> the sub in flight under it.
+/// sub -> the serving task's route (the demux thread routes chunks here),
+/// rid -> the sub in flight under it, and the rids a caller is waiting on in
+/// [`Bridge::wait_for_request_id`].
 #[derive(Default)]
 struct Table {
     routes: HashMap<u64, Route>,
     live: HashMap<String, u64>,
+    waiting: HashSet<String>,
 }
 
 impl Table {
@@ -142,6 +144,31 @@ impl Table {
 }
 
 type Routes = Mutex<Table>;
+
+/// The one caller waiting out a live rid's grace. Dropping it frees the slot,
+/// also when the waiting request is cancelled mid-wait.
+struct Waiter<'a> {
+    routes: &'a Routes,
+    rid: String,
+}
+
+impl<'a> Waiter<'a> {
+    /// None when nothing is in flight under `rid`, or another caller is
+    /// already waiting on it.
+    fn start(routes: &'a Routes, rid: &str) -> Option<Self> {
+        let mut table = routes.lock().expect("routes lock");
+        if !table.live.contains_key(rid) || !table.waiting.insert(rid.to_string()) {
+            return None;
+        }
+        Some(Self { routes, rid: rid.to_string() })
+    }
+}
+
+impl Drop for Waiter<'_> {
+    fn drop(&mut self) {
+        self.routes.lock().expect("routes lock").waiting.remove(&self.rid);
+    }
+}
 
 /// The 409 detail for a `request_id` that still has a request in flight
 /// (mstar's `request_id_in_use`).
@@ -204,8 +231,13 @@ impl Bridge {
     /// Give a submission still in flight under `request_id` up to `grace` to
     /// end before [`Bridge::submit`] refuses a new one: a client that drops a
     /// stream and resubmits at once can arrive before the drop is noticed
-    /// (mstar's `wait_for_request_id`).
+    /// (mstar's `wait_for_request_id`). One caller per rid waits; another
+    /// that arrives meanwhile returns at once and is refused while the rid is
+    /// in flight, so N duplicates of a live rid cost one poll loop.
     pub async fn wait_for_request_id(&self, request_id: &str, grace: Duration) {
+        let Some(_waiter) = Waiter::start(&self.routes, request_id) else {
+            return;
+        };
         let deadline = tokio::time::Instant::now() + grace;
         while self.in_flight(request_id) && tokio::time::Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(5)).await;
@@ -448,5 +480,17 @@ mod tests {
         assert_eq!(table.live.get("X"), Some(&2), "the older end freed the retry's rid");
         assert!(matches!(new_rx.try_recv(), Ok(StreamItem::Chunk(_))));
         assert!(new_rx.try_recv().is_err(), "the retry got the older submission's end");
+    }
+
+    #[test]
+    fn one_caller_at_a_time_waits_out_a_live_rid_s_grace() {
+        let routes: Routes = Mutex::new(Table::default());
+        assert!(Waiter::start(&routes, "X").is_none(), "waited on a rid with nothing in flight");
+        routes.lock().unwrap().claim("X", 1, unbounded_channel().0).unwrap();
+
+        let first = Waiter::start(&routes, "X").expect("the first caller did not wait");
+        assert!(Waiter::start(&routes, "X").is_none(), "a second caller waited too");
+        drop(first);
+        assert!(Waiter::start(&routes, "X").is_some(), "the slot stayed taken after the wait");
     }
 }

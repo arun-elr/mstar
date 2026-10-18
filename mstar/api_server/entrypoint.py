@@ -182,6 +182,13 @@ def _shutdown_conductor_process(
 DUPLICATE_ID_GRACE_S = 0.5
 
 
+def _client_text(text: str, key: str, request_id: str | None) -> str:
+    """``text`` with the submission key ``key`` (``<request_id>#<n>``) shown
+    as the client's ``request_id``: engine and data-worker errors can name
+    the key, which the client never sent."""
+    return text if request_id is None else text.replace(key, request_id)
+
+
 def request_id_in_use(request_id: str) -> str:
     """The 409 detail for a ``request_id`` that still has a request in flight."""
     return (
@@ -345,6 +352,8 @@ class APIServer:
         # until the key has left both dicts above.
         self._live: dict[str, str] = {}
         self._client_ids: dict[str, str] = {}
+        # request_ids a caller is waiting on in wait_for_request_id
+        self._id_waiters: set[str] = set()
         self._generation = itertools.count(1)
         self.request_lock = threading.Lock()
         self.running = True
@@ -546,17 +555,27 @@ class APIServer:
         :data:`DUPLICATE_ID_GRACE_S` to end, so a client's immediate retry
         after dropping a stream is not refused before the server has seen the
         drop. A request that is still running after that is refused by
-        :meth:`submit_request`."""
+        :meth:`submit_request`.
+
+        One caller per id waits; another that arrives meanwhile returns at
+        once and is refused while the id is in flight, so N duplicates of a
+        live id cost one poll loop, not N."""
         if request_id is None:
             return
-        deadline = time.monotonic() + DUPLICATE_ID_GRACE_S
-        while True:
-            with self.request_lock:
-                if not self._in_flight(request_id):
-                    return
-            if time.monotonic() >= deadline:
+        with self.request_lock:
+            if not self._in_flight(request_id) or request_id in self._id_waiters:
                 return
-            await asyncio.sleep(0.005)
+            self._id_waiters.add(request_id)
+        try:
+            deadline = time.monotonic() + DUPLICATE_ID_GRACE_S
+            while time.monotonic() < deadline:
+                await asyncio.sleep(0.005)
+                with self.request_lock:
+                    if not self._in_flight(request_id):
+                        return
+        finally:
+            with self.request_lock:
+                self._id_waiters.discard(request_id)
 
     def _retire(self, key: str) -> None:
         """Forget ``key``'s request_id once neither dict holds the key.
@@ -698,7 +717,9 @@ class APIServer:
                                 # error (e.g. a preprocess failure) with a
                                 # downstream one.
                                 if req.error is None:
-                                    req.error = message.body.error_message
+                                    req.error = _client_text(
+                                        message.body.error_message, rid, req.request_id,
+                                    )
                                     req.error_status = message.body.status
                                 # Release the waiting client immediately: no
                                 # result is coming, so the alternative is the
@@ -788,6 +809,11 @@ class APIServer:
                         req.profile.timing.last_chunk_time = now
                         if req.request_id is not None:
                             result_chunk.request_id = req.request_id
+                        if result_chunk.modality == "error":
+                            result_chunk.data = _client_text(
+                                result_chunk.data.decode("utf-8", "replace"),
+                                rid, req.request_id,
+                            ).encode("utf-8")
                         req.chunks.append(result_chunk)
                         to_wake[id(req)] = req
 
@@ -1479,10 +1505,16 @@ async def generate_ws(websocket: WebSocket):
         except (WebSocketDisconnect, asyncio.CancelledError):
             raise
         except Exception as exc:  # noqa: BLE001 — reported in-band, the socket stays up
-            logger.exception("generate/ws request failed")
             reply = {"request_id": request_id, "error": str(exc)}
             if isinstance(exc, HTTPException):
                 reply.update(error=exc.detail, status=exc.status_code)
+            if isinstance(exc, HTTPException) and exc.status_code < 500:
+                logger.info(
+                    "generate/ws request %s refused (%d): %s",
+                    request_id, exc.status_code, exc.detail,
+                )
+            else:
+                logger.exception("generate/ws request failed")
             try:
                 await send(reply, binary)
             except Exception:  # noqa: BLE001
