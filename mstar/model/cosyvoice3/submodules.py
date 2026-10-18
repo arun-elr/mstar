@@ -740,8 +740,10 @@ class FlowSubmodule(NodeSubmodule):
     def capture_batch_sizes(self, frames: int) -> list[int]:
         """Batch sizes captured for a frame bucket: ``bs * frames`` within
         ``flow_capture_batch_frames``, where a solve is still bound by its
-        kernel launches rather than its compute."""
+        kernel launches rather than its compute. None past the flow's noise."""
         cfg = self.config
+        if frames > cfg.flow.noise_frames:
+            return []
         sizes = [bs for bs in cfg.flow_capture_batch_sizes if bs <= cfg.flow_max_batch_size]
         return [bs for bs in sizes if bs * frames <= cfg.flow_capture_batch_frames]
 
