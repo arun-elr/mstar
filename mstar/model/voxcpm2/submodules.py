@@ -596,7 +596,9 @@ class VAEDecoderSubmodule(ARNodeSubmodule):
     disable_torch_compile = True
     disable_autocast = True
     MAX_BATCH_SIZE = 32
-    CAPTURE_BATCH_SIZES = [1, 2, 4, 8, 16, 32]
+    # wider batches are GPU-bound, so a replay saves under 1 ms of their 6 to
+    # 90 ms, and capturing up to 32 rows would hold about 4 GB more graph memory
+    CAPTURE_BATCH_SIZES = [1, 2, 4]
 
     def __init__(self, vae: AudioVAE, config: VoxCPM2Config, window_buckets: Sequence[int] = ()):
         """``window_buckets``: window widths, in patches, to capture the decode
