@@ -127,11 +127,7 @@ def test_patchify_roundtrip_matches_reference_layout():
     assert padded_length(15) == SEQ_MULTIPLE and padded_length(32) == 32 and padded_length(33) == 64
 
 
-@pytest.mark.skip(
-    reason="the batched-vs-unbatched torch.equal at the end differs in the last digit on CPU "
-    "(torch 2.9.1); everything before it holds"
-)
-def test_caption_encoder_tap_is_the_second_to_last_hidden_state():
+def _tiny_caption_encoder():
     torch.manual_seed(0)
     hf_cfg = transformers.Qwen3Config(
         vocab_size=100, hidden_size=32, intermediate_size=64, num_hidden_layers=5, num_attention_heads=4,
@@ -152,9 +148,19 @@ def test_caption_encoder_tap_is_the_second_to_last_hidden_state():
     with torch.no_grad():
         expected = ref(input_ids=ids, attention_mask=mask, output_hidden_states=True).hidden_states[-2]
         ours = native(ids, mask)
+    return native, ids, mask, expected, ours
+
+
+def test_caption_encoder_tap_is_the_second_to_last_hidden_state():
+    _, _, _, expected, ours = _tiny_caption_encoder()
     # the Z-Image pipeline keeps only the real tokens' rows
     assert torch.equal(expected[0], ours[0]) and torch.equal(expected[1, :9], ours[1, :9])
+
+
+@pytest.mark.skip(reason="differs from the padded batch in the last digit on CPU (torch 2.9.1)")
+def test_caption_encoder_real_token_states_ignore_trailing_padding():
     # real-token states are independent of how much padding follows (what lets rows batch)
+    native, ids, mask, _, ours = _tiny_caption_encoder()
     with torch.no_grad():
         shorter = native(ids[1:, :9], mask[1:, :9])
     assert torch.equal(shorter[0], ours[1, :9])
