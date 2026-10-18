@@ -240,6 +240,10 @@ def _warn_if_mooncake_unpatched() -> None:
         )
 
 
+class MemoryRegistrationError(RuntimeError):
+    """The transfer engine refused to register a tensor for remote reads."""
+
+
 # ---------------------------------------------------------------------------
 # TensorTransferEngine abstraction
 # ---------------------------------------------------------------------------
@@ -1422,6 +1426,10 @@ class TensorCommunicationManager(ABC):
         rebuilding a descriptor so the callee can read its uuid costs ~2.2us
         each (15 attribute crossings plus the dataclass), and the caller
         already has the uuids. ``skip_cuda_sync`` as for ``register_for_send``.
+
+        Returns ``{request_id: error}`` for the requests whose tensors the
+        transfer engine refused to register, or None if there were none; the
+        other requests' tensors are registered all the same.
         """
         ...
 
@@ -2085,9 +2093,14 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         uuids avoids rebuilding one per tensor."""
         if not skip_cuda_sync and self._on_cuda:
             torch.cuda.default_stream().synchronize()
+        failed: dict[Rid, str] = {}
         for request_id, uuids in per_request:
-            for uuid in uuids:
-                self._register_one(request_id, uuid)
+            try:
+                for uuid in uuids:
+                    self._register_one(request_id, uuid)
+            except MemoryRegistrationError as exc:
+                failed[request_id] = str(exc)
+        return failed or None
 
     def _register_one(self, request_id: Rid, uuid: int) -> None:
         """Pin one tensor for remote reads. The caller owns the CUDA sync."""
@@ -2109,9 +2122,9 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                     "tensors.register_memory", time.perf_counter() - t0,
                 )
             if ret_value != 0:
-                raise RuntimeError(
+                raise MemoryRegistrationError(
                     f"Mooncake memory registration failed for request id "
-                    f"{request_id}, uuid {uuid}."
+                    f"{self.rid_to_str(request_id)}, uuid {uuid}: {ret_value}"
                 )
             if self.enable_prof:
                 # RDMA: the receiver does the actual read, so the sender-side
