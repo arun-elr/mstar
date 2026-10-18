@@ -66,7 +66,7 @@ def kv_pinned_indptrs() -> bool:
     ring of page-locked host buffers, and the decode wrapper copies the
     indices straight into its captured device buffer from there. The copies
     are then really asynchronous; from pageable memory the driver stages each
-    one, and FlashInfer makes the indices copy blocking. Off by default: the
-    event bookkeeping per take cost about what the staged copies did at
-    c32-c128 on 0.8B (measured neutral to slightly negative)."""
+    one, and FlashInfer makes the indices copy blocking. Off by default: no
+    measurable gain at c32-c128 on 0.8B. The cost is one CUDA event per plan,
+    which a buffer set waits on before it is rewritten."""
     return os.environ.get("MSTAR_KV_PINNED_INDPTRS", "0") == "1"
