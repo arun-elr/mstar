@@ -14,6 +14,8 @@ DEFAULT_MAX_IMAGE_PIXELS = 89_478_485
 # about 39 s of 720p30, or 2.6 min of 640x360 at 30 fps, decoded at once: a
 # full decode of every short (up to 2 min) Video-MME clip fits
 DEFAULT_MAX_VIDEO_PIXELS = 1 << 30
+# the least a decoded frame counts against the video cap
+MIN_FRAME_PIXELS = 64 * 64
 
 
 def _positive_int_env(name: str, default: int) -> int:
@@ -162,14 +164,18 @@ def read_video_whole_budgeted(ele: dict) -> tuple[torch.Tensor, dict, float]:
 
 class VideoBudget:
     """Counts decoded frames against ``max_video_pixels()``, so a loader stops
-    before it holds more than the cap whatever the container claims."""
+    before it holds more than the cap whatever the container claims.
+
+    A frame counts as at least ``MIN_FRAME_PIXELS``: each decoded frame costs
+    about 2 KB of tensor and frame objects whatever its size, so a clip of
+    millions of 2x2 frames would otherwise pass the cap at hundreds of GB."""
 
     def __init__(self) -> None:
         self.limit = max_video_pixels()
         self.pixels = 0
 
     def add(self, height: int, width: int, frames: int = 1) -> None:
-        self.pixels += int(height) * int(width) * int(frames)
+        self.pixels += max(int(height) * int(width), MIN_FRAME_PIXELS) * int(frames)
         if self.pixels > self.limit:
             raise ValueError(
                 f"video decodes to more than {self.limit} pixels; send a shorter "

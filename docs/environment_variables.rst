@@ -331,8 +331,8 @@ stops the server instead of failing every media request.
      - Pixels one request video may decode to (see
        :func:`mstar.model.media_limits.max_video_pixels`), summed over the
        frames the model's loader decodes (about 39 s of 720p30, or 2.6 min
-       of 640x360, for loaders that keep every frame); larger videos get a
-       400.
+       of 640x360, for loaders that keep every frame), each frame counting
+       as at least 64x64; larger videos get a 400.
 
 Worker scheduling
 -----------------

@@ -11,6 +11,7 @@ import torch
 from mstar.model.base import Model
 from mstar.model.media_limits import (
     DEFAULT_MAX_IMAGE_PIXELS,
+    MIN_FRAME_PIXELS,
     VideoBudget,
     check_image_size,
     probe_video,
@@ -268,6 +269,32 @@ def test_cosmos3_pyav_fallback_stops_at_the_budget(tmp_path, monkeypatch):
         model.load_video(path, "cpu")
     monkeypatch.setenv("MSTAR_MAX_VIDEO_PIXELS", str(64 * 64 * 10))
     assert model.load_video(path, "cpu").data.shape[0] == 10
+
+
+def test_a_tiny_frame_counts_as_the_minimum(monkeypatch):
+    """Millions of 2x2 frames fit 2^30 pixels but cost about 2 KB each once
+    decoded; every frame is charged at least MIN_FRAME_PIXELS."""
+    monkeypatch.setenv("MSTAR_MAX_VIDEO_PIXELS", str(MIN_FRAME_PIXELS * 100))
+    budget = VideoBudget()
+    budget.add(2, 2, 100)
+    with pytest.raises(ValueError, match="MSTAR_MAX_VIDEO_PIXELS"):
+        budget.add(2, 2)
+    budget = VideoBudget()
+    budget.add(64, 64, 100)  # a frame at the minimum counts as itself
+    with pytest.raises(ValueError, match="MSTAR_MAX_VIDEO_PIXELS"):
+        budget.add(64, 64)
+
+
+def test_cosmos3_pyav_fallback_counts_tiny_frames(tmp_path, monkeypatch):
+    from mstar.model.cosmos3.cosmos3_model import Cosmos3Model
+
+    path = _mp4(tmp_path / "tiny.mp4", frames=30, side=16)
+    monkeypatch.setitem(sys.modules, "torchcodec.decoders", None)  # take the PyAV path
+    model = object.__new__(Cosmos3Model)
+    # 30 frames of 16x16 are 7,680 pixels by area, but 30 minimum frames are over 20
+    monkeypatch.setenv("MSTAR_MAX_VIDEO_PIXELS", str(MIN_FRAME_PIXELS * 20))
+    with pytest.raises(ValueError, match="MSTAR_MAX_VIDEO_PIXELS"):
+        model.load_video(path, "cpu")
 
 
 def test_qwen3_omni_checks_sampled_frames_before_fetch_video(monkeypatch):
