@@ -171,6 +171,12 @@ def feat_cache_bytes(feat_cache: list) -> int:
     return sum(t.numel() * t.element_size() for t in feat_cache if torch.is_tensor(t))
 
 
+def _has_deterministic_mode() -> bool:
+    import torch._inductor.config as inductor_config
+
+    return hasattr(inductor_config, "deterministic")
+
+
 def _cache_signature(feat_cache: list) -> tuple:
     return tuple(t if t is None or isinstance(t, str) else tuple(t.shape) for t in feat_cache)
 
@@ -193,12 +199,22 @@ class DecoderStep:
     a copy of the cache and discards the result before serving it. The signature is
     the input's shape and strides plus the cache's slot shapes, so the warm-up
     sees the real layout.
+
+    ``deterministic`` compiles in Inductor's deterministic mode where this
+    torch has it (2.9.1 does not): each reduction kernel's config is then
+    picked by a fixed rule. Otherwise it is benchmarked on first use with a
+    cold cache, and processes that pick differently decode the same latents
+    a few uint8 levels apart.
     """
 
-    def __init__(self, vae: nn.Module, compile: bool):
+    def __init__(self, vae: nn.Module, compile: bool, deterministic: bool = False):
         self.compiled = compile
         self._decoder = vae.decoder
-        self._fn = torch.compile(self._decoder.forward, fullgraph=False, dynamic=False) if compile else None
+        options = {"deterministic": True} if deterministic and _has_deterministic_mode() else None
+        self._fn = (
+            torch.compile(self._decoder.forward, fullgraph=False, dynamic=False, options=options)
+            if compile else None
+        )
         self._warmed: set[tuple] = set()
 
     def __call__(self, x: torch.Tensor, feat_cache: list, first_chunk: bool = False) -> torch.Tensor:

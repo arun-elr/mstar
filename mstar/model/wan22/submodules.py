@@ -623,7 +623,7 @@ class Wan22VaeDecoderSubmodule(_SingleRequestMixin, _Fp32IslandMixin, NodeSubmod
             # Before the compile traces the decoder; this VAE instance is the
             # decoder node's own.
             wan_vae.to_channels_last(self.vae)
-            self._fast_step = wan_vae.DecoderStep(self.vae, compile=True)
+            self._fast_step = wan_vae.DecoderStep(self.vae, compile=True, deterministic=True)
             logger.info(
                 "Wan2.2 VAE decode: untiled %s on the shared Wan VAE decoder (channels-last, compiled); "
                 "other sizes decode stock",

@@ -81,6 +81,8 @@ class Wan22Config:
 
     # Compiled untiled decode through the shared Wan VAE decoder. Each output size costs a compile, so only
     # ``vae_decode_fast_sizes`` use it; other sizes and tiled decodes run stock ``vae.decode`` / ``tiled_decode``.
+    # Compiled in Inductor's deterministic mode, so the frames do not depend on the server process, except on a
+    # torch without that mode (2.9.1).
     vae_decode_fast: bool = True
     # "WxH" output sizes the fast decode compiles for; None is the default size
     # (1280x704). Requests choose their size, so an open list would let each new

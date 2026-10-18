@@ -229,6 +229,18 @@ def test_switching_layouts_does_not_recompile_the_listed_size(monkeypatch, vae) 
     torch._dynamo.reset()
 
 
+def test_the_fast_decode_compiles_in_deterministic_mode(monkeypatch, vae) -> None:
+    """Inductor's deterministic mode where torch has it: a cold-cache
+    benchmark would otherwise pick reduction configs per process."""
+    import torch._inductor.config as inductor_config
+
+    seen = []
+    monkeypatch.setattr(torch, "compile", lambda fn, **kw: seen.append(kw) or fn)
+    _decoder(monkeypatch, vae, fast=True)
+    expected = {"deterministic": True} if hasattr(inductor_config, "deterministic") else None
+    assert [kw.get("options") for kw in seen] == [expected]
+
+
 def test_default_layout_undoes_channels_last_exactly(vae) -> None:
     ref = copy.deepcopy(vae)
     sub = copy.deepcopy(vae)
