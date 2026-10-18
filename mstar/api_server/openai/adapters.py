@@ -606,7 +606,8 @@ def _resolve_ref_audio(ref: str, upload_dir: Path, decoder: str) -> str:
     """A reference voice clip from the request: a data URL, an http(s) URL (only
     when the server allows remote fetch), or bare base64 that ``decoder`` (the
     model's audio loader) can open. Returns its path. Every form gets the same
-    ``check_ref_audio``, so a clip the data worker would fail on is a 400 here."""
+    ``check_ref_audio``, so a clip the data worker would fail on, or one longer
+    than ``MAX_REF_AUDIO_SECONDS``, is a 400 here."""
     if not isinstance(ref, str):
         raise ValueError(f"ref_audio must be a data URL or base64 string, got {type(ref).__name__}")
     if ref.startswith("data:") or ref.split(":", 1)[0].lower() in ("http", "https"):

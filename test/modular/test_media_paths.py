@@ -11,6 +11,8 @@ from mstar.api_server.openai import adapters
 from mstar.api_server.openai.protocol import ChatCompletionRequest, SpeechRequest, VideoGenerationRequest
 
 REFUSED = "server file paths are refused"
+TOO_LONG = "ref_audio must be 60 s or shorter"
+WAV_BYTES = b"RIFF....WAVEfmt " + bytes(64)
 
 
 @pytest.fixture
@@ -172,7 +174,9 @@ def test_omnivoice_refuses_audio_its_decoder_cannot_read(clip, dirs):
     uploads, _ = dirs
     _audio_decoder()
     req = SpeechRequest(input="hi", ref_audio=_clip(*clip), ref_text="hi")
-    with pytest.raises(ValueError, match=REFUSED):
+    # FFmpeg reads a MAT4 or MAT5 header as AMR-NB with a bitrate-estimated
+    # duration over a minute, so the length cap can refuse it before the decode
+    with pytest.raises(ValueError, match=f"{REFUSED}|{TOO_LONG}"):
         adapters.OmniVoiceAdapter().speech_to_request(req, uploads)
 
 
@@ -180,23 +184,7 @@ def test_omnivoice_refuses_audio_its_decoder_cannot_read(clip, dirs):
 def test_omnivoice_refuses_audio_whose_header_opens_but_samples_do_not_decode(decodes, dirs, monkeypatch):
     """Some FFmpeg builds open a MAT4 or MAT5 header and then fail on the first
     frame. This stub decoder does the same, so the check runs without FFmpeg."""
-    import types
-
-    decoded = []
-
-    class AudioDecoder:
-        def __init__(self, source, **kwargs):
-            open(source, "rb").close()
-            self.kwargs = kwargs
-            self.metadata = types.SimpleNamespace(sample_rate=24000)
-
-        def get_all_samples(self):
-            decoded.append(self.kwargs)
-            if not decodes:
-                raise RuntimeError("decode_av_frame failed")
-            return object()
-
-    _stub_torchcodec(monkeypatch, AudioDecoder)
+    decoded = _stub_decoder(monkeypatch, rate=24000, decodes=decodes)
     uploads, _ = dirs
     before = set(uploads.iterdir())
     req = SpeechRequest(input="hi", ref_audio=base64.b64encode(b"MATLAB 5.0 MAT-file").decode(), ref_text="hi")
@@ -207,8 +195,11 @@ def test_omnivoice_refuses_audio_whose_header_opens_but_samples_do_not_decode(de
         with pytest.raises(ValueError, match=REFUSED):
             adapters.OmniVoiceAdapter().speech_to_request(req, uploads)
         assert set(uploads.iterdir()) == before
-    # decoded size must not scale with the channel count or rate the clip declares
-    assert decoded and all(kw.get("num_channels") == 1 and kw.get("sample_rate") for kw in decoded)
+    # decoded size must not scale with the channel count, rate or length the clip declares
+    assert decoded and all(
+        d["num_channels"] == 1 and d["sample_rate"] and d["stop"] == media_io.MAX_REF_AUDIO_SECONDS + 1.0
+        for d in decoded
+    )
 
 
 def _stub_torchcodec(monkeypatch, decoder_cls):
@@ -227,19 +218,7 @@ def _stub_torchcodec(monkeypatch, decoder_cls):
 def test_omnivoice_refuses_a_clip_below_the_rate_floor_before_decoding(rate, dirs, monkeypatch):
     """The rate comes from the header; nothing is decoded, so a 1 Hz clip cannot
     expand 16,000x on its way to the probe's 16 kHz. Stub decoder, no FFmpeg."""
-    import types
-
-    decoded = []
-
-    class AudioDecoder:
-        def __init__(self, source, **kwargs):
-            self.metadata = types.SimpleNamespace(sample_rate=rate)
-
-        def get_all_samples(self):
-            decoded.append(True)
-            return object()
-
-    _stub_torchcodec(monkeypatch, AudioDecoder)
+    decoded = _stub_decoder(monkeypatch, rate)
     uploads, _ = dirs
     before = set(uploads.iterdir())
     req = SpeechRequest(input="hi", ref_audio=base64.b64encode(b"RIFF....WAVEfmt " + bytes(64)).decode(), ref_text="hi")
@@ -257,9 +236,9 @@ def test_omnivoice_refuses_a_low_rate_wav_without_decoding_it(rate, dirs, monkey
     decodes = []
 
     class Spy(decoder):
-        def get_all_samples(self, *args, **kwargs):
+        def get_samples_played_in_range(self, *args, **kwargs):
             decodes.append(True)
-            return super().get_all_samples(*args, **kwargs)
+            return super().get_samples_played_in_range(*args, **kwargs)
 
     monkeypatch.setattr(torchcodec.decoders, "AudioDecoder", Spy)
     uploads, _ = dirs
@@ -285,9 +264,10 @@ def test_qwen3_tts_refuses_a_clip_below_the_rate_floor(rate, dirs):
 UNDECODABLE = "ref_audio must be audio the model can decode"
 
 
-def _stub_decoder(monkeypatch, rate, decodes=True):
-    """A torchcodec stand-in whose header reports ``rate``; returns the list
-    each sample decode appends to."""
+def _stub_decoder(monkeypatch, rate, decodes=True, header_seconds=0.5, seconds=0.5):
+    """A torchcodec stand-in whose header reports ``rate`` and ``header_seconds``
+    and whose decode yields ``seconds`` of audio, cut at the requested stop.
+    Returns the list each sample decode appends its arguments to."""
     import types
 
     decoded = []
@@ -295,13 +275,15 @@ def _stub_decoder(monkeypatch, rate, decodes=True):
     class AudioDecoder:
         def __init__(self, source, **kwargs):
             open(source, "rb").close()
-            self.metadata = types.SimpleNamespace(sample_rate=rate)
+            self.kwargs = kwargs
+            self.metadata = types.SimpleNamespace(sample_rate=rate, duration_seconds_from_header=header_seconds)
 
-        def get_all_samples(self):
-            decoded.append(True)
+        def get_samples_played_in_range(self, start_seconds=0.0, stop_seconds=None):
+            decoded.append({**self.kwargs, "stop": stop_seconds})
             if not decodes:
                 raise RuntimeError("decode_av_frame failed")
-            return object()
+            played = seconds if stop_seconds is None else min(seconds, stop_seconds)
+            return types.SimpleNamespace(pts_seconds=start_seconds, duration_seconds=played)
 
     _stub_torchcodec(monkeypatch, AudioDecoder)
     return decoded
@@ -322,7 +304,7 @@ def test_omnivoice_checks_a_data_url_like_bare_base64(rate, decodes, accepted, d
     with pytest.raises(ValueError, match=UNDECODABLE):
         adapters.OmniVoiceAdapter().speech_to_request(req, uploads)
     assert set(uploads.iterdir()) == before
-    assert decoded == ([] if rate < media_io.MIN_REF_AUDIO_SAMPLE_RATE else [True])
+    assert len(decoded) == (0 if rate < media_io.MIN_REF_AUDIO_SAMPLE_RATE else 1)
 
 
 def test_omnivoice_checks_an_allowed_url_like_bare_base64(dirs, monkeypatch):
@@ -360,7 +342,8 @@ def test_a_wav_data_url_is_held_to_the_rate_floor(adapter, rate, dirs):
 @pytest.mark.parametrize("adapter, accepted", [(adapters.OmniVoiceAdapter, False), (adapters.Qwen3TTSAdapter, True)])
 def test_a_mat5_data_url_is_checked_by_the_model_decoder(adapter, accepted, dirs):
     """torchcodec (OmniVoice) cannot decode MAT5 samples, so the data worker returned
-    a 500; soundfile (Qwen3-TTS) reads it, so it stays accepted there."""
+    a 500; soundfile (Qwen3-TTS) reads it, so it stays accepted there. FFmpeg's
+    header for it claims over a minute, so OmniVoice may refuse it on length."""
     if adapter is adapters.OmniVoiceAdapter:
         _audio_decoder()
     uploads, _ = dirs
@@ -370,9 +353,127 @@ def test_a_mat5_data_url_is_checked_by_the_model_decoder(adapter, accepted, dirs
         (path,) = adapter().speech_to_request(req, uploads).file_paths["audio"]
         assert path.startswith(str(uploads))
         return
-    with pytest.raises(ValueError, match=UNDECODABLE):
+    with pytest.raises(ValueError, match=f"{UNDECODABLE}|{TOO_LONG}"):
         adapter().speech_to_request(req, uploads)
     assert set(uploads.iterdir()) == before
+
+
+@pytest.mark.parametrize("form", ["base64", "data URL"])
+def test_omnivoice_refuses_a_clip_whose_header_is_too_long_without_decoding(form, dirs, monkeypatch):
+    """A long clip is a 400 from its header alone. Stub decoder, no FFmpeg."""
+    decoded = _stub_decoder(monkeypatch, rate=48000, header_seconds=media_io.MAX_REF_AUDIO_SECONDS + 1)
+    uploads, _ = dirs
+    before = set(uploads.iterdir())
+    ref = base64.b64encode(WAV_BYTES).decode()
+    if form == "data URL":
+        ref = "data:audio/wav;base64," + ref
+    req = SpeechRequest(input="hi", ref_audio=ref, ref_text="hi")
+    with pytest.raises(media_io.RefAudioTooLongError, match=TOO_LONG):
+        adapters.OmniVoiceAdapter().speech_to_request(req, uploads)
+    assert decoded == [] and set(uploads.iterdir()) == before
+
+
+@pytest.mark.parametrize("header_seconds", [None, 5.0])
+@pytest.mark.parametrize("seconds, accepted", [(5.0, True), (3600.0, False)])
+def test_omnivoice_caps_the_decode_when_the_header_hides_the_length(
+    header_seconds, seconds, accepted, dirs, monkeypatch
+):
+    """No header duration, or one that understates the clip: the decode stops just
+    past the cap, so it never holds more than about 61 s of samples."""
+    decoded = _stub_decoder(monkeypatch, rate=48000, header_seconds=header_seconds, seconds=seconds)
+    uploads, _ = dirs
+    before = set(uploads.iterdir())
+    req = SpeechRequest(input="hi", ref_audio=base64.b64encode(WAV_BYTES).decode(), ref_text="hi")
+    if accepted:
+        (path,) = adapters.OmniVoiceAdapter().speech_to_request(req, uploads).file_paths["audio"]
+        assert path.startswith(str(uploads))
+    else:
+        with pytest.raises(media_io.RefAudioTooLongError, match=TOO_LONG):
+            adapters.OmniVoiceAdapter().speech_to_request(req, uploads)
+        assert set(uploads.iterdir()) == before
+    assert [d["stop"] for d in decoded] == [media_io.MAX_REF_AUDIO_SECONDS + 1.0]
+
+
+@pytest.mark.parametrize("seconds", [59, 61])
+@pytest.mark.parametrize("adapter", [adapters.OmniVoiceAdapter, adapters.Qwen3TTSAdapter])
+def test_a_wav_longer_than_the_cap_is_refused_before_decoding(adapter, seconds, dirs, monkeypatch):
+    """Real decoders, 8 kHz WAV. torchcodec is spied on so a refusal is shown to
+    come from the header."""
+    decodes = []
+    if adapter is adapters.OmniVoiceAdapter:
+        decoder = _audio_decoder()
+        import torchcodec.decoders
+
+        class Spy(decoder):
+            def get_samples_played_in_range(self, *args, **kwargs):
+                decodes.append(True)
+                return super().get_samples_played_in_range(*args, **kwargs)
+
+        monkeypatch.setattr(torchcodec.decoders, "AudioDecoder", Spy)
+    uploads, _ = dirs
+    before = set(uploads.iterdir())
+    req = SpeechRequest(input="hi", ref_audio=_clip("WAV", "FILE", None, rate=8000, seconds=seconds), ref_text="hi")
+    if seconds <= media_io.MAX_REF_AUDIO_SECONDS:
+        (path,) = adapter().speech_to_request(req, uploads).file_paths["audio"]
+        assert path.startswith(str(uploads))
+        assert decodes == ([True] if adapter is adapters.OmniVoiceAdapter else [])
+        return
+    with pytest.raises(media_io.RefAudioTooLongError, match=TOO_LONG):
+        adapter().speech_to_request(req, uploads)
+    assert decodes == [] and set(uploads.iterdir()) == before
+
+
+def test_ref_audio_probe_decodes_are_bounded(tmp_path, monkeypatch):
+    """Twice as many concurrent checks as decode slots: at most the slot count
+    decode at once, and the rest run once a slot frees. Stub decoder, no FFmpeg."""
+    import threading
+    import time
+    import types
+
+    slots = media_io.REF_AUDIO_DECODE_SLOTS
+    release = threading.Event()
+    lock = threading.Lock()
+    active = peak = 0
+
+    class AudioDecoder:
+        def __init__(self, source, **kwargs):
+            self.metadata = types.SimpleNamespace(sample_rate=24000, duration_seconds_from_header=1.0)
+
+        def get_samples_played_in_range(self, start_seconds=0.0, stop_seconds=None):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            release.wait(10)
+            with lock:
+                active -= 1
+            return types.SimpleNamespace(pts_seconds=0.0, duration_seconds=1.0)
+
+    _stub_torchcodec(monkeypatch, AudioDecoder)
+    paths = []
+    for i in range(2 * slots):
+        paths.append(tmp_path / f"clip{i}.wav")
+        paths[-1].write_bytes(WAV_BYTES)
+    errors = []
+
+    def check(path):
+        try:
+            media_io.check_ref_audio(str(path), "torchcodec")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=check, args=(p,)) for p in paths]
+    for t in threads:
+        t.start()
+    deadline = time.monotonic() + 5
+    while active < slots and time.monotonic() < deadline:
+        time.sleep(0.01)
+    time.sleep(0.2)
+    assert active == slots and peak == slots
+    release.set()
+    for t in threads:
+        t.join(10)
+    assert errors == [] and peak == slots and not any(t.is_alive() for t in threads)
 
 
 RATES = [8000, 16000, 24000, 44100, 48000]

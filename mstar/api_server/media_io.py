@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import io
 import os
+import threading
 import wave
 from pathlib import Path
 from urllib.parse import urlparse
@@ -173,6 +174,20 @@ def save_base64(b64: str, fmt: str, modality_hint: str, upload_dir: Path) -> tup
 # rate multiplies its decoded size by that ratio (a 64 KB WAV at 1 Hz is 2 GB at
 # 16 kHz).
 MIN_REF_AUDIO_SAMPLE_RATE = 8000
+# Voice cloning needs seconds of speech. Twice the longest reference a model
+# takes (Qwen3-TTS refuses over 30 s, Chatterbox keeps 30 s), so this never
+# refuses a clip a model would use; without it a 66 MB FLAC probe-decodes to
+# about 23 GB.
+MAX_REF_AUDIO_SECONDS = 60.0
+# The probe decode runs in the request thread pool (32 threads); this bounds
+# how many decode at once.
+REF_AUDIO_DECODE_SLOTS = 4
+_REF_AUDIO_PROBE_RATE = 16000
+_ref_audio_decodes = threading.BoundedSemaphore(REF_AUDIO_DECODE_SLOTS)
+
+
+class RefAudioTooLongError(ValueError):
+    """A clip that opens as audio but runs past ``MAX_REF_AUDIO_SECONDS``."""
 
 
 def save_base64_audio(b64: str, upload_dir: Path, decoder: str) -> str | None:
@@ -180,7 +195,8 @@ def save_base64_audio(b64: str, upload_dir: Path, decoder: str) -> str | None:
     or None (leaving nothing behind) when it is not base64 or not loadable audio.
 
     A path such as ``/etc/passwd`` is valid base64 too, so the alphabet cannot
-    tell them apart; the decoder can.
+    tell them apart; the decoder can. A clip that is audio but too long raises
+    :class:`RefAudioTooLongError`.
     """
     try:
         _, path = save_base64(b64, "wav", "audio", upload_dir)
@@ -188,6 +204,8 @@ def save_base64_audio(b64: str, upload_dir: Path, decoder: str) -> str | None:
         return None
     try:
         check_ref_audio(path, decoder)
+    except RefAudioTooLongError:
+        raise
     except ValueError:
         return None
     return path
@@ -200,21 +218,36 @@ def check_ref_audio(path: str, decoder: str) -> None:
     ``decoder`` is the library that ``load_audio`` uses, ``"soundfile"`` or
     ``"torchcodec"``. torchcodec decodes the clip, not just its header: some
     FFmpeg builds parse a container header (MAT4, MAT5) they cannot decode. A
-    clip whose header rate is below ``MIN_REF_AUDIO_SAMPLE_RATE`` is refused
-    before any decode.
+    clip whose header rate is below ``MIN_REF_AUDIO_SAMPLE_RATE``, or whose
+    header duration is over ``MAX_REF_AUDIO_SECONDS``, is refused before any
+    decode; the decode itself stops just past ``MAX_REF_AUDIO_SECONDS``, so a
+    header that hides or understates the length cannot make it unbounded.
     """
     try:
         if decoder == "torchcodec":
             from torchcodec.decoders import AudioDecoder
 
-            _require_ref_audio_rate(AudioDecoder(path).metadata.sample_rate)
-            # Mono at a fixed rate: a small compressed upload can declare many
-            # channels at a high rate, and decoding it natively takes gigabytes.
-            AudioDecoder(path, sample_rate=16000, num_channels=1).get_all_samples()
+            header = AudioDecoder(path).metadata
+            _require_ref_audio_rate(header.sample_rate)
+            _require_ref_audio_seconds(header.duration_seconds_from_header)
+            with _ref_audio_decodes:
+                # Mono at a fixed rate: a small compressed upload can declare many
+                # channels at a high rate, and decoding it natively takes gigabytes.
+                samples = AudioDecoder(
+                    path, sample_rate=_REF_AUDIO_PROBE_RATE, num_channels=1
+                ).get_samples_played_in_range(0.0, MAX_REF_AUDIO_SECONDS + 1.0)
+            if samples.duration_seconds == 0:
+                raise ValueError("reference audio has no samples in its first seconds")
+            _require_ref_audio_seconds(samples.pts_seconds + samples.duration_seconds)
         else:
             import soundfile
 
-            _require_ref_audio_rate(soundfile.info(path).samplerate)
+            info = soundfile.info(path)
+            _require_ref_audio_rate(info.samplerate)
+            _require_ref_audio_seconds(info.frames / info.samplerate)
+    except RefAudioTooLongError:
+        Path(path).unlink(missing_ok=True)
+        raise
     except Exception as exc:  # noqa: BLE001 — not loadable here, so the model cannot load it either
         Path(path).unlink(missing_ok=True)
         raise ValueError(
@@ -225,6 +258,13 @@ def check_ref_audio(path: str, decoder: str) -> None:
 def _require_ref_audio_rate(rate: int | None) -> None:
     if not rate or rate < MIN_REF_AUDIO_SAMPLE_RATE:
         raise ValueError(f"reference audio at {rate} Hz is below {MIN_REF_AUDIO_SAMPLE_RATE} Hz")
+
+
+def _require_ref_audio_seconds(seconds: float | None) -> None:
+    if seconds is not None and seconds > MAX_REF_AUDIO_SECONDS:
+        raise RefAudioTooLongError(
+            f"ref_audio must be {MAX_REF_AUDIO_SECONDS:g} s or shorter; voice cloning needs a few seconds of speech"
+        )
 
 
 def save_remote_url(url: str, upload_dir: Path, timeout: float = 30.0) -> tuple[str, str]:
