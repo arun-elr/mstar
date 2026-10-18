@@ -8,12 +8,10 @@ difference, not initialization noise.
 
 from __future__ import annotations
 
-import importlib.util
 import warnings
 
 import pytest
 import torch
-import transformers
 
 from mstar.model.qwen3_tts.components.speaker_encoder import (
     Qwen3TTSMelFrontEnd,
@@ -22,29 +20,24 @@ from mstar.model.qwen3_tts.components.speaker_encoder import (
 )
 from mstar.model.qwen3_tts.config import Qwen3TTSSpeakerEncoderConfig
 
-# The reference package imports only under the transformers it pins; a
-# ``--no-deps`` install next to transformers 5 serves fine but cannot be the oracle.
-pytestmark = [
-    pytest.mark.skipif(
-        importlib.util.find_spec("qwen_tts") is None, reason="qwen-tts reference not installed"
-    ),
-    pytest.mark.skipif(
-        int(transformers.__version__.split(".")[0]) >= 5,
-        reason="the qwen-tts reference needs the transformers 4.57.3 it pins",
-    ),
-]
-
 
 def _reference_modules():
+    # The reference package imports only next to the dependencies it pins: a
+    # ``--no-deps`` install lacks librosa and sox (ModuleNotFoundError), and under
+    # transformers 5 its ``check_model_inputs`` decorators raise TypeError. Serving
+    # needs neither, so only the oracle tests skip there.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")  # pysox probes for a SoX binary on import
-        from qwen_tts.core.models.configuration_qwen3_tts import (
-            Qwen3TTSSpeakerEncoderConfig as RefConfig,
-        )
-        from qwen_tts.core.models.modeling_qwen3_tts import (
-            Qwen3TTSSpeakerEncoder as RefEncoder,
-        )
-        from qwen_tts.core.models.modeling_qwen3_tts import mel_spectrogram
+        try:
+            from qwen_tts.core.models.configuration_qwen3_tts import (
+                Qwen3TTSSpeakerEncoderConfig as RefConfig,
+            )
+            from qwen_tts.core.models.modeling_qwen3_tts import (
+                Qwen3TTSSpeakerEncoder as RefEncoder,
+            )
+            from qwen_tts.core.models.modeling_qwen3_tts import mel_spectrogram
+        except (ImportError, TypeError) as exc:
+            pytest.skip(f"qwen-tts reference does not import here: {exc!r}")
     return RefConfig, RefEncoder, mel_spectrogram
 
 
