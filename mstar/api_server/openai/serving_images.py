@@ -19,7 +19,7 @@ async def create_images(api, model_name, adapter, req, raw_request=None):  # noq
     # diffusions instead). Seeded requests follow the reference seed contract:
     # image i uses seed + i, so image 0 is bit-identical to the same request
     # with n=1; unseeded requests draw independent per-request seeds.
-    n = max(1, int(getattr(req, "n", 1) or 1))
+    n = image_count(req)
     seed = args.model_kwargs.get("seed")
     request_ids = []
     for i in range(n):
@@ -106,3 +106,27 @@ async def create_image_edit(
         if c.modality == "image"
     ]
     return {"created": now(), "data": data}
+
+
+DEFAULT_MAX_IMAGES_PER_REQUEST = 10
+
+
+def max_images_per_request() -> int:
+    """Largest ``n`` one image request may ask for: ``MSTAR_MAX_IMAGES_PER_REQUEST``,
+    default 10 (OpenAI's range for the endpoint). The Rust frontend reads the same."""
+    try:
+        return int(os.environ["MSTAR_MAX_IMAGES_PER_REQUEST"])
+    except (KeyError, ValueError):
+        return DEFAULT_MAX_IMAGES_PER_REQUEST
+
+
+def image_count(req) -> int:
+    """The request's ``n``, 1 when omitted. Outside ``1..max_images_per_request()``
+    it raises ``ValueError`` (a 400), before anything is submitted."""
+    n = getattr(req, "n", None)
+    if n is None:
+        return 1
+    limit = max_images_per_request()
+    if not 1 <= n <= limit:
+        raise ValueError(f"n must be between 1 and {limit}, got {n}")
+    return n
