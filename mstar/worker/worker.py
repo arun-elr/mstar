@@ -1911,8 +1911,10 @@ class Worker:
         )
         if not failed:
             return frozenset()
+        # A follower still runs a failed rid while rank 0 sends it; report once.
         self._fail_requests({
             rid: f"Error in worker: {msg}" for rid, msg in failed.items()
+            if rid not in self.scheduler.failed_rids
         })
         return frozenset(failed)
 
@@ -3213,6 +3215,34 @@ class Worker:
 
         # pending stops are only needed for one iteration, so can be cleared now
         self._graph_runtime.clear_pending_loop_stops()
+
+        # A rid failed or drained after this step was built is torn down, so
+        # none of its outputs may leave: the step can already be in flight
+        # when the rid fails (the stop check of the step before it, say).
+        # Not on a follower: rank 0 decides what runs there, and may still
+        # send a step that needs this one's loop-back.
+        if (
+            self.scheduler.failed_rids
+            and not self._is_tp_follower_node(batch_N.node_name)
+        ):
+            torn_down = self.scheduler.failed_rids & valid_rids
+            if torn_down:
+                for rid in torn_down:
+                    outputs.pop(rid, None)
+                    batch_N.batch.request_to_worker_graph.pop(rid, None)
+                    batch_N.node_batch.per_request_info.pop(rid, None)
+                    # no terminal-stream stop or partition done for it either
+                    batch_N.node_batch.final_stream_rids.discard(rid)
+                    batch_N.node_batch.stream_partition_done_rids.discard(rid)
+                valid_rids -= torn_down
+                batch_N.node_batch.request_ids = [
+                    rid for rid in batch_N.node_batch.request_ids
+                    if rid in valid_rids
+                ]
+                if not valid_rids:
+                    if self.enable_nvtx:
+                        range_pop(synchronize=False)
+                    return
 
         # An engine can drop rids that were skipped during execution (a
         # submodule's prepare_inputs returned None) from node_batch.request_ids,
