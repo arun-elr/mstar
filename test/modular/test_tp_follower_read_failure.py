@@ -24,8 +24,11 @@ from test_failed_tensor_read import _mooncake_manager  # noqa: E402
 from test_micro_scheduler import NODE, WALK, _Engine, _Manager  # noqa: E402
 
 import mstar.communication.wire_types  # noqa: E402, F401  (registers the tags)
+from mstar.communication.tensors import StoredOutputs  # noqa: E402
 from mstar.communication.wire import decode, encode  # noqa: E402
 from mstar.graph.base import GraphEdge, TensorPointerInfo  # noqa: E402
+from mstar.graph.runtime.base import FreedTensors, RouteOutput  # noqa: E402
+from mstar.model.submodule_base import BatchedModelOutput  # noqa: E402
 from mstar.utils.ipc_format import (  # noqa: E402
     ConductorMessageType,
     DrainRequest,
@@ -222,6 +225,106 @@ def test_a_leader_told_before_it_schedules_never_broadcasts_the_request():
             for m in _taken(w, "conductor", ConductorMessageType.READS_DONE)
         ]
         assert acks == ["w0", "w1"]
+    finally:
+        _shutdown(follower)
+
+
+def _postprocess_fakes(w):
+    """Fake the engine, routing and sends around ``w._postprocess_batch``;
+    returns the log of the rids it routed and sent."""
+    log = SimpleNamespace(routed=[], sent=[])
+    w._phase_period = 0
+    w.enable_prof = False
+    w.device = torch.device("cpu")
+    w._last_active, w._innermost_loop_by_node = {}, {}
+    w._prematerialize_for_check_stop = (
+        lambda outputs, ev, request_ids=None: (outputs.per_rid_outputs, None)
+    )
+    w._inline_emit_values = lambda *a: (None, None)
+    w._count_new_tokens = lambda *a: {}
+    w._stream_consumption_batch = lambda rids: []
+    w.request_state.get_fwd_info = lambda rid, p: None
+    w.request_state.get_pending_publish_info = lambda rid, p: None
+    engine = SimpleNamespace(
+        check_stop_for_batch=lambda *a, **k: {},
+        extend_prefix_chains=lambda *a, **k: None,
+        materialize_publish=lambda *a: None,
+    )
+    w.engine_manager = SimpleNamespace(get_engine=lambda n: engine)
+    w.tensor_manager.cleanup_collectable = lambda *a: None
+    w.tensor_manager.store_and_return_tensor_info_batch = (
+        lambda rids, *a, **k: StoredOutputs(
+            list(range(len(rids))), list(rids), [0] * len(rids), [1] * len(rids),
+        )
+    )
+    w.tensor_manager.increment_ref_batch_uniform = lambda *a: None
+    w.tensor_manager.dereference_batch_uniform = lambda *a: None
+    w.tensor_manager.register_for_send_uuids = lambda *a, **k: None
+
+    def route(route_input):
+        log.routed.append(list(route_input.wg_ids.keys))
+        return RouteOutput(
+            completion_id=0, register_uuids=[], register_rids=[],
+            new_token_output_idxs=[], local_streaming_by_signal={},
+        )
+
+    def send(send_input):
+        log.sent.append(list(send_input.per_request_info.keys))
+        return []
+
+    w._graph_runtime.cleanup_consumed_inputs = lambda *a: FreedTensors.none()
+    w._graph_runtime.clear_pending_loop_stops = lambda: None
+    w._graph_runtime.complete_and_route_batch = route
+    w._graph_runtime.update_dynamic_loop_iters = lambda *a: None
+    w._graph_runtime.send_outputs = send
+    w._graph_runtime.supports_inline_emit = False
+    return log
+
+
+def _finished_step(rids):
+    """The step [rids] of NODE as it comes back from the forward."""
+    pending = SimpleNamespace(
+        batch=SimpleNamespace(
+            node_name=NODE, request_to_worker_graph=dict.fromkeys(rids, "wg0"),
+            output_signals=["y"],
+        ),
+        node_batch=SimpleNamespace(
+            request_ids=list(rids), per_request_info=dict.fromkeys(rids),
+            failed_requests={}, completion_event=None, final_stream_rids=set(),
+            resource_publish_info={}, stream_partition_done_rids=set(),
+        ),
+        node_name=NODE, partition="p", graph_walk=WALK, loop_name=None,
+        speculative_new_iter=False,
+    )
+    outputs = BatchedModelOutput(per_rid_outputs={r: {"y": [torch.zeros(1)]} for r in rids})
+    return pending, outputs
+
+
+def test_the_leader_drops_the_placeholder_row_once_told():
+    """The zero row's outputs are meaningless. Once the follower's report has
+    failed the request on the leader, the leader routes and sends nothing of
+    it, for a step already in flight too; the follower still routes its row,
+    since rank 0 decides what runs there."""
+    leader, leader_mgr, follower, follower_mgr, read = _pair()
+    try:
+        batch = leader.scheduler.get_next_batch(leader_mgr)
+        leader.maybe_send_zmq_to_tp_followers(SimpleNamespace(
+            node_name=NODE, graph_walk=WALK,
+            request_ids=list(batch.request_to_worker_graph),
+        ))
+        _deliver(leader, follower, WorkerMessageType.SCHEDULE_TP)
+        read.exception(timeout=5)
+        follower._check_ready_tensors()
+        step = follower.scheduler.get_next_batch(follower_mgr)
+        _deliver(follower, leader, WorkerMessageType.TP_FOLLOWER_FAILED)
+        assert leader.scheduler.failed_rids == {"r1"}
+
+        leader_log, follower_log = _postprocess_fakes(leader), _postprocess_fakes(follower)
+        Worker._postprocess_batch(leader, *_finished_step(batch.request_to_worker_graph))
+        Worker._postprocess_batch(follower, *_finished_step(step.request_to_worker_graph))
+
+        assert leader_log.routed == [["r0"]] and leader_log.sent == [["r0"]]
+        assert follower_log.routed == [["r0", "r1"]]
     finally:
         _shutdown(follower)
 
