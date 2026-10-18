@@ -6,6 +6,10 @@ still tearing the older request down. Every message below the API server names
 a request by its id, so the API server runs each submission under a key of its
 own and the older request's teardown can never name the newer one.
 
+An id whose request is still running is refused with a 409 and the running
+request is untouched; once it finished, failed or was aborted the id is free,
+including for a client that drops a stream and resubmits at once.
+
 The data worker is the real ``PreprocessWorkerThread`` loop on its own thread,
 the conductor is the hand-built one of ``test_teardown_barrier``, and the API
 server is real down to its preprocess-worker facade. Messages are delivered in
@@ -25,12 +29,13 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from test_teardown_barrier import PREPROCESS, _conductor, _remove_targets, _request_data
 
 from mstar.api_server import entrypoint
 from mstar.api_server.data_worker import PreprocessWorker, PreprocessWorkerThread
-from mstar.api_server.entrypoint import SUPERSEDED_ERROR, APIServer
+from mstar.api_server.entrypoint import APIServer, request_id_in_use
 from mstar.api_server.request_types import ResultChunk
 from mstar.utils.ipc_format import (
     ConductorMessageType,
@@ -366,21 +371,73 @@ def test_a_closing_stream_does_not_abort_a_retry_under_its_id():
     assert pw.inputs[1].request_id in s.pending_requests
 
 
-def test_a_second_submission_under_a_pending_id_replaces_the_first():
+def test_a_submission_under_a_running_id_is_refused_and_the_running_one_is_untouched():
     pw = _PreprocessWorker()
     s = _api_server(pw)
     s.submit_request(text="first", request_id="X", streaming=False, **TEXT)
-    s.submit_request(text="second", request_id="X", streaming=False, **TEXT)
-    first, second = (inp.request_id for inp in pw.inputs)
+    (first,) = (inp.request_id for inp in pw.inputs)
 
-    assert pw.aborted == [first]
-    assert list(s.pending_requests) == [second]
+    with pytest.raises(HTTPException) as refused:
+        s.submit_request(text="second", request_id="X", streaming=False, **TEXT)
 
-    s.abort_request("X")
-    assert pw.aborted == [first, second]
+    assert (refused.value.status_code, refused.value.detail) == (409, request_id_in_use("X"))
+    assert len(pw.inputs) == 1 and pw.aborted == []
+    assert list(s.pending_requests) == [first] and s._live == {"X": first}
+    _complete(s, first, b"first")
+    assert [c.data for c in asyncio.run(s.collect_results("X"))] == [b"first"]
+
+    s.submit_request(text="reuse", request_id="X", streaming=False, **TEXT)
+    assert len(pw.inputs) == 2, "the id was not free once its request was read"
 
 
-# ── a superseded submission, through the routes ─────────────────────────────
+def test_an_id_is_free_once_its_request_finished_even_before_it_is_read():
+    """The first request's answer has landed but its client has not read it;
+    a second submission under the id runs, and each client reads its own."""
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.submit_request(text="first", request_id="X", streaming=False, **TEXT)
+
+    async def run():
+        first_reader = s.iter_result_chunks("X")
+        _complete(s, pw.inputs[0].request_id, b"first")
+        s.submit_request(text="second", request_id="X", **TEXT)
+        second_reader = s.iter_result_chunks("X")
+        _complete(s, pw.inputs[1].request_id, b"second")
+        return [c.data async for c in first_reader], [c.data async for c in second_reader]
+
+    assert asyncio.run(run()) == ([b"first"], [b"second"])
+    assert pw.aborted == [] and not s.pending_requests
+
+
+def test_an_immediate_retry_waits_for_the_dropped_request_s_abort():
+    """The retry arrives before the server has aborted the stream its client
+    dropped: it waits for that abort instead of being refused."""
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.submit_request(text="first", request_id="X", **TEXT)
+
+    async def run():
+        asyncio.get_running_loop().call_later(0.02, s.abort_request, "X")
+        await s.wait_for_request_id("X")
+        s.submit_request(text="retry", request_id="X", **TEXT)
+
+    asyncio.run(run())
+    assert [inp.text for inp in pw.inputs] == ["first", "retry"]
+    assert pw.aborted == [pw.inputs[0].request_id]
+
+
+def test_the_wait_for_a_running_id_is_bounded(monkeypatch):
+    monkeypatch.setattr(entrypoint, "DUPLICATE_ID_GRACE_S", 0.05)
+    s = _api_server(_PreprocessWorker())
+    s.submit_request(text="first", request_id="X", **TEXT)
+
+    t0 = time.monotonic()
+    asyncio.run(s.wait_for_request_id("X"))
+
+    assert 0.05 <= time.monotonic() - t0 < 1.0
+
+
+# ── a duplicate of a running id, through the routes ─────────────────────────
 
 def _complete(s, key, data):
     """The engine's whole answer for ``key`` lands."""
@@ -405,14 +462,22 @@ async def _await(pred, timeout=5.0):
         await asyncio.sleep(0.005)
 
 
+def _routes(monkeypatch, s, tmp_path=None):
+    monkeypatch.setattr(entrypoint, "api_server", s)
+    monkeypatch.setattr(entrypoint, "DUPLICATE_ID_GRACE_S", 0.05)
+    s.upload_dir = tmp_path
+    s.model_name = "bagel"
+    s.model = None
+
+
 @pytest.mark.parametrize("streaming", [False, True])
-def test_a_superseded_generate_fails_with_409_and_the_newer_one_completes(monkeypatch, streaming):
-    """Two /generate calls under X; the second arrives while the first runs.
-    The first client is told it was superseded (a 409, in-band once the
-    stream is open) instead of getting a truncated success."""
+def test_a_duplicate_generate_gets_a_409_and_the_running_one_completes(monkeypatch, streaming):
+    """Two /generate calls under X; the second arrives while the first runs and
+    is refused with an HTTP 409 before any stream opens. The first is not
+    aborted and gets its whole answer."""
     pw = _PreprocessWorker()
     s = _api_server(pw)
-    monkeypatch.setattr(entrypoint, "api_server", s)
+    _routes(monkeypatch, s)
     form = {"text": "first", "request_id": "X", "streaming": str(streaming).lower()}
 
     async def run():
@@ -420,70 +485,92 @@ def test_a_superseded_generate_fails_with_409_and_the_newer_one_completes(monkey
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             first = asyncio.create_task(client.post("/generate", data=form))
             await _await(lambda: len(pw.inputs) == 1)
-            second = asyncio.create_task(client.post("/generate", data={**form, "text": "second"}))
-            await _await(lambda: len(pw.inputs) == 2)
-            _complete(s, pw.inputs[1].request_id, b"second")
-            return await first, await second
+            second = await client.post("/generate", data={**form, "text": "second"})
+            _complete(s, pw.inputs[0].request_id, b"first")
+            return await first, second
 
     r1, r2 = asyncio.run(run())
 
+    assert r2.status_code == 409, r2.text
+    assert r2.json()["detail"] == request_id_in_use("X")
+    assert r1.status_code == 200, r1.text
     if streaming:
-        first_lines = [json.loads(line) for line in r1.text.splitlines()]
-        assert [line["modality"] for line in first_lines] == ["error"], first_lines
-        assert first_lines[-1]["metadata"]["status"] == 409
-        assert base64.b64decode(first_lines[-1]["data"]).decode() == SUPERSEDED_ERROR
-        second_lines = [json.loads(line) for line in r2.text.splitlines()]
-        assert [(line["modality"], base64.b64decode(line["data"])) for line in second_lines] == [
-            ("text", b"second"),
+        lines = [json.loads(line) for line in r1.text.splitlines()]
+        assert [(line["modality"], base64.b64decode(line["data"])) for line in lines] == [
+            ("text", b"first"),
         ]
     else:
-        assert r1.status_code == 409, r1.text
-        assert r1.json()["detail"] == SUPERSEDED_ERROR
-        assert r2.status_code == 200, r2.text
-        assert r2.json()["request_id"] == "X"
-        texts = [base64.b64decode(o["data"]) for o in r2.json()["outputs"]["text"]]
-        assert texts == [b"second"]
-    assert pw.aborted == [pw.inputs[0].request_id]
+        assert [base64.b64decode(o["data"]) for o in r1.json()["outputs"]["text"]] == [b"first"]
+    assert len(pw.inputs) == 1 and pw.aborted == []
     assert not s.pending_requests and s._live == {}
 
 
-def test_a_superseded_websocket_request_gets_an_in_band_409(monkeypatch, tmp_path):
+def test_a_duplicate_websocket_request_gets_an_in_band_409(monkeypatch, tmp_path):
     pw = _PreprocessWorker()
     s = _api_server(pw)
-    s.upload_dir = tmp_path
-    monkeypatch.setattr(entrypoint, "api_server", s)
+    _routes(monkeypatch, s, tmp_path)
     with TestClient(entrypoint.app).websocket_connect("/generate/ws") as ws:
         ws.send_text(json.dumps({"text": "first", "request_id": "X"}))
         _wait(lambda: len(pw.inputs) == 1)
         ws.send_text(json.dumps({"text": "second", "request_id": "X"}))
-        _wait(lambda: len(pw.inputs) == 2)
 
         reply = json.loads(ws.receive_text())
-        assert reply == {"request_id": "X", "error": SUPERSEDED_ERROR, "status": 409}
+        assert reply == {"request_id": "X", "error": request_id_in_use("X"), "status": 409}
 
-        _complete(s, pw.inputs[1].request_id, b"second")
+        _complete(s, pw.inputs[0].request_id, b"first")
         chunk, finish = json.loads(ws.receive_text()), json.loads(ws.receive_text())
-    assert chunk["request_id"] == "X" and chunk["modality"] == "text"
+    assert chunk["request_id"] == "X" and base64.b64decode(chunk["data"]) == b"first"
     assert finish == {"request_id": "X", "finish": True}
+    assert len(pw.inputs) == 1 and pw.aborted == []
+
+
+@pytest.mark.parametrize("path,body", [
+    ("/v1/chat/completions", {"model": "bagel", "messages": [{"role": "user", "content": "hi"}]}),
+    ("/v1/videos/generations", {"model": "wan22", "prompt": "a cat"}),
+], ids=["chat", "videos"])
+@pytest.mark.parametrize("stream", [False, True])
+def test_an_openai_route_answers_a_refused_id_with_a_409(monkeypatch, tmp_path, path, body, stream):
+    """The OpenAI routes mint their own ids, so a client cannot pin one; if a
+    minted id were still in flight, the route answers the 409 as its status."""
+    from mstar.api_server.openai import serving_chat, serving_videos
+
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    _routes(monkeypatch, s, tmp_path)
+    s.model_name = body["model"]
+    for module in (serving_chat, serving_videos):
+        monkeypatch.setattr(module, "rid", lambda prefix: "X")
+    s.submit_request(text="first", request_id="X", **TEXT)
+    body = {**body, "stream": True} if path.endswith("completions") and stream else body
+    if path.endswith("generations") and stream:
+        body = {**body, "stream_video": True}
+
+    r = TestClient(entrypoint.app).post(path, json=body)
+
+    assert r.status_code == 409, r.text
+    assert r.json()["error"]["message"] == request_id_in_use("X")
+    assert len(pw.inputs) == 1 and pw.aborted == []
 
 
 def test_a_stream_is_bound_to_its_submission_before_it_is_iterated():
     """/generate hands the body to Starlette, which iterates it later; a
-    submission under the same id in between is not this stream's."""
+    submission under the same id in between (the first one has finished, so
+    the id is free) is not this stream's."""
     pw = _PreprocessWorker()
     s = _api_server(pw)
     s.submit_request(text="first", request_id="X", **TEXT)
 
     async def run():
         body = s.async_stream_results("X")
+        _complete(s, pw.inputs[0].request_id, b"first")
         s.submit_request(text="second", request_id="X", **TEXT)
         _complete(s, pw.inputs[1].request_id, b"second")
         return [json.loads(line) async for line in body]
 
     lines = asyncio.run(run())
 
-    assert [line["modality"] for line in lines] == ["error"], "the stream read the newer request"
-    assert lines[0]["metadata"]["status"] == 409
+    assert [base64.b64decode(line["data"]) for line in lines] == [b"first"], (
+        "the stream read the newer request")
     assert [c.data for c in s.pending_requests[pw.inputs[1].request_id].chunks] == [b"second"]
 
 
@@ -498,6 +585,7 @@ def test_an_openai_chat_stream_is_bound_before_it_is_iterated():
     async def run():
         body = _stream(s, "m", "X", 24000)
         role = await body.__anext__()
+        _complete(s, pw.inputs[0].request_id, b"first")
         s.submit_request(text="second", request_id="X", **TEXT)
         _complete(s, pw.inputs[1].request_id, b"second")
         return [role] + [frame async for frame in body]
@@ -505,8 +593,8 @@ def test_an_openai_chat_stream_is_bound_before_it_is_iterated():
     frames = asyncio.run(run())
 
     events = [json.loads(f[len("data: "):]) for f in frames if f.startswith("data: {")]
-    assert events[-1]["error"]["code"] == 409, events
-    assert not any(e.get("choices", [{}])[0].get("finish_reason") == "stop" for e in events)
+    contents = [e["choices"][0]["delta"].get("content") for e in events if e.get("choices")]
+    assert "first" in contents and "second" not in contents, events
     assert [c.data for c in s.pending_requests[pw.inputs[1].request_id].chunks] == [b"second"]
 
 
@@ -521,10 +609,10 @@ def _bridge(s):
     return bridge, sent
 
 
-def test_rust_bridge_relays_each_read_their_own_submission():
-    """Two submits under X in one receive batch: each relay is bound when it
-    is scheduled, so the first relays its 409 and the second its answer, each
-    under its own sub."""
+def test_rust_bridge_relays_a_refused_submit_under_its_own_sub():
+    """Two submits under X in one receive batch while the first runs: the
+    second is refused and its 409 goes back in-band under its own sub (the
+    form that carries a status); the first is untouched and answers."""
     pw = _PreprocessWorker()
     s = _api_server(pw)
     bridge, sent = _bridge(s)
@@ -533,27 +621,29 @@ def test_rust_bridge_relays_each_read_their_own_submission():
     async def run():
         bridge._submit(submit)
         bridge._submit({**submit, "sub": 2, "text": "second"})
-        _complete(s, pw.inputs[1].request_id, b"second")
-        await _await(lambda: [m["t"] for m in sent].count("done") == 2)
+        _complete(s, pw.inputs[0].request_id, b"first")
+        await _await(lambda: [m["t"] for m in sent].count("done") == 1)
 
     asyncio.run(run())
 
-    chunks = [
-        (m["sub"], m["modality"], m["data"], m["metadata"].get("status"))
-        for m in sent if m["t"] == "chunk"
+    replies = [
+        (m["sub"], m["t"], m.get("modality"), m.get("data"), (m.get("metadata") or {}).get("status"))
+        for m in sent
     ]
-    assert sorted(chunks) == [
-        (1, "error", SUPERSEDED_ERROR.encode(), 409),
-        (2, "text", b"second", None),
-    ]
+    assert sorted(replies, key=str) == sorted([
+        (2, "chunk", "error", request_id_in_use("X").encode(), 409),
+        (1, "chunk", "text", b"first", None),
+        (1, "done", None, None, None),
+    ], key=str)
+    assert len(pw.inputs) == 1 and pw.aborted == []
+    assert bridge._keys == {}
 
 
-@pytest.mark.parametrize("abort_first", [True, False])
-def test_rust_bridge_abort_of_a_dropped_stream_spares_the_retry(abort_first):
+def test_rust_bridge_abort_of_a_dropped_stream_spares_the_retry():
     """The client drops submission 1 of X and resubmits X as submission 2. The
-    frontend sends 1's abort when it notices the drop, before or after 2's
-    submit; either way the abort reaches 1 only, and nothing of 1 is sent
-    under 2's sub."""
+    frontend sends 1's abort before it frees X, so the abort lands first; it
+    reaches 1 only, the retry is not refused, and nothing of 1 is sent under
+    2's sub."""
     pw = _PreprocessWorker()
     s = _api_server(pw)
     bridge, sent = _bridge(s)
@@ -564,11 +654,8 @@ def test_rust_bridge_abort_of_a_dropped_stream_spares_the_retry(abort_first):
     async def run():
         bridge._submit(submit)
         await asyncio.sleep(0)
-        for msg in [abort, retry] if abort_first else [retry, abort]:
-            if msg["t"] == "abort":
-                bridge._abort(msg)
-            else:
-                bridge._submit(msg)
+        bridge._abort(abort)
+        bridge._submit(retry)
         await _await(lambda: [m["sub"] for m in sent if m["t"] == "done"] == [1])
         _complete(s, pw.inputs[1].request_id, b"retry")
         await _await(lambda: [m["sub"] for m in sent if m["t"] == "done"] == [1, 2])
@@ -602,3 +689,86 @@ def test_nothing_is_kept_once_the_request_is_done():
 
     assert s._live == {} and s._client_ids == {}
     assert not s.pending_requests and not s.recently_completed
+
+
+# ── a served retry right after a dropped stream ─────────────────────────────
+
+class _StreamingWorker(_PreprocessWorker):
+    """Each submission streams ``tokens`` text chunks, a few ms apart, until
+    it is aborted, then finishes."""
+
+    def __init__(self, tokens):
+        super().__init__()
+        self.server = None
+        self.tokens = tokens
+
+    def new_request(self, inp):
+        super().new_request(inp)
+        threading.Thread(target=self._run, args=(inp.request_id,), daemon=True).start()
+
+    def _run(self, key):
+        s = self.server
+        for i in range(self.tokens + 1):
+            time.sleep(0.003)
+            with s.request_lock:
+                req = s.pending_requests.get(key)
+                if req is None or key in self.aborted:
+                    return
+                if i < self.tokens:
+                    req.chunks.append(ResultChunk(request_id="X", modality="text", data=b"t"))
+                else:
+                    req.event.set()
+            req.notify()
+
+    def shutdown(self):
+        pass
+
+
+def test_a_retry_right_after_a_dropped_stream_is_served(monkeypatch):
+    """The client reads 3 chunks of a /generate stream under X from a real
+    server, drops the connection and resubmits X at once on a connection it
+    opened earlier, before the server has seen the drop. The retry must get
+    its whole answer rather than a 409, and so must the next reuse of X once
+    that answer is read, round after round."""
+    import socket
+
+    import uvicorn
+
+    pw = _StreamingWorker(tokens=60)
+    s = _api_server(pw)
+    pw.server = s
+    monkeypatch.setattr(entrypoint, "api_server", s)
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(entrypoint.app, port=port, log_level="warning"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    _wait(lambda: server.started, timeout=15)
+    url = f"http://127.0.0.1:{port}/generate"
+    form = {"text": "count", "request_id": "X", "streaming": "true"}
+
+    def answer(client):
+        with client.stream("POST", url, data=form) as r:
+            if r.status_code != 200:
+                return f"{r.status_code} {r.read()[:120]!r}"
+            lines = [json.loads(line) for line in r.iter_lines() if line.strip()]
+        return [line["modality"] for line in lines]
+
+    try:
+        with httpx.Client(timeout=10) as warm:
+            for _ in range(5):
+                warm.get(f"http://127.0.0.1:{port}/health")
+                with httpx.Client(timeout=10) as dropped, dropped.stream("POST", url, data=form) as r:
+                    lines = r.iter_lines()
+                    for _ in range(3):
+                        assert next(lines)
+                for request in ("retry", "reuse"):
+                    got = answer(warm)
+                    assert got == ["text"] * 60, f"the {request} got {got}"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+
+    assert len(pw.inputs) == 15
+    assert pw.aborted == [inp.request_id for inp in pw.inputs[::3]], "a retry or reuse was cut short"

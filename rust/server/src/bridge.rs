@@ -20,8 +20,11 @@
 //!                        | {t:"done",  rid, sub}
 //!
 //! `sub` names one submission and is never reused; `rid` is the client's id,
-//! which a client may reuse as soon as it drops a stream (an abort and the
-//! retry's submit can cross), so routes and aborts go by `sub`.
+//! which a client may reuse as soon as it drops a stream (that stream's `done`
+//! can cross the retry), so routes and aborts go by `sub`. A `rid` with a
+//! submission still in flight is refused (mstar's 409); a dropped stream's
+//! abort is sent before its `rid` is freed, so it reaches the backend before
+//! any retry's submit.
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -99,8 +102,55 @@ struct Inbound {
     msg: String, // error message for t == "err"
 }
 
-/// sub -> the serving task's sender; the demux thread routes chunks here.
-type Routes = Mutex<HashMap<u64, UnboundedSender<StreamItem>>>;
+struct Route {
+    tx: UnboundedSender<StreamItem>,
+    /// The client's id; None for a ping.
+    rid: Option<String>,
+}
+
+/// sub -> the serving task's route (the demux thread routes chunks here), and
+/// rid -> the sub in flight under it.
+#[derive(Default)]
+struct Table {
+    routes: HashMap<u64, Route>,
+    live: HashMap<String, u64>,
+}
+
+impl Table {
+    /// Route submission `sub` under `rid`, unless a submission under `rid` is
+    /// still in flight (the 409 detail then).
+    fn claim(&mut self, rid: &str, sub: u64, tx: UnboundedSender<StreamItem>) -> Result<(), String> {
+        if self.live.contains_key(rid) {
+            return Err(request_id_in_use(rid));
+        }
+        self.live.insert(rid.to_string(), sub);
+        self.routes.insert(sub, Route { tx, rid: Some(rid.to_string()) });
+        Ok(())
+    }
+
+    /// Drop submission `sub`'s route and free its rid.
+    fn remove(&mut self, sub: u64) {
+        let Some(route) = self.routes.remove(&sub) else {
+            return;
+        };
+        if let Some(rid) = route.rid {
+            if self.live.get(&rid) == Some(&sub) {
+                self.live.remove(&rid);
+            }
+        }
+    }
+}
+
+type Routes = Mutex<Table>;
+
+/// The 409 detail for a `request_id` that still has a request in flight
+/// (mstar's `request_id_in_use`).
+pub fn request_id_in_use(request_id: &str) -> String {
+    format!(
+        "request_id '{request_id}' already has a request in flight; \
+         wait for it to finish or abort it first"
+    )
+}
 
 pub struct Bridge {
     mbox: Arc<RawZmqCommunicator>,
@@ -115,7 +165,7 @@ impl Bridge {
         let mbox = Arc::new(
             RawZmqCommunicator::bind("frontend", socket_dir).map_err(|e| e.to_string())?,
         );
-        let routes: Arc<Routes> = Arc::new(Mutex::new(HashMap::new()));
+        let routes: Arc<Routes> = Arc::new(Mutex::new(Table::default()));
 
         let mbox_r = mbox.clone();
         let routes_r = routes.clone();
@@ -146,9 +196,26 @@ impl Bridge {
         }
     }
 
+    /// Whether a submission under `request_id` is still in flight.
+    pub fn in_flight(&self, request_id: &str) -> bool {
+        self.routes.lock().expect("routes lock").live.contains_key(request_id)
+    }
+
+    /// Give a submission still in flight under `request_id` up to `grace` to
+    /// end before [`Bridge::submit`] refuses a new one: a client that drops a
+    /// stream and resubmits at once can arrive before the drop is noticed
+    /// (mstar's `wait_for_request_id`).
+    pub async fn wait_for_request_id(&self, request_id: &str, grace: Duration) {
+        let deadline = tokio::time::Instant::now() + grace;
+        while self.in_flight(request_id) && tokio::time::Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    }
+
     /// Submit a flattened request under `request_id`; returns its `sub` (for
     /// [`Bridge::abort`]) and a receiver that yields `ResultChunk`s until
-    /// `Done`. The `request_id` is caller-supplied
+    /// `Done`, or the 409 detail when a submission under `request_id` is
+    /// still in flight. The `request_id` is caller-supplied
     /// (the serving handler mints `chatcmpl-…`/`speech-…`), matching mstar,
     /// whose per-request RNG seed derives from `hash(request_id)`.
     pub fn submit(
@@ -156,10 +223,10 @@ impl Bridge {
         args: &SubmitArgs,
         request_id: &str,
         streaming: bool,
-    ) -> (u64, UnboundedReceiver<StreamItem>) {
+    ) -> Result<(u64, UnboundedReceiver<StreamItem>), String> {
         let (tx, rx) = unbounded_channel();
         let sub = self.next_sub.fetch_add(1, Ordering::Relaxed);
-        self.routes.lock().expect("routes lock").insert(sub, tx.clone());
+        self.routes.lock().expect("routes lock").claim(request_id, sub, tx.clone())?;
         let msg = SubmitMsg {
             t: "submit",
             rid: request_id,
@@ -183,9 +250,9 @@ impl Bridge {
                 status: 500,
                 message: "backend unreachable (bridge send failed)".to_string(),
             });
-            self.routes.lock().expect("routes lock").remove(&sub);
+            self.routes.lock().expect("routes lock").remove(sub);
         }
-        (sub, rx)
+        Ok((sub, rx))
     }
 
     /// Liveness round-trip for the deep health check: send `{t:"ping"}` and
@@ -195,26 +262,29 @@ impl Bridge {
         let rid = format!("ping-{}", uuid::Uuid::new_v4());
         let (tx, mut rx) = unbounded_channel();
         let sub = self.next_sub.fetch_add(1, Ordering::Relaxed);
-        self.routes.lock().expect("routes lock").insert(sub, tx);
+        self.routes.lock().expect("routes lock").routes.insert(sub, Route { tx, rid: None });
         let msg = serde_json::json!({"t": "ping", "rid": rid, "sub": sub});
         if let Ok(payload) = rmp_serde::to_vec_named(&msg) {
             let _ = self.mbox.send("bridge", &payload);
         }
         let ok = tokio::time::timeout(timeout, rx.recv()).await.is_ok();
-        self.routes.lock().expect("routes lock").remove(&sub);
+        self.routes.lock().expect("routes lock").remove(sub);
         ok
     }
 
     /// Abort submission `sub` of `request_id` (client disconnected or timed
     /// out): tell the backend to release its state (a finished submission is
-    /// a no-op there) and drop the local route. A newer submission under the
-    /// same `request_id` is untouched.
+    /// a no-op there) and drop the local route.
     pub fn abort(&self, request_id: &str, sub: u64) {
-        self.routes.lock().expect("routes lock").remove(&sub);
         let msg = serde_json::json!({"t": "abort", "rid": request_id, "sub": sub});
+        // Sent under the lock, before the rid is freed: a retry's submit can
+        // only be sent after this, so the backend has released the dropped
+        // submission by the time it sees the retry, and does not refuse it.
+        let mut table = self.routes.lock().expect("routes lock");
         if let Ok(payload) = rmp_serde::to_vec_named(&msg) {
             let _ = self.mbox.send("bridge", &payload);
         }
+        table.remove(sub);
     }
 }
 
@@ -260,12 +330,12 @@ fn deliver(routes: &Routes, msg: Inbound) {
     let (Some(item), Some(sub)) = (item, msg.sub) else {
         return;
     };
-    let mut routes = routes.lock().expect("routes lock");
-    if let Some(tx) = routes.get(&sub) {
-        let _ = tx.send(item);
+    let mut table = routes.lock().expect("routes lock");
+    if let Some(route) = table.routes.get(&sub) {
+        let _ = route.tx.send(item);
     }
     if done {
-        routes.remove(&sub);
+        table.remove(sub);
     }
 }
 
@@ -323,21 +393,59 @@ mod tests {
         rmp_serde::from_slice(&rmp_serde::to_vec_named(&msg).unwrap()).unwrap()
     }
 
+    fn error_chunk(sub: u64) -> Inbound {
+        let msg = json!({"t": "chunk", "rid": "X", "sub": sub, "modality": "error",
+                         "metadata": {"status": 500}});
+        rmp_serde::from_slice(&rmp_serde::to_vec_named(&msg).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn a_rid_in_flight_is_refused_and_the_running_submission_is_untouched() {
+        let routes: Routes = Mutex::new(Table::default());
+        let (tx, mut rx) = unbounded_channel();
+        routes.lock().unwrap().claim("X", 1, tx).unwrap();
+
+        let (dup_tx, _dup_rx) = unbounded_channel();
+        let refused = routes.lock().unwrap().claim("X", 2, dup_tx);
+
+        assert_eq!(refused, Err(request_id_in_use("X")));
+        assert!(!routes.lock().unwrap().routes.contains_key(&2));
+        deliver(&routes, inbound("chunk", 1));
+        assert!(matches!(rx.try_recv(), Ok(StreamItem::Chunk(_))), "the running one lost its route");
+        assert_eq!(routes.lock().unwrap().live.get("X"), Some(&1));
+    }
+
+    #[test]
+    fn a_rid_is_free_once_its_submission_ends_fails_or_is_aborted() {
+        let routes: Routes = Mutex::new(Table::default());
+        let claim = |sub| routes.lock().unwrap().claim("X", sub, unbounded_channel().0);
+
+        claim(1).unwrap();
+        deliver(&routes, inbound("done", 1));
+        claim(2).expect("refused after the previous one finished");
+        deliver(&routes, error_chunk(2));
+        claim(3).expect("refused after the previous one failed");
+        routes.lock().unwrap().remove(3); // Bridge::abort
+        claim(4).expect("refused after the previous one was aborted");
+    }
+
     #[test]
     fn an_older_submission_s_end_does_not_reach_a_retry_under_its_id() {
         // The client dropped submission 1 of X and retried as submission 2;
-        // 1's done crosses 2's submit.
-        let routes: Routes = Mutex::new(HashMap::new());
+        // 1's done arrives after 2's submit.
+        let routes: Routes = Mutex::new(Table::default());
         let (old_tx, _old_rx) = unbounded_channel();
         let (new_tx, mut new_rx) = unbounded_channel();
-        routes.lock().unwrap().insert(1, old_tx);
-        routes.lock().unwrap().insert(2, new_tx);
+        routes.lock().unwrap().claim("X", 1, old_tx).unwrap();
+        routes.lock().unwrap().remove(1); // Bridge::abort
+        routes.lock().unwrap().claim("X", 2, new_tx).unwrap();
 
         deliver(&routes, inbound("done", 1));
         deliver(&routes, inbound("chunk", 2));
 
-        assert!(routes.lock().unwrap().contains_key(&2), "the retry's route was dropped");
-        assert!(!routes.lock().unwrap().contains_key(&1));
+        let table = routes.lock().unwrap();
+        assert!(table.routes.contains_key(&2), "the retry's route was dropped");
+        assert_eq!(table.live.get("X"), Some(&2), "the older end freed the retry's rid");
         assert!(matches!(new_rx.try_recv(), Ok(StreamItem::Chunk(_))));
         assert!(new_rx.try_recv().is_err(), "the retry got the older submission's end");
     }

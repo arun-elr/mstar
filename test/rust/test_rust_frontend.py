@@ -601,13 +601,21 @@ def test_images_generations_on_cosmos3():
         assert base64.b64decode(out["data"][0]["b64_json"]) == b"\x89PNG\r\n\x1a\nFAKE"
 
 
+class _RefusedError(Exception):
+    """An ``HTTPException`` without fastapi (the CI Rust job installs M* bare)."""
+
+    def __init__(self, status_code, detail):
+        super().__init__(detail)
+        self.status_code, self.detail = status_code, detail
+
+
 class _KeyedStub(_StubAPIServer):
     """Submissions as ``APIServer`` runs them: each under a key of its own, a
     stream bound to the newest submission under its id when it is created,
     ``abort_request`` acting on the newest, ``abort_submission`` on one, and a
-    submission while the previous one under the id still runs superseding it
-    (that stream ends with an in-band 409). Each submission streams ``tokens``
-    text chunks, a few ms apart, unless aborted or superseded."""
+    submission while the previous one under the id still runs refused with a
+    409. Each submission streams ``tokens`` text chunks, a few ms apart,
+    unless aborted."""
 
     def __init__(self, tokens):
         super().__init__()
@@ -615,15 +623,14 @@ class _KeyedStub(_StubAPIServer):
         self.n = 0
         self.live = {}
         self.running = set()
-        self.superseded = set()
+        self.refused = 0
 
     def submit_request(self, *, request_id=None, **kwargs):
+        if self.live.get(request_id) in self.running:
+            self.refused += 1
+            raise _RefusedError(409, f"request_id {request_id!r} already has a request in flight")
         self.n += 1
         key = f"{request_id}#{self.n}"
-        previous = self.live.get(request_id)
-        if previous in self.running:
-            self.running.discard(previous)
-            self.superseded.add(previous)
         self.live[request_id] = key
         self.running.add(key)
         return request_id
@@ -638,9 +645,6 @@ class _KeyedStub(_StubAPIServer):
         import asyncio
 
         for _ in range(self.tokens):
-            if key in self.superseded:
-                yield _Chunk("error", b"superseded", {"status": 409})
-                return
             if key not in self.running:
                 return
             yield _Chunk("text", b"t")
@@ -656,39 +660,70 @@ class _KeyedStub(_StubAPIServer):
             self.aborted.append(key)
 
 
-def test_a_retry_right_after_a_dropped_stream_is_served():
-    """The client reads 3 chunks of a /generate stream under X, drops it and
-    resubmits X at once, typically before the frontend has noticed the drop:
-    the older stream's abort and end cross the retry's submit. The retry must
-    get its whole answer, and so must the next reuse of X once that answer is
-    read, round after round. (An older submission's end or 409 landing on a
-    newer request's route ended it early while it kept running, so the next
-    reuse superseded it and got the 409 in turn.)"""
+def _generate_form(streaming=True):
     import urllib.parse
 
-    stub = _KeyedStub(tokens=200)
-    form = urllib.parse.urlencode({
-        "text": "count", "request_id": "X", "streaming": "true",
+    return urllib.parse.urlencode({
+        "text": "count", "request_id": "X", "streaming": str(streaming).lower(),
         "output_modalities": "text"}).encode()
 
-    def answer(url):
-        with urllib.request.urlopen(url, data=form, timeout=10) as r:
-            lines = [json.loads(line) for line in r.read().splitlines() if line.strip()]
-        return [line["modality"] for line in lines], lines[-1:]
+
+def test_a_retry_right_after_a_dropped_stream_is_served():
+    """The client reads 3 chunks of a /generate stream under X, drops it and
+    resubmits X at once on a connection it opened earlier, before the frontend
+    has noticed the drop. The retry must get its whole answer, not a 409, and
+    so must the next reuse of X once that answer is read, round after round:
+    the frontend waits for the drop and sends its abort before the retry's
+    submit."""
+    import http.client
+
+    stub = _KeyedStub(tokens=200)
+    form = _generate_form()
+
+    def answer(conn):
+        conn.request("POST", "/generate", body=form,
+                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+        r = conn.getresponse()
+        lines = [json.loads(line) for line in r.read().splitlines() if line.strip()]
+        return [line.get("modality") for line in lines], lines[-1:]
 
     with _model_stack("qwen3_omni", stub) as (port, _up):
         url = f"http://127.0.0.1:{port}/generate"
         for _ in range(5):
+            warm = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            warm.connect()
             with urllib.request.urlopen(url, data=form, timeout=10) as r:
                 for _ in range(3):
                     assert r.readline()
             for request in ("retry", "reuse"):
-                modalities, last = answer(url)
+                modalities, last = answer(warm)
                 assert modalities == ["text"] * 200, (
                     f"the {request} got {len(modalities)} chunks, ending {last}")
-        deadline = time.time() + 5
-        while len(stub.aborted) + len(stub.superseded) < 5 and time.time() < deadline:
-            time.sleep(0.01)
-    dropped = {f"X#{n}" for n in (1, 4, 7, 10, 13)}
-    assert set(stub.aborted) | stub.superseded == dropped, "a retry or reuse was cut short"
-    assert len(stub.aborted) + len(stub.superseded) == 5
+            warm.close()
+    dropped = [f"X#{n}" for n in (1, 4, 7, 10, 13)]
+    assert stub.aborted == dropped, "a retry or reuse was cut short"
+    assert stub.refused == 0
+
+
+@pytest.mark.parametrize("streaming", [True, False])
+def test_a_duplicate_of_a_running_id_gets_a_409_and_the_running_one_completes(streaming):
+    """A second /generate under X while the first still streams is answered
+    with an HTTP 409 by the frontend itself, after its grace; the first is
+    not aborted and gets every chunk."""
+    stub = _KeyedStub(tokens=400)
+
+    with _model_stack("qwen3_omni", stub) as (port, _up):
+        url = f"http://127.0.0.1:{port}/generate"
+        with urllib.request.urlopen(url, data=_generate_form(), timeout=10) as r:
+            head = [r.readline() for _ in range(3)]
+            with pytest.raises(urllib.error.HTTPError) as refused:
+                urllib.request.urlopen(url, data=_generate_form(streaming), timeout=10)
+            lines = head + r.read().splitlines()
+
+    assert refused.value.code == 409
+    assert json.loads(refused.value.read()) == {
+        "detail": "request_id 'X' already has a request in flight; "
+                  "wait for it to finish or abort it first"}
+    assert [json.loads(line)["modality"] for line in lines if line.strip()] == ["text"] * 400
+    assert stub.n == 1 and stub.refused == 0, "the duplicate reached the backend"
+    assert stub.aborted == []

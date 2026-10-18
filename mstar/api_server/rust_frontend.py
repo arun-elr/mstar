@@ -14,8 +14,11 @@ protocol are untouched):
                        | {t:"err", rid, sub, msg} | {t:"done", rid, sub}
 
 ``sub`` names one submission and is never reused. A client may resubmit its
-``rid`` as soon as it drops a stream, before the frontend has sent that
-stream's abort, so everything about a submission is addressed by ``sub``.
+``rid`` as soon as it drops a stream, and that stream's ``done`` or late
+chunks can cross the retry, so everything about a submission is addressed by
+``sub``. The frontend refuses a ``rid`` still in flight with a 409 itself and
+sends a dropped stream's abort before it frees the ``rid``, so the abort
+arrives here before the retry's submit.
 
 The submit shape is ``APIServer.submit_request``'s signature verbatim — the
 protocol was designed by flattening it. ``prompt_parts`` travels for a chat
@@ -135,6 +138,19 @@ class RustFrontendBridge:
                 request_id=rid,
             )
         except Exception as e:  # noqa: BLE001 — one bad request must not kill the loop
+            status = getattr(e, "status_code", None)
+            if isinstance(status, int):
+                # An HTTPException (not imported: this bridge runs without
+                # fastapi), e.g. the 409 for a rid still in flight. An in-band
+                # error chunk is the only reply that carries a status; `t="err"`
+                # always surfaces as a 500.
+                detail = getattr(e, "detail", e)
+                logger.warning("submit %s refused (%d): %s", rid, status, detail)
+                self._send({
+                    "t": "chunk", "rid": rid, "sub": sub, "modality": "error",
+                    "data": str(detail).encode(), "metadata": {"status": status},
+                })
+                return
             logger.warning("submit %s failed: %r", rid, e)
             self._err(rid, sub, repr(e))
             return

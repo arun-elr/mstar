@@ -174,7 +174,20 @@ def _shutdown_conductor_process(
 # ------------------------------------------------------------------
 
 
-SUPERSEDED_ERROR = "request superseded by a newer submission with the same request_id"
+#: How long ``/generate`` waits for a request still in flight under a
+#: ``request_id`` to end before it refuses a new one with a 409. A client that
+#: drops a stream and resubmits at once can arrive before the server has seen
+#: the drop and aborted the old stream; that takes a few event-loop steps.
+#: The Rust frontend waits the same (``DUPLICATE_ID_GRACE`` in serving.rs).
+DUPLICATE_ID_GRACE_S = 0.5
+
+
+def request_id_in_use(request_id: str) -> str:
+    """The 409 detail for a ``request_id`` that still has a request in flight."""
+    return (
+        f"request_id {request_id!r} already has a request in flight; "
+        "wait for it to finish or abort it first"
+    )
 
 
 @dataclass
@@ -465,8 +478,9 @@ class APIServer:
         ``<request_id>#<generation>``, that is never reused: a client may
         reuse its ``request_id`` while the engine is still tearing the older
         request down, and every message the engine sends names only the key.
-        A submission under an id whose previous request is still running
-        replaces it: the previous one is aborted, and its client gets a 409.
+        A submission under an id whose previous request is still running is
+        refused with a 409 and the running one is untouched; once that one has
+        finished, failed or been aborted the id is free.
         """
         if request_id is None:
             request_id = str(uuid.uuid4())
@@ -488,22 +502,9 @@ class APIServer:
         with self.request_lock:
             if self.fatal_error is not None:
                 raise HTTPException(status_code=503, detail=self.fatal_error)
+            if self._in_flight(request_id):
+                raise HTTPException(status_code=409, detail=request_id_in_use(request_id))
             key = f"{request_id}#{next(self._generation)}"
-            replaced_key = self._live.get(request_id)
-            replaced = self.pending_requests.get(replaced_key)
-            if replaced is not None and replaced.event.is_set():
-                # Already finished: its client still gets the whole result.
-                replaced = None
-            if replaced is not None:
-                # Dropped here, under the same lock as the error, so its
-                # handler (which holds the PendingRequest) reports the 409
-                # instead of a truncated success.
-                replaced.error = SUPERSEDED_ERROR
-                replaced.error_status = 409
-                replaced.event.set()
-                self.pending_requests.pop(replaced_key, None)
-                self.recently_completed.pop(replaced_key, None)
-                self._retire(replaced_key)
             self._live[request_id] = key
             self._client_ids[key] = request_id
             self.pending_requests[key] = PendingRequest(
@@ -516,10 +517,6 @@ class APIServer:
                 ),
                 request_id=request_id,
             )
-        if replaced is not None:
-            replaced.notify()
-            logger.info("Request %s superseded by %s; aborting it", replaced_key, key)
-            self.preprocess_worker.abort_request(replaced_key)
 
         self.preprocess_worker.new_request(PreprocessInput(
             request_id=key,
@@ -537,6 +534,29 @@ class APIServer:
             request_id, key, input_modalities, output_modalities,
         )
         return request_id
+
+    def _in_flight(self, request_id: str) -> bool:
+        """The newest submission under ``request_id`` is still running: not
+        finished, failed or aborted. Caller holds ``request_lock``."""
+        req = self.pending_requests.get(self._live.get(request_id))
+        return req is not None and not req.event.is_set()
+
+    async def wait_for_request_id(self, request_id: str | None) -> None:
+        """Give a request still in flight under ``request_id`` up to
+        :data:`DUPLICATE_ID_GRACE_S` to end, so a client's immediate retry
+        after dropping a stream is not refused before the server has seen the
+        drop. A request that is still running after that is refused by
+        :meth:`submit_request`."""
+        if request_id is None:
+            return
+        deadline = time.monotonic() + DUPLICATE_ID_GRACE_S
+        while True:
+            with self.request_lock:
+                if not self._in_flight(request_id):
+                    return
+            if time.monotonic() >= deadline:
+                return
+            await asyncio.sleep(0.005)
 
     def _retire(self, key: str) -> None:
         """Forget ``key``'s request_id once neither dict holds the key.
@@ -891,34 +911,27 @@ class APIServer:
                     # flush remaining
                     remaining: list[ResultChunk] = []
                     finished_req: PendingRequest | None = None
-                    failed_req: PendingRequest | None = None
                     with self.request_lock:
                         req = self.pending_requests.get(key)
                         if req:
                             remaining = req.chunks[req.consumed_chunks:]
                             finished_req = self.pending_requests.pop(key, None)
                             self._retire(key)
-                            failed_req = finished_req
-                        elif own is not None and own.error is not None:
-                            # Dropped with an error (superseded): still ours to report.
-                            remaining = own.chunks[own.consumed_chunks:]
-                            own.consumed_chunks = len(own.chunks)
-                            failed_req = own
                     # Profiling (incl. the optional file write) runs outside the
                     # lock; the popped request is no longer shared with other threads.
                     if finished_req is not None:
                         self._finalize_profile(finished_req)
                     tail = list(remaining)
                     # A request can fail after the stream is already open
-                    # (preprocess error, result-delivery timeout, superseded);
-                    # the HTTP status is committed by then, so the error must
-                    # travel in-band as the final chunk.
-                    if failed_req is not None and failed_req.error is not None:
+                    # (preprocess error, result-delivery timeout); the HTTP
+                    # status is committed by then, so the error must travel
+                    # in-band as the final chunk.
+                    if finished_req is not None and finished_req.error is not None:
                         tail.append(ResultChunk(
                             request_id=request_id,
                             modality="error",
-                            data=str(failed_req.error).encode("utf-8"),
-                            metadata={"status": failed_req.error_status},
+                            data=str(finished_req.error).encode("utf-8"),
+                            metadata={"status": finished_req.error_status},
                         ))
                     if tail:
                         yield tail
@@ -1017,7 +1030,7 @@ class APIServer:
         """Wait for the request to finish (or the client to disconnect), then
         return its chunks. Disconnecting or timing out releases engine state."""
         start = time.time()
-        key, own = self._bind(request_id)
+        key = self.submission_key(request_id)
         while True:
             with self.request_lock:
                 req = self.pending_requests.get(key)
@@ -1036,10 +1049,7 @@ class APIServer:
             req = self.pending_requests.pop(key, None)
             self._retire(key)
         if req is None:
-            # Dropped with an error (superseded): still ours to report.
-            if own is None or own.error is None:
-                return []
-            req = own
+            return []
         if req.error is not None:
             raise HTTPException(
                 status_code=req.error_status, detail=req.error
@@ -1387,7 +1397,8 @@ async def generate_ws(websocket: WebSocket):
     ``{"request_id", "modality", "data", "metadata"}``, followed by
     ``{"request_id", "finish": true}``. A rejected message answers
     ``{"request_id", "error": ...}``, and so does a request that fails after
-    it was accepted (with the HTTP ``status`` it would have had); no finish
+    it was accepted. Both carry the HTTP ``status`` when there is one (409
+    for a ``request_id`` still in flight, as on ``/generate``); no finish
     follows an error. Messages may be pipelined: a client can
     send the next observation before the previous action chunk has returned,
     and the ``request_id`` tells the replies apart. Closing the socket aborts
@@ -1433,6 +1444,7 @@ async def generate_ws(websocket: WebSocket):
                 model_kwargs = json.loads(model_kwargs)
             if model_kwargs is not None and not isinstance(model_kwargs, dict):
                 raise ValueError("model_kwargs must be a JSON object")
+            await api_server.wait_for_request_id(request_id)
             request_id = api_server.submit_request(
                 text=text,
                 file_paths=file_paths or None,
@@ -1468,8 +1480,11 @@ async def generate_ws(websocket: WebSocket):
             raise
         except Exception as exc:  # noqa: BLE001 — reported in-band, the socket stays up
             logger.exception("generate/ws request failed")
+            reply = {"request_id": request_id, "error": str(exc)}
+            if isinstance(exc, HTTPException):
+                reply.update(error=exc.detail, status=exc.status_code)
             try:
-                await send({"request_id": request_id, "error": str(exc)}, binary)
+                await send(reply, binary)
             except Exception:  # noqa: BLE001
                 pass
         finally:
@@ -1529,7 +1544,9 @@ async def generate(
         request_id: Optional client-supplied request id. When omitted, the
             server generates a fresh uuid4. Pinning this is useful for
             deterministic-noise debugging because the conductor seeds its
-            per-request RNG via ``hash(request_id)``.
+            per-request RNG via ``hash(request_id)``. An id that still has
+            a request in flight is refused with a 409; it is free again once
+            that request finished, failed or was aborted.
     """
     if api_server is None:
         raise HTTPException(status_code=503, detail="Server not ready")
@@ -1609,6 +1626,7 @@ async def generate(
         )
 
     try:
+        await api_server.wait_for_request_id(request_id)
         request_id = api_server.submit_request(
             text=text,
             file_paths=file_paths or None,
