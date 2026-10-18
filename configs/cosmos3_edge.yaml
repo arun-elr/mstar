@@ -70,7 +70,9 @@ node_groups:
 # video shape: the 121-frame clip and the 61-frame chained window (93 frames is
 # two windows) and an image-conditioned rollout (the conditioning encode and
 # the i2v prefill are their own first-time cost). The compile keys on shapes,
-# not steps, so four steps do. Startup grows by their wall time.
+# not steps, so four steps do. Startup grows by their wall time. The
+# experimental kv mode is not warmed: its first request pays the 29-frame
+# window's compile.
 warmup_requests:
   - text: warmup
     output_modalities: [video]

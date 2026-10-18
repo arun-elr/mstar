@@ -683,8 +683,8 @@ own ``window_decoder`` partition; a request opts in per call:
    jumps away from the scene at the first window boundary and, unless the
    prompt describes the image, can turn to texture noise within a few
    windows. ``chained`` with Edge's 61/32 defaults holds the scene over 241
-   frames when the prompt describes the image, at the cost of a later first
-   chunk (about 4.5 s against 2.3 s for kv on an H200). A prompt that
+   frames when the prompt describes the image; its first chunk arrives later,
+   since window 0 is 61 frames. A prompt that
    contradicts the image still takes over within a few windows in every
    windowed mode; non-windowed clips are not affected.
 
