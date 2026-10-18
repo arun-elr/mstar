@@ -209,7 +209,9 @@ class CosyVoice3Config:
     stream_hop_growth: float = 2.0
     stream_max_hop_tokens: int = 100
     # How often the LM hands tokens to the flow node (tokens per stream chunk).
-    stream_poll_tokens: int = 5
+    # A hop settles 25 tokens or more, so polling more often than every 25
+    # wakes the flow node (and its token read-back) mostly to settle nothing.
+    stream_poll_tokens: int = 25
     # Mel frames of left context the streaming vocoder re-runs before the new
     # frames (0 = the whole history, the reference's O(N^2) re-vocode).
     hift_context_frames: int = 64
