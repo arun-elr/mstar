@@ -52,6 +52,23 @@ def _wave_soundfile() -> types.ModuleType:
         data = (np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0).reshape(-1, channels)
         return (data if always_2d or channels > 1 else data[:, 0]), rate
 
+    class SoundFile:
+        def __init__(self, path):
+            self._w = wave.open(str(path), "rb")
+            self.samplerate = self._w.getframerate()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self._w.close()
+
+        def read(self, frames=-1, dtype="float32", always_2d=False):
+            channels = self._w.getnchannels()
+            raw = self._w.readframes(self._w.getnframes() if frames < 0 else frames)
+            data = (np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0).reshape(-1, channels)
+            return data if always_2d or channels > 1 else data[:, 0]
+
     def write(path, data, samplerate):
         pcm = np.round(np.clip(np.asarray(data, dtype=np.float32), -1, 1) * 32767).astype("<i2")
         with wave.open(str(path), "wb") as w:
@@ -61,7 +78,7 @@ def _wave_soundfile() -> types.ModuleType:
             w.writeframes(pcm.tobytes())
 
     module.SoundFileError = SoundFileError
-    module.info, module.read, module.write = info, read, write
+    module.info, module.read, module.write, module.SoundFile = info, read, write, SoundFile
     return module
 
 
