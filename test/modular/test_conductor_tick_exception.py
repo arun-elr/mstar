@@ -399,7 +399,7 @@ def test_an_unsendable_failure_is_dropped_after_the_ttl_and_failed_at_shutdown()
         expected_acks=set(), participants={"worker_0"}, failure_error="boom",
     )
     c._finalize_draining("bad")
-    assert [rid for _, rid, entity, _ in c._unsent_teardown] == ["bad"]
+    assert [entry.request_id for entry in c._unsent_teardown] == ["bad"]
 
     c.communicator.send = lambda entity, msg: c.sent.append((entity, msg))
     c._fail_all_requests("shutting down")
@@ -408,6 +408,104 @@ def test_an_unsendable_failure_is_dropped_after_the_ttl_and_failed_at_shutdown()
     c.communicator.send = _send
     c._retry_unsent_teardown()
     assert c._unsent_teardown == []
+
+
+def _fail_ab():
+    return ConductorMessage(
+        message_type=ConductorMessageType.FAIL_REQUESTS,
+        body=FailRequests(errors={"a": "worker failed a", "b": "worker failed b"}),
+    )
+
+
+def _drained_ab():
+    return [_reads_done(rid, entity) for rid in "ab" for entity in ("worker_0", PREPROCESS)]
+
+
+def test_a_failure_batch_whose_handling_raises_fails_every_request_it_names():
+    # A FAIL_REQUESTS body has no request_id, only ``errors``.
+    c = _conductor([_fail_ab()], _drained_ab(), requests={"a": _request(), "b": _request()})
+
+    def _raise(body):
+        raise RuntimeError("bookkeeping failed")
+    c._fail_requests = _raise
+    _run(c)
+    failed = _to_client(c, "request_failed")
+    assert set(failed) == {"a", "b"}
+    for rid in "ab":
+        assert failed[rid].error_message == (
+            "Conductor error handling FAIL_REQUESTS: RuntimeError: bookkeeping failed"
+        )
+    assert not c.requests and not c.draining
+
+
+def test_one_request_that_raises_in_a_failure_batch_keeps_the_others_errors():
+    c = _conductor([_fail_ab()], _drained_ab(), requests={"a": _request(), "b": _request()})
+    remove_request = c._remove_request
+
+    def _raise_once_for_a(rid, request_data, failure_error=None):
+        if rid == "a" and failure_error == "worker failed a":
+            raise RuntimeError("could not tear a down")
+        remove_request(rid, request_data, failure_error=failure_error)
+    c._remove_request = _raise_once_for_a
+    _run(c)
+    failed = [
+        m.body for entity, m in c.sent
+        if entity == "api_server" and m.message_type == "request_failed"
+    ]
+    assert sorted(f.request_id for f in failed) == ["a", "b"], "a request was answered twice"
+    by_rid = {f.request_id: f.error_message for f in failed}
+    assert "could not tear a down" in by_rid["a"]
+    assert by_rid["b"] == "worker failed b"
+
+
+def test_a_send_that_keeps_failing_backs_off_and_is_dropped_after_the_ttl(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(conductor_mod.time, "perf_counter", lambda: clock[0])
+    c = _conductor([], requests={})
+    attempts = []
+
+    def _send(entity, msg):
+        attempts.append(clock[0])
+        raise OSError("worker_0 unreachable")
+    c.communicator.send = _send
+    c._send_for_teardown(
+        "x", "worker_0",
+        SimpleNamespace(message_type=WorkerMessageType.REMOVE_REQUEST),
+    )
+    # one loop pass a millisecond, past the 120 s TTL
+    while clock[0] < c._drain_ttl_s + 2:
+        clock[0] += 0.001
+        c._retry_unsent_teardown()
+
+    assert c._unsent_teardown == []
+    # without the backoff: one attempt a pass, about 120,000
+    assert len(attempts) < 150
+    first_s, max_s = conductor_mod.TEARDOWN_RETRY_BACKOFF_S
+    assert attempts[2] - attempts[1] == pytest.approx(first_s, abs=0.002)
+    assert max(b - a for a, b in zip(attempts, attempts[1:], strict=False)) == pytest.approx(max_s, abs=0.002)
+
+
+def test_a_backed_off_send_goes_out_once_the_socket_recovers(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(conductor_mod.time, "perf_counter", lambda: clock[0])
+    c = _conductor([], requests={})
+    down = [True]
+
+    def _send(entity, msg):
+        if down[0]:
+            raise OSError("worker_0 unreachable")
+        c.sent.append((entity, msg))
+    c.communicator.send = _send
+    message = SimpleNamespace(message_type=WorkerMessageType.REMOVE_REQUEST)
+    c._send_for_teardown("x", "worker_0", message)
+    for _ in range(100):
+        clock[0] += 0.001
+        c._retry_unsent_teardown()
+    down[0] = False
+    for _ in range(2000):
+        clock[0] += 0.001
+        c._retry_unsent_teardown()
+    assert c.sent == [("worker_0", message)] and c._unsent_teardown == []
 
 
 def test_a_base_exception_is_not_swallowed():

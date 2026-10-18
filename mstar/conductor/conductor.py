@@ -310,6 +310,44 @@ class DrainingRequest:
     failure_status: int = 500
 
 
+#: Wait after a teardown resend raises: the first resend is on the next loop
+#: pass, then each wait doubles from the first value up to the second, so a
+#: send that keeps failing costs a few attempts a second, not one per pass.
+TEARDOWN_RETRY_BACKOFF_S = (0.01, 1.0)
+
+
+def _message_name(message) -> str:
+    """A message's type as a log or error text shows it: ``FAIL_REQUESTS``,
+    not ``ConductorMessageType.FAIL_REQUESTS``."""
+    message_type = getattr(message, "message_type", None)
+    if message_type is None:
+        return type(message).__name__
+    return getattr(message_type, "name", str(message_type))
+
+
+def _message_request_ids(message) -> list[str | None]:
+    """The requests a message is about: its ``request_id``, or every request a
+    FAIL_REQUESTS body names (``errors`` has no ``request_id``). ``[None]``
+    when it names none."""
+    body = getattr(message, "body", None)
+    errors = getattr(body, "errors", None)
+    if isinstance(errors, dict) and errors:
+        return list(errors)
+    return [getattr(body, "request_id", None)]
+
+
+@dataclass
+class UnsentTeardown:
+    """A teardown send that raised: the only copy left of its message, since
+    nothing rebuilds a teardown message."""
+    request_id: str
+    entity: str
+    message: object
+    deadline: float  # give up once a resend fails after this
+    next_try: float = 0.0
+    backoff_s: float = 0.0
+
+
 class Conductor:
     def __init__(
         self,
@@ -345,9 +383,8 @@ class Conductor:
         self._draining_deadlines: deque[tuple[float, str]] = deque()
         self._early_reads_done_deadlines: deque[tuple[float, str]] = deque()
         self._early_abort_deadlines: deque[tuple[float, str]] = deque()
-        # (deadline, rid, entity, message) for teardown sends that raised: the
-        # only copy left of each, since nothing rebuilds a teardown message.
-        self._unsent_teardown: list[tuple[float, str, str, object]] = []
+        # Teardown sends that raised, resent until they go out or time out.
+        self._unsent_teardown: list[UnsentTeardown] = []
 
         self.model = model
         self.hostname = hostname
@@ -701,8 +738,8 @@ class Conductor:
             pending.append(request_id)
         # Freed already, but their request_failed never went out.
         pending += [
-            request_id for _, request_id, entity, _ in self._unsent_teardown
-            if entity == "api_server"
+            entry.request_id for entry in self._unsent_teardown
+            if entry.entity == "api_server"
         ]
         for request_id in pending:
             self.communicator.send(
@@ -1222,27 +1259,36 @@ class Conductor:
                 "Could not send %s for request %s to %s; retrying",
                 message.message_type, request_id, entity,
             )
-            self._unsent_teardown.append(
-                (time.perf_counter() + self._drain_ttl_s, request_id, entity, message)
-            )
+            self._unsent_teardown.append(UnsentTeardown(
+                request_id, entity, message,
+                deadline=time.perf_counter() + self._drain_ttl_s,
+            ))
 
     def _retry_unsent_teardown(self):
         """Resend teardown messages whose send raised, until each goes out or
-        its TTL runs out."""
+        its TTL runs out. Each one backs off on its own
+        (:data:`TEARDOWN_RETRY_BACKOFF_S`)."""
         if not self._unsent_teardown:
             return
         now = time.perf_counter()
         pending, self._unsent_teardown = self._unsent_teardown, []
-        for deadline, request_id, entity, message in pending:
+        first_s, max_s = TEARDOWN_RETRY_BACKOFF_S
+        for entry in pending:
+            if now < entry.next_try:
+                self._unsent_teardown.append(entry)
+                continue
             try:
-                self.communicator.send(entity, message)
+                self.communicator.send(entry.entity, entry.message)
             except Exception:
-                if now < deadline:
-                    self._unsent_teardown.append((deadline, request_id, entity, message))
+                if now < entry.deadline:
+                    entry.backoff_s = min(max(2 * entry.backoff_s, first_s), max_s)
+                    entry.next_try = now + entry.backoff_s
+                    self._unsent_teardown.append(entry)
                 else:
                     logger.exception(
                         "Gave up sending %s for request %s to %s after %.0fs",
-                        message.message_type, request_id, entity, self._drain_ttl_s,
+                        entry.message.message_type, entry.request_id, entry.entity,
+                        self._drain_ttl_s,
                     )
 
     def _finalize_draining(self, request_id: str):
@@ -1256,8 +1302,8 @@ class Conductor:
             # the REMOVE_REQUEST below.
             self._unsent_teardown = [
                 entry for entry in self._unsent_teardown
-                if entry[1] != request_id
-                or entry[3].message_type != WorkerMessageType.DRAIN_REQUEST
+                if entry.request_id != request_id
+                or entry.message.message_type != WorkerMessageType.DRAIN_REQUEST
             ]
         # The drain record is gone, so nothing would ever finish this teardown
         # later: a send that raises must not skip the other sends or the free,
@@ -1351,7 +1397,11 @@ class Conductor:
                 )
                 continue
             logger.error("Request %s failed on a worker: %s", rid, error_message)
-            self._remove_request(rid, request_data, failure_error=error_message)
+            try:
+                self._remove_request(rid, request_data, failure_error=error_message)
+            except Exception as exc:
+                # the other requests in the batch keep their own error
+                self._fail_after_error(rid, "failing it", exc)
 
     def _abort_request(self, request_id: str):
         """Tear down a request the client abandoned, freeing its worker GPU state."""
@@ -1819,11 +1869,9 @@ class Conductor:
                     try:
                         self._route_message(message, done_partition_forwards)
                     except Exception as exc:
-                        self._fail_after_error(
-                            getattr(getattr(message, "body", None), "request_id", None),
-                            f"handling {getattr(message, 'message_type', type(message).__name__)}",
-                            exc,
-                        )
+                        step = f"handling {_message_name(message)}"
+                        for request_id in _message_request_ids(message):
+                            self._fail_after_error(request_id, step, exc)
 
                 completed_requests = []
 
