@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import base64
 import io
+import math
 import os
 import threading
 import wave
@@ -309,6 +310,24 @@ def resolve_media_ref(ref: str, upload_dir: Path, *, allow_remote: bool = False)
 # Outbound: wrap raw model output for client surfaces
 # ---------------------------------------------------------------------------
 
+# torchaudio's resampling kernel holds about (rate / g) * (target / g) floats,
+# g = gcd(rate, target): 3.0M for the 47,952 Hz pull-down rate to 16 kHz, but
+# 1.15G for a 48,001 Hz header resampled to 24 kHz
+MAX_RESAMPLE_KERNEL = 1 << 24
+MAX_SAMPLE_RATE = 768_000
+
+
+def check_resample_rate(rate: int, target: int) -> None:
+    """Refuse a file rate outside ``1..MAX_SAMPLE_RATE`` Hz or whose
+    resampling to ``target`` would cost more than :data:`MAX_RESAMPLE_KERNEL`
+    (every real rate, pull-down rates included, passes)."""
+    if not 1 <= rate <= MAX_SAMPLE_RATE:
+        raise ValueError(f"unsupported sample rate {rate} Hz; resample the audio to a standard rate")
+    g = math.gcd(rate, target)
+    if (rate // g) * (target // g) > MAX_RESAMPLE_KERNEL:
+        raise ValueError(f"unsupported sample rate {rate} Hz; resample the audio to a standard rate")
+
+
 def decode_audio(path: str, sample_rate: int = 16000):
     """Decode an audio file to a float32 mono numpy waveform at ``sample_rate``.
 
@@ -325,6 +344,7 @@ def decode_audio(path: str, sample_rate: int = 16000):
 
         frames = AudioDecoder(path, sample_rate=sample_rate, num_channels=1).get_all_samples()
         return frames.data[0].numpy().astype(np.float32)
+    check_resample_rate(sr, sample_rate)
     if sr != sample_rate:
         try:
             import torch
