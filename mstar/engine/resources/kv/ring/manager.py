@@ -288,7 +288,7 @@ class RingKVManager(AttentionResource):
                         "engine opened -- so a session claimed here would never "
                         "return to the pool and the node would lose capacity with "
                         "nothing raised.",
-                        request_id=rid,
+                        request_ids=frozenset({rid}),
                     ),
                 )
         if len(wanted) > len(self._free_sessions):
@@ -323,7 +323,7 @@ class RingKVManager(AttentionResource):
                         "Every admitted request needs one: the continuity check is "
                         "the only thing standing between a stalled clock and a "
                         "session that rewrites its own history.",
-                        request_id=rid,
+                        request_ids=frozenset({rid}),
                     ),
                 )
             last = self._last_frames.get(rid)
@@ -338,7 +338,7 @@ class RingKVManager(AttentionResource):
                         "-- a skipped or repeated frame selects the wrong ring slot "
                         "and hides the wrong one, which rewrites history rather than "
                         "raising.",
-                        request_id=rid,
+                        request_ids=frozenset({rid}),
                     ),
                 )
 

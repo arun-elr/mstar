@@ -30,7 +30,7 @@ from mstar.distributed.base import ShardingConfig
 from mstar.distributed.communication import WorkerParallelGroups
 from mstar.engine import apply_torch_config
 from mstar.engine.engine import ExecutingBatch
-from mstar.engine.resources import AdmitRuntimeError, AllocationFailed, StepContext
+from mstar.engine.resources import AdmitFailedReason, AllocationFailed, StepContext
 from mstar.engine.resources.kv.transfer import (
     TransferEngineInfo,
     make_deployment_kv_shm_dir,
@@ -1977,15 +1977,15 @@ class Worker:
         Every retryable admit failure needs the push-back; only an
         ``AllocationFailed`` also needs an eviction. ``RequestOffloading`` means
         the rid is already on its way to the host, so evicting anything else is
-        wasted work: the retry is gated on ``check_ready`` reloading it. An
-        ``AdmitRuntimeError`` is terminal: retrying the same step would refuse
-        it again on every pass, so the request it names fails instead.
+        wasted work: the retry is gated on ``check_ready`` reloading it. A
+        ``terminal`` reason would refuse the same step again on every pass, so
+        the requests it names fail instead.
         """
         reason = node_batch.admit_error
         if isinstance(reason, AllocationFailed):
             self._handle_allocation_failure(batch, node_batch, referenced_rids)
             return
-        if isinstance(reason, AdmitRuntimeError):
+        if reason.terminal:
             self._handle_unservable(batch, reason)
             return
 
@@ -1997,16 +1997,17 @@ class Worker:
         )
 
     def _handle_unservable(
-        self, batch: ScheduledBatch, reason: AdmitRuntimeError,
+        self, batch: ScheduledBatch, reason: AdmitFailedReason,
     ) -> None:
-        """Fail the request a terminal admit refusal names, and re-queue the
+        """Fail the requests a terminal admit refusal names, and re-queue the
         rest of the batch; the whole batch when the refusal names no row of it.
 
         A TP follower only re-queues: rank 0 refused the same step, fails the
-        same request, and its teardown reaches this rank as a REMOVE.
+        same requests, and their teardown reaches this rank as a REMOVE.
         """
         rids = batch.request_to_worker_graph
-        doomed = {reason.request_id} if reason.request_id in rids else set(rids)
+        named = getattr(reason, "request_ids", ())
+        doomed = {rid for rid in rids if rid in named} or set(rids)
         if self._is_tp_follower_node(batch.node_name):
             doomed = set()
         survivors = [rid for rid in rids if rid not in doomed]

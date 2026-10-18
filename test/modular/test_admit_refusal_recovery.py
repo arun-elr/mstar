@@ -7,7 +7,7 @@ speculation that was built but never submitted.
 * A speculation that never reached the GPU thread holds rids that came off
   their ready queues; when the iteration raises they go back, whether or not
   a pre-plan was armed (none is without pre-plan, or after a refusal reset).
-* A terminal refusal (``AdmitRuntimeError``) fails the request it names
+* A terminal refusal (``AdmitRuntimeError``) fails the requests it names
   instead of re-queueing the step for ever; a full ring KV pool is retryable
   and holds only the request that waits.
 
@@ -28,6 +28,7 @@ from mstar.engine.engine import ExecutingBatch  # noqa: E402
 from mstar.engine.resources.step import (  # noqa: E402
     AdmitRuntimeError,
     AllocationFailed,
+    RequestOffloading,
     StepContext,
 )
 from mstar.worker.micro_scheduler import ScheduledBatch  # noqa: E402
@@ -145,12 +146,38 @@ def _refused(rids, reason):
 
 def test_a_terminal_refusal_fails_the_request_it_names_and_requeues_the_rest():
     w = _worker()
-    batch, node_batch = _refused([7, 8], AdmitRuntimeError("clock skipped", request_id=7))
+    batch, node_batch = _refused([7, 8], AdmitRuntimeError("clock skipped", request_ids=frozenset({7})))
 
     w._handle_admit_failure(batch, node_batch)
 
     assert set(w.reported) == {7}
     assert w._graph_runtime.pushed == [8]
+
+
+def test_only_a_runtime_error_is_terminal():
+    assert AdmitRuntimeError("x").terminal
+    assert not AllocationFailed("x", pages_short=1, label="main", request_id=7).terminal
+    assert not RequestOffloading("x", label="main", request_id=7).terminal
+
+
+def test_a_terminal_refusal_fails_every_request_it_names():
+    w = _worker()
+    batch, node_batch = _refused([6, 7, 8], AdmitRuntimeError("bad rows", request_ids=frozenset({6, 8})))
+
+    w._handle_admit_failure(batch, node_batch)
+
+    assert set(w.reported) == {6, 8}
+    assert w._graph_runtime.pushed == [7]
+
+
+def test_a_terminal_refusal_naming_no_row_of_the_batch_fails_every_row():
+    w = _worker()
+    batch, node_batch = _refused([7, 8], AdmitRuntimeError("elsewhere", request_ids=frozenset({9})))
+
+    w._handle_admit_failure(batch, node_batch)
+
+    assert set(w.reported) == {7, 8}
+    assert w._graph_runtime.pushed == []
 
 
 def test_a_terminal_refusal_about_the_whole_step_fails_every_row():
@@ -165,7 +192,7 @@ def test_a_terminal_refusal_about_the_whole_step_fails_every_row():
 
 def test_a_tp_follower_leaves_the_failure_to_rank_0():
     w = _worker(follower=True)
-    batch, node_batch = _refused([7, 8], AdmitRuntimeError("clock skipped", request_id=7))
+    batch, node_batch = _refused([7, 8], AdmitRuntimeError("clock skipped", request_ids=frozenset({7})))
 
     w._handle_admit_failure(batch, node_batch)
 

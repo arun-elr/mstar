@@ -674,7 +674,7 @@ def test_a_skipped_frame_is_refused_with_a_terminal_reason():
     assert type(outcome.reason) is AdmitRuntimeError
     assert not isinstance(outcome.reason, (AllocationFailed, RequestOffloading))
     # the worker fails the request this names, and only that one
-    assert outcome.reason.request_id == "a"
+    assert outcome.reason.request_ids == {"a"}
     # names both numbers, and whose clock they belong to
     assert "frame 0" in outcome.reason.message
     assert "declares frame 2" in outcome.reason.message
