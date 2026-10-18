@@ -1844,6 +1844,9 @@ def main(argv: list[str] | None = None):
     quiet_noisy_loggers()
     api_key = resolve_api_key(args.api_key)
     api_key_guard.set(api_key)
+    # Only the frontend needs the key: keep it out of the conductor, workers and
+    # media subprocesses this process spawns. The Rust frontend gets it explicitly.
+    os.environ.pop(API_KEY_ENV, None)
 
     with open(args.config) as f:
         config = yaml.safe_load(f)

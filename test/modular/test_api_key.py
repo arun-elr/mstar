@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 import pytest
 
@@ -142,15 +143,23 @@ def test_startup_warns_only_without_a_key(caplog):
     assert "MSTAR_API_KEY" in record.getMessage() and "0.0.0.0:8000" in record.getMessage()
 
 
-def test_serve_main_applies_the_flag_before_loading_anything(monkeypatch, tmp_path):
-    monkeypatch.delenv(auth.API_KEY_ENV, raising=False)
+@pytest.mark.parametrize("via", ["flag", "env"])
+def test_serve_main_applies_the_key_and_keeps_it_from_child_processes(monkeypatch, tmp_path, via):
+    argv = ["--config", str(tmp_path / "missing.yaml")]
+    if via == "flag":
+        monkeypatch.delenv(auth.API_KEY_ENV, raising=False)
+        argv += ["--api-key", KEY]
+    else:
+        monkeypatch.setenv(auth.API_KEY_ENV, KEY)
     try:
         # The config is read right after the key is applied; a missing one stops
         # main() before it spawns anything.
         with pytest.raises(FileNotFoundError):
-            entrypoint.main(["--config", str(tmp_path / "missing.yaml"), "--api-key", KEY])
-        assert entrypoint.api_key_guard.enabled
+            entrypoint.main(argv)
         assert entrypoint.api_key_guard.accepts([(b"authorization", f"Bearer {KEY}".encode())])
+        assert not entrypoint.api_key_guard.accepts([])
+        # The conductor and workers are spawned from this environment later.
+        assert auth.API_KEY_ENV not in os.environ
     finally:
         entrypoint.api_key_guard.set(auth.resolve_api_key())
 

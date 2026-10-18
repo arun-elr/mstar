@@ -241,7 +241,8 @@ Read by ``mstar-serve`` / ``mstar.api_server.entrypoint``.
        ``--api-key`` overrides it). When set, every route except
        ``/health`` needs ``Authorization: Bearer <key>``, WebSocket
        handshakes included; unset or empty turns the check off. The
-       launcher passes it on to the Rust frontend, and
+       launcher passes it on to the Rust frontend only (the conductor and
+       workers do not inherit it), and
        :class:`mstar.client.MStarClient` sends it when not given
        ``api_key``. See :ref:`api-key`.
 
