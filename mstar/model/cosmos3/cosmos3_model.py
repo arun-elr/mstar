@@ -200,7 +200,7 @@ class Cosmos3Model(Model):
             logger.warning(
                 "Cosmos3 window_mode='kv' is experimental: the checkpoint was not trained "
                 "block-causally, and a kv rollout can leave the conditioning image within a "
-                "few windows. window_mode='chained' (the default for stream_video) holds the scene."
+                "few windows. Prefer window_mode='chained', the default for stream_video."
             )
 
         self._submodule_cache: dict[str, torch.nn.Module | None] = {}

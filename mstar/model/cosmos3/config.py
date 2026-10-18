@@ -235,7 +235,8 @@ REASONER_MODEL_TYPES: frozenset[str] = frozenset({"cosmos3_edge"})
 # recipe), action modes at flow shift 10. Applied by ``from_pretrained`` where
 # a field still holds the Nano default, so a yaml overrides any of them.
 # Chained windows of 61 frames re-pinning 32 hold the conditioning scene over
-# a 241-frame rollout; 29/8 windows smear more at every boundary.
+# a 241-frame rollout when the prompt describes the image; 29/8 windows smear
+# more at every boundary.
 EDGE_BACKBONE_TYPE = "cosmos3_edge_nemotron_dense"
 EDGE_RECIPE_DEFAULTS = {
     "conditioning_resize": "aspect_crop",
