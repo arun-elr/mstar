@@ -277,14 +277,14 @@ impl Bridge {
     /// a no-op there) and drop the local route.
     pub fn abort(&self, request_id: &str, sub: u64) {
         let msg = serde_json::json!({"t": "abort", "rid": request_id, "sub": sub});
-        // Sent under the lock, before the rid is freed: a retry's submit can
-        // only be sent after this, so the backend has released the dropped
-        // submission by the time it sees the retry, and does not refuse it.
-        let mut table = self.routes.lock().expect("routes lock");
+        // Sent before the rid is freed, so a retry's submit (which needs the
+        // rid free) goes out after it and the backend never refuses the
+        // retry. Not under the routes lock: a send can block, and the demux
+        // thread needs that lock to drain the replies that unblock it.
         if let Ok(payload) = rmp_serde::to_vec_named(&msg) {
             let _ = self.mbox.send("bridge", &payload);
         }
-        table.remove(sub);
+        self.routes.lock().expect("routes lock").remove(sub);
     }
 }
 
