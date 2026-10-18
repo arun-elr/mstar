@@ -33,17 +33,26 @@
 
 from __future__ import annotations
 
+import bisect
 import itertools
 import logging
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from functools import partial
 from typing import Any
 
 import torch
 
 from mstar.communication.tensors import NameToTensorList
 from mstar.conductor.request_info import CurrentForwardPassInfo
-from mstar.engine.accelerator_graph_config import AcceleratorGraphConfig, BatchedAcceleratorGraphConfig
+from mstar.engine.accelerator_graph_config import (
+    AcceleratorGraphConfig,
+    BatchedAcceleratorGraphConfig,
+    PiecewiseAcceleratorGraphConfig,
+    PiecewiseBatchedConfig,
+    PiecewiseCallInputs,
+    PiecewiseCaptureShape,
+)
 from mstar.engine.engine import ExecutingBatch
 from mstar.engine.resources import AttentionStep, KVStep, PositionStep, Segment, SlotLease, SubmoduleStep
 from mstar.model.submodule_base import (
@@ -81,6 +90,9 @@ logger = logging.getLogger(__name__)
 
 TALKER_LOOP = "talker_decode_loop"
 PREFILL_WALKS = ("talker_prefill", "talker_prefill_clone")
+# piecewise regions
+PREFILL_TAIL = "prefill_tail"
+VAE_WINDOW = "vae_window_{}"
 
 
 def build_prompt(
@@ -398,13 +410,36 @@ class TalkerSubmodule(ARNodeSubmodule):
     # -- forward -------------------------------------------------------------
 
     def _run(
-        self, graph_walk: str, noise, cfg, step_index, prev_patch=None, **prefill
+        self,
+        graph_walk: str,
+        engine_inputs: ModelInputsFromEngine,
+        noise,
+        cfg,
+        step_index,
+        prev_patch=None,
+        cond_patch=None,
+        **prefill,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         del step_index
         if graph_walk == "talker_decode":
             return self.model.decode_step(prev_patch, noise, cfg, self.t_span())
         prefill.pop("prompt_patches", None)
-        return self.model.prefill(noise=noise, cfg_value=cfg, t_span=self.t_span(), **prefill)
+        lm_hidden, res_hidden = self.model.prefill_states(**prefill)
+        rows = lm_hidden.shape[0]
+        runner = engine_inputs.piecewise_runners.get(PREFILL_TAIL)
+        if runner is None or not runner.can_run(rows):
+            return self.model.first_patch(lm_hidden, res_hidden, cond_patch, noise, cfg, self.t_span())
+        out = runner.run(
+            static_inputs={
+                "lm_hidden": lm_hidden,
+                "res_hidden": res_hidden,
+                "cond_patch": cond_patch,
+                "noise": noise,
+                "cfg": cfg,
+            },
+            real_bs=rows,
+        )
+        return out["patch"], out["stop_logits"]
 
     def _outputs(
         self, graph_walk: str, patch: torch.Tensor, stop: torch.Tensor, prompt_patches: torch.Tensor | None
@@ -425,7 +460,7 @@ class TalkerSubmodule(ARNodeSubmodule):
 
     def forward(self, graph_walk: str, engine_inputs: ModelInputsFromEngine, **kwargs: Any) -> NameToTensorList:
         prompt = kwargs.get("prompt_patches")
-        patch, stop_logits = self._run(graph_walk, **kwargs)
+        patch, stop_logits = self._run(graph_walk, engine_inputs, **kwargs)
         stop = self._stop_flags(stop_logits, kwargs["step_index"])
         return self._outputs(graph_walk, patch[0], stop[0], prompt[0] if prompt else None)
 
@@ -433,7 +468,7 @@ class TalkerSubmodule(ARNodeSubmodule):
         self, graph_walk: str, engine_inputs: ModelInputsFromEngine, **kwargs: Any
     ) -> dict[str, NameToTensorList]:
         prompt = kwargs.get("prompt_patches") or [None] * len(engine_inputs.request_ids)
-        patch, stop_logits = self._run(graph_walk, **kwargs)
+        patch, stop_logits = self._run(graph_walk, engine_inputs, **kwargs)
         stop = self._stop_flags(stop_logits, kwargs["step_index"])
         return {
             rid: self._outputs(graph_walk, patch[i], stop[i], prompt[i] if i < len(prompt) else None)
@@ -510,6 +545,39 @@ class TalkerSubmodule(ARNodeSubmodule):
             and super().can_use_accelerator_graphs(batch, model_inputs)
         )
 
+    def _first_patch_capture(self, inp: PiecewiseCallInputs) -> dict[str, torch.Tensor]:
+        si = inp.static_inputs
+        patch, stop_logits = self.model.first_patch(
+            si["lm_hidden"], si["res_hidden"], si["cond_patch"], si["noise"], si["cfg"], self.t_span()
+        )
+        return {"patch": patch, "stop_logits": stop_logits}
+
+    def _first_patch_static_inputs(self, shape: PiecewiseCaptureShape, device: torch.device) -> dict[str, torch.Tensor]:
+        cfg, dtype, rows = self.config, self._dtype(), shape.bs
+        return {
+            "lm_hidden": torch.zeros(rows, cfg.lm.hidden_size, dtype=dtype, device=device),
+            "res_hidden": torch.zeros(rows, cfg.residual.hidden_size, dtype=dtype, device=device),
+            "cond_patch": torch.zeros(rows, cfg.patch_size, cfg.feat_dim, dtype=dtype, device=device),
+            "noise": torch.zeros(rows, cfg.feat_dim, cfg.patch_size, dtype=dtype, device=device),
+            "cfg": torch.zeros(rows, dtype=torch.float32, device=device),
+        }
+
+    def get_piecewise_cuda_graph_configs(
+        self, device: torch.device, autocast_dtype: torch.dtype, tp_world_size: int = 1, **kwargs: Any
+    ) -> dict[str, PiecewiseCudaGraphConfig]:
+        """The prefill's per-row tail (CFM solve and stop head on each row's
+        last position), at the decode's batch buckets; the LM prefill before
+        it stays eager. Not compiled, so a replay runs the eager kernels."""
+        del autocast_dtype, tp_world_size, kwargs
+        return {
+            PREFILL_TAIL: PiecewiseBatchedConfig(
+                capture_fn=self._first_patch_capture,
+                make_static_inputs=partial(self._first_patch_static_inputs, device=device),
+                seq_len=1,
+                capture_batch_sizes=self.DECODE_CAPTURE_BATCH_SIZES,
+            )
+        }
+
 
 # ===========================================================================
 # 3. VAEDecoderSubmodule
@@ -528,12 +596,17 @@ class VAEDecoderSubmodule(ARNodeSubmodule):
     disable_torch_compile = True
     disable_autocast = True
     MAX_BATCH_SIZE = 32
+    CAPTURE_BATCH_SIZES = [1, 2, 4, 8, 16, 32]
 
-    def __init__(self, vae: AudioVAE, config: VoxCPM2Config):
+    def __init__(self, vae: AudioVAE, config: VoxCPM2Config, window_buckets: Sequence[int] = ()):
+        """``window_buckets``: window widths, in patches, to capture the decode
+        at; a window is padded at the end to the next one, and a wider window
+        decodes eagerly."""
         super().__init__()
         self.vae = vae
         self.config = config
-        self._sr_index: torch.Tensor | None = None
+        self.window_buckets = sorted(set(window_buckets))
+        self._sr_index = vae.output_rate_index(next(vae.parameters()).device)
 
     def prepare_inputs(
         self,
@@ -569,25 +642,57 @@ class VAEDecoderSubmodule(ARNodeSubmodule):
         width = max(window.shape[-1] for window in windows)
         return {"latents": torch.stack([torch.nn.functional.pad(w, (0, width - w.shape[-1])) for w in windows])}
 
-    def _decode(self, latents: torch.Tensor) -> torch.Tensor:
-        if latents.shape[-1] == 0:
+    def _decode(self, latents: torch.Tensor, runners: Mapping[str, Any]) -> torch.Tensor:
+        """``[rows, samples]``; a captured window comes back at its bucket's
+        width, which ``postprocess`` trims with the rest of the padding."""
+        frames = latents.shape[-1]
+        if frames == 0:
             return latents.new_zeros(latents.shape[0], 0)
-        if self._sr_index is None:
-            self._sr_index = self.vae.output_rate_index(latents.device)
-        return self.vae.decode(latents, self._sr_index)
+        patch = self.config.patch_size
+        i = bisect.bisect_left(self.window_buckets, -(-frames // patch))
+        runner = runners.get(VAE_WINDOW.format(self.window_buckets[i])) if i < len(self.window_buckets) else None
+        if runner is None or not runner.can_run(latents.shape[0]):
+            return self.vae.decode(latents, self._sr_index)
+        padded = torch.nn.functional.pad(latents, (0, self.window_buckets[i] * patch - frames))
+        return runner.run(static_inputs={"latents": padded}, real_bs=latents.shape[0])["audio"]
 
     def forward(
         self, graph_walk: str, engine_inputs: ModelInputsFromEngine, latents: torch.Tensor, **kwargs: Any
     ) -> NameToTensorList:
-        del graph_walk, engine_inputs, kwargs
-        return {"audio_chunk": [self._decode(latents)[0]]}
+        del graph_walk, kwargs
+        return {"audio_chunk": [self._decode(latents, engine_inputs.piecewise_runners)[0]]}
 
     def forward_batched(
         self, graph_walk: str, engine_inputs: ModelInputsFromEngine, latents: torch.Tensor, **kwargs: Any
     ) -> dict[str, NameToTensorList]:
         del graph_walk, kwargs
-        audio = self._decode(latents)
+        audio = self._decode(latents, engine_inputs.piecewise_runners)
         return {rid: {"audio_chunk": [audio[i]]} for i, rid in enumerate(engine_inputs.request_ids)}
+
+    def _window_capture(self, inp: PiecewiseCallInputs) -> dict[str, torch.Tensor]:
+        return {"audio": self.vae.decode(inp.static_inputs["latents"], self._sr_index)}
+
+    def _window_static_inputs(
+        self, shape: PiecewiseCaptureShape, width: int, device: torch.device
+    ) -> dict[str, torch.Tensor]:
+        cfg, dtype = self.config, next(self.vae.parameters()).dtype
+        return {"latents": torch.zeros(shape.bs, cfg.feat_dim, width * cfg.patch_size, dtype=dtype, device=device)}
+
+    def get_piecewise_cuda_graph_configs(
+        self, device: torch.device, autocast_dtype: torch.dtype, tp_world_size: int = 1, **kwargs: Any
+    ) -> dict[str, PiecewiseCudaGraphConfig]:
+        """One region per window width the stream schedule pops. The decoder
+        is causal, so the padding never changes a window's frames."""
+        del autocast_dtype, tp_world_size, kwargs
+        return {
+            VAE_WINDOW.format(width): PiecewiseBatchedConfig(
+                capture_fn=self._window_capture,
+                make_static_inputs=partial(self._window_static_inputs, width=width, device=device),
+                seq_len=width,
+                capture_batch_sizes=self.CAPTURE_BATCH_SIZES,
+            )
+            for width in self.window_buckets
+        }
 
     def postprocess(
         self,

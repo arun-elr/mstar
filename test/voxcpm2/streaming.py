@@ -16,14 +16,16 @@ from mstar.model.voxcpm2.voxcpm2_model import STREAM_EDGE
 from mstar.streaming.stream_buffer import StreamBuffer
 
 
-def stream_through(vae_node, patches: torch.Tensor, policy, lead: torch.Tensor | None = None) -> list[torch.Tensor]:
+def stream_through(
+    vae_node, patches: torch.Tensor, policy, lead: torch.Tensor | None = None, runners: dict | None = None
+) -> list[torch.Tensor]:
     buffer = StreamBuffer(request_id="r", edge_name=STREAM_EDGE, from_partition="Talker", policy=policy)
     items = list(lead) if lead is not None else []
     if lead is not None:
         buffer.prime_context(len(lead))
     items += list(patches)
     info = SimpleNamespace(rid_handle="r", request_id="r")
-    engine = SimpleNamespace(request_ids=["r"])
+    engine = SimpleNamespace(request_ids=["r"], piecewise_runners=runners or {})
     chunks = []
 
     def drain():
