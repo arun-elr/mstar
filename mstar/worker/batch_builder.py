@@ -78,19 +78,21 @@ class BaseBatchBuilder(ABC):
         """One step's rows out of ``request``'s backlog and entries."""
 
     def room_for_continuing(
-        self, cap: int | None, backlog: "ScheduledBatch | None",
+        self, cap: int | None, backlogged: int,
     ) -> int | None:
         """How many of a speculation chain's own rids fit in a step capped at
-        ``cap`` when ``backlog`` waits under the same (node, walk).
+        ``cap`` when ``backlogged`` live rows wait under the same (node, walk).
 
         The chain only ever continues its own rids, so at the cap a backlogged
         chunk would never be reached. Giving the backlog first claim costs the
         displaced rids one step — their nodes go ready again when the in-flight
-        batch lands. None for an uncapped node: nothing is displaced.
+        batch lands. Only live rows count: a held one cannot take the step's
+        room, so reserving it would just run the step short. None for an
+        uncapped node: nothing is displaced.
         """
         if cap is None:
             return None
-        return max(0, cap - (0 if backlog is None else len(backlog)))
+        return max(0, cap - backlogged)
 
     def chain_must_yield(
         self, backlog: "ScheduledBatch", live_rids: set[int], anchor: int,

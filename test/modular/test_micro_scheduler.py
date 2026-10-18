@@ -628,6 +628,31 @@ def test_the_peek_ignores_a_backlog_of_failed_rids():
     assert _has_ready(sched, _Manager([]), (NODE, WALK)) is False
 
 
+def test_the_peek_agrees_with_the_yield_away_on_a_backlogged_row_that_is_not_ready():
+    """Offloaded with no room to reload, or its KV read still in flight: the
+    yield-away would schedule nothing, so a yes here only cost the chain its
+    overlap on that step."""
+    sched = _scheduler(_Engine(max_bs=4, not_ready={"b0"}))
+    manager = _Manager([])
+    sched.runtime = manager.runtime
+    sched.backlog[("other", "prefill")] = _batch(["b0"], node="other", walk="prefill")
+    sched.parallel_leader_nodes.add("other")
+
+    peek = _has_ready(sched, manager, (NODE, WALK))
+    yield_away = sched.get_next_batch(manager, exclude_target=(NODE, WALK))
+
+    assert peek is False and yield_away is None
+
+
+def test_held_backlog_rows_leave_the_chain_its_room():
+    """Rows in OOM backoff cannot take a step, so they reserve none of it."""
+    sched = _scheduler(_Engine(max_bs=4))
+    sched.backlog[(NODE, WALK)] = _batch(["h0", "h1"])
+    sched.hold_requests(["h0", "h1"])
+
+    assert sched.room_for_continuing((NODE, WALK)) == 4
+
+
 # ── capture groups ──────────────────────────────────────────────────────
 
 # chatterbox T3: guided (cfg_weight > 0) and unguided requests replay

@@ -829,27 +829,35 @@ class MicroScheduler:
 
 
     def _backlog_has_schedulable(
-        self, exclude_target: tuple[str, str] | None,
+        self, request_state: RequestStateManager,
+        exclude_target: tuple[str, str] | None,
     ) -> bool:
         """Whether a backlogged chunk outside ``exclude_target`` holds a rid
-        still worth running."""
+        the next pass would schedule: not failed, removed or held, and ready
+        on its engine, as ``_unready_backlog_rids`` asks it. Stops at the
+        first one."""
         now = time.monotonic()
-        for node_walk, batch in self.backlog.items():
-            if node_walk == exclude_target:
+        # copies: a terminal admit error drops the rid from the backlog
+        for (node_name, _walk), batch in list(self.backlog.items()):
+            if (node_name, _walk) == exclude_target:
                 continue
-            for rid in batch.request_to_worker_graph:
+            node_partition = request_state.get_partition_for_node(node_name)
+            for rid in list(batch.request_to_worker_graph):
                 if rid in self.failed_rids or rid in self.pending_removes:
                     continue
                 if self.held_until.get(rid, 0.0) > now:
                     continue
-                return True
+                if self._check_ready(
+                    node_name, rid, request_state.get_fwd_info(rid, node_partition),
+                ):
+                    return True
         return False
 
     def room_for_continuing(self, target: tuple[str, str]) -> int | None:
         """How many of a speculative batch's own rids fit in ``target``'s step
         beside its backlog; see ``BaseBatchBuilder.room_for_continuing``."""
         return self.batch_builder.room_for_continuing(
-            self._max_batch_size(*target), self.backlog.get(target),
+            self._max_batch_size(*target), len(self._live_backlog(target)),
         )
 
     def has_ready_excluding(
@@ -871,7 +879,7 @@ class MicroScheduler:
         under `exclude_target` is left out like any other — the speculative
         merge takes that one before its own rids, so it needs no yield.
         """
-        if self._backlog_has_schedulable(exclude_target):
+        if self._backlog_has_schedulable(request_state, exclude_target):
             return True
 
         # A failed rid is normally invisible here — get_next_batch refuses to
