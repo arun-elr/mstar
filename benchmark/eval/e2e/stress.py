@@ -10,10 +10,11 @@ cycles through five patterns (one per client per round, mixed across clients):
   overlap    send a second request under the id while the first is streaming: one of the pair should get a 409
 
 A run fails on a hang (no progress for ``hang_s``), an HTTP 5xx, unexpected 4xx, empty reply or in-band error, a
-cross-talk (a reply holding text of another prompt's answer), a leak (``/dev/shm`` M* segments still above the
-post-warm-up count ``settle_s`` after the run) or a crash (a process of the server's group exits). Every request
-under one id asks a different prompt, so cross-talk within an id (a retry receiving its predecessor's tail) shows
-up as well as across ids. The references are each prompt's reply on a quiet server, taken per server session.
+cross-talk (a reply holding another prompt's answer: each prompt's answer has a signature, such as three
+consecutive integers or two weekday names), a leak (M* tensor files in ``/dev/shm`` still above the post-warm-up
+count ``settle_s`` after the run) or a crash (a process of the server's group exits). Every request under one id
+asks a different prompt, so cross-talk within an id (a retry receiving its predecessor's tail) shows up as well as
+across ids. Runs a crash or a server that did not start left unrun count as failed, so N stays the scheduled one.
 
 Verdict per model: a crash or cross-talk on head that base never shows fails outright; otherwise head fails when
 its failed-run count beats base's at one-sided Fisher exact p < ``ALPHA``.
@@ -40,7 +41,7 @@ OUTRIGHT = ("crash", "crosstalk")
 FAILED_REQUEST = ("hang", "error", "crosstalk")
 ALPHA = 0.05
 PER_SERVER = 5          # runs per server session: a fresh server every 5 runs
-WINDOW = 16             # characters of normalized text that tie a reply to a reference
+CAP_HANGS = 4           # a request still streaming after this many hang_s is a hang (max_tokens bounds a reply)
 DEFAULTS = {"runs": 20, "seconds": 60.0, "clients": 32, "hang_s": 30.0, "settle_s": 30.0, "max_tokens": 64,
             "shm_dir": "/dev/shm"}
 PROMPTS = (
@@ -68,30 +69,51 @@ class Reply:
     result: str = ""
 
 
-def norm(text: str) -> str:
-    return " ".join(text.split()).lower()
+def tokens(text: str) -> list[str]:
+    return re.findall(r"[a-z]+|\d+", text.lower())
 
 
-def windows(text: str) -> set[str]:
-    t = norm(text)
-    return {t[i:i + WINDOW] for i in range(len(t) - WINDOW + 1)}
+def _ascending(tok: list[str], n: int, ok, step) -> bool:
+    """``n`` adjacent tokens, each ``ok`` and one ``step`` after the previous (1 2 3, or b c d e)."""
+    for i in range(len(tok) - n + 1):
+        w = tok[i:i + n]
+        if all(ok(t) for t in w) and all(step(w[j], w[j + 1]) for j in range(n - 1)):
+            return True
+    return False
+
+
+def _names(names: set[str]):
+    return lambda tok: len(names & set(tok)) >= 2
+
+
+# What only each prompt's answer holds, whatever prose surrounds it: a predecessor's tail ("13 14 15") still shows.
+# "may" and "march" are left out of the months: they are common words.
+SIGNATURES = (
+    lambda tok: _ascending(tok, 3, str.isdigit, lambda a, b: int(b) == int(a) + 1),
+    lambda tok: _ascending(tok, 4, lambda t: len(t) == 1 and t.isalpha(), lambda a, b: ord(b) == ord(a) + 1),
+    lambda tok: "banana" in tok or "bananas" in tok,
+    _names({"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}),
+    _names({"mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune"}),
+    _names({"january", "february", "april", "june", "july", "august", "september", "october", "november",
+            "december"}),
+)
 
 
 class Refs:
-    """Each prompt's quiet reply, as the set of its text windows."""
+    """Each prompt's quiet reply. A signature another prompt's quiet reply already holds is not cross-talk there."""
 
     def __init__(self, texts: dict[int, str]):
         self.texts = texts
-        self.win = {p: windows(t) for p, t in texts.items()}
+        self.ignore = {p: {q for q in range(len(PROMPTS)) if q != p and SIGNATURES[q](tokens(t))}
+                       for p, t in texts.items()}
 
     def crosstalk(self, text: str, own: int) -> bool:
-        """Text that belongs to another prompt's answer and not to this one's."""
-        mine = self.win.get(own, set())
-        return any(w in other and w not in mine for w in windows(text)
-                   for p, other in self.win.items() if p != own)
+        """A reply holding another prompt's answer (all of it, or a tail)."""
+        tok = tokens(text)
+        return any(SIGNATURES[q](tok) for q in range(len(PROMPTS)) if q != own and q not in self.ignore.get(own, ()))
 
     def matches(self, text: str, own: int) -> bool:
-        return bool(windows(text) & self.win.get(own, set()))
+        return SIGNATURES[own](tokens(text))
 
 
 def judge(r: Reply, refs: Refs, expect_conflict: bool = False) -> str:
@@ -114,10 +136,16 @@ def judge(r: Reply, refs: Refs, expect_conflict: bool = False) -> str:
 
 async def send(session, url: str, rid: str, prompt: int, cfg: dict, *, stop_after: int | None = None,
                drop: bool = False, started: asyncio.Event | None = None) -> Reply:
-    """POST /generate (streamed NDJSON) under ``rid``. No progress for ``hang_s`` is a hang."""
+    """POST /generate (streamed NDJSON) under ``rid``. No text or end for ``hang_s``, or no end after
+    ``CAP_HANGS * hang_s``, is a hang: blank or unknown lines are not progress."""
     import aiohttp
 
     r, hang_s = Reply(prompt), cfg["hang_s"]
+    t0 = last = time.monotonic()
+
+    def left() -> float:
+        now = time.monotonic()
+        return max(0.0, min(last + hang_s, t0 + CAP_HANGS * hang_s) - now)
     form = aiohttp.FormData()
     form.add_field("text", PROMPTS[prompt])
     form.add_field("request_id", rid)
@@ -126,22 +154,24 @@ async def send(session, url: str, rid: str, prompt: int, cfg: dict, *, stop_afte
                                                "max_output_tokens": cfg["max_tokens"]}))
     resp = None
     try:
-        resp = await asyncio.wait_for(session.post(f"{url}/generate", data=form), hang_s)
+        resp = await asyncio.wait_for(session.post(f"{url}/generate", data=form), left())
         r.status = resp.status
         if resp.status != 200:
-            body = await asyncio.wait_for(resp.read(), hang_s)
+            body = await asyncio.wait_for(resp.read(), left())
             r.error = body[:300].decode("utf-8", "replace") or f"HTTP {resp.status}"
             return r
         if drop:
             r.closed = True
             return r
         while True:
-            line = await asyncio.wait_for(resp.content.readline(), hang_s)
+            line = await asyncio.wait_for(resp.content.readline(), left())
             if not line:
                 break
             try:
                 msg = json.loads(line)
             except ValueError:
+                continue
+            if not isinstance(msg, dict):
                 continue
             if msg.get("modality") == "error":
                 r.error = _b64(msg.get("data"))[:300] or "in-band error"
@@ -150,6 +180,7 @@ async def send(session, url: str, rid: str, prompt: int, cfg: dict, *, stop_afte
             if msg.get("modality") == "text":
                 r.text += _b64(msg.get("data"))
                 r.chunks += 1
+                last = time.monotonic()
                 if started is not None:
                     started.set()
                 if stop_after is not None and r.chunks >= stop_after:
@@ -218,9 +249,14 @@ class Client:
         elif pattern == "overlap":
             started = asyncio.Event()
             a_task = asyncio.ensure_future(send(session, url, self.rid, self.prompt(), cfg, started=started))
-            await started.wait()          # set on the first chunk, or when the first request ends
-            b = await send(session, url, self.rid, self.prompt(), cfg)
-            a = await a_task
+            try:
+                await started.wait()      # set on the first chunk, or when the first request ends (send is bounded)
+                b = await send(session, url, self.rid, self.prompt(), cfg)
+                a = await a_task
+            finally:
+                if not a_task.done():
+                    a_task.cancel()
+                    await asyncio.gather(a_task, return_exceptions=True)
             a.result, b.result = judge(a, refs, True), judge(b, refs, True)
             if a.result == b.result == "conflict":
                 b.result = "error"        # one of the pair must be served
@@ -292,9 +328,10 @@ async def workload(url: str, cfg: dict, refs: Refs, tag: str, seed: int) -> dict
 # ---------------------------------------------------------------- the server side (on the GPU host)
 
 def shm_entries(root: str = "/dev/shm") -> int:
-    """M* segments on the host (tensor files and arena segments are all named ``mstar_*``)."""
+    """M* per-request tensor files on the host (``mstar_*``). Arena segments (``mstar_arena_*``) are left out: an
+    arena keeps the segments it grew into until shutdown, so their count rises under load without a leak."""
     try:
-        return sum(1 for n in os.listdir(root) if n.startswith("mstar_"))
+        return sum(1 for n in os.listdir(root) if n.startswith("mstar_") and not n.startswith("mstar_arena_"))
     except OSError:
         return -1
 
@@ -322,25 +359,40 @@ def settle(baseline: int, settle_s: float, root: str = "/dev/shm") -> int:
     return n
 
 
+def session_runs(cfg: dict, session: int) -> list[int]:
+    first = session * PER_SERVER
+    return list(range(first, min(cfg["runs"], first + PER_SERVER)))
+
+
+def lost_runs(runs: list[int], arm: str, session: int, d: Path, classes: list[str], reason: str, publish,
+              **extra) -> None:
+    """Records for runs this session could not run: they count as failed, so N stays the scheduled one."""
+    sd = d / "stress"
+    sd.mkdir(parents=True, exist_ok=True)
+    for r in runs:
+        publish(f"run{r}.json", {"arm": arm, "session": session, "run": r, "classes": classes, "reason": reason,
+                                 "lost": True, **extra}, sd)
+
+
 def run_session(url: str, pgid: int, arm: str, session: int, d: Path, cfg: dict, status, log,
                 publish) -> None:
     """This server session's share of the arm's runs, one record each under ``d/stress/``."""
-    first = session * PER_SERVER
-    runs = list(range(first, min(cfg["runs"], first + PER_SERVER)))
+    runs = session_runs(cfg, session)
     sd = d / "stress"
     sd.mkdir(parents=True, exist_ok=True)
     base_rec = {"arm": arm, "session": session}
+    procs = group_pids(pgid)
     try:
         refs = asyncio.run(warm(url, cfg))
     except RuntimeError as e:
-        for r in runs:
-            publish(f"run{r}.json", {**base_rec, "run": r, "classes": ["error"], "reason": str(e)[:300]}, sd)
+        crashed = any(not alive(p) for p in procs)
+        lost_runs(runs, arm, session, d, ["crash", "error"] if crashed else ["error"], str(e)[:300], publish)
         log(f"{arm} s{session}: {e}")
         return
     (sd / "refs.json").write_text(json.dumps(refs.texts))
     shm = cfg.get("shm_dir", DEFAULTS["shm_dir"])
     shm0, procs = shm_entries(shm), group_pids(pgid)
-    for r in runs:
+    for i, r in enumerate(runs):
         status(phase="stress", arm=arm, session=session, run=r)
         res = asyncio.run(workload(url, cfg, refs, f"{arm[0]}{r}", seed=cfg.get("seed", 0) + r))
         classes = set(res["classes"])
@@ -349,7 +401,7 @@ def run_session(url: str, pgid: int, arm: str, session: int, d: Path, cfg: dict,
         if not gone:
             probe_result = asyncio.run(probe(url, cfg, refs))
             if probe_result in FAILED_REQUEST:
-                classes.add("hang" if probe_result == "hang" else "error")
+                classes.add(probe_result)
             after = settle(shm0, cfg["settle_s"], shm)
             if shm0 >= 0 and after > shm0:
                 classes.add("leak")
@@ -362,6 +414,8 @@ def run_session(url: str, pgid: int, arm: str, session: int, d: Path, cfg: dict,
         log(f"{arm} s{session} run {r}: {res['requests']} requests, {dict(res['results'])}, "
             f"classes {sorted(classes) or 'none'}")
         if gone:
+            lost_runs(runs[i + 1:], arm, session, d, ["crash"], f"not run: the server exited during run {r}",
+                      publish)
             log(f"{arm} s{session}: {len(gone)} server process(es) exited; the next session starts a fresh server")
             return
 
@@ -428,10 +482,14 @@ class Verdict:
     reason: str = ""
     p: float | None = None
     outright: list[str] = field(default_factory=list)
+    expected: int = 0          # scheduled runs per arm
 
     @property
     def unfinished(self) -> bool:
-        return self.status != "done" or not self.base.n or not self.head.n
+        """No Fisher verdict: the job did not finish, an arm is short of its scheduled runs, or base's server did
+        not start (head's that did not start count as failed runs)."""
+        return (self.status != "done" or min(self.base.n, self.head.n) < max(self.expected, 1)
+                or any(r.get("no_server") for r in self.base.runs))
 
     @property
     def flagged(self) -> bool:
@@ -443,14 +501,20 @@ class Verdict:
         if self.p is not None and self.p < ALPHA:
             return f"**FAIL** (more failed runs, p = {self.p:.3f})"
         if self.unfinished:
-            return f"incomplete ({self.reason or self.status})"
+            if self.status != "done":
+                return f"incomplete ({self.reason or self.status})"
+            if any(r.get("no_server") for r in self.base.runs):
+                return "incomplete (base did not start)"
+            return f"incomplete ({min(self.base.n, self.head.n)} of {self.expected} runs)"
         return "same"
 
 
-def judge_model(model: str, base: Arm, head: Arm, status: str = "done", reason: str = "") -> Verdict:
-    v = Verdict(model, base, head, status, reason)
+def judge_model(model: str, base: Arm, head: Arm, status: str = "done", reason: str = "",
+                expected: int = 0) -> Verdict:
+    v = Verdict(model, base, head, status, reason, expected=expected)
     if base.n and head.n:
         v.outright = [c for c in OUTRIGHT if head.with_class(c) and not base.with_class(c)]
+    if not v.unfinished:
         v.p = fisher_one_sided(head.failed, head.n, base.failed, base.n)
     return v
 
@@ -530,9 +594,9 @@ def render_md(verdicts: list[Verdict], run: dict, chart_url: str | None = None) 
               f"- base: {base['label']} (`{base['sha'][:9]}`), head: {head['label']} (`{head['sha'][:9]}`)",
               f"- Command: `{run.get('command', 'python -m benchmark.eval compare --stress')}`",
               f"- A run fails on a hang (no progress for {cfg['hang_s']:g} s), an HTTP 5xx, unexpected 4xx, empty "
-              "reply or in-band error, cross-talk (a reply holding another prompt's answer), a leak (M* segments in "
-              f"/dev/shm above the post-warm-up count {cfg['settle_s']:g} s after the run) or a crash (a server "
-              "process exits)",
+              "reply or in-band error, cross-talk (a reply holding another prompt's answer), a leak (M\\* tensor "
+              f"files in /dev/shm above the post-warm-up count {cfg['settle_s']:g} s after the run) or a crash (a "
+              "server process exits); runs a crash or a server that did not start left unrun count as failed",
               "- Verdict: a crash or cross-talk on head that base never shows fails outright; else head fails when "
               f"its failed-run count beats base's at one-sided Fisher exact p < {ALPHA}",
               f"- GPU time: {run.get('gpu_hours', '?')} GPU-hours", "", "</details>"]
@@ -585,7 +649,8 @@ def write(run_dir: Path, models: list[str], chart_url: str | None = None) -> tup
         except (OSError, ValueError):
             done = {"status": status.get(m, {}).get("status", "not run"), "reason": status.get(m, {}).get("reason", "")}
         arms = load_arms(md)
-        verdicts.append(judge_model(m, arms["base"], arms["head"], done.get("status", "?"), done.get("reason", "")))
+        verdicts.append(judge_model(m, arms["base"], arms["head"], done.get("status", "?"), done.get("reason", ""),
+                                    expected=run["stress"]["runs"]))
     out = run_dir / "report"
     out.mkdir(exist_ok=True)
     png = None

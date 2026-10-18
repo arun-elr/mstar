@@ -320,6 +320,9 @@ def run_arm(arm_name: str, session: int) -> dict:
     except ServerError as e:
         info.update(healthy=False, error=str(e)[-500:])
         log(f"{arm_name} s{session}: did not start: {e}")
+        if job.get("stress"):
+            stress.lost_runs(stress.session_runs(job["stress"], session), arm_name, session, d, ["error"],
+                             "not run: the server did not start", _publish, no_server=True)
     finally:   # also when interrupted; a signal must not cut the process-group sweep short
         with signals_deferred():
             server.stop()

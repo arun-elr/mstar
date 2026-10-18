@@ -57,14 +57,25 @@ def test_verdict_outright_classes_fisher_and_incomplete():
     assert not v.flagged and v.text() == "same"
     v = stress.judge_model("m", arm(), arm([]), status="error", reason="job died")
     assert v.unfinished and not v.flagged and v.p is None and v.text() == "incomplete (job died)"
+    v = stress.judge_model("m", arm(*[[]] * 10), arm(*[[]] * 5), expected=10)       # head short of its runs
+    assert v.unfinished and v.p is None and v.text() == "incomplete (5 of 10 runs)"
+    lost = Arm([{"run": i, "classes": ["error"], "no_server": True} for i in range(5)])
+    v = stress.judge_model("m", arm(*[[]] * 5), lost, expected=5)                     # head did not start: failed
+    assert not v.unfinished and v.flagged and v.p < 0.01
+    v = stress.judge_model("m", lost, arm(*[[]] * 5), expected=5)
+    assert v.unfinished and v.p is None and v.text() == "incomplete (base did not start)"
 
 
 def test_request_outcomes():
-    refs = Refs({0: "1 2 3 4 5 6 7 8 9 10 11 12 13 14", 1: "A B C D E F G H I J K L M N O P", 2: "banana " * 8})
+    refs = Refs({0: "1 2 3 4 5 6 7 8 9 10 11 12 13 14", 1: "Here is the list: A B C D E F G", 2: "banana " * 8,
+                 3: "Monday, Tuesday, and a banana"})
     ok = Reply(0, status=200, text="1 2 3 4 5 6 7 8 9 10")
     assert stress.judge(ok, refs) == "ok"
-    assert stress.judge(Reply(1, status=200, text="8 9 10 11 12 13 14"), refs) == "crosstalk"   # a predecessor's tail
+    assert stress.judge(Reply(0, status=200, text="Here is the list: 1 2 3 4"), refs) == "ok"   # prose is not a sign
+    assert stress.judge(Reply(1, status=200, text="12 13 14"), refs) == "crosstalk"   # a predecessor's tail
     assert stress.judge(Reply(0, status=200, text="1 2 3 4 5 6 7 8 9 banana banana banana"), refs) == "crosstalk"
+    assert stress.judge(Reply(3, status=200, text="Monday, Tuesday, and a banana"), refs) == "ok"  # its quiet reply
+    assert stress.judge(Reply(4, status=200, text="Mercury, Venus, Monday, Friday"), refs) == "crosstalk"
     assert stress.judge(Reply(0, status=200, text="1 2", closed=True), refs) == "closed"
     assert stress.judge(Reply(0, status=200, text=""), refs) == "error"                       # an empty 200
     assert stress.judge(Reply(0, status=200, text="something else entirely"), refs) == "unmatched"
@@ -76,6 +87,45 @@ def test_request_outcomes():
     assert stress.judge(Reply(0, status=200, hang=True), refs) == "hang"
 
 
+def test_a_stream_of_blank_lines_or_no_headers_is_a_hang_not_progress():
+    import asyncio
+    import time
+
+    from aiohttp import web
+
+    async def blank(request):
+        resp = web.StreamResponse()
+        await resp.prepare(request)
+        while True:
+            await resp.write(b"\n")
+            await asyncio.sleep(0.01)
+
+    async def silent(request):
+        await asyncio.sleep(30)
+
+    async def go():
+        app = web.Application()
+        app.router.add_post("/generate", blank)
+        app.router.add_post("/silent/generate", silent)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "127.0.0.1", 0)
+        await site.start()
+        url = f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}"
+        cfg = {**stress.DEFAULTS, "hang_s": 0.3}
+        try:
+            async with await stress._session() as s:
+                t0 = time.monotonic()
+                r1 = await stress.send(s, url, "x", 0, cfg)
+                r2 = await stress.send(s, url + "/silent", "y", 0, cfg)
+                return r1, r2, time.monotonic() - t0
+        finally:
+            await runner.cleanup()
+
+    r1, r2, took = asyncio.run(go())
+    assert r1.hang and r2.hang and took < 3
+
+
 # ---------------------------------------------------------------- end to end against fake servers
 
 FAKE_GENERATE = r'''
@@ -84,6 +134,7 @@ from pathlib import Path
 from aiohttp import web
 
 MODE = {mode!r}
+ANSWERS = {answers!r}
 SHM = Path(os.environ["FAKE_SHM"])
 p = argparse.ArgumentParser()
 p.add_argument("cmd"); p.add_argument("model"); p.add_argument("--port", type=int)
@@ -109,7 +160,7 @@ async def generate(request):
     retried = rid in aborted
     if retried and MODE == "crash":
         os._exit(3)
-    reply = last.get(rid, text) if retried and MODE == "mix" else text     # a retry gets its predecessor's reply
+    reply = ANSWERS[last.get(rid, text) if retried and MODE == "mix" else text]   # mix: the predecessor's reply
     last[rid] = text
     seg = SHM / f"mstar_{{rid}}_{{len(last)}}_{{id(request)}}"
     seg.touch()
@@ -122,7 +173,7 @@ async def generate(request):
             if request.transport is None or request.transport.is_closing():
                 raise ConnectionResetError
             await asyncio.sleep(0.02)
-        for w in ((reply + " ") * 2).split():
+        for w in reply.split():
             await asyncio.sleep(0.003)
             if me["superseded"]:
                 await resp.write(line("request superseded", "error", status=409))
@@ -152,7 +203,12 @@ def fake_tree(d: Path, mode: str) -> Path:
     (d / "mstar" / "cli").mkdir(parents=True)
     (d / "mstar" / "__init__.py").write_text("")
     (d / "mstar" / "cli" / "__init__.py").write_text("")
-    (d / "mstar" / "cli" / "main.py").write_text(FAKE_GENERATE.format(mode=mode))
+    answers = dict(zip(stress.PROMPTS, (
+        " ".join(str(i) for i in range(1, 21)), " ".join("ABCDEFGHIJKLMNOP"), "banana " * 12,
+        "Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday",
+        "1. Mercury 2. Venus 3. Earth 4. Mars 5. Jupiter 6. Saturn", "January, February, April, June, July"),
+        strict=True))
+    (d / "mstar" / "cli" / "main.py").write_text(FAKE_GENERATE.format(mode=mode, answers=answers))
     (d / ".complete").touch()
     return d
 
