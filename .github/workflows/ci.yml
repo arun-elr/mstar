@@ -20,14 +20,16 @@ jobs:
         run: ruff check --output-format=github .
       - name: Test the optional Mac runner
         run: python -m unittest discover -s test/ci -v
-  # The CPU-only engine/resource suite is listed in test/cpu-core.txt; other
-  # modular tests import GPU backends during collection.
-  cpu-core:
+  # Runs all of test/modular (plus the one CPU test that lives elsewhere) with
+  # no list to maintain: modules that need a GPU, weights or an optional
+  # package skip themselves; see CONTRIBUTING.md. scripts/ci/check.sh runs the
+  # same paths for the Mac cpu-smoke check.
+  cpu-tests:
     name: CPU Core
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
-      group: cpu-core-${{ github.event.pull_request.number || github.ref }}
+      group: cpu-tests-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -54,20 +56,20 @@ jobs:
           # (no weights); 0.39 is the release the decoder was verified on.
           python -m pip install diffusers==0.39.0
           python -m pip check
-      - name: Run CPU core tests
+      - name: Run CPU tests
         env:
           HF_HUB_OFFLINE: "1"
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
         run: |
           python -m pytest -q -ra --strict-markers --durations=20 \
-            --junitxml=cpu-core.xml \
-            @test/cpu-core.txt
-      - name: Upload CPU core test report
+            --junitxml=cpu-tests.xml \
+            test/modular mstar/model/cosmos3/tests/test_windowed_decode.py
+      - name: Upload CPU test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cpu-core-results
-          path: cpu-core.xml
+          name: cpu-tests-results
+          path: cpu-tests.xml
           retention-days: 7
   # Dynamo backend contract: bridge body translations plus a registration
   # smoke against the pinned ai-dynamo wheel (in-memory discovery backend —
@@ -137,5 +139,5 @@ jobs:
           pip install triton
           # the package itself, without its remaining (heavy) deps
           pip install --no-deps -e .
-          # the row store needs the columnar tensor store; cpu-core skips most of it
+          # the row store needs the columnar tensor store; CPU Core skips most of it
           pytest test/rust/ test/modular/test_row_output_store.py -v

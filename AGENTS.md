@@ -187,13 +187,13 @@ A worker keys its own state by a small integer handle ([mstar/worker/rid_table.p
 
 ```bash
 ruff check .                          # CI enforces this
-python -m pytest @test/cpu-core.txt   # the CPU Core CI job, no GPU or weights
-pytest test/modular/                  # broader CPU graph/worker tests
+python -m pytest test/modular/ mstar/model/cosmos3/tests/test_windowed_decode.py
+                                      # the CPU Core CI job, no GPU or weights
 pytest test/integration/              # needs GPU + weights
 cd rust && cargo test --release --no-default-features && pytest ../test/rust/
 ```
 
-Adding a CPU-only module to CI means adding its path to [test/cpu-core.txt](test/cpu-core.txt) — see [CONTRIBUTING.md](CONTRIBUTING.md). `test/modular/test_cpu_core_list.py` checks that each entry exists and appears once. Most of `test/modular/` is not in that list and no CI job runs it ([#498](https://github.com/mstar-project/mstar/issues/498)): if a PR edits or adds a test there, run that file and say so, or add it to the list.
+The CPU Core job runs every module under `test/modular/`; there is no list of tests to add to. A new module there runs in CI as soon as it exists, so it must pass or skip on a CPU-only machine: guard CUDA, weights and optional packages (`flashinfer`, `misaki`, `qwen-tts`, `mstar_rust`) with a `skipif` or `pytest.importorskip`, and give a test that is broken on `main` an in-file `pytest.mark.skip` whose reason says why and names the fixing PR or issue when one exists (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 CI has no GPU. A PR whose change runs on the GPU says which GPU tests it ran, on what hardware and torch/CUDA build. Real-weights tests skip when the checkpoint isn't cached, so a passing CPU run of them shows only that they import: rerun them on CUDA on the commit being pushed, and report them as run, not skipped.
 
