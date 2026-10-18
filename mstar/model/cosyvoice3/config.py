@@ -220,3 +220,11 @@ class CosyVoice3Config:
     flow_estimator_dtype: str = "bfloat16"
     flow_max_batch_size: int = 8
     hift_max_batch_size: int = 8
+    # Flow solves replayed as CUDA graphs, captured at startup for the default
+    # step count: one per frame bucket (prompt and settled tokens, two frames a
+    # token) and batch size, with ``bs * bucket <= flow_capture_batch_frames``.
+    # A solve pads to the smallest bucket that holds it; anything else runs
+    # eagerly.
+    flow_capture_frame_buckets: tuple[int, ...] = (256, 384, 512, 768, 1024, 1536, 2048)
+    flow_capture_batch_sizes: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7, 8)
+    flow_capture_batch_frames: int = 8192
