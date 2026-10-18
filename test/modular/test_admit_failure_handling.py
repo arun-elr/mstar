@@ -24,6 +24,9 @@ sys.path.insert(0, ".")
 
 import pytest
 import torch
+from test_micro_scheduler import NODE as SCHED_NODE
+from test_micro_scheduler import WALK as SCHED_WALK
+from test_micro_scheduler import _Engine, _Manager, _next_batch, _scheduler
 
 from mstar.engine.engine import Engine, ExecutingBatch
 from mstar.engine.resources import (
@@ -201,7 +204,9 @@ class _HoldingWorker:
 
     def __init__(self):
         self._graph_runtime = _Runtime()
-        self.scheduler = SimpleNamespace(hold_requests=lambda rids: None)
+        self.scheduler = SimpleNamespace(
+            hold_requests=lambda rids: None, limit_batch=lambda *args: None,
+        )
         self._hold_logged = {}
         # not a sharded node, so this rank runs its own OOM recovery
         self.parallel_nodes = set()
@@ -306,6 +311,70 @@ def test_a_hold_on_another_walk_is_logged_inside_the_interval(monkeypatch, caplo
     assert len(_hold_lines(caplog)) == 2, (
         "one walk's hold silenced another's, so a stall on it would go unseen"
     )
+
+
+# --- a refused batch with nothing to evict is retried smaller ---------------
+
+
+def _refusing_loop(fits: int, ready: int, cap: int, passes: int):
+    """Schedule and admit like the worker loop, against a real scheduler: a
+    batch of more than ``fits`` rows is refused on its first row past them,
+    with nothing to evict. Returns the scheduler, the batch sizes refused,
+    and the first batch admitted (None if none was)."""
+    sched = _scheduler(_Engine(max_bs=cap))
+    manager = _Manager([f"r{i}" for i in range(ready)])
+    worker = _HoldingWorker()
+    worker.scheduler = sched
+    worker._graph_runtime = manager.runtime
+    refused = []
+    for _ in range(passes):
+        batch = _next_batch(sched, manager)
+        rids = list(batch.request_to_worker_graph)
+        if len(rids) <= fits:
+            return sched, refused, rids
+        refused.append(len(rids))
+        node_batch = SimpleNamespace(
+            node_name=SCHED_NODE, admit_error=_alloc_failed(rids[fits]),
+            failed_resource="kv",
+        )
+        worker._handle_allocation_failure(batch, node_batch)
+    return sched, refused, None
+
+
+def test_a_refused_batch_with_nothing_to_evict_is_retried_smaller():
+    """Fifteen rows fit and the cap is sixteen. Holding the blamed row alone
+    lets the ready queue refill the batch to sixteen, which is refused again
+    on every pass while nothing runs."""
+    _, refused, admitted = _refusing_loop(fits=15, ready=48, cap=16, passes=32)
+
+    assert admitted is not None, (
+        f"{len(refused)} retries were all refused at sizes {sorted(set(refused))}: "
+        "the batch never got smaller than the cap"
+    )
+    assert refused == [16] and len(admitted) == 15
+
+
+def test_the_batch_keeps_shrinking_until_it_fits():
+    _, refused, admitted = _refusing_loop(fits=3, ready=48, cap=8, passes=32)
+
+    assert refused == [8, 7, 6, 5, 4]
+    assert len(admitted) == 3
+
+
+def test_an_admitted_step_lifts_the_limit():
+    sched, _, admitted = _refusing_loop(fits=15, ready=48, cap=16, passes=4)
+    assert len(admitted) == 15
+
+    sched.clear_batch_limit(SCHED_NODE, SCHED_WALK)
+
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 16
+
+
+def test_the_limit_never_drops_below_one_row():
+    sched = _scheduler(_Engine(max_bs=4))
+    sched.limit_batch(SCHED_NODE, SCHED_WALK, 1)
+
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 1
 
 
 # --- the unbatchable path admits everything before it runs anything --------

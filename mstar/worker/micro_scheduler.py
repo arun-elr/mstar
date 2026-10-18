@@ -271,6 +271,9 @@ class MicroScheduler:
         self.node_and_walk_to_last_batch_num = {}
         # request_id -> monotonic time until which the request is held
         self.held_until: dict[int, float] = {}
+        # (node, graph walk) -> most rows a batch may take while its admits are
+        # refused with nothing to evict; see `limit_batch`
+        self.batch_limits: dict[tuple[str, str], int] = {}
         # Rids with a deferred remove; stop initiating new work for them.
         # Shared by reference with Worker._pending_removes.
         self.pending_removes: dict[int, None] = {}
@@ -351,6 +354,23 @@ class MicroScheduler:
         deadline = time.monotonic() + self.HOLD_BACKOFF_SECONDS
         for rid in request_ids:
             self.held_until[rid] = deadline
+
+    def limit_batch(self, node_name: str, graph_walk: str, refused_size: int) -> None:
+        """Keep ``(node_name, graph_walk)``'s batches smaller than one of
+        ``refused_size`` rows that admit refused with nothing to evict, until a
+        step of it admits.
+
+        Holding the blamed rows alone does not shrink the retry: the ready
+        queue refills the batch to the engine's cap, so a cap's worth of rows
+        that cannot fit together is refused on every pass.
+        """
+        key = (node_name, graph_walk)
+        limit = max(refused_size - 1, 1)
+        self.batch_limits[key] = min(limit, self.batch_limits.get(key, limit))
+
+    def clear_batch_limit(self, node_name: str, graph_walk: str) -> None:
+        """A step of ``(node_name, graph_walk)`` admitted: back to its cap."""
+        self.batch_limits.pop((node_name, graph_walk), None)
 
     def tp_rids(self, message: ScheduleTPNode) -> list[int]:
         """``ScheduleTPNode`` crosses the wire, so its rids are strings; these
@@ -1066,14 +1086,18 @@ class MicroScheduler:
 
     def _walk_caps(self, key: tuple[str, str]) -> dict[str, int | None]:
         """``BatchBuildRequest.walk_caps`` for ``key``: its walk's cap, or a
-        combined key's walks' caps and its own under its label."""
+        combined key's walks' caps and its own under its label, each lowered
+        by any limit from a refused admit. The engine's caps are cached; the
+        limits come and go, so they are applied on every call."""
         caps = self._walk_caps_of_key.get(key)
         if caps is None:
             walks = self._walks_of_key.get(key, ())
-            caps = {walk: self._max_batch_size(key[0], walk) for walk in walks}
-            caps[key[1]] = self._max_batch_size(*key)
+            caps = {walk: self._engine_cap(key[0], walk) for walk in walks}
+            caps[key[1]] = self._engine_cap(*key)
             self._walk_caps_of_key[key] = caps
-        return caps
+        if not self.batch_limits:
+            return caps
+        return {walk: self._limited(key[0], walk, cap) for walk, cap in caps.items()}
 
     def _walk_row_caps(self, key: tuple[str, str]) -> dict[str, int]:
         """``BatchBuildRequest.walk_row_caps`` for ``key``: empty unless it is
@@ -1090,6 +1114,11 @@ class MicroScheduler:
         return caps
 
     def _max_batch_size(self, node_name: str, graph_walk: str) -> int | None:
+        """The engine's cap for this (node, walk), if it has one, lowered by
+        any limit from a refused admit (see `limit_batch`)."""
+        return self._limited(node_name, graph_walk, self._engine_cap(node_name, graph_walk))
+
+    def _engine_cap(self, node_name: str, graph_walk: str) -> int | None:
         """The engine's cap for this (node, walk), if it has one. A combined
         walk's cap is the model's to declare, via its captures or max_batch_size.
         Fixed once the graphs are captured, so asked once."""
@@ -1099,6 +1128,13 @@ class MicroScheduler:
                 node_name, graph_walk
             )
         return self._max_bs[key]
+
+    def _limited(self, node_name: str, graph_walk: str, cap: int | None) -> int | None:
+        """``cap`` lowered by any limit from a refused admit (see `limit_batch`)."""
+        limit = self.batch_limits.get((node_name, graph_walk))
+        if limit is None:
+            return cap
+        return limit if cap is None else min(cap, limit)
 
     def _assemble_batch(
         self,
