@@ -206,7 +206,7 @@ def main():
     # ---- condition, chunk by chunk ------------------------------------------
     dit_sub = model.get_submodule("dit", device="cuda").to(DEVICE)
     dit_sub.keep_chunk_outputs = True
-    cache = submodules.new_encoder_cache(dit_sub.encoder_vae)
+    cache = submodules.EncoderStream(dit_sub.encoder_vae)
     cond = torch.cat([
         submodules.encode_condition_chunk(dit_sub.encoder_vae, image.to(DEVICE), cache, k * cs, cs, cfg)
         for k in range(lat_f // cs)

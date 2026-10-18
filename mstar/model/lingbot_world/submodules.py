@@ -26,6 +26,7 @@ runs fp32 as the reference does.
 """
 
 import logging
+from dataclasses import dataclass
 
 import torch
 from torch import nn
@@ -57,17 +58,56 @@ def first_frame_mask(num_latent_frames: int, lat_h: int, lat_w: int, device) -> 
     return msk.transpose(1, 2)[0]
 
 
-def new_encoder_cache(vae: nn.Module) -> list:
-    """An empty encoder feature cache: one slot per causal conv, as
-    ``AutoencoderKLWan.clear_cache`` builds it."""
-    counts = getattr(vae, "_cached_conv_counts", None)
-    if counts is not None:
-        return [None] * counts["encoder"]
-    return [None] * sum(isinstance(m, wan_vae.WanCausalConv3d) for m in vae.encoder.modules())
+@dataclass
+class ConditionEncoderState:
+    """A request's place in the condition encode: the VAE encoder's
+    causal-conv cache, until a black-frame call leaves it unchanged. From then
+    on every call would return that call's output, so ``steady`` keeps the
+    output and the cache is dropped."""
+
+    feat_cache: list | None
+    steady: torch.Tensor | None = None
+
+
+class EncoderStream:
+    """A request's place in its condition encode: the encoder's causal-conv
+    cache, then, once the black frames have driven that cache to a fixed
+    point, the one encoder output every later call would return."""
+
+    def __init__(self, vae: nn.Module):
+        counts = getattr(vae, "_cached_conv_counts", None)
+        if counts is not None:
+            num_convs = counts["encoder"]
+        else:
+            num_convs = sum(isinstance(m, wan_vae.WanCausalConv3d) for m in vae.encoder.modules())
+        # One slot per causal conv, as ``AutoencoderKLWan.clear_cache`` builds it.
+        self.cache: list | None = [None] * num_convs
+        self.steady: torch.Tensor | None = None
+
+    def encode_black(self, vae: nn.Module, x: torch.Tensor) -> torch.Tensor:
+        """One encoder call on black frames. When a call leaves every cache
+        slot equal to what it held before, the next call sees the same input
+        and the same cache, so it, and every call after it, returns this
+        call's output; the cache is dropped from then on. The encoder replaces
+        its slots rather than writing into them; a slot it wrote in place
+        never counts as unchanged."""
+        if self.steady is not None:
+            return self.steady
+        before = list(self.cache)
+        out = vae.encoder(x, feat_cache=self.cache, feat_idx=[0])
+        if all(_same_slot(a, b) for a, b in zip(before, self.cache, strict=True)):
+            self.steady, self.cache = out, None
+        return out
+
+
+def _same_slot(before, after) -> bool:
+    if torch.is_tensor(before) and torch.is_tensor(after):
+        return before is not after and torch.equal(before, after)
+    return not torch.is_tensor(before) and not torch.is_tensor(after) and before == after
 
 
 def encode_condition_chunk(
-    vae: nn.Module, image: torch.Tensor, feat_cache: list, first_latent: int, num_latents: int,
+    vae: nn.Module, image: torch.Tensor, stream: EncoderStream, first_latent: int, num_latents: int,
     config: LingBotWorldConfig,
 ) -> torch.Tensor:
     """Latent frames ``[first_latent, first_latent + num_latents)`` of the I2V
@@ -76,9 +116,10 @@ def encode_condition_chunk(
 
     The reference encodes the whole clip in one ``vae.encode``, which diffusers
     runs as one encoder call for the image, then one per ``vae_stride[0]``
-    black frames against the causal-conv ``feat_cache``. Called for
-    consecutive ranges with the same cache, this makes the same encoder calls
-    in the same order. ``image`` is ``[3, H, W]`` in [-1, 1] on the VAE's device.
+    black frames against the causal-conv cache. Called for consecutive ranges
+    with the same ``stream``, this makes the same encoder calls in the same
+    order, until the cache stops changing (``EncoderStream.encode_black``).
+    ``image`` is ``[3, H, W]`` in [-1, 1] on the VAE's device.
     """
     _, h, w = image.shape
     stride_t = config.vae_stride[0]
@@ -86,10 +127,10 @@ def encode_condition_chunk(
     with torch.amp.autocast("cuda", enabled=False), torch.inference_mode():
         for latent in range(first_latent, first_latent + num_latents):
             if latent == 0:
-                x = image.float()[None, :, None]
+                outs.append(vae.encoder(image.float()[None, :, None], feat_cache=stream.cache, feat_idx=[0]))
             else:
                 x = torch.zeros(1, 3, stride_t, h, w, dtype=torch.float32, device=image.device)
-            outs.append(vae.encoder(x, feat_cache=feat_cache, feat_idx=[0]))
+                outs.append(stream.encode_black(vae, x))
         enc = vae.quant_conv(torch.cat(outs, dim=2))
         z = config.vae_z_dim
         latent = enc[:, :z].float()
@@ -178,7 +219,7 @@ class LingBotDitSubmodule(_SingleRequestMixin, NodeSubmodule):
             generator=generator,
             noise=noise,
             kv=self.dit.new_cache(frame_seqlen, lat_f, device),
-            encoder_cache=new_encoder_cache(self.encoder_vae) if self.encoder_vae is not None else None,
+            encoder_stream=EncoderStream(self.encoder_vae) if self.encoder_vae is not None else None,
             feat_cache=wan_vae.new_feat_cache(self.vae) if self.vae is not None else None,
         )
 
@@ -199,7 +240,7 @@ class LingBotDitSubmodule(_SingleRequestMixin, NodeSubmodule):
         cs = cfg.chunk_size
         frames = slice(chunk * cs, (chunk + 1) * cs)
         latent = state["noise"][:, frames]
-        y = encode_condition_chunk(self.encoder_vae, image, state["encoder_cache"], chunk * cs, cs, cfg)
+        y = encode_condition_chunk(self.encoder_vae, image, state["encoder_stream"], chunk * cs, cs, cfg)
         _, height, width = image.shape
         plucker = plucker_embedding(
             camera_poses[frames].float().to(device), intrinsics.float(), height, width,

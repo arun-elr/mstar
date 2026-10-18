@@ -112,6 +112,9 @@ Registry keys live in ``mstar/model/registry.py`` (``MODEL_REGISTRY`` / ``HF_MOD
      - ``robbyant/lingbot-world-v2-1.3b-causal-fast``
      - LingBot-World-V2 1.3B causal-fast: camera-controlled image-to-world video, streamed
        chunk by chunk (Wan2.1-layout causal DiT, rolling KV cache, 4 distilled steps).
+       A request carries the whole camera trajectory as JSON in ``model_kwargs``, which the API
+       server caps at 1 MiB: about 3,900 frames of ``[4, 4]`` float32 poses; send ``[F, 3, 4]``
+       rows for up to the 4,077-frame maximum. Needs ``flash-attn``; one rollout per GPU.
        The weights are CC-BY-NC-SA-4.0 (non-commercial, share-alike), not Apache-2.0; check it
        before deploying. The code is Apache-2.0, adapted from LingBot-World v1 (``Robbyant/lingbot-world``).
    * - ``flux2_klein``

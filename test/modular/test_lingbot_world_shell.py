@@ -23,10 +23,10 @@ from mstar.model.lingbot_world.lingbot_world_model import LingBotWorldModel  # n
 from mstar.model.lingbot_world.submodules import (  # noqa: E402
     ROLLOUT_LOOP_NAME,
     ROLLOUT_WALK,
+    EncoderStream,
     LingBotDitSubmodule,
     encode_condition_chunk,
     first_frame_mask,
-    new_encoder_cache,
 )
 
 
@@ -329,7 +329,8 @@ def one_thread():
 
 def test_the_condition_chunk_by_chunk_is_the_whole_clip_encode(one_thread):
     """The streamed encode the dit runs per chunk against the reference's one
-    ``vae.encode`` of the image followed by black frames, on a tiny Wan VAE."""
+    ``vae.encode`` of the image followed by black frames, on a tiny Wan VAE,
+    long enough that the black frames drive the cache to its fixed point."""
     from diffusers import AutoencoderKLWan
 
     from mstar.model.lingbot_world.config import LingBotWorldConfig
@@ -340,7 +341,7 @@ def test_the_condition_chunk_by_chunk_is_the_whole_clip_encode(one_thread):
                            latents_std=[2.0] * z).eval()
     cfg = LingBotWorldConfig(vae_z_dim=z)
     image = torch.rand(3, 16, 24) * 2 - 1
-    lat_f = 3 * cfg.chunk_size
+    lat_f = 16 * cfg.chunk_size
     num_frames = (lat_f - 1) * cfg.vae_stride[0] + 1
     with torch.inference_mode():
         clip = torch.concat([image[:, None], torch.zeros(3, num_frames - 1, 16, 24)], dim=1)
@@ -348,10 +349,20 @@ def test_the_condition_chunk_by_chunk_is_the_whole_clip_encode(one_thread):
         latent = ((latent - 0.1) / 2.0)[0]
     whole = torch.concat([first_frame_mask(lat_f, 2, 3, "cpu"), latent])
 
-    cache = new_encoder_cache(vae)
-    chunks = [encode_condition_chunk(vae, image, cache, k * cfg.chunk_size, cfg.chunk_size, cfg)
+    stream = EncoderStream(vae)
+    chunks = [encode_condition_chunk(vae, image, stream, k * cfg.chunk_size, cfg.chunk_size, cfg)
               for k in range(lat_f // cfg.chunk_size)]
+    assert stream.steady is not None and stream.cache is None
     torch.testing.assert_close(torch.cat(chunks, dim=1), whole, rtol=0, atol=0)
+
+
+def test_a_cache_slot_written_in_place_never_counts_as_unchanged():
+    from mstar.model.lingbot_world.submodules import _same_slot
+
+    t = torch.zeros(2)
+    assert not _same_slot(t, t)
+    assert _same_slot(t, t.clone()) and not _same_slot(t, t + 1)
+    assert _same_slot(None, None) and not _same_slot(None, t)
 
 
 def test_the_text_encoder_runs_eager_attention_as_the_reference_t5(monkeypatch):
