@@ -5,8 +5,8 @@ A compressed image or video can be tiny on the wire and enormous once decoded
 check what a file will decode to, not how big it is. A refusal is a
 ``ValueError``, which the data worker answers with a 400.
 
-The pixel caps hold for a whole request: while the data worker loads a
-request's files inside :class:`RequestMediaBudget`, every check also counts
+The pixel and audio caps hold for a whole request: while the data worker loads
+a request's files inside :class:`RequestMediaBudget`, every check also counts
 against what the request's earlier files used.
 """
 import os
@@ -23,6 +23,9 @@ DEFAULT_MAX_VIDEO_PIXELS = 1 << 30
 # the least a decoded frame counts against the video cap
 MIN_FRAME_PIXELS = 64 * 64
 DEFAULT_MAX_MEDIA_FILES = 16
+# twice the transcription endpoint's 30 min upload cap, so one such upload fits
+# whatever its decoded length rounds to
+DEFAULT_MAX_AUDIO_SECONDS = 60 * 60
 # torchvision decodes these (GIF is read with Pillow); anything else is a 400
 IMAGE_FORMATS = ("PNG", "JPEG", "WEBP", "GIF")
 # a loader that decodes with Pillow also reads the other image types the API accepts
@@ -60,6 +63,12 @@ def max_media_files() -> int:
     return _positive_int_env("MSTAR_MAX_MEDIA_FILES", DEFAULT_MAX_MEDIA_FILES)
 
 
+def max_audio_seconds() -> int:
+    """``MSTAR_MAX_AUDIO_SECONDS``: seconds a request's audio clips may decode
+    to, summed over them."""
+    return _positive_int_env("MSTAR_MAX_AUDIO_SECONDS", DEFAULT_MAX_AUDIO_SECONDS)
+
+
 def check_media_limits() -> None:
     """Read the limits once at startup: a bad value then stops the server,
     instead of turning every media request into a 400 that blames the client.
@@ -72,6 +81,7 @@ def check_media_limits() -> None:
     limit = max_image_pixels()
     max_video_pixels()
     max_media_files()
+    max_audio_seconds()
     if Image.MAX_IMAGE_PIXELS is not None and limit > Image.MAX_IMAGE_PIXELS:
         Image.MAX_IMAGE_PIXELS = limit
 
@@ -84,10 +94,15 @@ class RequestMediaBudget:
     many files in one request cannot multiply them; refuses more than
     ``max_media_files()`` files before any is decoded.
 
-    The data worker loads each file inside :meth:`file`; the image and video
-    checks charge the request through it."""
+    The data worker loads each file inside :meth:`file`; the image, video and
+    audio checks charge the request through it."""
 
-    _ENV = {"image": "MSTAR_MAX_IMAGE_PIXELS", "video": "MSTAR_MAX_VIDEO_PIXELS"}
+    # kind: what the refusal calls its files, their unit, the env var
+    _LIMITS = {
+        "image": ("images", "pixels", "MSTAR_MAX_IMAGE_PIXELS"),
+        "video": ("videos", "pixels", "MSTAR_MAX_VIDEO_PIXELS"),
+        "audio": ("audio clips", "seconds", "MSTAR_MAX_AUDIO_SECONDS"),
+    }
 
     def __init__(self, num_files: int) -> None:
         limit = max_media_files()
@@ -95,7 +110,7 @@ class RequestMediaBudget:
             raise ValueError(
                 f"the request attaches {num_files} media files; the limit is {limit} (MSTAR_MAX_MEDIA_FILES)"
             )
-        self.limits = {"image": max_image_pixels(), "video": max_video_pixels()}
+        self.limits = {"image": max_image_pixels(), "video": max_video_pixels(), "audio": max_audio_seconds()}
         self.used = dict.fromkeys(self.limits, 0)
         self._file = dict.fromkeys(self.limits, 0)
 
@@ -108,23 +123,72 @@ class RequestMediaBudget:
             yield
         finally:
             _request_budget.reset(token)
-            for kind, pixels in self._file.items():
-                self.used[kind] += pixels
+            for kind, amount in self._file.items():
+                self.used[kind] += amount
                 self._file[kind] = 0
 
-    def charge(self, kind: str, pixels: int) -> None:
-        self._file[kind] = max(self._file[kind], pixels)
+    def charge(self, kind: str, amount: float) -> None:
+        self._file[kind] = max(self._file[kind], amount)
         if self.used[kind] + self._file[kind] > self.limits[kind]:
+            files, unit, env = self._LIMITS[kind]
             raise ValueError(
-                f"the request's {kind}s decode to more than {self.limits[kind]} pixels together; "
-                f"send fewer or smaller files (the limit is {self._ENV[kind]})"
+                f"the request's {files} decode to more than {self.limits[kind]} {unit} together; "
+                f"send fewer or smaller files (the limit is {env})"
             )
 
 
-def _charge_request(kind: str, pixels: int) -> None:
+def _charge_request(kind: str, amount: float) -> None:
     budget = _request_budget.get()
     if budget is not None:
-        budget.charge(kind, pixels)
+        budget.charge(kind, amount)
+
+
+def check_file_counts(counts: dict[str, int], model_limits: dict[str, int]) -> None:
+    """Refuse more files of a modality than the model takes
+    (:meth:`mstar.model.base.Model.max_input_files`), before any is decoded."""
+    for modality, limit in model_limits.items():
+        count = counts.get(modality, 0)
+        if count > limit:
+            raise ValueError(
+                f"the request attaches {count} {modality} files; this model takes at most {limit}"
+            )
+
+
+def probe_audio_seconds(filepath: str) -> float | None:
+    """The duration an audio file's header declares, or None when neither
+    soundfile nor torchcodec can read it."""
+    try:
+        import soundfile
+
+        info = soundfile.info(filepath)
+        if info.frames and info.samplerate:
+            return info.frames / info.samplerate
+    except Exception:  # noqa: BLE001, S110 -- not a libsndfile container: try torchcodec
+        pass
+    try:
+        from torchcodec.decoders import AudioDecoder
+
+        seconds = AudioDecoder(filepath).metadata.duration_seconds_from_header
+        if seconds:
+            return float(seconds)
+    except Exception:  # noqa: BLE001, S110 -- unreadable: the model's loader reports it
+        pass
+    return None
+
+
+def check_audio_duration(filepath: str) -> None:
+    """Charge the request what an audio file's header declares, before the
+    model's loader decodes it."""
+    seconds = probe_audio_seconds(filepath)
+    if seconds is not None:
+        _charge_request("audio", seconds)
+
+
+def charge_decoded_audio(audio: torch.Tensor, sample_rate: int) -> None:
+    """Charge the request the samples a loader returned, as seconds at
+    ``sample_rate``; a file whose header understated its length or could not be
+    read is counted here."""
+    _charge_request("audio", audio.numel() / sample_rate)
 
 
 def check_image_size(filepath: str, formats: tuple[str, ...] = IMAGE_FORMATS) -> tuple[str, bool]:
