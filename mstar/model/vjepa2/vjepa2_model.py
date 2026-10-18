@@ -618,8 +618,9 @@ class VJepa2Model(Model):
 
         height = getattr(metadata_obj, "height", None)
         width = getattr(metadata_obj, "width", None)
-        if height and width:
-            VideoBudget().add(height, width, len(indices))
+        if not (height and width):
+            height, width = decoder[indices[0]].shape[-2:]
+        VideoBudget().add(height, width, len(indices))
         get_at = getattr(decoder, "get_frames_at", None)
         if get_at is not None:
             logger.info("load_video: calling get_frames_at(%d indices)", len(indices))
@@ -632,7 +633,6 @@ class VJepa2Model(Model):
             frames = torch.stack([decoder[i] for i in indices])
         logger.info("load_video: decoded frames shape=%s", tuple(frames.shape))
 
-        VideoBudget().add(frames.shape[-2], frames.shape[-1], frames.shape[0])
         video = frames.float() / 255.0
 
         try:

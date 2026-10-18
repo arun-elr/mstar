@@ -1,4 +1,6 @@
 """Request media is refused by what it decodes to, before the decode allocates it."""
+import importlib.util
+import pathlib
 import struct
 import sys
 import types
@@ -12,12 +14,22 @@ from mstar.model.base import Model
 from mstar.model.media_limits import (
     DEFAULT_MAX_IMAGE_PIXELS,
     MIN_FRAME_PIXELS,
+    RequestMediaBudget,
     VideoBudget,
     check_image_size,
+    check_media_limits,
     probe_video,
     read_image,
-    read_video_whole_budgeted,
 )
+
+# by path: importing the package would import the Qwen3-Omni model, which needs flashinfer
+_spec = importlib.util.spec_from_file_location(
+    "qwen3_omni_video_reader",
+    pathlib.Path(__file__).parents[2] / "mstar" / "model" / "qwen3_omni" / "video_reader.py",
+)
+_video_reader = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_video_reader)
+read_video_whole_budgeted = _video_reader.read_video_whole_budgeted
 
 
 def _png(path, width, height, *, rows=None):
@@ -186,14 +198,17 @@ def test_bad_env_value_stops_the_data_worker_at_startup(monkeypatch, name):
 @dataclass
 class _Metadata:
     num_frames: int = 1000
-    height: int = 64
-    width: int = 64
+    height: int | None = 64
+    width: int | None = 64
+    average_fps: float = 30.0
 
 
-def _fake_torchcodec(monkeypatch, pulled, metadata=None):
+def _fake_torchcodec(monkeypatch, pulled, metadata=None, opened=None):
     class FakeDecoder:
-        def __init__(self, *_args, **_kwargs):
+        def __init__(self, *_args, **kwargs):
             self.metadata = metadata or _Metadata()
+            if opened is not None:
+                opened.append(kwargs)
 
         def __iter__(self):
             for i in range(self.metadata.num_frames):
@@ -202,6 +217,10 @@ def _fake_torchcodec(monkeypatch, pulled, metadata=None):
 
         def __len__(self):
             return self.metadata.num_frames
+
+        def __getitem__(self, i):
+            pulled.append(i)
+            return torch.zeros(3, 64, 64, dtype=torch.uint8)
 
         def get_frames_at(self, indices):
             pulled.extend(indices)
@@ -315,7 +334,8 @@ def test_qwen3_omni_checks_sampled_frames_before_fetch_video(monkeypatch):
     with pytest.raises(ValueError, match="MSTAR_MAX_VIDEO_PIXELS"):
         qwen3_omni_model.Qwen3OmniModel.load_video(None, "clip.mp4", "cpu")
     assert fetched == []
-    assert vision.VIDEO_READER_BACKENDS["torchvision"] is read_video_whole_budgeted
+    assert vision.VIDEO_READER_BACKENDS["torchvision"] is qwen3_omni_model.read_video_whole_budgeted
+    assert qwen3_omni_model.read_video_whole_budgeted.__module__ == "mstar.model.qwen3_omni.video_reader"
 
 
 def test_the_whole_clip_reader_counts_frames_as_it_decodes(tmp_path, monkeypatch):
@@ -336,3 +356,158 @@ def test_the_whole_clip_reader_counts_frames_as_it_decodes(tmp_path, monkeypatch
     assert video.shape == (4, 3, 64, 64) and video.dtype == torch.uint8
     assert metadata["total_num_frames"] == 10 and metadata["frames_indices"].tolist() == [0, 3, 6, 9]
     assert round(metadata["fps"]) == 30 and sample_fps == pytest.approx(4 / 10 * metadata["fps"])
+
+
+@pytest.mark.parametrize("fmt", ["BMP", "TIFF"])
+def test_formats_torchvision_cannot_read_are_a_client_error(tmp_path, no_decode, fmt):
+    from PIL import Image
+
+    path = tmp_path / f"img.{fmt.lower()}"
+    Image.new("RGB", (32, 24)).save(path, format=fmt)
+    with pytest.raises(ValueError, match="not in a format"):
+        Model.load_image(None, str(path), "cpu")
+
+
+def test_animated_webp_is_read_by_pillow_as_its_first_frame(tmp_path, no_decode):
+    from PIL import Image
+
+    path = tmp_path / "anim.webp"
+    first, second = Image.new("RGB", (32, 24), (200, 0, 0)), Image.new("RGB", (32, 24), (0, 0, 200))
+    first.save(path, save_all=True, append_images=[second], duration=100, lossless=True)
+    out = read_image(str(path))
+    assert tuple(out.shape) == (3, 24, 32)
+    assert out[:, 0, 0].tolist() == [200, 0, 0]
+
+
+def test_a_raised_image_limit_is_not_masked_by_pillow(tmp_path, monkeypatch):
+    """Pillow refuses past twice its own limit (about 179M pixels) unless the
+    startup check lifts it to ``MSTAR_MAX_IMAGE_PIXELS``."""
+    from PIL import Image
+
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", Image.MAX_IMAGE_PIXELS)
+    path = _png(tmp_path / "wide.png", 20_000, 10_000, rows=0)
+    monkeypatch.setenv("MSTAR_MAX_IMAGE_PIXELS", str(400_000_000))
+    check_media_limits()
+    assert Image.MAX_IMAGE_PIXELS == 400_000_000
+    assert check_image_size(path) == ("PNG", False)
+
+
+def test_a_lowered_image_limit_leaves_pillow_alone(monkeypatch):
+    from PIL import Image
+
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", Image.MAX_IMAGE_PIXELS)
+    before = Image.MAX_IMAGE_PIXELS
+    monkeypatch.setenv("MSTAR_MAX_IMAGE_PIXELS", "1000")
+    check_media_limits()
+    assert Image.MAX_IMAGE_PIXELS == before
+
+
+def _preprocess_thread(model):
+    import queue
+
+    from mstar.api_server.data_worker import PreprocessWorkerThread
+
+    wt = PreprocessWorkerThread.__new__(PreprocessWorkerThread)
+    wt.out_queue = queue.Queue()
+    wt.in_flight_requests = set()
+    wt.request_output_state = {}
+    wt.device = "cpu"
+    wt.model = model
+    return wt
+
+
+def _image_request(paths):
+    from mstar.api_server.request_types import PreprocessInput
+
+    return PreprocessInput(
+        request_id="r1", text="describe them", file_paths={"image": paths},
+        input_modalities=["image", "text"], output_modalities=["text"], model_kwargs={},
+    )
+
+
+@pytest.fixture
+def decoded(monkeypatch):
+    """Stand in for torchvision's decoder and record each file it is given."""
+    import torchvision
+
+    paths = []
+
+    def decode(path, mode=None):
+        paths.append(path)
+        return torch.zeros(3, 1, 1, dtype=torch.uint8)
+
+    monkeypatch.setattr(torchvision.io, "decode_image", decode)
+    return paths
+
+
+def test_images_in_one_request_share_the_image_limit(tmp_path, decoded):
+    """Eight 9000x9000 images each fit the default limit; together they are
+    refused at the second, before it is decoded."""
+    paths = [_png(tmp_path / f"copy{i}.png", 9_000, 9_000, rows=0) for i in range(8)]
+    wt = _preprocess_thread(types.SimpleNamespace(load_image=lambda p, device: Model.load_image(None, p, device)))
+    with pytest.raises(ValueError, match="images decode to more than .* together") as info:
+        wt._process_input(_image_request(paths))
+    assert decoded == paths[:1]
+    wt._fail_request("r1", info.value, "preprocessing")
+    assert wt.out_queue.get_nowait().metadata["status"] == 400
+
+
+def test_images_up_to_the_limit_together_all_load(tmp_path, decoded, monkeypatch):
+    monkeypatch.setenv("MSTAR_MAX_IMAGE_PIXELS", str(3 * 64 * 64))
+    paths = [_png(tmp_path / f"img{i}.png", 64, 64, rows=0) for i in range(3)]
+    budget = RequestMediaBudget(num_files=3)
+    for path in paths:
+        with budget.file():
+            Model.load_image(None, path, "cpu")
+    assert decoded == paths and budget.used["image"] == 3 * 64 * 64
+
+
+def test_too_many_files_are_refused_before_any_is_loaded(tmp_path, monkeypatch):
+    monkeypatch.setenv("MSTAR_MAX_MEDIA_FILES", "2")
+    loaded = []
+    wt = _preprocess_thread(types.SimpleNamespace(load_image=lambda p, device: loaded.append(p)))
+    paths = [_png(tmp_path / f"img{i}.png", 8, 8) for i in range(3)]
+    with pytest.raises(ValueError, match="attaches 3 media files; the limit is 2"):
+        wt._process_input(_image_request(paths))
+    assert loaded == []
+
+
+def test_a_video_is_charged_its_largest_check_not_their_sum(monkeypatch):
+    """A header estimate and the decode after it count the same frames: one
+    file is charged the larger, and the next file adds to it."""
+    monkeypatch.setenv("MSTAR_MAX_VIDEO_PIXELS", str(64 * 64 * 100))
+    budget = RequestMediaBudget(num_files=2)
+    with budget.file():
+        VideoBudget().add(64, 64, 60)
+        decode = VideoBudget()
+        for _ in range(60):
+            decode.add(64, 64)
+    assert budget.used["video"] == 64 * 64 * 60
+    with budget.file(), pytest.raises(ValueError, match="videos decode to more than .* together"):
+        VideoBudget().add(64, 64, 60)
+
+
+def test_outside_a_request_each_file_is_checked_alone(monkeypatch):
+    monkeypatch.setenv("MSTAR_MAX_VIDEO_PIXELS", str(64 * 64 * 100))
+    for _ in range(3):
+        VideoBudget().add(64, 64, 60)
+
+
+def test_vjepa2_without_frame_size_in_the_header_decodes_one_frame_to_check(monkeypatch):
+    from mstar.model.vjepa2.vjepa2_model import VJepa2Model
+
+    pulled = []
+    _fake_torchcodec(monkeypatch, pulled, _Metadata(num_frames=1000, height=None, width=None))
+    monkeypatch.setenv("MSTAR_MAX_VIDEO_PIXELS", str(64 * 64 * 63))
+    model = object.__new__(VJepa2Model)
+    model.config = types.SimpleNamespace(frames_per_clip=64)
+    with pytest.raises(ValueError, match="MSTAR_MAX_VIDEO_PIXELS"):
+        model.load_video("clip.mp4", "cpu")
+    assert pulled == [0]
+
+
+def test_probe_reads_torchcodec_metadata_without_a_scan(monkeypatch):
+    opened = []
+    _fake_torchcodec(monkeypatch, [], _Metadata(num_frames=10), opened=opened)
+    assert probe_video("clip.mp4") == (10, 30.0, 64, 64)
+    assert opened == [{"seek_mode": "approximate"}]

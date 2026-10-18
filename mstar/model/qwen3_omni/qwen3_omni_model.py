@@ -56,7 +56,7 @@ from mstar.engine.resources import (
 from mstar.graph.base import GraphEdge, GraphNode, Loop, Sequential, TensorPointerInfo
 from mstar.graph.special_destinations import EMIT_TO_CLIENT, EMPTY_DESTINATION
 from mstar.model.base import MAX_OUTPUT_TOKENS, ForwardPassArgs, Model, TensorAndMetadata
-from mstar.model.media_limits import VideoBudget, probe_video, read_video_whole_budgeted
+from mstar.model.media_limits import VideoBudget, probe_video
 from mstar.model.multimodal import (
     TEXT,
     PromptPart,
@@ -81,6 +81,7 @@ from mstar.model.qwen3_omni.config import (
     THINKER_POS,
     THINKER_SAMPLER,
 )
+from mstar.model.qwen3_omni.video_reader import read_video_whole_budgeted
 from mstar.model.submodule_base import NodeSubmodule
 from mstar.model.utils import Operation, WeightConverter, drop_stop_tokens
 from mstar.streaming.chunk_policy import FixedChunkPolicy, LeftContextChunkPolicy
