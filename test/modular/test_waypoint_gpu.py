@@ -986,9 +986,9 @@ def test_the_fp32_island_is_pinned_against_the_engine_matmul_precision():
     """``mstar/engine/__init__.py`` sets ``float32_matmul_precision``
     process-wide, and ``NoiseConditioner`` is a deliberate fp32 island, so it
     runs its GEMMs under ``fp32_matmul_highest``: its output may not move with
-    the setting at the served N == 1 or at a batched N == 8. That pin is not
-    free on every stack: cuBLAS 13 rounds even the N == 1 GEMV through TF32
-    at ``'high'``.
+    the setting at the served N == 1 or at a batched N == 8. Unpinned, the
+    N == 8 call moves at ``'high'`` even on an H200 with cuBLAS 12, and
+    cuBLAS 13 on a B200 rounds the N == 1 GEMV through TF32 too.
     """
     assert torch.get_float32_matmul_precision() == "high"
 
