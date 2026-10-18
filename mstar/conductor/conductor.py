@@ -42,6 +42,7 @@ from mstar.platforms import apply_process_env_defaults
 from mstar.profile.format import RxInfo, TxInfo
 from mstar.profile.worker import GraphTimings
 from mstar.utils import knobs
+from mstar.utils.client_errors import client_error_text, scrub_paths
 from mstar.utils.exitcode import describe_exitcode
 from mstar.utils.gc_freeze import freeze_after_setup
 from mstar.utils.generation_kwargs import check_seed
@@ -1159,18 +1160,19 @@ class Conductor:
             if request_data is None or not request_data.dispatched:
                 self.requests.pop(body.request_id, None)
                 if isinstance(exc, ValueError):
-                    self._reject_request(body.request_id, str(exc), status=400)
+                    self._reject_request(body.request_id, scrub_paths(str(exc)), status=400)
                     return
-                logger.exception("Ingest failed for request %s", body.request_id)
-                self._reject_request(
-                    body.request_id, f"Ingest failed: {type(exc).__name__}: {exc}", status=500,
+                text, _ = client_error_text(
+                    exc, f"Ingest failed for request {body.request_id}", log=logger,
                 )
+                self._reject_request(body.request_id, f"Ingest failed: {text}", status=500)
             elif body.request_id not in self.draining:
-                logger.exception("Ingest failed for request %s", body.request_id)
+                text, _ = client_error_text(
+                    exc, f"Ingest failed for request {body.request_id}", log=logger,
+                )
                 # Some workers may already hold it: drain them like a worker failure.
                 self._remove_request(
-                    body.request_id, request_data,
-                    failure_error=f"Ingest failed: {type(exc).__name__}: {exc}",
+                    body.request_id, request_data, failure_error=f"Ingest failed: {text}",
                 )
 
     def _reject_request(self, request_id: str, error: str, status: int):
