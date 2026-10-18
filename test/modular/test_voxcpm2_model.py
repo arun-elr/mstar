@@ -1232,6 +1232,69 @@ def test_vae_windows_replay_at_their_bucket_and_equal_a_whole_decode(model):
     assert all(runner.calls for runner in runners.values())
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="captures CUDA graphs")
+def test_captured_regions_replay_the_eager_result_on_cuda(model):
+    """The engine's piecewise runner captures both regions; a replay at a
+    captured shape gives the eager result bit for bit, and a padded one (three
+    rows in the 4-row bucket, a window padded to the next width) stays within
+    rounding of the eager result at the real shape."""
+    from unittest import mock
+
+    from mstar.engine.cuda_graph_runner import PiecewiseCudaGraphRunner
+
+    device, config = torch.device("cuda", torch.cuda.current_device()), model.config
+    gen = torch.Generator(device=device).manual_seed(0)
+
+    def capture(label, region):
+        runner = PiecewiseCudaGraphRunner(
+            label=label,
+            config=region,
+            resources={},
+            step_runner=mock.Mock(),
+            device=device,
+            autocast_dtype=None,
+            num_slots=1,
+        )
+        runner.warmup_and_capture()
+        assert runner.any_graphs and not runner.dropped_shapes
+        return runner
+
+    with torch.inference_mode():
+        talker = TalkerSubmodule(_random_generator(config).to(device), config, 4)
+        ((label, region),) = talker.get_piecewise_cuda_graph_configs(device, torch.float32).items()
+        runner = capture(label, region)
+        for rows in (1, 3):
+            inputs = {
+                "lm_hidden": torch.randn(rows, config.lm.hidden_size, generator=gen, device=device),
+                "res_hidden": torch.randn(rows, config.residual.hidden_size, generator=gen, device=device),
+                "cond_patch": torch.randn(rows, config.patch_size, config.feat_dim, generator=gen, device=device),
+                "noise": torch.randn(rows, config.feat_dim, config.patch_size, generator=gen, device=device),
+                "cfg": torch.linspace(1.5, 3.0, rows, device=device),
+            }
+            eager = talker.model.first_patch(*inputs.values(), talker.t_span())
+            out = runner.run(static_inputs=inputs, real_bs=rows)
+            for got, want in zip((out["patch"], out["stop_logits"]), eager, strict=True):
+                if rows == 1:
+                    assert torch.equal(got, want)
+                else:
+                    torch.testing.assert_close(got, want, rtol=1e-5, atol=1e-5)
+
+        widths = stream_window_widths(model.stream_schedule, model.stream_chunk_patches, model.stream_left_context)
+        vae_node = VAEDecoderSubmodule(_random_vae(config).to(device), config, window_buckets=widths)
+        runners = {
+            label: capture(label, region)
+            for label, region in vae_node.get_piecewise_cuda_graph_configs(device, torch.float32).items()
+        }
+        for width in widths:
+            latents = torch.randn(2, config.feat_dim, width * config.patch_size, generator=gen, device=device)
+            assert torch.equal(vae_node._decode(latents, runners), vae_node.vae.decode(latents, vae_node._sr_index))
+            short = latents[..., : -config.patch_size]
+            if short.shape[-1]:
+                eager = vae_node.vae.decode(short, vae_node._sr_index)
+                padded = vae_node._decode(short, runners)
+                torch.testing.assert_close(padded[:, : eager.shape[-1]], eager, rtol=1e-4, atol=1e-5)
+
+
 def test_vae_window_wider_than_every_bucket_decodes_eagerly(model):
     config = model.config
     vae_node = VAEDecoderSubmodule(_random_vae(config).double(), config, window_buckets=(1, 3))
