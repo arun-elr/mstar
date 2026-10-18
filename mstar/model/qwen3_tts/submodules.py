@@ -1208,10 +1208,12 @@ class CodecSubmodule(ARNodeSubmodule):
         outputs: BatchedModelOutput,
         request_infos: dict[str, CurrentForwardPassInfo],
         inputs: list[ARNodeInputs],
+        piecewise_runners: Mapping[str, Any] | None = None,
     ) -> None:
         """Watermark the step's trimmed chunks, one AudioSeal call per chunk
-        length. Each request's stream state lives in its request state, so
-        it goes when the request does."""
+        length, each a replay of its capture (``get_piecewise_cuda_graph_configs``)
+        where there is one. Each request's stream state lives in its request
+        state, so it goes when the request does."""
         if self.watermarker is None:
             return
         rids, chunks, streams, finals = [], [], [], []
@@ -1230,8 +1232,23 @@ class CodecSubmodule(ARNodeSubmodule):
             finals.append(bool(item.kwargs.get("is_final", False)))
         if not rids:
             return
-        for request_id, marked in zip(rids, self.watermarker.apply_pcm16(chunks, streams, finals), strict=True):
-            outputs.get(request_id)["audio_chunk"][0] = marked
+        marked = self.watermarker.apply_pcm16(chunks, streams, finals, runners=piecewise_runners)
+        for request_id, chunk in zip(rids, marked, strict=True):
+            outputs.get(request_id)["audio_chunk"][0] = chunk
+
+    def get_piecewise_cuda_graph_configs(
+        self, device: torch.device, autocast_dtype: torch.dtype, tp_world_size: int = 1,
+    ) -> dict[str, PiecewiseCudaGraphConfig]:
+        """With the watermark on, its generator call per chunk length of the
+        schedule (a shorter final chunk pads into the next) and batch bucket."""
+        del device, autocast_dtype, tp_world_size
+        if self.watermarker is None:
+            return {}
+        codec = self.config.codec
+        frames = {*codec.chunk_schedule, codec.chunk_frames}
+        return self.watermarker.piecewise_configs(
+            [f * self.total_upsample for f in frames], self.CAPTURE_BATCH_SIZES,
+        )
 
     def can_batch(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
         """Any mix of windows batches (``preprocess`` pads to the widest)."""
