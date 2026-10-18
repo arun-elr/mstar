@@ -68,6 +68,7 @@ class LingBotWorldConfig:
     # area is height*width, as in the reference; intrinsics are given at 480x832.
     default_height: int = 480
     default_width: int = 832
+    max_area: int = 720 * 1280  # largest height*width a request may ask for
     intrinsics_height: int = 480
     intrinsics_width: int = 832
     video_fps: int = 16

@@ -147,6 +147,27 @@ def test_process_prompt_rejects_requests_it_cannot_serve(model):
                              **{**ok, "intrinsics": [1.0, 2.0]})
 
 
+@pytest.mark.parametrize("size", [
+    {"height": 100_000, "width": 100_000}, {"height": 1281, "width": 720}, {"height": -480}, {"width": 0},
+])
+def test_the_output_area_is_bounded_before_the_resize(model, size, monkeypatch):
+    """``height`` / ``width`` are client knobs: past ``max_area`` the bicubic
+    resize alone would allocate the requested area on the data worker."""
+    def no_resize(*args, **kwargs):
+        raise AssertionError("resized an out-of-range request")
+
+    monkeypatch.setattr(torch.nn.functional, "interpolate", no_resize)
+    with pytest.raises(ValueError, match="height and width"):
+        model._preprocess_image(torch.zeros(3, 48, 83, dtype=torch.uint8), size)
+
+
+def test_the_largest_area_and_an_extreme_aspect(model):
+    image = torch.zeros(3, 72, 128, dtype=torch.uint8)
+    assert model._preprocess_image(image, {"height": 720, "width": 1280}).shape == (3, 720, 1280)
+    with pytest.raises(ValueError, match="cannot fit"):
+        model._preprocess_image(torch.zeros(3, 1, 4000, dtype=torch.uint8), {})
+
+
 def test_prompt_clean_is_the_reference_tokenizers_whitespace_clean(model):
     # ftfy straightens curly quotes; the reference T5 tokenizer cleans every prompt this way.
     assert model.prompt_clean("  A \u201ctree\u201d &amp;amp; its\u00a0 reflection\n") == 'A "tree" & its reflection'

@@ -165,7 +165,7 @@ class LingBotWorldModel(Model):
         Request kwargs: ``camera_poses`` (``[F, 4, 4]`` OpenCV c2w, one per video
         frame), ``intrinsics`` (``[fx, fy, cx, cy]`` at 480x832, or one row per
         frame, of which the first is used), ``num_frames``, ``height`` / ``width``
-        (the output area; the aspect follows the image).
+        (the output area, at most ``config.max_area``; the aspect follows the image).
         """
         cfg = self.config
         if output_modalities != ["video_frame"]:
@@ -216,7 +216,15 @@ class LingBotWorldModel(Model):
         image = image.sub(0.5).div(0.5)
         height = int(kwargs.get("height", cfg.default_height))
         width = int(kwargs.get("width", cfg.default_width))
+        # the area sizes the resize here and the DiT's tokens and rolling K/V
+        if height <= 0 or width <= 0 or height * width > cfg.max_area:
+            raise ValueError(
+                f"LingBot-World height and width must be positive with an area of at most {cfg.max_area} "
+                f"pixels; got {height}x{width}."
+            )
         lat_h, lat_w = self.geometry(tuple(image.shape[1:]), height, width)
+        if lat_h <= 0 or lat_w <= 0:
+            raise ValueError(f"LingBot-World cannot fit a {image.shape[1]}x{image.shape[2]} image at that area.")
         size = (lat_h * cfg.vae_stride[1], lat_w * cfg.vae_stride[2])
         return torch.nn.functional.interpolate(image[None], size=size, mode="bicubic")[0]
 
