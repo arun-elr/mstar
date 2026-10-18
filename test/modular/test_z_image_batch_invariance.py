@@ -13,18 +13,21 @@ B=1 bit for bit, B=4 need not (cuBLAS / cuDNN pick other algorithms for that M: 
 4.8e-2; images 39.3 / 30.7 / 37.4 / 33.1 dB after 8 steps when first recorded, content-independent),
 so a row in a batch of four vs alone is reported per stage and per image and asserted only as a
 gross-error bound (>= 22 dB); a row-mixing leak fails contract (1) instead. The four rows by stack,
-on 1 x B200:
+B200 only (1 x B200):
 
-    main, torch 2.9.1 + cu128                       inf / inf / inf / inf
-    torch 2.10 + cu130 (cuDNN SDPA picked)          36.9 / 24.65 / 37.7 / 33.0
-    torch 2.10 + cu128 (cuDNN SDPA not picked)      39.7 / 26.8 / 37.2 / 33.3
-    torch 2.10 + cu130, cuDNN SDPA off globally     41.1 / 26.9 / 36.6 / 34.1
-    torch 2.10 + cu130, cuDNN kept out of the DiT   41.89 / 30.37 / 39.42 / 33.65
+    B200, main, torch 2.9.1 + cu128                       inf / inf / inf / inf
+    B200, torch 2.10 + cu130 (cuDNN SDPA picked)          36.9 / 24.65 / 37.7 / 33.0
+    B200, torch 2.10 + cu128 (cuDNN SDPA not picked)      39.7 / 26.8 / 37.2 / 33.3
+    B200, torch 2.10 + cu130, cuDNN SDPA off globally     41.1 / 26.9 / 36.6 / 34.1
+    B200, torch 2.10 + cu130, cuDNN kept out of the DiT   41.89 / 30.37 / 39.42 / 33.65
+
+The B200 rows don't carry over to other GPUs: on 1 x H100, main isn't bit exact at B=4 either
+(worst row 26.3 dB; torch 2.10 + cu130 25.2 dB, and 24.2 dB with ``TORCH_CUDNN_SDPA_DEPRIORITIZED=1``).
 
 torch 2.10 puts cuDNN first in SDPA's priority on sm90 / sm100 when the runtime cuDNN is newer than
 9.15.0, which the cu130 wheels ship. Keeping cuDNN out of the DiT costs about 24% of served Z-Image
-throughput there (B200 1024px, c=8: 2.21 to 1.68 img/s), so the bound sits below the cuDNN row.
-``TORCH_CUDNN_SDPA_DEPRIORITIZED=1`` restores the old dispatch.
+throughput on B200 (1024px, c=8: 2.21 to 1.68 img/s), so the bound sits below the cuDNN row.
+``TORCH_CUDNN_SDPA_DEPRIORITIZED=1`` restores the old dispatch, which on H100 doesn't help (above).
 
 Skips without CUDA or without ``Tongyi-MAI/Z-Image-Turbo`` in the HF cache. Run with
 ``NVIDIA_TF32_OVERRIDE=0 CUBLAS_WORKSPACE_CONFIG=:4096:8`` for repeatable kernels.

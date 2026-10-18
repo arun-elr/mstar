@@ -433,11 +433,14 @@ requirement as already satisfied):
    # pick the index for your CUDA toolkit: cu128 (CUDA 12.8), cu130 (CUDA 13.x), …
    uv pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 \
        --index-url https://download.pytorch.org/whl/cu128
-   uv pip install -e ".[all]"
+   uv pip install -e ".[all]" "torchcodec==0.10.*"
 
 Check your driver's CUDA version with ``nvidia-smi`` and pick the closest build at
 https://pytorch.org/get-started/locally/. Keep all three packages on the same ``2.10`` /
 ``0.25`` line — ``torchvision`` and ``torchaudio`` are versioned in lockstep with ``torch``.
+``torchcodec`` doesn't declare its ``torch`` version, so the resolver otherwise picks the
+newest release (0.17 at the time of writing), which fails to load next to torch 2.10; 0.10
+is the release built against it.
 
 Verify the install
 ------------------
