@@ -270,6 +270,49 @@ def test_the_scope_restores_the_exact_state_it_found():
         torch.set_float32_matmul_precision("high")
 
 
+def test_cudnn_off_holds_when_the_cudnn_default_is_tf32():
+    """``cudnn.allow_tf32 = False`` writes "none" to the conv and RNN keys,
+    which inherit a "tf32" set on ``cudnn.fp32_precision``: the scope names
+    "ieee" for them, and puts the inherited state back after."""
+    from mstar.engine.fp32_precision import Fp32Precision, fp32_precision_scope
+
+    cudnn = torch.backends.cudnn
+    default = cudnn.fp32_precision
+    cudnn.fp32_precision = "tf32"
+    try:
+        before = (cudnn.conv.fp32_precision, cudnn.rnn.fp32_precision)
+        with fp32_precision_scope(Fp32Precision(None, False)):
+            assert (cudnn.conv.fp32_precision, cudnn.rnn.fp32_precision) == ("ieee", "ieee")
+            assert cudnn.allow_tf32 is False
+        assert (cudnn.conv.fp32_precision, cudnn.rnn.fp32_precision) == before
+        assert cudnn.fp32_precision == "tf32"
+    finally:
+        cudnn.fp32_precision = default
+        cudnn.allow_tf32 = True
+
+
+def test_a_thread_started_during_a_forward_keeps_the_node_setting():
+    """The worker starts its executors lazily (the plan thread on the first
+    speculative step), so one can start while a node's forward runs. Its
+    initializer applies only the per-thread dynamo config."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from mstar.worker.worker import Worker
+
+    worker = Worker.__new__(Worker)  # skips __init__, which opens sockets
+    worker.device = torch.device("cpu")
+
+    class _StartsAThread(_Recorder):
+        def forward(self, graph_walk, engine_inputs, x, **kwargs):
+            with ThreadPoolExecutor(1, initializer=worker._init_engine_thread) as ex:
+                ex.submit(lambda: None).result()
+            return super().forward(graph_walk, engine_inputs, x, **kwargs)
+
+    node = _StartsAThread(matmul="highest")
+    _step(_engine({"flow": node}), "flow")
+    assert node.seen == [("highest", True)]
+
+
 def test_no_setting_is_a_shared_no_op():
     from mstar.engine.fp32_precision import fp32_precision_scope, node_fp32_precision
 

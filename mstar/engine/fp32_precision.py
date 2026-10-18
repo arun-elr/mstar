@@ -17,7 +17,10 @@ launched on the GPU thread, other threads of the worker (the main thread's
 postprocess of the previous step, the plan thread's pre-plan) see the node's
 setting too. The engine only changes them on the thread that runs forwards
 (and the one that captures, before serving), so its save and restore never
-interleave with each other; a model that flips them itself can.
+interleave with each other. The process default is set once at import; the
+executor threads' initializers apply only the per-thread dynamo config
+(``apply_dynamo_config``), so a thread starting mid-step cannot reset a node's
+setting. A model that flips the flags itself still can.
 """
 import contextlib
 from typing import NamedTuple
@@ -101,6 +104,11 @@ def _applied(precision: Fp32Precision):
                 backends.cudnn.rnn.fp32_precision,
             )
             backends.cudnn.allow_tf32 = precision.cudnn_allow_tf32
+            # the legacy setter writes "none" for False, which inherits a "tf32"
+            # set on cudnn.fp32_precision, so name the ops' precision outright
+            op = "tf32" if precision.cudnn_allow_tf32 else "ieee"
+            backends.cudnn.conv.fp32_precision = op
+            backends.cudnn.rnn.fp32_precision = op
         yield
     finally:
         # the legacy flag first: its setters also write the backends, which
