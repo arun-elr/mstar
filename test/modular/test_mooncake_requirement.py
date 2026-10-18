@@ -181,21 +181,45 @@ class _UnreadableRecord:
         raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
 
 
-def test_unreadable_records_fall_back_to_any_patched_one(installed, caplog, monkeypatch, tmp_path):
+def test_unreadable_records_warn_about_any_unpatched_one(installed, caplog, monkeypatch, tmp_path):
     """A corrupt RECORD must not stop the engine from starting; with no hash
-    to compare, a patched distribution anywhere keeps it quiet as before."""
+    to compare, the unpatched one might be running, so it still warns."""
     installed("0.3.13.post1", **{"non-cuda": "0.3.11.post1"})
     engine = tmp_path / "engine.so"
     engine.write_bytes(OLD)
     dists = {name: _UnreadableRecord() for name in ("mooncake-transfer-engine", "mooncake-transfer-engine-non-cuda")}
-    assert _warn_with_engine(monkeypatch, caplog, dists, engine) == []
+    warnings = _warn_with_engine(monkeypatch, caplog, dists, engine)
+    assert len(warnings) == 1
+    assert "none can be matched to the imported engine" in warnings[0]
+    assert "mooncake-transfer-engine-non-cuda 0.3.11.post1" in warnings[0]
+    assert "CVE-2026-103764" in warnings[0]
 
 
-def test_a_patched_distribution_beside_stale_metadata_is_quiet(installed, caplog):
-    """Swapping the default wheel for the CUDA 13 one can leave the old
-    metadata behind; the ``mooncake`` package on disk is the patched one."""
-    installed("0.3.11.post1", cuda13="0.3.13.post1")
+def test_two_patched_distributions_with_no_record_match_are_quiet(installed, caplog):
+    installed("0.3.12.post1", cuda13="0.3.13.post1")
     with caplog.at_level(logging.WARNING, logger=tensors.logger.name):
         tensors._warn_if_mooncake_unpatched()
     assert caplog.records == []
+
+
+def test_a_patched_distribution_beside_stale_metadata_is_quiet(installed, caplog, monkeypatch, tmp_path):
+    """Swapping the default wheel for the CUDA 13 one can leave the old
+    metadata behind; the engine on disk matches the CUDA 13 RECORD."""
+    installed("0.3.11.post1", cuda13="0.3.13.post1")
+    dists = {
+        "mooncake-transfer-engine": _engine_record(tmp_path, "mooncake-transfer-engine", OLD, NEW),
+        "mooncake-transfer-engine-cuda13": _engine_record(tmp_path, "mooncake-transfer-engine-cuda13", NEW, NEW),
+    }
+    assert _warn_with_engine(monkeypatch, caplog, dists, tmp_path / "mooncake" / "engine.so") == []
+
+
+def test_stale_metadata_with_no_record_match_warns(installed, caplog):
+    """The same swap with no RECORD to compare: the old metadata could be
+    the engine in use, so it warns rather than trusting the patched one."""
+    installed("0.3.11.post1", cuda13="0.3.13.post1")
+    with caplog.at_level(logging.WARNING, logger=tensors.logger.name):
+        tensors._warn_if_mooncake_unpatched()
+    warnings = [r.getMessage() for r in caplog.records]
+    assert len(warnings) == 1
+    assert "mooncake-transfer-engine 0.3.11.post1" in warnings[0]
 
