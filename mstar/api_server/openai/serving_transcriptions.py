@@ -191,17 +191,18 @@ class WindowPlanner:
         """Decode an upload that will be windowed, so a file the decoder
         refuses (e.g. an unsupported sample rate, or audio past
         :data:`MAX_DURATION_SECONDS`, where the decode stops whatever the
-        header says) fails before any window runs. A file sent whole is
-        decoded too when its header gives no duration, for the length bound
-        only: one that does not decode here (or with no audio decoder in this
-        process) is left to the data worker, whose decode has the same cap
-        and reports its own errors."""
+        header says) fails before any window runs. A file with no header
+        duration is decoded too: a refusal fails here the same way, and once
+        its length is known it is windowed when longer than the model's clip.
+        One that does not decode here (or with no audio decoder in this
+        process) is sent whole to the data worker, whose decode has the same
+        cap and reports its own errors."""
         if not self.single:
             self._decoded()
         elif self.duration is None:
             try:
                 self._decoded()
-            except media_io.AudioTooLongError:
+            except media_io.AudioRefusedError:
                 raise
             except Exception:  # noqa: BLE001 — not decodable here; the data worker reports it
                 pass

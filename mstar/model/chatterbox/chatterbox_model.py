@@ -554,12 +554,12 @@ class ChatterboxModel(Model):
         any system library; torchcodec needs FFmpeg's shared libraries, which
         the nodes may not have, so it is only the fallback for other codecs.
         """
-        from mstar.api_server.media_io import AudioTooLongError, decode_torchcodec_capped, read_soundfile_capped
+        from mstar.api_server.media_io import AudioRefusedError, decode_torchcodec_capped, read_soundfile_capped
 
         try:
             data, sr = read_soundfile_capped(filepath)
             wav = torch.from_numpy(data)
-        except AudioTooLongError:
+        except AudioRefusedError:
             raise
         except Exception as exc:  # noqa: BLE001 - any decode failure falls through
             logger.debug("soundfile could not decode %s (%s); trying torchcodec", filepath, exc)

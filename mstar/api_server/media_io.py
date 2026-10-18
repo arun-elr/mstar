@@ -347,7 +347,12 @@ MAX_AUDIO_SECONDS = 30 * 60
 _SOUNDFILE_BLOCK_SECONDS = 10
 
 
-class AudioTooLongError(ValueError):
+class AudioRefusedError(ValueError):
+    """Audio a decoder opened and refuses (too long, or an unsupported rate):
+    callers re-raise it rather than fall back to another decoder."""
+
+
+class AudioTooLongError(AudioRefusedError):
     """Audio that decodes past the limit, whatever its header declares."""
 
     status_code = 413
@@ -363,8 +368,8 @@ def read_soundfile_capped(path: str, max_seconds: float = MAX_AUDIO_SECONDS) -> 
     Reads in blocks and counts the frames it decodes, so a header that hides
     or understates the length cannot make the read unbounded; past
     ``max_seconds`` it raises :class:`AudioTooLongError`. A rate outside
-    ``1..MAX_SAMPLE_RATE`` is refused before any read. A container
-    libsndfile cannot read raises soundfile's own error.
+    ``1..MAX_SAMPLE_RATE`` is refused (:class:`AudioRefusedError`) before
+    any read. A container libsndfile cannot read raises soundfile's own error.
     """
     import soundfile as sf
 
@@ -372,7 +377,10 @@ def read_soundfile_capped(path: str, max_seconds: float = MAX_AUDIO_SECONDS) -> 
         rate = f.samplerate
         # the frame cap scales with the rate; the range alone here, the
         # kernel to the caller's target is checked after the decode
-        check_resample_rate(rate, rate)
+        try:
+            check_resample_rate(rate, rate)
+        except ValueError as exc:
+            raise AudioRefusedError(str(exc)) from None
         limit = int(max_seconds * rate)
         block = max(1, _SOUNDFILE_BLOCK_SECONDS * rate)
         parts, frames = [], 0
@@ -416,7 +424,7 @@ def decode_audio(path: str, sample_rate: int = 16000, max_seconds: float = MAX_A
     """
     try:
         audio, sr = read_soundfile_capped(path, max_seconds)
-    except AudioTooLongError:
+    except AudioRefusedError:
         raise
     except Exception:  # noqa: BLE001 — not a libsndfile container
         return decode_torchcodec_capped(path, sample_rate, max_seconds).numpy().astype(np.float32)

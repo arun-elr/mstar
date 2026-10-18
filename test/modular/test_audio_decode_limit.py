@@ -150,11 +150,25 @@ def test_decode_audio_stops_a_soundfile_read_at_the_limit(monkeypatch, clip):
 
 
 def test_a_soundfile_rate_past_the_range_is_refused_before_any_read(monkeypatch, clip):
-    # the frame cap is seconds times the file's rate, so the rate is bounded first
-    sf = _use_soundfile(monkeypatch, _FakeSoundfile(1, rate=media_io.MAX_SAMPLE_RATE + 1))
-    with pytest.raises(ValueError, match="unsupported sample rate"):
-        media_io.read_soundfile_capped(clip)
-    assert sf.frames_read == 0
+    # the frame cap is seconds times the file's rate, so the rate is bounded
+    # first, and no loader falls back to torchcodec for a refused file
+    from mstar.model.chatterbox.chatterbox_model import ChatterboxModel
+    from mstar.model.components.audio_features import load_audio_file
+    from mstar.model.nemotron_duplex.nemotron_duplex_model import NemotronDuplexModel
+
+    for load in (
+        lambda: media_io.read_soundfile_capped(clip),
+        lambda: media_io.decode_audio(clip, 16000),
+        lambda: load_audio_file(clip),
+        lambda: ChatterboxModel._decode_audio(clip),
+        lambda: NemotronDuplexModel.load_audio(None, clip, "cpu"),
+    ):
+        sf = _use_soundfile(monkeypatch, _FakeSoundfile(1, rate=media_io.MAX_SAMPLE_RATE + 1))
+        calls = _fake_torchcodec(monkeypatch, 1)
+        with pytest.raises(ValueError, match="unsupported sample rate"):
+            load()
+        assert sf.frames_read == 0
+        assert calls["all"] == 0 and not calls["stops"]
 
 
 def test_decode_audio_stops_a_torchcodec_decode_at_the_limit(monkeypatch, clip):
@@ -332,6 +346,17 @@ def test_transcription_under_the_limit_still_runs(monkeypatch, client):
     r = _transcribe(http)
     assert r.status_code == 200, r.text
     assert len(api.submits) == 1
+
+
+def test_a_headerless_upload_longer_than_the_clip_is_windowed(monkeypatch, client):
+    # once the decode gives the length, a 45 s upload is cut into Whisper's
+    # 30 s windows like one whose header gives it (main sent it whole)
+    http, api = client
+    _use_soundfile(monkeypatch, _NoSoundfile())
+    _fake_torchcodec(monkeypatch, 45)
+    r = _transcribe(http)
+    assert r.status_code == 200, r.text
+    assert len(api.submits) == 2
 
 
 def test_an_unknown_soundfile_length_is_not_a_duration(monkeypatch, tmp_path):

@@ -151,12 +151,12 @@ def load_audio_file(path: str, sample_rate: int = 16_000) -> torch.Tensor:
     Resampling goes through torchaudio. Audio longer than
     ``media_io.MAX_AUDIO_SECONDS`` is refused while it decodes.
     """
-    from mstar.api_server.media_io import AudioTooLongError, decode_torchcodec_capped, read_soundfile_capped
+    from mstar.api_server.media_io import AudioRefusedError, decode_torchcodec_capped, read_soundfile_capped
 
     try:
         audio, sr = read_soundfile_capped(path)
         waveform = torch.from_numpy(audio)
-    except AudioTooLongError:
+    except AudioRefusedError:
         raise
     except Exception:  # noqa: BLE001 — not a libsndfile container; try FFmpeg
         return decode_torchcodec_capped(path, sample_rate).to(torch.float32)
