@@ -689,7 +689,8 @@ class FlowSubmodule(NodeSubmodule):
         with _without_tf32():
             for steps in sorted({n_timesteps[i] for i, _ in rows}):
                 group = [(i, row) for i, row in rows if n_timesteps[i] == steps]
-                for (i, _), mel in zip(group, self._solve([row for _, row in group], steps, runners or {}), strict=True):
+                solved = self._solve([row for _, row in group], steps, runners or {})
+                for (i, _), mel in zip(group, solved, strict=True):
                     mels[i] = mel
         out = []
         n_mel = self.config.flow.output_size
