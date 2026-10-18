@@ -78,6 +78,9 @@ def test_request_outcomes():
     assert stress.judge(Reply(0, status=200, text="1 2 3 4 5 6 7 8 9 banana banana banana"), refs) == "crosstalk"
     assert stress.judge(Reply(3, status=200, text="Monday, Tuesday, and a banana"), refs) == "ok"  # its quiet reply
     assert stress.judge(Reply(4, status=200, text="Mercury, Venus, Monday, Friday"), refs) == "crosstalk"
+    assert stress.judge(Reply(1, status=200, text="ABCDEFGHIJKLMNOPQRSTUVWXYZ"), refs) == "ok"   # as Qwen3.5 writes it
+    assert stress.judge(Reply(0, status=200, text="1 2 3 FGHIJK"), refs) == "crosstalk"
+    assert stress.judge(Reply(0, status=200, text="Here are the first numbers: 1 2 3"), refs) == "ok"
     assert stress.judge(Reply(0, status=200, text="1 2", closed=True), refs) == "closed"
     assert stress.judge(Reply(0, status=200, text=""), refs) == "error"                       # an empty 200
     assert stress.judge(Reply(0, status=200, text="something else entirely"), refs) == "unmatched"

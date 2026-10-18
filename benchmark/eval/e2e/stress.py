@@ -86,11 +86,20 @@ def _names(names: set[str]):
     return lambda tok: len(names & set(tok)) >= 2
 
 
+def _letters(tok: list[str]) -> bool:
+    """A B C D, or ABCD written as one word (four consecutive letters inside an English word are rare)."""
+    def step(a: str, b: str) -> bool:
+        return ord(b) == ord(a) + 1
+
+    return (_ascending(tok, 4, lambda t: len(t) == 1 and t.isalpha(), step)
+            or any(_ascending(list(t), 4, str.isalpha, step) for t in tok if len(t) >= 4))
+
+
 # What only each prompt's answer holds, whatever prose surrounds it: a predecessor's tail ("13 14 15") still shows.
 # "may" and "march" are left out of the months: they are common words.
 SIGNATURES = (
     lambda tok: _ascending(tok, 3, str.isdigit, lambda a, b: int(b) == int(a) + 1),
-    lambda tok: _ascending(tok, 4, lambda t: len(t) == 1 and t.isalpha(), lambda a, b: ord(b) == ord(a) + 1),
+    _letters,
     lambda tok: "banana" in tok or "bananas" in tok,
     _names({"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}),
     _names({"mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune"}),
