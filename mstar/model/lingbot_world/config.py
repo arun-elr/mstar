@@ -15,18 +15,15 @@ re-noising between steps, then one t=0 pass over the clean chunk to commit its K
 from dataclasses import dataclass
 
 LINGBOT_VARIANT_1_3B = "1.3b_causal_fast"
-LINGBOT_VARIANT_14B = "14b_causal_fast"
 
-# The 1.3B repo ships the DiT only; T5, the VAE and the tokenizer come from the
-# 14B repo (reference README, ``--assets_dir``).
 LINGBOT_HF_REPOS = {
     LINGBOT_VARIANT_1_3B: "robbyant/lingbot-world-v2-1.3b-causal-fast",
-    LINGBOT_VARIANT_14B: "robbyant/lingbot-world-v2-14b-causal-fast",
 }
-LINGBOT_ASSETS_REPO = "robbyant/lingbot-world-v2-14b-causal-fast"
 
-# Diffusers-format copies of the shared components, which mstar already loads
-# for other models. The parity harness checks they equal the LingBot assets.
+# The 1.3B repo ships the DiT only; the reference takes T5, the VAE and the
+# tokenizer from the 14B repo (``--assets_dir``). These are diffusers-format
+# copies, which mstar already loads for other models; the parity harness
+# checks they equal the LingBot assets.
 WAN21_VAE_DIFFUSERS_REPO = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
 UMT5_DIFFUSERS_REPO = "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
 
@@ -72,7 +69,7 @@ class LingBotWorldConfig:
     intrinsics_height: int = 480
     intrinsics_width: int = 832
     video_fps: int = 16
-    max_chunks: int = 255  # rope_max_frames // chunk_size
+    max_chunks: int = 255  # rollout ceiling, inside rope_max_frames
 
     # The reference decodes in fp32. bf16 is faster on cuDNN >= 9.16 but is not
     # the reference's numerics.
@@ -83,29 +80,11 @@ class LingBotWorldConfig:
     def head_dim(self) -> int:
         return self.dim // self.num_heads
 
-    @property
-    def frames_per_chunk(self) -> int:
-        """Video frames a mid-stream chunk decodes to (the first chunk has 3 fewer)."""
-        return self.chunk_size * self.vae_stride[0]
-
 
 def lingbot_world_1_3b() -> LingBotWorldConfig:
     return LingBotWorldConfig(variant=LINGBOT_VARIANT_1_3B)
 
 
-def lingbot_world_14b() -> LingBotWorldConfig:
-    """Reference wan_i2v_A14B.py. Declared for the plan; not exercised yet."""
-    return LingBotWorldConfig(
-        variant=LINGBOT_VARIANT_14B,
-        dim=5120,
-        ffn_dim=13824,
-        num_heads=40,
-        num_layers=40,
-        sample_shift=10.0,
-    )
-
-
 LINGBOT_CONFIGS = {
     LINGBOT_VARIANT_1_3B: lingbot_world_1_3b,
-    LINGBOT_VARIANT_14B: lingbot_world_14b,
 }

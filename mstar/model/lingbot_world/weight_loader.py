@@ -21,9 +21,7 @@ def resolve_dit_dir(repo_or_dir: str, cache_dir: str | None = None) -> str:
         from huggingface_hub import snapshot_download
 
         root = snapshot_download(repo_or_dir, cache_dir=cache_dir, allow_patterns=["*.safetensors", "*.json"])
-    # The 14B repo nests the DiT under transformers/; the 1.3B repo does not.
-    nested = os.path.join(root, "transformers")
-    return nested if os.path.isdir(nested) else root
+    return root
 
 
 def build_lingbot_dit(

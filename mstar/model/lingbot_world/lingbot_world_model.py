@@ -1,25 +1,27 @@
 """LingBotWorldModel: LingBot-World-V2 causal-fast, camera-controlled image-to-world.
 
-Architecture (3 nodes, no engine resources yet):
+Architecture (2 nodes, no engine resources):
     text_encoder - UMT5-XXL prompt encoder (wan22's submodule, reused)
-    vae_encoder  - Wan2.1 VAE encode of the conditioning image + black frames,
-                   with the first-frame mask: the I2V condition for every chunk
     dit          - the 1.3B causal DiT. One rollout iteration is one chunk of
-                   4 latent frames: 4 distilled denoise passes, one commit pass
+                   4 latent frames: the chunk's I2V condition (a warm-cache
+                   Wan2.1 VAE encode of the image, then black frames) and
+                   Plucker rays, 4 distilled denoise passes, one commit pass
                    into the rolling KV cache, then a warm-cache Wan VAE decode
                    of the chunk, fused into one forward (as Waypoint fuses its
                    per-frame decode)
 
-Graph walks (3), run in order:
+Graph walks (2), run in order:
     encode_text  - text_encoder; persists text_embeds_pos
-    encode_image - vae_encoder; persists cond_latents
     rollout      - Loop("rollout_loop") over dit with a self loop-back ("clock");
                    each iteration emits its chunk's frames (``video_frame``)
 
 The camera trajectory is the action input: per-frame OpenCV c2w poses plus
 intrinsics, as in the reference's ``poses.npy`` / ``intrinsics.npy``. The
 reference resamples and normalizes it over the whole rollout, so the request
-carries the whole trajectory up front (see ``components/camera.py``).
+carries the whole trajectory up front (see ``components/camera.py``). It
+travels in the ``model_kwargs`` form part, which the API server caps at 1 MiB:
+about 3,900 ``[4, 4]`` float32 poses, or all ``max_chunks`` worth of frames as
+``[3, 4]`` rows.
 """
 
 import html
@@ -42,19 +44,14 @@ from mstar.model.lingbot_world.config import (
     UMT5_DIFFUSERS_REPO,
     WAN21_VAE_DIFFUSERS_REPO,
 )
-from mstar.model.lingbot_world.submodules import (
-    ROLLOUT_LOOP_NAME,
-    ROLLOUT_WALK,
-    LingBotDitSubmodule,
-    LingBotVaeEncoderSubmodule,
-)
+from mstar.model.lingbot_world.submodules import ROLLOUT_LOOP_NAME, ROLLOUT_WALK, LingBotDitSubmodule
 from mstar.model.submodule_base import NodeSubmodule
 
 logger = logging.getLogger(__name__)
 
 ENCODE_TEXT_WALK = "encode_text"
-ENCODE_IMAGE_WALK = "encode_image"
-_SCHEDULE = (ENCODE_TEXT_WALK, ENCODE_IMAGE_WALK, ROLLOUT_WALK)
+_SCHEDULE = (ENCODE_TEXT_WALK, ROLLOUT_WALK)
+_DIT_INPUTS = ("text_embeds_pos", "image_inputs", "camera_poses", "intrinsics", "clock")
 
 
 class LingBotWorldModel(Model):
@@ -82,6 +79,38 @@ class LingBotWorldModel(Model):
     def get_node_resources(self) -> list[NodeResourceSpec]:
         return []
 
+    def kv_cache_bytes(self, lat_h: int, lat_w: int) -> int:
+        """The rolling self-attention plus text K/V one request allocates at
+        that latent size (``LingBotCausalDiT.new_cache`` and its cross K/V)."""
+        cfg = self.config
+        frame_seqlen = lat_h * lat_w // (cfg.patch_size[1] * cfg.patch_size[2])
+        tokens = frame_seqlen * cfg.local_attn_size + cfg.text_len
+        return cfg.num_layers * 2 * tokens * cfg.dim * torch.bfloat16.itemsize
+
+    def validate_config_yaml(self, config: dict, config_path: str) -> None:
+        """Refuse to serve more than one rollout at a time.
+
+        The dit allocates each request's rolling K/V and VAE caches itself, at
+        its first chunk, outside the engine's resources, so the only bound on
+        how many are live is the conductor's admit queue, which exists only
+        when ``max_concurrent_requests`` is set. Several at once run the GPU
+        out of memory mid-rollout instead of queueing.
+        """
+        limit = config.get("max_concurrent_requests")
+        if limit == 1 and not isinstance(limit, bool):
+            return
+        cfg = self.config
+        side = int(np.sqrt(cfg.max_area))
+        gib = [self.kv_cache_bytes(*self.geometry((h, w), h, w)) / 2**30
+               for h, w in ((cfg.default_height, cfg.default_width), (side, side))]
+        raise ValueError(
+            f"LingBot-World requires `max_concurrent_requests: 1` in {config_path}; got {limit!r}. "
+            f"Each request holds its own rolling K/V ({gib[0]:.1f} GiB at "
+            f"{cfg.default_height}x{cfg.default_width}, up to {gib[1]:.1f} GiB at the "
+            f"{cfg.max_area}-pixel area limit) plus its VAE caches, allocated by the dit outside the "
+            "engine's resources, so the admit queue that this key enables is the only bound on them."
+        )
+
     def get_graph_walk_graphs(self) -> dict[str, GraphSection]:
         encode_text = GraphNode(
             name="text_encoder",
@@ -91,16 +120,11 @@ class LingBotWorldModel(Model):
                 GraphEdge(next_node=EMPTY_DESTINATION, name="text_embeds_neg", persist=True),
             ],
         )
-        encode_image = GraphNode(
-            name="vae_encoder",
-            input_names=["image_inputs"],
-            outputs=[GraphEdge(next_node=EMPTY_DESTINATION, name="cond_latents", persist=True)],
-        )
         rollout = Loop(
             name=ROLLOUT_LOOP_NAME,
             section=GraphNode(
                 name="dit",
-                input_names=["text_embeds_pos", "cond_latents", "camera_poses", "intrinsics", "clock"],
+                input_names=list(_DIT_INPUTS),
                 outputs=[
                     GraphEdge(next_node="dit", name="clock"),
                     GraphEdge(next_node=EMIT_TO_CLIENT, name="video_output", output_modality="video_frame"),
@@ -111,7 +135,7 @@ class LingBotWorldModel(Model):
             outputs=[],
             accumulated_outputs=[],
         )
-        return {ENCODE_TEXT_WALK: encode_text, ENCODE_IMAGE_WALK: encode_image, ROLLOUT_WALK: rollout}
+        return {ENCODE_TEXT_WALK: encode_text, ROLLOUT_WALK: rollout}
 
     # ------------------------------------------------------------------
     # I/O
@@ -163,7 +187,7 @@ class LingBotWorldModel(Model):
         camera trajectory, on the data worker.
 
         Request kwargs: ``camera_poses`` (``[F, 4, 4]`` OpenCV c2w, one per video
-        frame), ``intrinsics`` (``[fx, fy, cx, cy]`` at 480x832, or one row per
+        frame, or its top ``[F, 3, 4]`` rows), ``intrinsics`` (``[fx, fy, cx, cy]`` at 480x832, or one row per
         frame, of which the first is used), ``num_frames``, ``height`` / ``width``
         (the output area, at most ``config.max_area``; the aspect follows the image).
         """
@@ -178,8 +202,11 @@ class LingBotWorldModel(Model):
         raw_poses = kwargs.get("camera_poses")
         poses = None if raw_poses is None else np.asarray(raw_poses, dtype=np.float64)
         min_poses = 1 + cfg.vae_stride[0] * (cfg.chunk_size - 1)
-        if poses is None or poses.ndim != 3 or poses.shape[1:] != (4, 4) or len(poses) < min_poses:
-            raise ValueError(f"LingBot-World requires camera_poses: [F, 4, 4] with F >= {min_poses}.")
+        if poses is None or poses.ndim != 3 or poses.shape[1:] not in ((4, 4), (3, 4)) or len(poses) < min_poses:
+            raise ValueError(f"LingBot-World requires camera_poses: [F, 4, 4] or [F, 3, 4] with F >= {min_poses}.")
+        if poses.shape[1] == 3:
+            bottom = np.broadcast_to(np.array([0.0, 0.0, 0.0, 1.0]), (len(poses), 1, 4))
+            poses = np.concatenate([poses, bottom], axis=1)
         intrinsics = torch.as_tensor(kwargs.get("intrinsics", ()), dtype=torch.float32)
         if intrinsics.numel() < 4 or intrinsics.numel() % 4:
             raise ValueError("LingBot-World requires intrinsics [fx, fy, cx, cy] (or one row per frame).")
@@ -258,13 +285,8 @@ class LingBotWorldModel(Model):
     def _walk_inputs(self, walk: str, signals: dict[str, list[TensorPointerInfo]]) -> list[GraphEdge]:
         if walk == ENCODE_TEXT_WALK:
             edges = [GraphEdge(next_node="text_encoder", name="text_inputs")]
-        elif walk == ENCODE_IMAGE_WALK:
-            edges = [GraphEdge(next_node="vae_encoder", name="image_inputs")]
         else:
-            edges = [
-                GraphEdge(next_node="dit", name=name)
-                for name in ("text_embeds_pos", "cond_latents", "camera_poses", "intrinsics", "clock")
-            ]
+            edges = [GraphEdge(next_node="dit", name=name) for name in _DIT_INPUTS]
         for edge in edges:
             edge.tensor_info = signals.get(edge.name, [])
         return edges
@@ -339,23 +361,26 @@ class LingBotWorldModel(Model):
             from mstar.model.wan22.config import Wan22Config
             from mstar.model.wan22.submodules import Wan22TextEncoderSubmodule
 
+            # The reference T5 is eager attention; transformers 5 defaults UMT5 to SDPA.
             encoder = UMT5EncoderModel.from_pretrained(
                 UMT5_DIFFUSERS_REPO, subfolder="text_encoder", torch_dtype=torch.bfloat16,
-                cache_dir=self.cache_dir,
+                cache_dir=self.cache_dir, attn_implementation="eager",
             ).eval()
             return Wan22TextEncoderSubmodule(encoder, Wan22Config(text_max_seq_len=self.config.text_len))
-        if node_name == "vae_encoder":
-            return LingBotVaeEncoderSubmodule(self._load_vae(), self.config)
         if node_name == "dit":
+            from mstar.model.lingbot_world.components.dit import require_flash_attn
             from mstar.model.lingbot_world.weight_loader import build_lingbot_dit
 
+            require_flash_attn()
             dit = build_lingbot_dit(self.config, self.model_path_hf, device=device, cache_dir=self.cache_dir)
-            return LingBotDitSubmodule(dit, self._load_vae().to(device), self.config)
+            return LingBotDitSubmodule(
+                dit, self._load_vae().to(device), self.config, encoder_vae=self._load_vae().to(device),
+            )
         logger.warning("LingBot-World has no submodule for node %r; running it dummy.", node_name)
         return None
 
     def _load_vae(self) -> torch.nn.Module:
-        """A fresh fp32 Wan2.1 VAE per node: the decoder may switch its copy to
+        """A fresh fp32 Wan2.1 VAE per use: the decoder may switch its copy to
         channels-last, which the encoder must not see."""
         from diffusers import AutoencoderKLWan
 

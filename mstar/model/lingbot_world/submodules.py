@@ -13,13 +13,12 @@
 """LingBot-World-V2 node submodules.
 
     text_encoder -> wan22's ``Wan22TextEncoderSubmodule`` (UMT5-XXL), reused as is
-    vae_encoder  -> LingBotVaeEncoderSubmodule (Wan2.1 VAE encode of the I2V condition)
-    dit          -> LingBotDitSubmodule (one chunk per rollout iteration, decode fused)
+    dit          -> LingBotDitSubmodule (one chunk per rollout iteration: the
+                    chunk's I2V condition and Plucker rays, the DiT, the decode)
 
-None declares engine resources yet: the rolling self-attention K/V and the text
+Neither declares engine resources: the rolling self-attention K/V and the text
 K/V live in the request's ``PerRequestState`` (dense, model-owned, freed with the
-request), the decoder's causal-conv cache likewise. Moving the K/V onto the
-engine's KV pool is the streaming milestone, not this prototype.
+request), the VAE encoder's and decoder's causal-conv caches likewise.
 
 Numerics are the model's, not the engine's: ``LingBotWorldModel.get_autocast_dtype``
 returns None, the DiT enters the reference's bf16 autocast itself, and the VAE
@@ -58,46 +57,58 @@ def first_frame_mask(num_latent_frames: int, lat_h: int, lat_w: int, device) -> 
     return msk.transpose(1, 2)[0]
 
 
-class LingBotVaeEncoderSubmodule(_SingleRequestMixin, NodeSubmodule):
-    """Encodes the conditioning image, followed by ``F - 1`` black frames, with
-    the Wan2.1 VAE in fp32 (the reference's ``vae.encode`` of the same clip),
-    and prepends the first-frame mask: ``cond_latents`` ``[20, lat_f, h, w]``.
+def new_encoder_cache(vae: nn.Module) -> list:
+    """An empty encoder feature cache: one slot per causal conv, as
+    ``AutoencoderKLWan.clear_cache`` builds it."""
+    counts = getattr(vae, "_cached_conv_counts", None)
+    if counts is not None:
+        return [None] * counts["encoder"]
+    return [None] * sum(isinstance(m, wan_vae.WanCausalConv3d) for m in vae.encoder.modules())
 
-    The image arrives already resized and normalized to [-1, 1] by
-    ``LingBotWorldModel.process_prompt``, which runs the reference's CPU bicubic
-    resize so the pixels match it exactly.
+
+def encode_condition_chunk(
+    vae: nn.Module, image: torch.Tensor, feat_cache: list, first_latent: int, num_latents: int,
+    config: LingBotWorldConfig,
+) -> torch.Tensor:
+    """Latent frames ``[first_latent, first_latent + num_latents)`` of the I2V
+    condition, ``[20, num_latents, lat_h, lat_w]``: the first-frame mask over
+    the Wan2.1 VAE latents of ``image`` followed by black frames, in fp32.
+
+    The reference encodes the whole clip in one ``vae.encode``, which diffusers
+    runs as one encoder call for the image, then one per ``vae_stride[0]``
+    black frames against the causal-conv ``feat_cache``. Called for
+    consecutive ranges with the same cache, this makes the same encoder calls
+    in the same order. ``image`` is ``[3, H, W]`` in [-1, 1] on the VAE's device.
     """
-
-    disable_torch_compile = True
-
-    def __init__(self, vae: nn.Module, config: LingBotWorldConfig):
-        super().__init__()
-        self.vae = vae
-        self.config = config
-
-    def prepare_inputs(self, graph_walk, fwd_info: CurrentForwardPassInfo, inputs, **kwargs) -> NodeInputs:
-        return NodeInputs(tensor_inputs={"image": inputs["image_inputs"][0]})
-
-    def forward(self, graph_walk, engine_inputs: ModelInputsFromEngine, image: torch.Tensor, **kwargs):
-        md = engine_inputs.single_request_info.step_metadata
-        lat_f = int(md["num_latent_frames"])
-        num_frames = (lat_f - 1) * self.config.vae_stride[0] + 1
-        device = self.get_device()
-        with torch.amp.autocast("cuda", enabled=False), torch.inference_mode():
-            _, h, w = image.shape
-            clip = torch.concat([image.float().cpu()[:, None], torch.zeros(3, num_frames - 1, h, w)], dim=1)
-            latent = self.vae.encode(clip[None].to(device)).latent_dist.mode().float()
-            z = self.config.vae_z_dim
-            mean = torch.tensor(self.vae.config.latents_mean).view(1, z, 1, 1, 1).to(latent)
-            inv_std = 1.0 / torch.tensor(self.vae.config.latents_std).view(1, z, 1, 1, 1).to(latent)
-            latent = ((latent - mean) * inv_std)[0]
-            msk = first_frame_mask(lat_f, latent.shape[2], latent.shape[3], device)
-            return {"cond_latents": [torch.concat([msk, latent])]}
+    _, h, w = image.shape
+    stride_t = config.vae_stride[0]
+    outs = []
+    with torch.amp.autocast("cuda", enabled=False), torch.inference_mode():
+        for latent in range(first_latent, first_latent + num_latents):
+            if latent == 0:
+                x = image.float()[None, :, None]
+            else:
+                x = torch.zeros(1, 3, stride_t, h, w, dtype=torch.float32, device=image.device)
+            outs.append(vae.encoder(x, feat_cache=feat_cache, feat_idx=[0]))
+        enc = vae.quant_conv(torch.cat(outs, dim=2))
+        z = config.vae_z_dim
+        latent = enc[:, :z].float()
+        mean = torch.tensor(vae.config.latents_mean).view(1, z, 1, 1, 1).to(latent)
+        inv_std = 1.0 / torch.tensor(vae.config.latents_std).view(1, z, 1, 1, 1).to(latent)
+        latent = ((latent - mean) * inv_std)[0]
+        lat_h, lat_w = latent.shape[2:]
+        if first_latent == 0:
+            msk = first_frame_mask(num_latents, lat_h, lat_w, image.device)
+        else:
+            msk = torch.zeros(4, num_latents, lat_h, lat_w, device=image.device)
+        return torch.concat([msk, latent])
 
 
 class LingBotDitSubmodule(_SingleRequestMixin, NodeSubmodule):
     """One rollout iteration is one chunk of ``chunk_size`` latent frames:
 
+      * the chunk's I2V condition (``encode_condition_chunk``, continuing the
+        request's VAE encoder cache) and its Plucker rays, then
       * ``len(timesteps_index)`` denoise forwards, each converting the flow
         prediction to x0 and re-noising it to the next timestep from the
         request's generator, then
@@ -108,18 +119,25 @@ class LingBotDitSubmodule(_SingleRequestMixin, NodeSubmodule):
         decode of the whole rollout, emitted as ``video_output``.
 
     At the first iteration the request's state is seeded: the K/V cache, the
-    generator (seeded with the request seed), the full rollout's initial noise
-    drawn from it in one call, and the Plucker rays for every latent frame. The
-    reference draws the initial noise the same way, which is what makes the
-    rollout reproducible bit for bit; it requires the rollout length up front.
+    generator (seeded with the request seed) and the full rollout's initial
+    noise drawn from it in one call. The reference draws the initial noise the
+    same way, which is what makes the rollout reproducible bit for bit; it
+    requires the rollout length up front.
+
+    ``image`` arrives resized and normalized to [-1, 1] by
+    ``LingBotWorldModel.process_prompt``, which runs the reference's CPU bicubic
+    resize so the pixels match it exactly. ``encoder_vae`` is its own Wan2.1
+    VAE: the decoder's copy may be switched to channels-last.
     """
 
     disable_torch_compile = True
 
-    def __init__(self, dit: LingBotCausalDiT, vae: nn.Module, config: LingBotWorldConfig):
+    def __init__(self, dit: LingBotCausalDiT, vae: nn.Module, config: LingBotWorldConfig,
+                 encoder_vae: nn.Module | None = None):
         super().__init__()
         self.dit = dit
         self.vae = vae
+        self.encoder_vae = encoder_vae
         self.config = config
         self.schedule = make_fast_schedule(config.sample_shift, config.timesteps_index, config.num_train_timesteps)
         if vae is not None and config.vae_decode_channels_last:
@@ -141,34 +159,31 @@ class LingBotDitSubmodule(_SingleRequestMixin, NodeSubmodule):
             return None
         return NodeInputs(tensor_inputs={
             "text_embeds": inputs["text_embeds_pos"][0],
-            "cond_latents": inputs["cond_latents"][0],
+            "image": inputs["image_inputs"][0],
             "camera_poses": inputs["camera_poses"][0],
             "intrinsics": inputs["intrinsics"][0],
         })
 
-    def _seed_request(self, state, md: dict, seed: int, cond_latents, camera_poses, intrinsics, device):
+    def _seed_request(self, state, md: dict, seed: int, image: torch.Tensor, device):
         cfg = self.config
-        lat_f, lat_h, lat_w = cond_latents.shape[1:]
+        lat_f = int(md["num_latent_frames"])
+        lat_h, lat_w = image.shape[1] // cfg.vae_stride[1], image.shape[2] // cfg.vae_stride[2]
         frame_seqlen = lat_h * lat_w // (cfg.patch_size[1] * cfg.patch_size[2])
         generator = torch.Generator(device=device)
         generator.manual_seed(seed)
         noise = torch.randn(cfg.out_dim, lat_f, lat_h, lat_w, dtype=torch.float32, generator=generator, device=device)
-        height, width = lat_h * cfg.vae_stride[1], lat_w * cfg.vae_stride[2]
-        plucker = plucker_embedding(
-            camera_poses.float().to(device), intrinsics.float(), height, width, lat_h, lat_w,
-        ).to(torch.bfloat16)
         state.add_all(
             chunk=0,
             frame_seqlen=frame_seqlen,
             generator=generator,
             noise=noise,
-            plucker=plucker,
             kv=self.dit.new_cache(frame_seqlen, lat_f, device),
+            encoder_cache=new_encoder_cache(self.encoder_vae) if self.encoder_vae is not None else None,
             feat_cache=wan_vae.new_feat_cache(self.vae) if self.vae is not None else None,
         )
 
     def forward(
-        self, graph_walk, engine_inputs: ModelInputsFromEngine, text_embeds, cond_latents,
+        self, graph_walk, engine_inputs: ModelInputsFromEngine, text_embeds, image,
         camera_poses, intrinsics, **kwargs,
     ) -> NameToTensorList:
         cfg = self.config
@@ -176,16 +191,20 @@ class LingBotDitSubmodule(_SingleRequestMixin, NodeSubmodule):
         info = engine_inputs.per_request_info[rid]
         state = self.request_state(rid)
         device = self.get_device()
+        image = image.to(device)
         if "kv" not in state:
-            self._seed_request(state, info.step_metadata, info.random_seed, cond_latents.to(device),
-                               camera_poses, intrinsics, device)
+            self._seed_request(state, info.step_metadata, info.random_seed, image, device)
         chunk = int(state["chunk"])
         frame_seqlen = int(state["frame_seqlen"])
         cs = cfg.chunk_size
         frames = slice(chunk * cs, (chunk + 1) * cs)
         latent = state["noise"][:, frames]
-        y = cond_latents.to(device)[:, frames]
-        plucker = state["plucker"][:, :, frames]
+        y = encode_condition_chunk(self.encoder_vae, image, state["encoder_cache"], chunk * cs, cs, cfg)
+        _, height, width = image.shape
+        plucker = plucker_embedding(
+            camera_poses[frames].float().to(device), intrinsics.float(), height, width,
+            height // cfg.vae_stride[1], width // cfg.vae_stride[2],
+        ).to(torch.bfloat16)
         context = text_embeds.to(device)
         context = context[0] if context.dim() == 3 else context
         current_start = chunk * cs * frame_seqlen
@@ -207,7 +226,7 @@ class LingBotDitSubmodule(_SingleRequestMixin, NodeSubmodule):
 
         state.add("chunk", chunk + 1)
         if self.keep_chunk_outputs:
-            state.add_all(chunk_latents=x0.clone(), chunk_pixels=pixels.clone())
+            state.add_all(chunk_latents=x0.clone(), chunk_pixels=pixels.clone(), chunk_condition=y.clone())
         frames_u8 = (pixels[0] / 2 + 0.5).clamp(0, 1).mul(255).to(torch.uint8).permute(1, 2, 3, 0).contiguous()
         return {
             "clock": [torch.full((1,), chunk + 1, dtype=torch.int64, device=device)],

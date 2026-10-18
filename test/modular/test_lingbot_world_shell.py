@@ -1,7 +1,9 @@
 """Contract tests for the LingBot-World-V2 serving shell. CPU-only, no
 checkpoint: the schedule tables, the rolling K/V eviction, the walk wiring,
-the stop/veto, and request validation. Numerics against the reference are
-the oracle-gated parity harness's job (``test/lingbot_world/run_parity.py``).
+the stop/veto, request and config validation, and that the per-chunk
+condition and Plucker rays equal the whole-rollout ones. Numerics against the
+reference are the oracle-gated parity harness's job
+(``test/lingbot_world/run_parity.py``).
 """
 
 import sys
@@ -22,7 +24,9 @@ from mstar.model.lingbot_world.submodules import (  # noqa: E402
     ROLLOUT_LOOP_NAME,
     ROLLOUT_WALK,
     LingBotDitSubmodule,
+    encode_condition_chunk,
     first_frame_mask,
+    new_encoder_cache,
 )
 
 
@@ -85,13 +89,14 @@ def test_first_frame_mask_marks_only_the_first_video_frame():
     assert bool((msk[:, 0] == 1).all()) and bool((msk[:, 1:] == 0).all())
 
 
-def test_walks_run_text_then_image_then_a_chunk_loop_that_emits_frames(model):
+def test_walks_run_text_then_a_chunk_loop_that_emits_frames(model):
     walks = model.get_graph_walk_graphs()
-    assert list(walks) == ["encode_text", "encode_image", ROLLOUT_WALK]
+    assert list(walks) == ["encode_text", ROLLOUT_WALK]
     loop = walks[ROLLOUT_WALK]
     assert isinstance(loop, Loop) and loop.name == ROLLOUT_LOOP_NAME
     node = loop.section
     assert isinstance(node, GraphNode) and node.name == "dit"
+    assert "image_inputs" in node.input_names
     emits = [e for e in node.outputs if e.next_node == EMIT_TO_CLIENT]
     assert [(e.name, e.output_modality) for e in emits] == [("video_output", "video_frame")]
     assert any(e.next_node == "dit" and e.name == "clock" for e in node.outputs)
@@ -274,3 +279,127 @@ def test_the_parity_gate_fails_on_any_differing_point():
         ("check_stop_flags", [False, False, False], ".check_stop_flags"),
     ]:
         assert run_parity.mismatches({**report, key: value}) == [point]
+
+
+def test_poses_may_drop_the_constant_bottom_row(model, monkeypatch):
+    """``[F, 3, 4]`` poses fit 4,077 frames in the 1 MiB ``model_kwargs`` form
+    part; they must give the same request as the ``[F, 4, 4]`` ones."""
+    class Tok:
+        def __call__(self, text, **kwargs):
+            return type("Ids", (), {"input_ids": [0, 1]})()
+
+    monkeypatch.setattr(model, "_ensure_tokenizer", lambda: None)
+    monkeypatch.setattr(model, "tokenizer", Tok())
+    rng = np.random.default_rng(0)
+    poses = np.tile(np.eye(4), (33, 1, 1))
+    poses[:, :3, 3] = rng.normal(size=(33, 3)).cumsum(0)
+    image = torch.zeros(3, 480, 832, dtype=torch.uint8)
+    req = dict(intrinsics=[415.0, 415.0, 416.0, 240.0], num_frames=33)
+    full = model.process_prompt("p", ["text", "image"], ["video_frame"], tensors={"image_inputs": [image]},
+                                camera_poses=poses.tolist(), **req)
+    top = model.process_prompt("p", ["text", "image"], ["video_frame"], tensors={"image_inputs": [image]},
+                               camera_poses=poses[:, :3].tolist(), **req)
+    assert torch.equal(full["camera_poses"][0], top["camera_poses"][0])
+    with pytest.raises(ValueError, match=r"\[F, 3, 4\]"):
+        model.process_prompt("p", ["text", "image"], ["video_frame"], tensors={"image_inputs": [image]},
+                             camera_poses=poses[:, :2].tolist(), **req)
+
+
+def test_per_chunk_plucker_rays_are_the_whole_trajectorys():
+    from mstar.model.lingbot_world.components.camera import plucker_embedding
+
+    torch.manual_seed(0)
+    c2ws = torch.eye(4).repeat(8, 1, 1)
+    c2ws[:, :3, 3] = torch.randn(8, 3)
+    c2ws[:, :3, :3] = torch.linalg.qr(torch.randn(8, 3, 3)).Q
+    intr = torch.tensor([20.0, 21.0, 16.0, 8.0])
+    whole = plucker_embedding(c2ws, intr, 16, 32, 2, 4)
+    chunks = [plucker_embedding(c2ws[k:k + 4], intr, 16, 32, 2, 4) for k in (0, 4)]
+    assert torch.equal(torch.cat(chunks, dim=2), whole)
+
+
+@pytest.fixture
+def one_thread():
+    # oneDNN's conv results can depend on the intra-op thread count.
+    threads = torch.get_num_threads()
+    torch.set_num_threads(1)
+    yield
+    torch.set_num_threads(threads)
+
+
+def test_the_condition_chunk_by_chunk_is_the_whole_clip_encode(one_thread):
+    """The streamed encode the dit runs per chunk against the reference's one
+    ``vae.encode`` of the image followed by black frames, on a tiny Wan VAE."""
+    from diffusers import AutoencoderKLWan
+
+    from mstar.model.lingbot_world.config import LingBotWorldConfig
+
+    torch.manual_seed(0)
+    z = 4
+    vae = AutoencoderKLWan(base_dim=8, z_dim=z, num_res_blocks=1, latents_mean=[0.1] * z,
+                           latents_std=[2.0] * z).eval()
+    cfg = LingBotWorldConfig(vae_z_dim=z)
+    image = torch.rand(3, 16, 24) * 2 - 1
+    lat_f = 3 * cfg.chunk_size
+    num_frames = (lat_f - 1) * cfg.vae_stride[0] + 1
+    with torch.inference_mode():
+        clip = torch.concat([image[:, None], torch.zeros(3, num_frames - 1, 16, 24)], dim=1)
+        latent = vae.encode(clip[None]).latent_dist.mode().float()
+        latent = ((latent - 0.1) / 2.0)[0]
+    whole = torch.concat([first_frame_mask(lat_f, 2, 3, "cpu"), latent])
+
+    cache = new_encoder_cache(vae)
+    chunks = [encode_condition_chunk(vae, image, cache, k * cfg.chunk_size, cfg.chunk_size, cfg)
+              for k in range(lat_f // cfg.chunk_size)]
+    torch.testing.assert_close(torch.cat(chunks, dim=1), whole, rtol=0, atol=0)
+
+
+def test_the_text_encoder_runs_eager_attention_as_the_reference_t5(monkeypatch):
+    """transformers 5 defaults UMT5 to SDPA, whose text embeds differ from the
+    reference's eager T5."""
+    import transformers
+
+    from mstar.model.wan22 import submodules as wan22_submodules
+
+    seen = {}
+
+    class Encoder(torch.nn.Module):
+        def eval(self):
+            return self
+
+    def from_pretrained(*args, **kwargs):
+        seen.update(kwargs)
+        return Encoder()
+
+    monkeypatch.setattr(transformers.UMT5EncoderModel, "from_pretrained", from_pretrained)
+    monkeypatch.setattr(wan22_submodules, "Wan22TextEncoderSubmodule", lambda encoder, cfg: encoder)
+    LingBotWorldModel().get_submodule("text_encoder")
+    assert seen["attn_implementation"] == "eager"
+
+
+def test_the_dit_node_fails_to_build_without_flash_attn(monkeypatch):
+    """Not the first request: with flash-attn missing the server must not
+    come up healthy and then fail every request."""
+    from mstar.model.lingbot_world import weight_loader
+
+    def no_weights(*args, **kwargs):
+        raise AssertionError("loaded weights before checking flash-attn")
+
+    monkeypatch.setitem(sys.modules, "flash_attn", None)
+    monkeypatch.setattr(weight_loader, "build_lingbot_dit", no_weights)
+    with pytest.raises(ImportError, match="install flash-attn"):
+        LingBotWorldModel().get_submodule("dit")
+
+
+def test_the_shipped_config_serves_one_rollout_at_a_time(model):
+    from pathlib import Path
+
+    import yaml
+
+    path = Path(__file__).parents[2] / "configs" / "lingbot_world_1_3b.yaml"
+    model.validate_config_yaml(yaml.safe_load(path.read_text()), str(path))
+    for limit in (None, 0, 2, 16, True, "1"):
+        config = {"max_concurrent_requests": limit} if limit is not None else {}
+        with pytest.raises(ValueError, match="max_concurrent_requests: 1") as err:
+            model.validate_config_yaml(config, "lingbot.yaml")
+    assert "4.7 GiB at 480x832" in str(err.value) and "up to 11.2 GiB" in str(err.value)

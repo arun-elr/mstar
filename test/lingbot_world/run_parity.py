@@ -5,10 +5,12 @@ Drives the mstar submodules the way the engine does (prepare_inputs ->
 preprocess -> forward, one rollout iteration per chunk) on the oracle's
 inputs, and compares:
 
-  inputs        tokenizer ids, the resized conditioning image, Plucker rays
+  inputs        tokenizer ids, the resized conditioning image, each chunk's
+                Plucker rays
   text_encoder  mstar's UMT5 (wan22's submodule, Wan2.2 diffusers weights)
                 vs the reference T5 context
-  vae_encoder   diffusers Wan2.1 VAE encode vs the reference ``y``
+  condition     the dit's chunk-by-chunk diffusers Wan2.1 VAE encode vs the
+                reference's whole-clip ``y``
   dit (teacher-forced)  the mstar DiT fed the reference's own context and y:
                 every DiT call's input and output, every chunk's x0, and the
                 streamed warm-cache decode vs the reference's whole-clip decode
@@ -33,6 +35,7 @@ import torch
 torch.set_float32_matmul_precision("high")
 
 from mstar.conductor.request_info import CurrentForwardPassInfo  # noqa: E402
+from mstar.model.lingbot_world import submodules  # noqa: E402
 from mstar.model.lingbot_world.components.camera import plucker_embedding  # noqa: E402
 from mstar.model.lingbot_world.lingbot_world_model import LingBotWorldModel  # noqa: E402
 from mstar.model.lingbot_world.submodules import ROLLOUT_LOOP_NAME, first_frame_mask  # noqa: E402
@@ -101,38 +104,47 @@ def drive(sub, walk: str, info: CurrentForwardPassInfo, inputs: dict) -> dict:
     return sub.forward(graph_walk=walk, engine_inputs=eng, **pre)
 
 
-def rollout(sub, text_embeds, cond_latents, camera_poses, intrinsics, md: dict, rid: int):
+def rollout(sub, text_embeds, image, camera_poses, intrinsics, md: dict, rid: int, condition=None):
     """One full rollout through the dit node; per chunk: x0 latents, float
-    frames, emitted uint8 frames, wall time. Also every DiT call (x, t, flow)."""
+    frames, emitted uint8 frames, wall time. Also every DiT call (x, t, flow).
+    ``condition`` (``[20, lat_f, h, w]``) stands in for the dit's own encode."""
     calls: list[dict] = []
     handle = sub.dit.register_forward_hook(
         lambda m, a, o: calls.append({"x": a[0].detach().cpu().clone(), "t": a[1].detach().cpu().clone(),
                                       "flow": o.detach().cpu().clone()})
     )
     info = fwd_info("rollout", md, rid)
-    inputs = {"text_embeds_pos": [text_embeds], "cond_latents": [cond_latents],
+    inputs = {"text_embeds_pos": [text_embeds], "image_inputs": [image],
               "camera_poses": [camera_poses], "intrinsics": [intrinsics], "clock": []}
-    latents, pixels, frames, times = [], [], [], []
+    latents, pixels, conditions, frames, times = [], [], [], [], []
     stops = []
-    for k in range(md["num_chunks"]):
-        torch.cuda.synchronize()
-        t0 = time.perf_counter()
-        out = drive(sub, "rollout", info, inputs)
-        torch.cuda.synchronize()
-        times.append(time.perf_counter() - t0)
-        st = sub.request_state(rid)
-        latents.append(st["chunk_latents"].cpu())
-        pixels.append(st["chunk_pixels"].cpu())
-        frames.append(out["video_output"][0].cpu())
-        info.dynamic_loop_iter_counts[ROLLOUT_LOOP_NAME] = k
-        stops.append(bool(sub.check_stop(info.request_id, info, out)))
-        info.dynamic_loop_iter_counts[ROLLOUT_LOOP_NAME] = k + 1
-        inputs["clock"] = out["clock"]
+    encode = submodules.encode_condition_chunk
+    if condition is not None:
+        submodules.encode_condition_chunk = (
+            lambda vae, image, cache, first, n, cfg: condition[:, first:first + n].to(image.device))
+    try:
+        for k in range(md["num_chunks"]):
+            torch.cuda.synchronize()
+            t0 = time.perf_counter()
+            out = drive(sub, "rollout", info, inputs)
+            torch.cuda.synchronize()
+            times.append(time.perf_counter() - t0)
+            st = sub.request_state(rid)
+            latents.append(st["chunk_latents"].cpu())
+            pixels.append(st["chunk_pixels"].cpu())
+            conditions.append(st["chunk_condition"].cpu())
+            frames.append(out["video_output"][0].cpu())
+            info.dynamic_loop_iter_counts[ROLLOUT_LOOP_NAME] = k
+            stops.append(bool(sub.check_stop(info.request_id, info, out)))
+            info.dynamic_loop_iter_counts[ROLLOUT_LOOP_NAME] = k + 1
+            inputs["clock"] = out["clock"]
+    finally:
+        submodules.encode_condition_chunk = encode
     overshoot = sub.prepare_inputs(graph_walk="rollout", fwd_info=info, inputs=inputs)
     handle.remove()
     sub.cleanup_request(rid)
-    return {"latents": latents, "pixels": pixels, "frames": frames, "times": times, "calls": calls,
-            "stop_flags": stops, "overshoot_vetoed": overshoot is None}
+    return {"latents": latents, "pixels": pixels, "conditions": conditions, "frames": frames, "times": times,
+            "calls": calls, "stop_flags": stops, "overshoot_vetoed": overshoot is None}
 
 
 def main():
@@ -173,9 +185,13 @@ def main():
     report["vae_input_tail_is_zero"] = bool((ref_in["vae_input"][:, 1:] == 0).all())
     report["geometry"] = {"latent_frames": lat_f, "lat_h": lat_h, "lat_w": lat_w,
                           "height": lat_h * 8, "width": lat_w * 8, "chunks": lat_f // cs}
-    plucker = plucker_embedding(tensors["camera_poses"][0].to(DEVICE), tensors["intrinsics"][0],
-                                lat_h * 8, lat_w * 8, lat_h, lat_w).to(torch.bfloat16)
-    report["plucker"] = stats(plucker, torch.cat(ref_in["plucker_chunks"], dim=2))
+    # per chunk, as the dit builds them; the reference builds the whole trajectory's at once
+    report["plucker_chunks"] = [
+        stats(plucker_embedding(tensors["camera_poses"][0][k * cs:(k + 1) * cs].float().to(DEVICE),
+                                tensors["intrinsics"][0].float(), lat_h * 8, lat_w * 8, lat_h, lat_w
+                                ).to(torch.bfloat16), ref)
+        for k, ref in enumerate(ref_in["plucker_chunks"])
+    ]
 
     # ---- text encoder -----------------------------------------------------
     text_sub = model.get_submodule("text_encoder", device="cuda").to(DEVICE)
@@ -187,28 +203,24 @@ def main():
     del text_sub, model._submodule_cache["text_encoder"]
     torch.cuda.empty_cache()
 
-    # ---- vae encoder ------------------------------------------------------
-    enc_sub = model.get_submodule("vae_encoder", device="cuda").to(DEVICE)
-    cond = drive(enc_sub, "encode_image", fwd_info("encode_image", md, 2), {"image_inputs": [image]})["cond_latents"][0]
+    # ---- condition, chunk by chunk ------------------------------------------
+    dit_sub = model.get_submodule("dit", device="cuda").to(DEVICE)
+    dit_sub.keep_chunk_outputs = True
+    cache = submodules.new_encoder_cache(dit_sub.encoder_vae)
+    cond = torch.cat([
+        submodules.encode_condition_chunk(dit_sub.encoder_vae, image.to(DEVICE), cache, k * cs, cs, cfg)
+        for k in range(lat_f // cs)
+    ], dim=1)
     ref_mask = first_frame_mask(lat_f, lat_h, lat_w, "cpu")
     report["vae_encode"] = stats(cond[4:], ref_in["vae_latent"])
     report["mask_equal"] = same(cond[:4].cpu(), ref_mask)
-    lat = ref_in["vae_latent"]
-    report["condition_constant_after_latent"] = next(
-        (k for k in range(1, lat.shape[1]) if all(torch.equal(lat[:, k], lat[:, j]) for j in range(k, lat.shape[1]))),
-        None,
-    )
-    del enc_sub, model._submodule_cache["vae_encoder"]
-    torch.cuda.empty_cache()
 
     # ---- dit, teacher-forced ----------------------------------------------
-    dit_sub = model.get_submodule("dit", device="cuda").to(DEVICE)
-    dit_sub.keep_chunk_outputs = True
     ref_text = torch.zeros(1, cfg.text_len, cfg.text_dim, dtype=ref_in["context"].dtype)
     ref_text[0, :n_tok] = ref_in["context"]
     ref_cond = torch.cat([ref_mask, ref_in["vae_latent"]])
-    tf = rollout(dit_sub, ref_text.to(DEVICE), ref_cond.to(DEVICE), tensors["camera_poses"][0],
-                 tensors["intrinsics"][0], md, rid=3)
+    tf = rollout(dit_sub, ref_text.to(DEVICE), image.to(DEVICE), tensors["camera_poses"][0],
+                 tensors["intrinsics"][0], md, rid=3, condition=ref_cond.to(DEVICE))
     report["dit_calls"] = {"ours": len(tf["calls"]), "ref": len(ref_calls)}
     report["dit_calls_bit_exact"] = {
         "x_in": all(same(a["x"], b["x"]) for a, b in zip(tf["calls"], ref_calls, strict=True)),
@@ -240,8 +252,9 @@ def main():
     report["decode_streamed_vs_reference"] = frame_stats(torch.cat(dec, dim=2)[0], ref_video)
 
     # ---- end to end -------------------------------------------------------
-    e2e = rollout(dit_sub, ours_text.to(DEVICE), cond.to(DEVICE), tensors["camera_poses"][0],
+    e2e = rollout(dit_sub, ours_text.to(DEVICE), image.to(DEVICE), tensors["camera_poses"][0],
                   tensors["intrinsics"][0], md, rid=4)
+    report["e2e_condition"] = stats(torch.cat(e2e["conditions"], dim=1), ref_cond)
     report["e2e_chunks"] = []
     for k, (x, p) in enumerate(zip(e2e["latents"], e2e["pixels"], strict=True)):
         lo = 0 if k == 0 else 1 + (k * cs - 1) * 4

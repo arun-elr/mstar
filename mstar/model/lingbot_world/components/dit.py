@@ -48,6 +48,17 @@ from torch import nn
 from mstar.model.lingbot_world.config import LingBotWorldConfig
 
 
+def require_flash_attn() -> None:
+    """Fail the node build, not the first request, when flash-attn is missing."""
+    try:
+        import flash_attn  # noqa: F401
+    except ImportError as e:
+        raise ImportError(
+            "LingBot-World's DiT runs FlashAttention-2 (flash_attn_varlen_func), as the reference does; "
+            "install flash-attn (docs/installation.rst, 'flash-attn (Qwen3-Omni, LingBot-World)')."
+        ) from e
+
+
 def _flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
     """The reference ``flash_attention`` for one unpadded sequence: q/k/v
     ``[1, L, H, D]`` bf16 through FA2 varlen; returns ``[1, Lq, H, D]``."""
@@ -192,10 +203,6 @@ class RollingKVCache:
         k_cache[:, plan.local_start:plan.local_end] = k
         v_cache[:, plan.local_start:plan.local_end] = v
 
-    def bytes(self) -> int:
-        tensors = self.k + self.v + self.cross_k + self.cross_v
-        return sum(t.numel() * t.element_size() for t in tensors)
-
 
 @dataclass(frozen=True)
 class _WritePlan:
@@ -327,11 +334,11 @@ class LingBotCausalDiT(nn.Module):
         self.head = CausalHead(dim, config.out_dim, patch, config.eps)
         # Derived complex128 tables, not checkpoint state: kept off the module
         # tree so neither the loader nor ``.to(dtype)`` touches them.
-        d = config.head_dim
+        d, n = config.head_dim, config.rope_max_frames
         self._freqs_cpu = torch.cat([
-            rope_params(1024, d - 4 * (d // 6)),
-            rope_params(1024, 2 * (d // 6)),
-            rope_params(1024, 2 * (d // 6)),
+            rope_params(n, d - 4 * (d // 6)),
+            rope_params(n, 2 * (d // 6)),
+            rope_params(n, 2 * (d // 6)),
         ], dim=1)
         self._freqs: dict[torch.device, torch.Tensor] = {}
 
