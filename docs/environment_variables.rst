@@ -216,6 +216,12 @@ Read by ``mstar-serve`` / ``mstar.api_server.entrypoint``.
        ``n`` outside ``1`` to this value is a 400 before anything is
        submitted. The Rust frontend and the Dynamo bridge apply the same
        variable and default.
+   * - ``MSTAR_MAX_BODY_MB``
+     - ``128``
+     - Request body limit on every route, as in the Rust frontend: a larger
+       body gets a 413, refused on its ``Content-Length`` or, for a chunked
+       upload, while it is read. ``/v1/audio/transcriptions`` keeps its own
+       512 MiB file cap when this is lower.
 
 Serving (Rust frontend)
 -----------------------
