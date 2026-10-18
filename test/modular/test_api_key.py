@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 
 import pytest
 
@@ -151,6 +152,7 @@ def test_serve_main_applies_the_key_and_keeps_it_from_child_processes(monkeypatc
         argv += ["--api-key", KEY]
     else:
         monkeypatch.setenv(auth.API_KEY_ENV, KEY)
+    monkeypatch.setattr("sys.argv", ["mstar", "serve", "kokoro", f"--api-key={KEY}", "--api-key", KEY])
     try:
         # The config is read right after the key is applied; a missing one stops
         # main() before it spawns anything.
@@ -158,8 +160,10 @@ def test_serve_main_applies_the_key_and_keeps_it_from_child_processes(monkeypatc
             entrypoint.main(argv)
         assert entrypoint.api_key_guard.accepts([(b"authorization", f"Bearer {KEY}".encode())])
         assert not entrypoint.api_key_guard.accepts([])
-        # The conductor and workers are spawned from this environment later.
+        # The conductor and workers are spawned later, from this environment
+        # and (spawn start method) this sys.argv.
         assert auth.API_KEY_ENV not in os.environ
+        assert not any(KEY in a for a in sys.argv)
     finally:
         entrypoint.api_key_guard.set(auth.resolve_api_key())
 

@@ -1845,8 +1845,11 @@ def main(argv: list[str] | None = None):
     api_key = resolve_api_key(args.api_key)
     api_key_guard.set(api_key)
     # Only the frontend needs the key: keep it out of the conductor, workers and
-    # media subprocesses this process spawns. The Rust frontend gets it explicitly.
+    # media subprocesses this process spawns (the spawn start method copies
+    # sys.argv into each child). The Rust frontend gets it explicitly.
     os.environ.pop(API_KEY_ENV, None)
+    if api_key is not None:
+        sys.argv[:] = [a.replace(api_key, "<redacted>") for a in sys.argv]
 
     with open(args.config) as f:
         config = yaml.safe_load(f)
