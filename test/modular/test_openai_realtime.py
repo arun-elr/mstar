@@ -19,7 +19,7 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 
-from fastapi import FastAPI, WebSocketDisconnect  # noqa: E402
+from fastapi import FastAPI, HTTPException, WebSocketDisconnect  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from mstar.api_server.openai import adapters, serving_realtime  # noqa: E402
@@ -64,7 +64,13 @@ class _StubAPI:
         return kw["request_id"]
 
     async def collect_results(self, request_id, raw_request=None):
-        return self._chunks.get(request_id, [])
+        # as APIServer.collect_results: a request the data worker failed
+        # raises with the error chunk's status instead of returning chunks
+        chunks = self._chunks.get(request_id, [])
+        for c in chunks:
+            if c.modality == "error":
+                raise HTTPException(int((c.metadata or {}).get("status", 500)), c.data.decode("utf-8", "replace"))
+        return chunks
 
 
 class _ContinuingAdapter(adapters.OpenAIAdapter):

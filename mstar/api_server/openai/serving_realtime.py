@@ -61,7 +61,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import HTTPException, WebSocket, WebSocketDisconnect
 
 from mstar.api_server import media_io
 from mstar.api_server.openai._util import now, rid
@@ -299,6 +299,9 @@ async def _run_step(api, adapter, session: RealtimeSession, prefix: str) -> str:
         except asyncio.CancelledError:
             api.release_request(request_id)
             raise
+        except HTTPException as exc:
+            # a request the engine failed: the status says whose fault it was
+            raise StepError(str(exc.detail), exc.status_code) from exc
     finally:
         Path(path).unlink(missing_ok=True)
     text = "".join(c.data.decode("utf-8", "replace") for c in chunks if c.modality == "text")
