@@ -376,14 +376,16 @@ class AudioSealWatermarker:
         """AudioSeal's streaming layers, op for op (``moshi.modules.streaming``),
         with the state in ``caches`` and the next state written to ``new``.
         Every input holds whole frames, so each conv consumes all of it but
-        its last ``keep`` samples."""
+        its last ``keep`` samples. The kept tails are copied out at once: a
+        view would hold the layer's whole activation until the end of the
+        call, which doubles a 32-row, 2 s capture's memory (5 GB, not 2.5)."""
         for op in ops:
             if isinstance(op, _Conv):
                 if (x.shape[-1] % op.conv.stride[0]) != 0:
                     raise RuntimeError("AudioSeal conv input is not a whole number of strides")
                 if op.keep:
                     x = torch.cat([caches[op.slot], x], dim=-1)
-                    new[op.slot] = x[..., x.shape[-1] - op.keep:]
+                    new[op.slot] = x[..., x.shape[-1] - op.keep:].clone()
                 x = op.conv(x)
             elif isinstance(op, _ConvTranspose):
                 out = op.conv(x)
@@ -392,7 +394,7 @@ class AudioSealWatermarker:
                     out[..., :op.keep] += caches[op.slot] - op.conv.bias[:, None]
                 else:
                     out[..., :op.keep] += caches[op.slot]
-                new[op.slot] = out[..., total - op.keep:]
+                new[op.slot] = out[..., total - op.keep:].clone()
                 x = out[..., :total - op.keep]
             elif isinstance(op, _LSTM):
                 seq = x.permute(2, 0, 1)
