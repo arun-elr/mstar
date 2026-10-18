@@ -80,6 +80,30 @@ def to_channels_last(vae: nn.Module) -> None:
                 module.weight.data = module.weight.data.contiguous(memory_format=torch.channels_last)
 
 
+_DEFAULT_LAYOUT_CLASS = {
+    ChannelsLastCausalConv3d: WanCausalConv3d,
+    ChannelsLastConv2d: nn.Conv2d,
+    ChannelsLastUpsample: WanUpsample,
+}
+
+
+def to_default_layout(vae: nn.Module) -> None:
+    """Undo ``to_channels_last``, in place; idempotent. The weights become
+    contiguous again (the layout they load in) and the modules their diffusers
+    classes, so ``vae.decode`` is stock ``vae.decode`` bit for bit."""
+    if not is_channels_last(vae):
+        return
+    for root in (getattr(vae, "post_quant_conv", None), getattr(vae, "decoder", None)):
+        if root is None:
+            continue
+        for module in root.modules():
+            module.__class__ = _DEFAULT_LAYOUT_CLASS.get(type(module), type(module))
+            if isinstance(module, (nn.Conv3d, nn.Conv2d)):
+                # Not .contiguous(): with size-1 dims (a 1x1x1 kernel) both
+                # layouts count as contiguous and it would keep these strides.
+                module.weight.data = module.weight.data.clone(memory_format=torch.contiguous_format)
+
+
 def is_channels_last(vae: nn.Module) -> bool:
     return isinstance(getattr(vae, "post_quant_conv", None), ChannelsLastCausalConv3d)
 

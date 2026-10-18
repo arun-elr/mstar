@@ -86,18 +86,45 @@ class Wan22Config:
     # and math as ``vae.decode``; the frames match it to bf16 rounding (55.2 dB
     # against an fp32 decode, as stock). 1.74x faster decode at 1280x704 x 121
     # frames on an H200, at the same peak memory. The compile is per output
-    # resolution (not frame count): the first request at each new size pays it,
-    # about 20 s on an H200. The tiled fallback keeps
-    # ``tiled_decode``, on the channels-last weights. False decodes with stock
-    # ``vae.decode`` and leaves the VAE as loaded. Settable from the yaml's
-    # ``model_kwargs``.
+    # resolution (not frame count), about 20 s on an H200, so it runs only for
+    # ``vae_decode_fast_sizes``: any other size, and every tiled decode, runs
+    # stock ``vae.decode`` / ``tiled_decode`` on the VAE as loaded, the frames
+    # ``vae_decode_fast: false`` gives. False never touches the VAE. Both are
+    # settable from the yaml's ``model_kwargs``.
     vae_decode_fast: bool = True
+    # "WxH" output sizes the fast decode compiles for; None is the default size
+    # (1280x704). Requests choose their size, so an open list would let each new
+    # size cost a compile on the shared worker.
+    vae_decode_fast_sizes: tuple[str, ...] | None = None
 
     def __post_init__(self):
         # A yaml "false" is a truthy string, so a non-boolean is rejected here
         # rather than read as on.
         if not isinstance(self.vae_decode_fast, bool):
             raise ValueError(f"Wan2.2 vae_decode_fast must be true or false, got {self.vae_decode_fast!r}.")
+        self.fast_decode_sizes()
+
+    def fast_decode_sizes(self) -> frozenset[tuple[int, int]]:
+        """``vae_decode_fast_sizes`` as (width, height) pixel pairs."""
+        sizes = self.vae_decode_fast_sizes
+        if sizes is None:
+            return frozenset({(self.default_width, self.default_height)})
+        if isinstance(sizes, str) or not isinstance(sizes, (list, tuple)):
+            raise ValueError(f"Wan2.2 vae_decode_fast_sizes must be a list of 'WxH' sizes, got {sizes!r}.")
+        align_h, align_w = self.spatial_alignment
+        parsed = set()
+        for size in sizes:
+            try:
+                width, height = (int(v) for v in str(size).lower().split("x"))
+            except ValueError:
+                raise ValueError(f"Wan2.2 vae_decode_fast_sizes entry must be 'WxH', got {size!r}.") from None
+            if width <= 0 or height <= 0 or width % align_w or height % align_h:
+                raise ValueError(
+                    f"Wan2.2 vae_decode_fast_sizes entry {size!r} must be positive multiples of "
+                    f"{align_w}x{align_h}."
+                )
+            parsed.add((width, height))
+        return frozenset(parsed)
 
     @property
     def hidden_size(self) -> int:
