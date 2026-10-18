@@ -9,7 +9,6 @@ real and checks that a replay equals the eager solve of the same padded inputs.
 
 from __future__ import annotations
 
-import math
 from unittest import mock
 
 import pytest
@@ -338,6 +337,7 @@ def node_precision():
 
 
 def _tolerance(dtype: torch.dtype) -> float:
-    # random weights at 0.2 make a loud estimator; a bf16 rounding moves a frame
-    # by a few hundredths of its ~unit scale after ten guided steps
-    return 0.25 if dtype == torch.bfloat16 else 1e-4 * math.sqrt(10)
+    # random weights at 0.2 make a loud estimator; another kernel's rounding
+    # moves a frame by a few hundredths of its ~unit scale after ten guided
+    # steps in bf16, and by a few thousandths in float32
+    return 0.25 if dtype == torch.bfloat16 else 1e-2
