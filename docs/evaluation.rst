@@ -203,7 +203,9 @@ run ends (``benchmark/eval/e2e/hosts.py``).
 The models and cases are ``benchmark/eval/e2e/cases.yaml``: TTS, voice clone, ASR, duplex, text, image, audio
 and video in, speech out, image and video generation, streamed frames, VLA actions, and with ``--rp`` request-path
 cases and served invariants. Speech cases use the ``tts``, ``asr`` and ``duplex`` suites; the rest use the ``e2e``
-suite (``run e2e --kind chat_image|image|video|pi05|frames|...``). Inputs are built once into ``--data-dir``
+suite (``run e2e --kind chat_image|image|video|pi05|frames|world|...``). Models whose PRs are not on ``main`` yet
+(CosyVoice3, VoxCPM2, Omnilingual ASR, LingBot-World, MiniCPM-o) have optional entries, out of ``all``: select
+them with ``--models tag:new-model`` or by name, against a base that serves them (``--base 515``). Inputs are built once into ``--data-dir``
 (``python -m benchmark.eval data e2e --out DIR``: Seed-TTS and LibriSpeech sets plus generated media).
 
 **Multi-GPU configs.** Tensor parallel, sequence parallel, split and disaggregated deployments
