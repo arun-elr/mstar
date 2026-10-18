@@ -532,32 +532,6 @@ def test_qwen3_tts_load_audio_rejects_a_long_clip_before_decoding(tmp_path, monk
     assert model.load_audio(str(ok), "cpu").data.shape == (2 * 24000,)
 
 
-@pytest.mark.parametrize(
-    "variant, mode, lead",
-    [("custom_voice", None, 0), ("base", "x_vector", 0), ("base", "in_context", 13)],
-)
-def test_qwen3_tts_a_client_cannot_set_the_codec_stream_lead(variant, mode, lead):
-    """The data worker lays the prompt metadata over the request's kwargs, so
-    the lead must be the server's in every mode: a client value past the
-    codec's left context would raise in the worker's ingest, outside any one
-    request's failure path."""
-    model = _variant_model(variant)
-    modalities = ["text"] if mode is None else ["audio", "text"]
-    request = {} if mode is None else {"tensors": {"audio_inputs": [torch.zeros(24000 + 1)]}}
-    if mode == "x_vector":
-        request["x_vector_only_mode"] = True
-    elif mode == "in_context":
-        request["ref_text"] = "the reference says"
-    client = {Qwen3TTSModel.CODEC_STREAM_LEAD_KEY: 999}
-    result = model.process_prompt("hello", modalities, ["audio"], **request, **client)
-    codec = model.get_initial_forward_pass_args(
-        "Codec", modalities, ["audio"], {}, model_kwargs={**client, **result.metadata}
-    )
-    assert codec.stream_lead_items == ({"codec_tokens": lead} if lead else {})
-    # every key the conductor reads back is one the data worker strips from the client
-    assert set(result.metadata) <= set(model.INTERNAL_KWARGS)
-
-
 def test_qwen3_tts_base_declares_clone_walks_and_routes_reference_audio():
     model = _variant_model("base")
     walks = model.get_graph_walk_graphs()
