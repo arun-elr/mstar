@@ -19,7 +19,7 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 
-from fastapi import FastAPI  # noqa: E402
+from fastapi import FastAPI, WebSocketDisconnect  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from mstar.api_server.openai import adapters, serving_realtime  # noqa: E402
@@ -416,6 +416,12 @@ class _ScriptedWS:
         if not self.inbox:
             return {"type": "websocket.disconnect", "code": 1000}
         return {"type": "websocket.receive", "text": self.inbox.pop(0)}
+
+    async def receive_text(self):
+        message = await self.receive()
+        if message["type"] == "websocket.disconnect":
+            raise WebSocketDisconnect(message["code"])
+        return message["text"]
 
 
 @pytest.mark.parametrize("message", [
