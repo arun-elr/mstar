@@ -3539,7 +3539,7 @@ class Worker:
     def _drop_failed_rids(
         self, pending: PendingBatch,
         outputs: dict[int, NameToTensorList],
-        failed_requests: dict[str, str],
+        failed_requests: dict[int, str],
     ) -> None:
         """Excise ``failed_requests`` from a finished batch.
 
