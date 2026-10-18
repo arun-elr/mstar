@@ -150,6 +150,7 @@ def test_streamed_chunks_stitch_into_the_full_decode(num_frames):
     codes = _codes(num_frames)
 
     steps = _stream(submodule, codes)
+    assert decoder.calls == math.ceil(num_frames / 25)
     full = _to_pcm(decoder(codes.t()[None], torch.arange(num_frames)[None]))[0, 0]
 
     assert full.numel() == num_frames * UPSAMPLE - decoder.TAIL
@@ -157,6 +158,31 @@ def test_streamed_chunks_stitch_into_the_full_decode(num_frames):
     streamed = torch.cat([audio for _, audio, _ in steps])
     assert streamed.shape == full.shape
     assert torch.equal(streamed, full)
+
+
+@pytest.mark.parametrize("num_frames", [1, 24, 25, 26, 49, 50, 51, 125])
+def test_a_trailing_codec_eos_frame_adds_no_audio_and_no_decode(num_frames):
+    """Served streams end with the Talker's codec_eos frame. A reply of
+    k * 25 frames then ends with a flush of 25 context frames and the EOS
+    frame, which emits nothing and decodes nothing; for k * 25 - 1 frames the
+    EOS frame is the last new item of a window and then a context item of the
+    flush."""
+    decoder = _LookaheadDecoder()
+    config = Qwen3OmniModelConfig()
+    submodule = Code2WavSubmodule(decoder, config)
+    codes = _codes(num_frames)
+    eos = torch.full((1, 16), config.talker.codec_eos_token_id)
+
+    steps = _stream(submodule, torch.cat([codes, eos]))
+    assert decoder.calls == math.ceil(num_frames / 25)
+    full = _to_pcm(decoder(codes.t()[None], torch.arange(num_frames)[None]))[0, 0]
+
+    assert torch.equal(torch.cat([audio for _, audio, _ in steps]), full)
+    flush_info, flush_audio, flush_decoded = steps[-1]
+    assert flush_info.is_final
+    if num_frames % 25 == 0:
+        assert flush_info.num_items - flush_info.context_items == 1
+        assert not flush_decoded and flush_audio.numel() == 0
 
 
 @pytest.mark.parametrize("num_frames", [25, 50, 125])
@@ -177,13 +203,18 @@ def test_terminal_flush_without_new_frames_skips_the_decode(num_frames):
 
 
 def test_a_batch_with_any_new_frames_keeps_the_capture():
-    """Only a batch made entirely of context-only flushes leaves the capture."""
+    """Only a batch made entirely of flushes that may be context-only (a final
+    chunk with at most one new item, the codec_eos frame) leaves the capture."""
     submodule = Code2WavSubmodule(_LookaheadDecoder(), Qwen3OmniModelConfig())
     flush = InputMetadata(stream_chunks={"codec_tokens": StreamChunkInfo(50, 25, 25, True)})
+    flush_eos = InputMetadata(stream_chunks={"codec_tokens": StreamChunkInfo(50, 25, 26, True)})
     steady = InputMetadata(stream_chunks={"codec_tokens": StreamChunkInfo(25, 25, 50, False)})
+    one_new = InputMetadata(stream_chunks={"codec_tokens": StreamChunkInfo(50, 25, 26, False)})
     infos = {"a": None, "b": None}
 
     assert submodule.cg_key_info("code2wav_chunk", infos, {"a": flush, "b": flush}) is not None
+    assert submodule.cg_key_info("code2wav_chunk", infos, {"a": flush, "b": flush_eos}) is not None
+    assert submodule.cg_key_info("code2wav_chunk", infos, {"a": flush, "b": one_new}) is None
     assert submodule.cg_key_info("code2wav_chunk", infos, {"a": flush, "b": steady}) is None
     assert submodule.cg_key_info("code2wav_chunk", infos, {"a": flush}) is None
     assert submodule.cg_key_info("code2wav_chunk", infos, None) is None
@@ -205,14 +236,16 @@ def test_mixed_batch_of_a_terminal_flush_and_a_live_window():
     live_info, live_audio, live_decoded = steps["b"][2]
     assert flush_info.is_final and flush_info.context_items == flush_info.num_items
     assert not live_info.is_final and live_info.num_items - live_info.context_items == 25
-    assert keys == [None, None, None, None]   # the mixed step replays the capture
+    # The mixed step replays the capture; b's flush of one new frame runs
+    # eager and still decodes.
+    assert keys == [None, None, None, Code2WavSubmodule._CONTEXT_ONLY_KEY]
     assert flush_decoded and live_decoded and decoder.calls == 4
     assert flush_audio.numel() == 0 and live_audio.numel() == 25 * UPSAMPLE
     for rid, request_codes in codes.items():
         full = _to_pcm(decoder(request_codes.t()[None], torch.arange(request_codes.shape[0])[None]))[0, 0]
         streamed = torch.cat([audio for _, audio, _ in steps[rid]])
         assert torch.equal(streamed, full), rid
-    assert not submodule._first_chunk_emitted and not submodule._latest_seq_len
+    assert not submodule._first_chunk_emitted
 
 
 # ---------------------------------------------------------------------------
