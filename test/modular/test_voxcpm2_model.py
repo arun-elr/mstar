@@ -1295,19 +1295,22 @@ def test_captured_regions_replay_the_eager_result_on_cuda(model):
                 torch.testing.assert_close(padded[:, : eager.shape[-1]], eager, rtol=1e-4, atol=1e-5)
 
 
-def test_vae_window_wider_than_every_bucket_decodes_eagerly(model):
+def test_vae_window_wider_than_every_bucket_or_batch_decodes_eagerly(model):
     config = model.config
     vae_node = VAEDecoderSubmodule(_random_vae(config).double(), config, window_buckets=(1, 3))
     runners = {
         label: _ReplayRunner(region)
         for label, region in vae_node.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32).items()
     }
-    latents = torch.randn(2, 8, 4 * 5, dtype=torch.float64)
+    rows = max(VAEDecoderSubmodule.CAPTURE_BATCH_SIZES)
+    latents = torch.randn(rows + 1, 8, 4 * 5, dtype=torch.float64)
     with torch.no_grad():
-        out = vae_node._decode(latents, runners)
-        torch.testing.assert_close(out, vae_node.vae.decode(latents), rtol=0, atol=0)
+        out = vae_node._decode(latents[:2], runners)
+        torch.testing.assert_close(out, vae_node.vae.decode(latents[:2]), rtol=0, atol=0)
+        many = vae_node._decode(latents[..., :8], runners)
+        torch.testing.assert_close(many, vae_node.vae.decode(latents[..., :8]), rtol=0, atol=0)
         assert not any(runner.calls for runner in runners.values())
-        two = vae_node._decode(latents[:, :, :8], runners)
+        two = vae_node._decode(latents[:2, :, :8], runners)
     assert runners[VAE_WINDOW.format(3)].calls == [(2, 2)]
     assert two.shape[-1] == 3 * config.patch_samples
 
