@@ -365,8 +365,9 @@ class AudioSealWatermarker:
 
     def _pack(self, caches: list[torch.Tensor | None], batch: int) -> torch.Tensor:
         pieces = []
+        offsets = self._layout.offsets
         for slot, cache in enumerate(caches):
-            if cache is None:   # a conv that keeps nothing
+            if offsets[slot + 1] == offsets[slot]:   # a layer that keeps nothing
                 continue
             pieces.append((cache.transpose(0, 1) if slot in self._layout.lstm_slots else cache).reshape(batch, -1))
         return torch.cat(pieces, dim=1)
@@ -490,9 +491,10 @@ class AudioSealWatermarker:
         run as one call per length, the conversion to float and back
         included; with ``runners`` (the engine's captures of
         ``piecewise_configs``) a call whose length was captured replays it,
-        and a final chunk is zero-padded to the next captured length, which
-        changes none of its samples (the generator is causal; its caches are
-        dropped). Anything else goes through ``apply``."""
+        and a final chunk is zero-padded to the next captured length (the
+        generator is causal and the stream's caches are dropped, so its
+        samples change by float rounding only). Anything else goes through
+        ``apply``."""
         finals = finals or [False] * len(chunks)
         results: list[torch.Tensor | None] = [None] * len(chunks)
         groups: dict[int, list[int]] = defaultdict(list)
