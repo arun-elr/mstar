@@ -677,6 +677,12 @@ class TensorStore:
     def check_uuid_presence(self, uuid: int) -> bool:
         return uuid in self._tensors
 
+    def replace_tensor(self, uuid: int, tensor: torch.Tensor):
+        """Swap the storage behind a live uuid; its references, owner and
+        descriptor stay as they are."""
+        self._tensors[uuid] = tensor
+        self._tensors_cpu.pop(uuid, None)
+
     def remove_tensor(self, uuid: int):
         forgotten = uuid in self._forgotten
         self._forgotten.discard(uuid)

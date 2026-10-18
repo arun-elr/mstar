@@ -73,6 +73,7 @@ class _Runtime:
 def _worker(known_rids=("r1", "r2")):
     w = Worker.__new__(Worker)
     w.worker_id = "w0"
+    w.is_tp_follower = False
     w.sent = []
     w.communicator = SimpleNamespace(
         send=lambda entity_id, msg: w.sent.append((entity_id, msg))

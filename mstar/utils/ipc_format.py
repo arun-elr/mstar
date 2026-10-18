@@ -39,6 +39,9 @@ class WorkerMessageType(Enum):
     SCHEDULE_TP = "schedule_tp"
     STOP_LOOPS = "stop_loops"
     TP_NO_SPEC = "tp_no_spec"
+    # follower -> instance rank 0: requests this rank can no longer serve
+    # (body ``FailRequests``)
+    TP_FOLLOWER_FAILED = "tp_follower_failed"
 
 
 @dataclass

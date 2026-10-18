@@ -89,6 +89,8 @@ class FutureAndPointers:
     rx_time: float | None = None # seconds
     # uuids whose local buffers this read writes into
     transfer_uuids: list[int] = field(default_factory=list)
+    # failed, and delivered as zeros (see ``placeholder_nodes``); never acked
+    placeholder: bool = False
 
 
 @dataclass
@@ -395,6 +397,11 @@ class TensorCommunicationManager(ABC):
         self.quarantined_reads = 0
         self.quarantined_bytes = 0
         self.quarantine_budget_bytes = read_quarantine_budget_bytes()
+        # Nodes this process follows in a lockstep (TP/SP) instance. A failed
+        # read feeding one is delivered as zeros of its advertised shape rather
+        # than dropped: the instance leader may already have scheduled the
+        # request, and this rank has to run that step with it.
+        self.placeholder_nodes: frozenset[str] = frozenset()
         self.read_finished: dict[Rid, set[int]] = {}
 
         self.req_rx_info: dict[Rid, SourceAndEdgeToRxInfo] = {}
@@ -1231,7 +1238,37 @@ class TensorCommunicationManager(ABC):
         error = self._failed_read_errors.setdefault(ep.request_id, error)
         self._failed_reads.append(FailedRead(ep.request_id, ep.graph_edges, error))
 
-    def _quarantine_read_buffers(self, ep: FutureAndPointers) -> None:
+    def _feeds_placeholder_node(self, ep: FutureAndPointers) -> bool:
+        return bool(self.placeholder_nodes) and all(
+            edge.next_node in self.placeholder_nodes for edge in ep.graph_edges
+        )
+
+    def _fill_failed_read(self, ep: FutureAndPointers, error: BaseException) -> None:
+        """Turn a failed read of a lockstep follower's input into a finished one
+        holding zeros of the advertised shape, and report it like a dropped read.
+
+        The transfer's own buffers are kept as in :meth:`_drop_failed_read`, and
+        the producer is not acked.
+        """
+        if ep.request_id not in self._failed_read_errors:
+            logger.error(
+                "Tensor read for request %s failed: %s: %s; running its "
+                "lockstep steps on zeros until it is torn down",
+                self.rid_to_str(ep.request_id), type(error).__name__, error,
+            )
+        self._quarantine_read_buffers(ep, zero_fill=True)
+        ep.future = None
+        ep.transfer_uuids = []
+        ep.placeholder = True
+        error = self._failed_read_errors.setdefault(ep.request_id, error)
+        self._failed_reads.append(FailedRead(ep.request_id, ep.graph_edges, error))
+
+    def _quarantine_read_buffers(
+        self, ep: FutureAndPointers, zero_fill: bool = False,
+    ) -> None:
+        """Keep a failed transfer's buffers for the life of the process.
+        ``zero_fill`` leaves each uuid live on fresh, unregistered zeros instead
+        of removing it: other reads may hold references to it."""
         nbytes = 0
         for uuid in ep.transfer_uuids:
             if not self.tensor_store.check_uuid_presence(uuid):
@@ -1239,6 +1276,10 @@ class TensorCommunicationManager(ABC):
             tensor = self.tensor_store.get_tensor(uuid)
             self._quarantined_buffers.append(tensor)
             nbytes += tensor.nbytes
+            if zero_fill:
+                self.tensor_store.replace_tensor(uuid, torch.zeros_like(tensor))
+                self.tensor_store.set_metadata(uuid, mem_registered=False)
+                continue
             self.uuid_to_shard_dim.pop(uuid, None)
             self.uuid_to_edge_name.pop(uuid, None)
             self.tensor_store.remove_tensor(uuid)
@@ -1289,12 +1330,21 @@ class TensorCommunicationManager(ABC):
         # that is done waits for the ones started before it: a streamed token
         # must not reach the client ahead of the one before it
         waiting: set[Rid] = set()
+        unacked: set[int] = set()  # id() of placeholder edges
         for ep in self.pending:
             done, error = self._poll_read(ep)
             if error is not None or (done and ep.request_id in self._failed_read_errors):
-                self._drop_failed_read(ep, error)
-                continue
+                # A lockstep follower still needs the edge: the leader may
+                # already have scheduled the request. A finished read of a
+                # failed request is real data and goes through as usual.
+                if not self._feeds_placeholder_node(ep):
+                    self._drop_failed_read(ep, error)
+                    continue
+                if error is not None:
+                    self._fill_failed_read(ep, error)
             if done and ep.request_id not in waiting:
+                if ep.placeholder:
+                    unacked.update(id(e) for e in ep.graph_edges)
                 for edge in ep.graph_edges:
                     ready.setdefault(ep.request_id, []).append(edge)
                     logger.debug(
@@ -1311,7 +1361,9 @@ class TensorCommunicationManager(ABC):
 
         final_ready: dict[Rid, list[GraphEdge]] = {}
         for req_id, edges in ready.items():
-            self._collect_and_send_acks(req_id, edges)
+            self._collect_and_send_acks(req_id, [
+                e for e in edges if id(e) not in unacked
+            ] if unacked else edges)
             seen_uuids = self.read_finished.setdefault(req_id, set())
             rx_infos = self.req_rx_info.setdefault(req_id, {})
             for edge in edges:
@@ -1538,7 +1590,7 @@ class TensorCommunicationManager(ABC):
             done, error = self._poll_read(ep)
             if not done or error is not None:
                 self._quarantine_read_buffers(ep)
-            else:
+            elif not ep.placeholder:
                 ack_edges.extend(ep.graph_edges)
         self.read_finished.pop(request_id, None)
         self._failed_read_errors.pop(request_id, None)

@@ -204,6 +204,132 @@ def test_a_failed_transfer_keeps_its_buffers_through_teardown():
         mgr._async_reader._executor.shutdown(wait=True)
 
 
+def test_a_lockstep_followers_failed_read_is_delivered_as_zeros():
+    """On a TP/SP follower the leader may already have scheduled the request,
+    so the failed edge still arrives, as zeros of the advertised shape, and
+    the request is reported failed. The transfer's buffer is kept, the
+    producer is not acked, and the zeros go with the request."""
+    engine = _Engine()
+    mgr = _mooncake_manager(engine)
+    mgr.placeholder_nodes = frozenset({"node"})
+    src = torch.tensor([[42, 43, 44], [45, 46, 47]])
+    try:
+        bad_edge = _remote_edge(31, src, "timed-out")
+        (bad,) = mgr.start_read_tensors("bad", [bad_edge])
+        buffer = mgr.get_tensor(31)
+        bad.exception(timeout=5)
+
+        assert mgr.get_ready_tensors() == {"bad": [bad_edge]}
+        zeros = mgr.get_tensor(31)
+        assert zeros is not buffer and torch.equal(zeros, torch.zeros_like(src))
+        assert any(t is buffer for t in mgr._quarantined_buffers)
+        (failed,) = mgr.take_failed_reads()
+        assert failed.request_id == "bad" and failed.graph_edges == [bad_edge]
+        assert _acked(mgr.communicator) == []
+        assert not mgr.has_inflight_reads("bad")
+
+        # a later read of the same request that lands is real data: delivered and acked
+        later_edge = _remote_edge(32, src, "peer")
+        (later,) = mgr.start_read_tensors("bad", [later_edge])
+        later.result(timeout=5)
+        assert mgr.get_ready_tensors() == {"bad": [later_edge]}
+        assert torch.equal(mgr.get_tensor(32), src)
+        assert _acked(mgr.communicator) == [("bad", {32: 1})]
+        assert mgr.take_failed_reads() == []
+
+        zeros_ptr = mgr.get_tensor(31).data_ptr()
+        mgr.force_cleanup_request("bad")
+        assert buffer.data_ptr() not in engine.unregistered
+        assert zeros_ptr not in engine.unregistered  # never registered
+        assert not mgr.tensor_store.get_all_uuids("bad")
+        assert _acked(mgr.communicator) == [("bad", {32: 1})]
+    finally:
+        mgr._async_reader._executor.shutdown(wait=True)
+
+
+def test_a_placeholder_waits_its_turn_and_is_never_acked():
+    """A failed read behind an unfinished one of its request goes out in
+    order, and neither that poll nor teardown acks it."""
+    mgr = _mooncake_manager(_Engine())
+    mgr.placeholder_nodes = frozenset({"node"})
+    src = torch.tensor([1.0, 2.0])
+
+    def started(rid, uuid, future):
+        """A pending read with its receive buffer, as ``start_read_tensors`` leaves it."""
+        edge = _remote_edge(uuid, src, "peer")
+        mgr.tensor_store.put_tensor(rid, uuid, src.clone(), edge.tensor_info[0])
+        mgr.tensor_store.set_metadata(uuid, mem_registered=True)
+        mgr.tensor_store.increment_ref(uuid, 2)
+        ep = _read(rid, edge, future)
+        ep.transfer_uuids = [uuid]
+        return edge, ep
+
+    earlier = Future()
+    (first, ep1), (second, ep2) = started(7, 61, earlier), started(7, 62, _failed_future())
+    mgr.pending = [ep1, ep2]
+
+    assert mgr.get_ready_tensors() == {}
+    assert [f.request_id for f in mgr.take_failed_reads()] == [7]
+    earlier.set_result(None)
+    assert mgr.get_ready_tensors() == {7: [first, second]}
+    assert torch.equal(mgr.get_tensor(62), torch.zeros(2))
+    assert _acked(mgr.communicator) == [("7", {61: 1})]
+
+    # torn down while still waiting behind an unfinished read
+    mgr.pending = [started(8, 63, Future())[1], started(8, 64, _failed_future())[1]]
+    assert mgr.get_ready_tensors() == {}
+    assert [ep.placeholder for ep in mgr.pending] == [False, True]
+    mgr.cleanup_request(8, force=True)
+    assert mgr.pending == []
+    assert _acked(mgr.communicator) == [("7", {61: 1})]
+
+
+def test_zeros_keep_the_references_of_other_reads_of_the_same_tensor():
+    """A second edge reading the same uuid only took a reference, so the zeros
+    have to take over the live record rather than a fresh one."""
+    engine = _Engine()
+    mgr = _mooncake_manager(engine)
+    mgr.placeholder_nodes = frozenset({"node"})
+    src = torch.tensor([[5, 6], [7, 8]])
+    try:
+        mgr.register_request("r", None)
+        edges = []
+        for rank in (0, 1):
+            edge = _remote_edge(81, src, "timed-out")
+            edge.tensor_info[0].source_tp_rank = rank
+            edge._total_fanin, edge._shard_dim = 2, 0
+            edges.append(edge)
+        futures = mgr.start_read_tensors("r", edges)
+        assert len(futures) == 1  # the second edge reuses the first's buffer
+        buffer = mgr.get_tensor(81)
+        futures[0].exception(timeout=5)
+
+        # the first shard waits for its pair; the second edge passes through
+        # as already seen, still naming uuid 81
+        ready = mgr.get_ready_tensors()
+        assert [i.uuid for e in ready["r"] for i in e.tensor_info] == [81]
+        assert torch.equal(mgr.get_tensor(81), torch.zeros_like(src))
+        assert any(t is buffer for t in mgr._quarantined_buffers)
+        # only the edge that just took a reference is acked; the producer keeps
+        # the failed transfer's
+        assert _acked(mgr.communicator) == [("r", {81: 1})]
+
+        mgr.force_cleanup_request("r")
+        assert buffer.data_ptr() not in engine.unregistered
+    finally:
+        mgr._async_reader._executor.shutdown(wait=True)
+
+
+def test_a_non_lockstep_node_on_a_follower_still_drops_the_read():
+    mgr = _mooncake_manager(_Engine())
+    mgr.placeholder_nodes = frozenset({"other_node"})
+    edge = _remote_edge(71, torch.tensor([1]), "peer")
+    mgr.pending = [_read(7, edge, _failed_future())]
+    assert mgr.get_ready_tensors() == {}
+    assert not mgr.tensor_store.check_uuid_presence(71)
+    assert [f.request_id for f in mgr.take_failed_reads()] == [7]
+
+
 def test_teardown_before_the_next_poll_still_keeps_a_failed_transfers_buffers():
     """The read fails after the last poll, so only teardown sees it."""
     engine = _Engine()

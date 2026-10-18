@@ -164,6 +164,8 @@ def test_polymorphic_body_dispatch():
                     worker_graph_to_workers={"wg0": ["w0", "w1"]},
                     initial_inputs=[_edge()], request_info=_fwd_info()),
          WorkerMessageType.NEW_REQUEST),
+        (FailRequests(errors={"r": "input tensor read failed"}),
+         WorkerMessageType.TP_FOLLOWER_FAILED),
     ]:
         got = roundtrip(WorkerMessage(message_type=mtype, body=body))
         assert type(got.body) is type(body)

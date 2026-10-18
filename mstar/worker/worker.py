@@ -512,6 +512,9 @@ class Worker:
             )
 
         self.is_tp_follower = len(self.parallel_nodes - self.parallel_leader_nodes) > 0
+        self.tensor_manager.placeholder_nodes = frozenset(
+            self.parallel_nodes - self.parallel_leader_nodes
+        )
 
         # TP async scheduling: the leader speculates N+1 during forward N and
         # broadcasts it at once; followers rebuild it during their own N.
@@ -1154,6 +1157,8 @@ class Worker:
                 self._register_tp_follow(message.body)
             elif message.message_type == WorkerMessageType.TP_NO_SPEC:
                 self._register_tp_nospec(message.body)
+            elif message.message_type == WorkerMessageType.TP_FOLLOWER_FAILED:
+                self._fail_follower_requests(message.body)
 
     def _process_messages(self) -> None:
         self._process_message_list(self.communicator.get_all_new_messages())
@@ -1331,6 +1336,8 @@ class Worker:
         }
         if failed:
             self._fail_requests(failed)
+            if self.is_tp_follower:
+                self._report_failures_to_tp_leaders(failed)
         # teardown can quarantine too, so compare totals rather than hook each path
         if self.tensor_manager.quarantined_reads != self._reported_quarantine_reads:
             self._report_read_quarantine()
@@ -3982,6 +3989,45 @@ class Worker:
         )
         # Note: we do not cleanup the request right now; we wait for the conductor
         # to officially send a removal message
+
+    def _report_failures_to_tp_leaders(self, errors: dict[int, str]) -> None:
+        """Tell rank 0 of each lockstep instance this rank follows that it
+        can no longer serve these requests.
+
+        The leader schedules from its own copy of the inputs, so it may already
+        have broadcast steps carrying them; this rank runs those on placeholder
+        inputs (``TensorCommunicationManager.placeholder_nodes``). The message
+        stops the leader adding more without waiting for the conductor's drain.
+        """
+        by_leader: dict[str, dict[str, str]] = {}
+        for rid, msg in errors.items():
+            if rid not in self.request_state.per_request_info:
+                continue
+            sharding = self._graph_runtime.get_sharding_config(rid)
+            if sharding is None:
+                continue
+            for group in sharding.groups:
+                # the converse of the leader's fan-out in ``_begin_drain``
+                if group.tp_size > 1 and group._tp_rank not in (None, 0):
+                    by_leader.setdefault(group._workers[0], {})[self._rid_str(rid)] = msg
+        for leader, wire_errors in by_leader.items():
+            self.communicator.send(
+                leader, msg=WorkerMessage(
+                    message_type=WorkerMessageType.TP_FOLLOWER_FAILED,
+                    body=FailRequests(errors=wire_errors),
+                ),
+            )
+
+    def _fail_follower_requests(self, body: FailRequests) -> None:
+        """Leader side of ``_report_failures_to_tp_leaders``: fail the requests
+        here as well, so no later step of this instance carries them."""
+        errors = {}
+        for wire_rid, msg in body.errors.items():
+            # unknown: already removed, or the conductor's drain will refuse it
+            handle = self._rid(wire_rid)
+            if handle is not None and handle not in self.scheduler.failed_rids:
+                errors[handle] = msg
+        self._fail_requests(errors)
 
     def _build_speculation(
         self, pending: PendingBatch | None, consecutive: int,
