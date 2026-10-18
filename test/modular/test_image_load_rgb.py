@@ -45,11 +45,12 @@ def test_qwen_image_processor_accepts_it(tmp_path, mode, fmt, name):
     assert processed["pixel_values"].shape[0] > 0
 
 
-def test_corrupt_image_is_a_client_error_without_the_path(tmp_path):
+@pytest.mark.parametrize("fmt", ["PNG", "GIF"])  # GIF goes through Pillow, PNG through torchvision
+def test_corrupt_image_is_a_client_error_without_the_path(tmp_path, fmt):
     buf = io.BytesIO()
-    Image.fromarray(RGB).save(buf, format="PNG")
-    path = tmp_path / "secret-name.png"
-    path.write_bytes(buf.getvalue()[:200])
+    Image.fromarray(RGB).save(buf, format=fmt)
+    path = tmp_path / f"secret-name.{fmt.lower()}"
+    path.write_bytes(buf.getvalue()[: len(buf.getvalue()) // 2])  # the header survives, the pixels don't
     with pytest.raises(ValueError, match="corrupt or truncated") as info:
         Model.load_image(None, str(path), "cpu")
     assert "secret-name" not in str(info.value)
