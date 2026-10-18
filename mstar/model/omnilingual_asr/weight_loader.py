@@ -67,9 +67,13 @@ def verify_sha256(path: str | Path, expected: str, cache_dir: str | Path | None)
             f"{path} has sha256 {actual}, not the pinned {expected}; "
             "delete it to download it again, or pass a local file with checkpoint_path/tokenizer_path"
         )
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    with open(marker, "a") as f:
-        f.write(stamp + "\n")
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        with open(marker, "a") as f:
+            f.write(stamp + "\n")
+    except OSError as exc:
+        # a read-only cache (a mounted volume) only costs the hash on each start
+        logger.warning("cannot record the verified hash of %s (%s); it is hashed again next time", path, exc)
 
 
 def fetch_cdn(artifact: Artifact, cache_dir: str | Path | None) -> Path:

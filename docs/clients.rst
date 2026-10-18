@@ -309,8 +309,9 @@ Per-model notes:
   are offset to the whole file.
 - **Omnilingual ASR** (``omnilingual_asr_ctc_*``): no language code is needed for any of
   its 1,600+ languages, and ``language`` / ``prompt`` / ``temperature`` have no effect. A
-  clip of up to 40 s is one request; a longer upload is cut into windows of at most 40 s
-  at quiet points and transcribed in parallel. There are no timestamps: ``srt`` / ``vtt``
+  clip of up to 20 s is one request; a longer upload is cut into windows of about equal
+  length, at most 16 s, at quiet points and transcribed in parallel (``window_seconds``
+  in ``extra_body``, 5 to 40, sets both lengths). There are no timestamps: ``srt`` / ``vtt``
   get one cue spanning the file.
 - **Realtime transcription** — every ``chunk_seconds`` (default 2 s) of new audio the
   session re-transcribes everything heard so far as one engine request whose assistant

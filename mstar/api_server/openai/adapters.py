@@ -243,6 +243,20 @@ class OpenAIAdapter:
     # Longest clip the model transcribes in one request. Longer uploads are cut
     # into windows of this length by the transcription route (None means unlimited).
     max_audio_seconds: float | None = None
+    # Window length for long uploads when shorter than the clip bound (None:
+    # the bound); a request can override it with ``window_seconds`` in extra_body.
+    window_seconds: float | None = None
+    # Cut a long upload into the fewest windows of at most the window length,
+    # of about equal length, instead of full windows and a remainder.
+    balanced_windows: bool = False
+    # Uploads up to this length run as one window even when longer than the
+    # window length (None: the window length). A request's ``window_seconds``
+    # sets both.
+    whole_seconds: float | None = None
+    # How far back from its nominal boundary a cut may move to the quietest
+    # frame, and the frame length compared (None: the route's defaults).
+    window_search_seconds: float | None = None
+    window_frame_seconds: float | None = None
     # How the windows of a long upload run: "sequential" feeds each window the
     # previous transcript as ``initial_prompt`` (openai-whisper's carry-over),
     # "parallel" submits them all at once. A request can override with
@@ -1072,12 +1086,14 @@ class HiggsAudioAdapter(OpenAIAdapter):
 class OmnilingualASRAdapter(OpenAIAdapter):
     """Omnilingual ASR CTC: speech-to-text in 1,600+ languages, no language code.
 
-    The model hears at most 40 s (the reference rejects longer clips), so the
-    route cuts longer uploads into windows of at most 40 s, each ending at the
-    quietest moment within 2 s of its boundary, and transcribes them in
-    parallel: a CTC model takes no conditioning text, so windows are
-    independent. A clip of 40 s or less is transcribed whole, exactly as the
-    reference does. ``language``, ``prompt`` and ``temperature`` have no
+    The model hears at most 40 s (the reference rejects longer clips) and is
+    most accurate on shorter ones, so a clip of up to 20 s is transcribed
+    whole, exactly as the reference does, and a longer upload is cut into the
+    fewest windows of at most 16 s, of about equal length, each ending at the
+    quietest 0.1 s within 5 s of its boundary. The windows run in parallel: a
+    CTC model takes no conditioning text, so they are independent.
+    ``window_seconds`` in extra_body (5 to 40) sets both lengths for one
+    request. ``language``, ``prompt`` and ``temperature`` have no
     effect (argmax CTC decoding has nothing to condition or sample). There
     are no timestamps: ``srt`` / ``vtt`` get one cue spanning the file and
     ``verbose_json`` an empty segment list.
@@ -1085,6 +1101,14 @@ class OmnilingualASRAdapter(OpenAIAdapter):
 
     supports_transcriptions = True
     max_audio_seconds = 40.0
+    # CER on FLEURS concatenations is lowest with clips up to 20 s heard whole
+    # and longer ones cut into balanced windows of at most 16 s at a pause (40 s
+    # windows more than double it)
+    window_seconds = 16.0
+    whole_seconds = 20.0
+    balanced_windows = True
+    window_search_seconds = 5.0
+    window_frame_seconds = 0.1
     long_form = "parallel"
     # argmax decoding has no temperature to fall back to
     compression_ratio_threshold = None

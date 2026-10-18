@@ -17,9 +17,9 @@ return. Checks:
   one-at-a-time responses;
 * ``stream=true`` emits deltas whose concatenation, and the ``done`` event,
   equal the non-streamed text; ``verbose_json`` reports one segment;
-* each ``--long`` upload (over 40 s) is served as windows: its text equals
+* each ``--long`` upload (over 20 s) is served as windows: its text equals
   the offline transcripts of the same windows (cut by the route's own
-  ``WindowPlanner``) joined by a space.
+  ``planner_for``) joined by a space.
 """
 
 import argparse
@@ -53,7 +53,8 @@ def transcribe(url: str, model: str, path: str) -> str:
 def offline_windows(paths: list[str], checkpoint: str, tokenizer: str, size: str, dtype: str) -> dict[str, str]:
     """What the server should return for over-40 s uploads: the route's own
     windows, each transcribed alone by the offline model, joined by a space."""
-    from mstar.api_server.openai.serving_transcriptions import WindowPlanner
+    from mstar.api_server.openai.adapters import OmnilingualASRAdapter
+    from mstar.api_server.openai.serving_transcriptions import planner_for
     from mstar.model.omnilingual_asr import audio, config, weight_loader
     from mstar.model.omnilingual_asr import tokenizer as tok_mod
     from mstar.model.omnilingual_asr.components.wav2vec2 import Wav2Vec2CTC
@@ -73,7 +74,7 @@ def offline_windows(paths: list[str], checkpoint: str, tokenizer: str, size: str
             # the planner deletes its input on cleanup, as the route deletes the upload
             copy = Path(tmp) / Path(path).name
             shutil.copyfile(path, copy)
-            planner = WindowPlanner(str(copy), config.MAX_AUDIO_SECONDS, Path(tmp))
+            planner = planner_for(OmnilingualASRAdapter(), str(copy), Path(tmp))
             texts, windows = [], planner.fixed()
             for window in windows:
                 wave = audio.preprocess(audio.load_waveform(window.path))

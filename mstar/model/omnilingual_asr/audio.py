@@ -56,7 +56,9 @@ def decode_file(path: str) -> tuple[torch.Tensor, int]:
         return data.float(), int(samples.sample_rate)
     except Exception as exc:  # noqa: BLE001 (missing, or FFmpeg cannot read it)
         errors.append(f"torchcodec: {exc}")
-    raise ValueError(f"cannot decode the audio file ({'; '.join(errors)}); install soundfile (mstar-ai[audio])")
+    # the decoders name the file; the client only needs to know it was theirs
+    detail = "; ".join(errors).replace(str(path), "<upload>")
+    raise ValueError(f"cannot decode the audio file ({detail}); install soundfile (mstar-ai[audio])")
 
 
 _WAVE_PCM, _WAVE_FLOAT, _WAVE_EXTENSIBLE = 1, 3, 0xFFFE
@@ -67,7 +69,7 @@ def _decode_pcm_wav(path: str) -> tuple[torch.Tensor, int]:
     libsndfile scales them to float32."""
     data = Path(path).read_bytes()
     if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
-        raise ValueError(f"{path} is not a WAV file; install soundfile (mstar-ai[audio]) for other formats")
+        raise ValueError("not a WAV file; install soundfile (mstar-ai[audio]) for other formats")
     fmt = samples = None
     pos = 12
     while pos + 8 <= len(data):
@@ -79,40 +81,48 @@ def _decode_pcm_wav(path: str) -> tuple[torch.Tensor, int]:
             samples = body
         pos += 8 + size + (size & 1)
     if fmt is None or samples is None:
-        raise ValueError(f"{path}: WAV file without fmt or data chunk")
+        raise ValueError("WAV file without fmt or data chunk")
+    if len(fmt) < 16:
+        raise ValueError("WAV fmt chunk is too short")
     tag, channels, rate, _, _, bits = struct.unpack("<HHIIHH", fmt[:16])
     if tag == _WAVE_EXTENSIBLE and len(fmt) >= 26:
         tag = struct.unpack("<H", fmt[24:26])[0]
+    if channels < 1:
+        raise ValueError(f"WAV file with {channels} channels")
     width = bits // 8
+    supported = (tag == _WAVE_FLOAT and width in (4, 8)) or (tag == _WAVE_PCM and width in (1, 2, 3, 4))
+    if not supported:
+        raise ValueError(f"unsupported WAV encoding (format {tag}, {bits} bits); install soundfile")
     samples = samples[: len(samples) - len(samples) % (width * channels)]
-    if tag == _WAVE_FLOAT and width in (4, 8):
+    if tag == _WAVE_FLOAT:
         audio = np.frombuffer(samples, dtype="<f4" if width == 4 else "<f8").astype(np.float32)
-    elif tag == _WAVE_PCM and width == 1:
+    elif width == 1:
         audio = (np.frombuffer(samples, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
-    elif tag == _WAVE_PCM and width == 2:
+    elif width == 2:
         audio = np.frombuffer(samples, dtype="<i2").astype(np.float32) / 32768.0
-    elif tag == _WAVE_PCM and width == 3:
+    elif width == 3:
         raw = np.frombuffer(samples, dtype=np.uint8).reshape(-1, 3).astype(np.int32)
         ints = (raw[:, 0] << 8 | raw[:, 1] << 16 | raw[:, 2] << 24) >> 8
         audio = ints.astype(np.float32) / 8388608.0
-    elif tag == _WAVE_PCM and width == 4:
-        audio = np.frombuffer(samples, dtype="<i4").astype(np.float32) / 2147483648.0
     else:
-        raise ValueError(f"{path}: unsupported WAV encoding (format {tag}, {bits} bits); install soundfile")
+        audio = np.frombuffer(samples, dtype="<i4").astype(np.float32) / 2147483648.0
     audio = audio.reshape(-1, channels) if channels > 1 else audio
     return torch.from_numpy(np.ascontiguousarray(audio)), int(rate)
 
 
 _MAX_SAMPLE_RATE = 768_000
 # torchaudio's resampling kernel holds about (rate / g) * (16000 / g) floats,
-# g = gcd(rate, 16000): 70,560 for 44.1 kHz, 16000 * rate for a rate coprime
-# to 16000 (gigabytes from one crafted header)
-_MAX_RESAMPLE_KERNEL = 1 << 20
+# g = gcd(rate, 16000): 70,560 for 44.1 kHz, 11.0M for the 44,056 Hz pull-down
+# rate, 16000 * rate for a rate coprime to 16000 (gigabytes from one crafted
+# header). The route's own decoder for windowed uploads applies the same bound
+# (``media_io.MAX_RESAMPLE_KERNEL``).
+_MAX_RESAMPLE_KERNEL = 1 << 24
 
 
 def check_sample_rate(sample_rate: int) -> None:
     """Refuse a rate the resampler can't take at a bounded cost. Every common
-    rate from 8 kHz to 192 kHz, 11.025 kHz and its multiples included, passes."""
+    rate from 8 kHz to 192 kHz, 11.025 kHz and its multiples and the NTSC
+    pull-down rates (44,056 / 47,952 / 48,048 Hz) included, passes."""
     if not 1 <= sample_rate <= _MAX_SAMPLE_RATE:
         raise ValueError(f"unsupported sample rate {sample_rate} Hz")
     g = math.gcd(sample_rate, SAMPLE_RATE)

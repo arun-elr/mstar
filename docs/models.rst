@@ -174,11 +174,13 @@ Omnilingual ASR notes
   at pinned revisions. ``checkpoint_path`` / ``tokenizer_path`` take local files instead.
 - Preprocessing follows the reference exactly: decode at the file's rate, resample each
   channel to 16 kHz (torchaudio), average the channels, normalize the utterance to zero
-  mean and unit variance. A clip of up to 40 s (the reference's limit) is transcribed
-  whole. ``/v1/audio/transcriptions`` cuts a longer upload into windows of at most 40 s,
-  each ending at the quietest moment within 2 s of its boundary, and transcribes them in
-  parallel; the reference itself rejects such clips, and Meta recommends clips of 30 s or
-  less. ``/generate`` refuses a clip over 40 s with a 400 rather than truncating it.
+  mean and unit variance. ``/v1/audio/transcriptions`` transcribes a clip of up to 20 s
+  whole and cuts a longer upload into the fewest windows of at most 16 s, of about equal
+  length, each ending at the quietest 0.1 s within 5 s of its boundary, transcribed in
+  parallel. The model hears up to 40 s (the reference's limit, and the cap for
+  ``window_seconds`` in ``extra_body``, which sets both lengths for one request), but on
+  FLEURS concatenations 40 s windows give more than twice the character error rate of
+  this policy. ``/generate`` refuses a clip over 40 s with a 400 rather than truncating it.
 - The CTC head covers every language at once: ``language``, ``prompt`` and ``temperature``
   have no effect (the reference ignores a language code for CTC models too), and
   decoding is a per-frame argmax. There are no timestamps: ``srt`` / ``vtt`` get one cue

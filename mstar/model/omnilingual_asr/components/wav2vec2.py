@@ -39,6 +39,9 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch.nn.attention import SDPBackend, sdpa_kernel
+
+_ATTENTION_BACKENDS = [SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]
 
 
 class FeatureExtractionLayer(nn.Module):
@@ -221,5 +224,8 @@ class Wav2Vec2CTC(nn.Module):
             frame_mask = torch.arange(t, device=x.device)[None, :] < lens[:, None]
         x = front.model_dim_proj(front.post_extract_layer_norm(x))
         x = front.pos_encoder(x, frame_mask)
-        x = self.encoder(x, None if frame_mask is None else attention_mask(frame_mask))
+        # cuDNN attention builds a plan per new sequence length, and nearly
+        # every upload has its own length
+        with sdpa_kernel(_ATTENTION_BACKENDS):
+            x = self.encoder(x, None if frame_mask is None else attention_mask(frame_mask))
         return self.final_proj(x), frame_lens
