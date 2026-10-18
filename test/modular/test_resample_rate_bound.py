@@ -216,6 +216,27 @@ def test_transcription_upload_at_a_coprime_rate_is_a_400(stream, sf, no_resample
     assert r.status_code == 400, r.text
     assert f"unsupported sample rate {BAD_RATE} Hz" in r.text
     assert stub.submits == []
+    assert list(stub.upload_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("error", [RuntimeError, ImportError])
+def test_transcription_upload_that_fails_to_decode_is_removed(
+    stream, error, sf, client_and_stub, tmp_path, monkeypatch,
+):
+    # header readable, body not: soundfile's read raises and the torchcodec
+    # fallback raises something other than ValueError
+    def broken(path, sample_rate):
+        raise error("corrupt stream")
+
+    monkeypatch.setattr(media_io, "decode_audio", broken)
+    client, stub = client_and_stub
+    data = {"model": "whisper_large", "stream": "true" if stream else "false"}
+    files = {"file": ("corrupt.wav", io.BytesIO(_long_upload(sf, tmp_path, 44100)), "audio/wav")}
+    r = client.post("/v1/audio/transcriptions", data=data, files=files)
+    assert r.status_code == 500, r.text
+    assert stub.submits == []
+    assert list(stub.upload_dir.iterdir()) == []
 
 
 def test_transcription_upload_at_a_common_rate_is_windowed(sf, client_and_stub, tmp_path):

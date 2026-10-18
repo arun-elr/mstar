@@ -427,6 +427,9 @@ async def create_transcription(
     except ValueError as exc:
         planner.cleanup()
         raise HTTPException(status_code=400, detail=str(exc)) from None
+    except BaseException:
+        planner.cleanup()
+        raise
 
     if req.stream:
         # the stream owns the files and windows from here
