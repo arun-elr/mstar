@@ -783,6 +783,19 @@ paths round the latent extent differently and the DiT dies mid-forward.
 32 frames and you would get 29 — so it too is rejected with a 400 naming the
 nearest valid counts.
 
+**Size ceiling.** ``height x width x num_frames`` may not exceed
+``max_video_pixels`` (default 268,435,456, about 3.6x the default clip; raise
+it under the yaml's ``model_kwargs``), and each axis must fit the DiT's 1,024
+rotary positions (height and width up to 32,768, ``num_frames`` up to 4,093).
+Either is a 400 naming the limit.
+
+**Compiled DiT shapes.** With ``compile_dit`` the DiT compiles one graph per
+input shape, so only the ``"WxHxF"`` shapes in ``compile_dit_sizes`` (default
+``1280x704x81``) use the compiled transformer; each compiles on first use, once
+with CFG and once without, so at most two compiles per listed shape. Any other
+size or frame count runs the same transformer eager, with no compile. List more
+shapes under the yaml's ``model_kwargs``.
+
 **UniPC runs inline, inside the DiT node.** Unlike cosmos3, the scheduler is not
 a separate stage: the solver state (the order-2 history buffer and the
 corrector's ``last_sample``) is carried on the denoise loop's own edges, so it
@@ -793,8 +806,8 @@ Requests are therefore independent and the loop is resumable across ranks.
 (``compile_dit``) and the untiled VAE decode runs the shared Wan VAE decoder,
 channels-last and compiled (``vae_decode_fast``; set it to ``false`` under the
 yaml's ``model_kwargs`` for stock ``vae.decode``). Both compile on first use:
-the DiT once per resolution, frame count and CFG setting, so the first request
-at a new size is slower. The VAE decode compiles once per resolution, and only
+the DiT only for the ``compile_dit_sizes`` shapes (see Compiled DiT shapes), so
+the first request at a listed shape is slower. The VAE decode compiles once per resolution, and only
 for the sizes in ``vae_decode_fast_sizes`` (default ``1280x704``); any other
 size decodes with stock ``vae.decode``, frames identical to
 ``vae_decode_fast: false``. The compile uses Inductor's deterministic mode, so
