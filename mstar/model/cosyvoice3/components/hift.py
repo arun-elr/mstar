@@ -209,15 +209,19 @@ class CausalHiFTGenerator(nn.Module):
             torch.arange(1, cfg.nb_harmonics + 2, dtype=torch.float32),
             persistent=False,
         )
-        # The excitation noise, by output sample; kept on the host (it is large)
-        # and copied per call.
+        # The excitation noise, by output sample (about 260 MB for 300 s); it
+        # moves with the module, since a per-call copy from the host waits on it
         generator = torch.Generator().manual_seed(cfg.noise_seed)
-        self.source_noise = torch.rand(
-            1,
-            int(cfg.noise_seconds * cfg.sampling_rate),
-            cfg.nb_harmonics + 1,
-            generator=generator,
+        self.register_buffer(
+            "source_noise",
+            torch.rand(1, int(cfg.noise_seconds * cfg.sampling_rate), cfg.nb_harmonics + 1, generator=generator),
+            persistent=False,
         )
+        # torch.istft checks the window envelope on the host every call; the
+        # envelope depends only on the window, so it is checked here once
+        frames = cfg.istft_n_fft // cfg.istft_hop_len + 1
+        if window.device.type != "meta" and self._window_envelope(frames, window).min() < 1e-11:
+            raise ValueError("the iSTFT window does not overlap-add to a nonzero envelope")
 
     @property
     def upsample_factor(self) -> int:
@@ -269,11 +273,25 @@ class CausalHiFTGenerator(nn.Module):
         spec = torch.view_as_real(spec)
         return spec[..., 0], spec[..., 1]
 
+    def _overlap_add(self, frames: torch.Tensor) -> torch.Tensor:
+        """``[B, T, n_fft]`` frames -> ``[B, n_fft + hop (T - 1)]`` samples less the
+        centre padding, summed as ``torch.istft`` sums them (the backward of
+        ``unfold``), so the result is the same to the bit."""
+        n_fft, hop = self.config.istft_n_fft, self.config.istft_hop_len
+        length = n_fft + hop * (frames.shape[1] - 1)
+        out = torch.ops.aten.unfold_backward(frames, [frames.shape[0], length], 1, n_fft, hop)
+        return out[:, n_fft // 2 : length - n_fft // 2]
+
+    def _window_envelope(self, num_frames: int, window: torch.Tensor) -> torch.Tensor:
+        return self._overlap_add((window**2).expand(1, num_frames, -1).contiguous())[0]
+
     def _istft(self, magnitude: torch.Tensor, phase: torch.Tensor) -> torch.Tensor:
+        """``torch.istft`` (centred, one-sided, unnormalized) without its host-side envelope check."""
         cfg = self.config
         magnitude = torch.clip(magnitude, max=1e2)
         spec = torch.complex(magnitude * torch.cos(phase), magnitude * torch.sin(phase))
-        return torch.istft(spec, cfg.istft_n_fft, cfg.istft_hop_len, cfg.istft_n_fft, window=self.stft_window)
+        frames = torch.fft.irfft(spec.transpose(1, 2), n=cfg.istft_n_fft, dim=-1) * self.stft_window
+        return self._overlap_add(frames) / self._window_envelope(frames.shape[1], self.stft_window)
 
     def decode(self, mel: torch.Tensor, source: torch.Tensor, finalize: bool) -> torch.Tensor:
         cfg = self.config
