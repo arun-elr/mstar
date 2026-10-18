@@ -410,6 +410,51 @@ def _speech(**extra) -> SpeechRequest:
     return SpeechRequest(model="cosyvoice3", input="hello", **extra)
 
 
+_PASSAGE = (
+    "The committee met on Tuesday to review the budget for the coming year. "
+    "Several members raised concerns about the rising cost of maintenance, "
+    "especially for the older buildings on the east side of campus. "
+    "After a long discussion, they agreed to postpone the vote until more data was available. "
+    "In the meantime, the finance office will prepare a detailed report. "
+)
+
+
+def test_adapter_splits_long_text_like_the_reference_frontend():
+    """About 80 tokens (320 characters) of English or 80 characters of Chinese
+    per piece, cut only at sentence ends, a short tail merged into the piece
+    before it, and every word kept in order; short text stays one piece."""
+    adapter = adapters.CosyVoice3Adapter()
+    long_en = (_PASSAGE * 5).strip()  # about 250 words
+    pieces = adapter.split_speech_text(long_en)
+    assert len(pieces) >= math.ceil(len(long_en) / 320)
+    assert all(len(p) <= 320 and p.endswith(".") for p in pieces)
+    assert " ".join(pieces).split() == long_en.split()
+    block = " ".join(["Several members raised concerns."] * 9)  # 305 characters
+    assert adapter.split_speech_text(block + " Thanks so much.") == [block + " Thanks so much."]
+    assert len(adapter.split_speech_text(block + " " + block)) == 2
+    zh = "今天下午我们在会议室讨论了明年的预算安排。" * 12
+    zh_pieces = adapter.split_speech_text(zh)
+    assert all(len(p) <= 80 and p.endswith("。") for p in zh_pieces) and "".join(zh_pieces) == zh
+    assert len(zh_pieces) == math.ceil(len(zh) / 80)
+    assert adapter.split_speech_text("Hello there. How are you today?") == ["Hello there. How are you today?"]
+
+
+def test_long_speech_input_is_planned_as_reference_pieces():
+    """``/v1/audio/speech`` plans a CosyVoice3 input through the adapter's
+    splitter by default; ``sentence_chunking: false`` keeps it whole."""
+    from mstar.api_server.openai.serving_speech import _plan_chunks
+
+    adapter = adapters.CosyVoice3Adapter()
+    text = (_PASSAGE * 5).strip()
+    request = SpeechRequest(model="cosyvoice3", input=text)
+    assert _plan_chunks(request, adapter, text) == adapter.split_speech_text(text)
+    assert len(_plan_chunks(request, adapter, text)) > 1
+    whole = SpeechRequest(model="cosyvoice3", input=text, sentence_chunking=False)
+    assert _plan_chunks(whole, adapter, text) == [text]
+    short = "One benchmark sentence of about forty words stays a single request."
+    assert _plan_chunks(SpeechRequest(model="cosyvoice3", input=short), adapter, short) == [short]
+
+
 def test_adapter_maps_voice_instructions_and_sampling(tmp_path):
     sa = adapters.CosyVoice3Adapter().speech_to_request(
         _speech(voice="anna", instructions="slowly", temperature=0.7, seed=5, top_k=10), tmp_path
@@ -441,10 +486,12 @@ def test_adapter_refuses_server_paths_and_leaves_nothing_behind(tmp_path, ref):
 
 
 def test_adapter_reports_non_audio_base64_as_not_audio(tmp_path):
+    """The shared #411 refusal: one message for a server path and for base64
+    soundfile cannot open, since ``/etc/passwd`` is valid base64 too."""
     pytest.importorskip("soundfile")
     upload = tmp_path / "uploads"
     blob = base64.b64encode(b"%PDF-1.7 this is not audio" * 8).decode()
-    with pytest.raises(ValueError, match="ref_audio is not audio the server can read"):
+    with pytest.raises(ValueError, match="or base64 audio the model can decode$"):
         adapters.CosyVoice3Adapter().speech_to_request(_speech(ref_audio=blob), upload)
     assert not upload.exists() or not any(upload.iterdir())
 
@@ -959,7 +1006,8 @@ def test_lm_staged_columns_equal_the_per_value_tensors():
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
 def test_lm_steps_and_flow_solve_issue_no_host_sync_on_cuda():
     """Preparing LM steps (prefill, a decode forced to EOS by a prefill stop,
-    a plain decode) and a flow solve neither read the device back nor copy
+    a plain decode), a flow solve and streamed HiFT calls (windows with a
+    carried phase, then the final flush) neither read the device back nor copy
     from pageable memory: CUDA's sync debug mode raises on either."""
     cfg = _tiny_config()
     sub, _ = _lm(cfg)
@@ -974,6 +1022,10 @@ def test_lm_steps_and_flow_solve_issue_no_host_sync_on_cuda():
     voice = ReferenceVoice(voice.prompt_tokens.to(dev), voice.prompt_feat.to(dev), voice.embedding.to(dev))
     tokens = torch.randint(3, 40, (60,), device=dev)
     rows = [FlowRow(voice, tokens, 50, final=False, streaming=True), FlowRow(voice, tokens[:31], 31, True, False)]
+    hift = _random_hift(cfg).float().to(dev)
+    hift.keep_f0_predictor_in_float64()
+    mel = torch.randn(80, 60, device=dev)
+    stream = StreamState(mel=mel.new_zeros(80, 0))
     mode = torch.cuda.get_sync_debug_mode()
     torch.cuda.set_sync_debug_mode("error")
     try:
@@ -987,8 +1039,10 @@ def test_lm_steps_and_flow_solve_issue_no_host_sync_on_cuda():
                 packed.append(sub.preprocess("decode", None, [step]))
                 sub.postprocess(0, info, {SPEECH_TOKENS: [sampled]}, inputs=step)
             flow.solve_rows(rows, 2)
+            pieces = [stream_vocode(hift, stream, mel[:, i : i + 20], i + 20 == 60, 32) for i in (0, 20, 40)]
     finally:
         torch.cuda.set_sync_debug_mode(mode)
+    assert sum(p.numel() for p in pieces) == 60 * hift.upsample_factor
     # the first decode step's input is the prefill token, here EOS: every decode step is forced
     assert [p["force_eos"].tolist() for p in packed] == [[[True]], [[True]]]
 
@@ -1146,6 +1200,22 @@ def test_hift_nonfinal_call_holds_back_eight_frames():
     part, _ = hift.vocode(mel[:, :, :30], finalize=False)
     assert whole.shape[-1] == 40 * 480 and part.shape[-1] == (30 - 8) * 480
     torch.testing.assert_close(part[0], whole[0, : part.shape[-1]], rtol=0, atol=1e-10)
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("frames", [2, 3, 41, 600])
+def test_hift_istft_is_torch_istft_to_the_bit(dtype, frames):
+    cfg = _tiny_config()
+    hift = _random_hift(cfg).to(dtype)
+    gen = torch.Generator().manual_seed(frames)
+    bins = cfg.hift.istft_n_fft // 2 + 1
+    magnitude = torch.rand(2, bins, frames, generator=gen, dtype=dtype) * 150  # some past the 1e2 clip
+    phase = torch.randn(2, bins, frames, generator=gen, dtype=dtype)
+    clipped = torch.clip(magnitude, max=1e2)
+    spec = torch.complex(clipped * torch.cos(phase), clipped * torch.sin(phase))
+    n_fft, hop = cfg.hift.istft_n_fft, cfg.hift.istft_hop_len
+    expected = torch.istft(spec, n_fft, hop, n_fft, window=hift.stft_window)
+    assert torch.equal(hift._istft(magnitude, phase), expected)
 
 
 @pytest.mark.parametrize("chunk", [3, 17, 80])
