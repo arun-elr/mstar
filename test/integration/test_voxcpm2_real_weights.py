@@ -99,6 +99,15 @@ def _vae_node(model, dtype):
     return VAEDecoderSubmodule(load_audio_vae(model.config, str(SNAPSHOT), "cpu").to(dtype), model.config)
 
 
+def test_whitespace_runs_reach_the_tokenizer_as_one_space(model):
+    """The checkpoint's tokenizer gives doubled spaces and tabs tokens of their
+    own; the prompt drops them, as the reference's ``re.sub`` does."""
+    spaced, single = "Hello  there,\tworld.   Bye", "Hello there, world. Bye"
+    assert len(model.tokenize(spaced)) > len(model.tokenize(single))
+    ids = [model.process_prompt(text, ["text"], ["audio"])[0]["text_inputs"][0].tolist() for text in (spaced, single)]
+    assert ids[0] == ids[1]
+
+
 def test_vae_stream_equals_a_whole_decode(model, design):
     """#429: the chunk-policy stream has the whole decode's length exactly and,
     in float64, its samples up to rounding; one patch less context than the

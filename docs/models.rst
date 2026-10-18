@@ -677,11 +677,22 @@ VoxCPM2 notes
   ``ref_audio`` clip (cloning) or ``ref_audio`` with its transcript in
   ``ref_text`` (continuation). Output is 48 kHz.
 - The Talker's decode step (both LMs, the local DiT solve, the stop head) is
-  ``torch.compile``'d and captured as CUDA graphs at start-up, so the first
-  start-up takes about ten minutes. ``model_kwargs: {compile_talker: false}``
+  ``torch.compile``'d and captured as CUDA graphs at start-up, so a first
+  start-up with a cold Inductor cache takes 10 to 30 minutes (591 s on a
+  B200, 1,723 s on an H100), and about two minutes once the cache is warm.
+  ``model_kwargs: {compile_talker: false}``
   in the deployment YAML captures the eager step instead: on a B200 the server
   is up in about 15 seconds, with about a third less throughput at
   concurrency 1 and a sixth less at concurrency 8.
+- A request may hold the whole 8,192-position context, and nothing preempts a
+  request once a KV cache is full, so each LM's cache defaults to 2,049 pages
+  (32 such requests and the sink page, about 9.7 GB for both) and the YAML sets
+  ``max_concurrent_requests: 32``; the conductor queues the rest. Start-up
+  refuses a cap the caches cannot hold, so raise ``resources.base_kv`` and
+  ``resources.res_kv`` ``max_num_pages`` with it. Text over
+  ``max_text_tokens`` (1,365 by default) gets a 400: English speech runs at up
+  to about 2.9 patches per token, so longer text may not fit in the
+  4,096-patch (655 s) audio budget.
 
 Nemotron VoiceChat (``nemotron_duplex``) notes
 ----------------------------------------------
