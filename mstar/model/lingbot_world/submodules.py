@@ -26,7 +26,6 @@ runs fp32 as the reference does.
 """
 
 import logging
-from dataclasses import dataclass
 
 import torch
 from torch import nn
@@ -56,17 +55,6 @@ def first_frame_mask(num_latent_frames: int, lat_h: int, lat_w: int, device) -> 
     msk = torch.concat([torch.repeat_interleave(msk[:, 0:1], repeats=4, dim=1), msk[:, 1:]], dim=1)
     msk = msk.view(1, msk.shape[1] // 4, 4, lat_h, lat_w)
     return msk.transpose(1, 2)[0]
-
-
-@dataclass
-class ConditionEncoderState:
-    """A request's place in the condition encode: the VAE encoder's
-    causal-conv cache, until a black-frame call leaves it unchanged. From then
-    on every call would return that call's output, so ``steady`` keeps the
-    output and the cache is dropped."""
-
-    feat_cache: list | None
-    steady: torch.Tensor | None = None
 
 
 class EncoderStream:
