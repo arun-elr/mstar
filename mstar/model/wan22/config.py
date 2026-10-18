@@ -79,18 +79,8 @@ class Wan22Config:
     # "tiled"/"untiled" force a path. WAN22_VAE_DECODE_TILING overrides at runtime.
     vae_decode_tiling: str = "auto"
 
-    # Untiled VAE decode through the shared Wan VAE decoder
-    # (``mstar/model/components/wan_vae.py``, the one the Cosmos3 streaming
-    # decoder runs): channels-last weights and activations, one latent per
-    # compiled decoder call against a decoder cache the node owns. Same calls
-    # and math as ``vae.decode``; the frames match it to bf16 rounding (55.2 dB
-    # against an fp32 decode, as stock). 1.74x faster decode at 1280x704 x 121
-    # frames on an H200, at the same peak memory. The compile is per output
-    # resolution (not frame count), about 20 s on an H200, so it runs only for
-    # ``vae_decode_fast_sizes``: any other size, and every tiled decode, runs
-    # stock ``vae.decode`` / ``tiled_decode`` on the VAE as loaded, the frames
-    # ``vae_decode_fast: false`` gives. False never touches the VAE. Both are
-    # settable from the yaml's ``model_kwargs``.
+    # Compiled untiled decode through the shared Wan VAE decoder. Each output size costs a compile, so only
+    # ``vae_decode_fast_sizes`` use it; other sizes and tiled decodes run stock ``vae.decode`` / ``tiled_decode``.
     vae_decode_fast: bool = True
     # "WxH" output sizes the fast decode compiles for; None is the default size
     # (1280x704). Requests choose their size, so an open list would let each new
