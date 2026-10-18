@@ -1,5 +1,6 @@
 """Unit tests for SharedMemoryCommunicationManager and tensor serialization."""
 
+import ctypes
 import errno
 import logging
 import os
@@ -10,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 import torch
 
+import mstar.communication.tensors as tensors_mod
 from mstar.communication.communicator import BaseCommunicator, CommProtocol
 from mstar.communication.tensors import (
     MooncakeCommunicationManager,
@@ -18,7 +20,7 @@ from mstar.communication.tensors import (
     _serialize_tensor,
     create_tensor_communication_manager,
 )
-from mstar.distributed.base import ShardingConfig
+from mstar.distributed.base import NodeAndGraphWalk, ShardingConfig, ShardingGroup
 from mstar.graph.base import GraphEdge, TensorPointerInfo
 from mstar.graph.special_destinations import EMPTY_DESTINATION
 from mstar.utils.containers import ParallelList
@@ -639,6 +641,119 @@ def test_a_read_that_finishes_early_waits_for_the_ones_started_before_it():
         assert [e.name for e in ready["req1"]] == ["token_0", "token_1"], (
             "the request's reads came out out of order"
         )
+
+
+# ---------------------------------------------------------------------------
+# Two slices of one producer tensor on one consumer
+# ---------------------------------------------------------------------------
+
+def _two_slice_config() -> ShardingConfig:
+    """``x`` is sharded on dim 0 from a TP=1 producer into a TP=2 node ``a``
+    and a TP=4 group of ``b`` and ``c``, each with its rank 0 on worker_1. So
+    worker_1 receives two slices of one producer uuid, rows [0, 2) for ``a``
+    and row 0 for ``b`` and ``c``."""
+    cfg = ShardingConfig(
+        groups=[
+            ShardingGroup(nodes=["src"], tp_size=1, graph_walks=["w"], _tp_rank=0),
+            ShardingGroup(nodes=["a"], tp_size=2, graph_walks=["w"]),
+            ShardingGroup(nodes=["b", "c"], tp_size=4, graph_walks=["w"]),
+        ],
+        tp_enabled_nodes={"src", "a", "b", "c"},
+        shard_dim={"x": 0},
+    )
+    tp4 = [f"worker_{i}" for i in range(1, 5)]
+    cfg.setup({
+        NodeAndGraphWalk("src", "w"): ["worker_0"],
+        NodeAndGraphWalk("a", "w"): ["worker_1", "worker_2"],
+        NodeAndGraphWalk("b", "w"): tp4,
+        NodeAndGraphWalk("c", "w"): tp4,
+    })
+    return cfg
+
+
+class _InProcessTransferEngine:
+    """Mooncake's engine for two managers in one process: a read is a memcpy
+    from the producer's address, which is what an RDMA or TCP read does."""
+
+    def initialize(self, *args):
+        return 0
+
+    def get_rpc_port(self):
+        return 0
+
+    def register_memory(self, ptr, nbytes):
+        return 0
+
+    def unregister_memory(self, ptr):
+        return 0
+
+    def batch_transfer_sync_read(self, session_id, local_ptrs, remote_ptrs, lengths):
+        for dst, src, n in zip(local_ptrs, remote_ptrs, lengths, strict=True):
+            ctypes.memmove(dst, src, n)
+        return 0
+
+
+def _transport(protocol, entity_id, shm_dir):
+    if protocol == CommProtocol.SHM:
+        return SharedMemoryCommunicationManager(
+            my_entity_id=entity_id, hostname="localhost", device="cpu",
+            communicator=MockCommunicator(), shm_dir=shm_dir,
+        )
+    return MooncakeCommunicationManager(
+        my_entity_id=entity_id, hostname="localhost", device="cpu",
+        communicator=MockCommunicator(), protocol=protocol,
+    )
+
+
+@pytest.mark.parametrize("protocol", [
+    pytest.param(CommProtocol.SHM, id="file"),
+    pytest.param(CommProtocol.TCP, id="mooncake"),
+])
+def test_two_slices_of_one_tensor_on_one_worker_do_not_alias(
+    tmp_path, monkeypatch, protocol,
+):
+    """Every slice of a producer tensor carries the producer's uuid, so a
+    receive cache keyed by the uuid alone handed ``b`` the rows stored for
+    ``a``. A repeated slice (``c``) still reuses the first read of it."""
+    monkeypatch.setattr(tensors_mod, "TransferEngine", _InProcessTransferEngine)
+    prod = _transport(protocol, "worker_0", str(tmp_path))
+    cons = _transport(protocol, "worker_1", str(tmp_path))
+    cfg = _two_slice_config()
+    for mgr in (prod, cons):
+        mgr.register_request("req1", cfg)
+
+    x = torch.arange(12.0).reshape(4, 3)
+    (info,) = prod.store_and_return_tensor_info(
+        "req1", {"x": [x]}, node_name="src", graph_walk="w",
+    )["x"]
+    edges = [
+        cfg.fanout_graph_edges(
+            GraphEdge(name="x", next_node=node, tensor_info=[info]),
+            source_node="src", source_graph_walk="w", dest_graph_walk="w",
+        )["worker_1"]
+        for node in ("a", "b", "c")
+    ]
+    prod.increment_ref(info.uuid, n=len(edges))
+    prod.register_for_send("req1", [info])
+
+    for fut in cons.start_read_tensors("req1", edges, graph_walk="w") or []:
+        fut.result()
+    ready = cons.get_ready_tensors(graph_walk="w")["req1"]
+    got = {e.next_node: cons.get_tensor(e.tensor_info[0].uuid) for e in ready}
+    assert torch.equal(got["a"], x[:2])
+    assert torch.equal(got["b"], x[:1]), "b got the slice stored for a"
+    assert torch.equal(got["c"], x[:1])
+    assert ready[1].tensor_info[0].uuid == ready[2].tensor_info[0].uuid
+
+    # The producer still hears about its own uuid, once per edge.
+    assert [msg.body.successful_tensors for _, msg in cons.communicator.sent] == [
+        {info.uuid: 3}
+    ]
+    # Each consuming node releases its input: nothing is freed early or left.
+    for edge in ready:
+        assert cons.tensor_store.check_uuid_presence(edge.tensor_info[0].uuid)
+        cons.dereference(edge.tensor_info[0].uuid)
+    assert cons.tensor_store.get_all_uuids("req1") == []
 
 
 # ---------------------------------------------------------------------------

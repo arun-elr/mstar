@@ -538,6 +538,11 @@ class TensorCommunicationManager(ABC):
         self._uuid_minter = TensorUuidMinter(my_entity_id)
         self.pending: list[FutureAndPointers] = []
         self.read_finished: dict[Rid, set[int]] = {}
+        # req_id -> {(producer uuid, offset, nbytes) -> local uuid} for the
+        # received slices ``_take_cached_read`` re-pointed, and req_id ->
+        # {local uuid -> producer uuid} so their acks name the producer's.
+        self.slice_uuids: dict[Rid, dict[tuple[int, int, int], int]] = {}
+        self.slice_origins: dict[Rid, dict[int, int]] = {}
 
         self.req_rx_info: dict[Rid, SourceAndEdgeToRxInfo] = {}
         self.req_tx_info: dict[Rid, EdgeNameToTxInfo] = {}
@@ -1292,6 +1297,36 @@ class TensorCommunicationManager(ABC):
             # names the slice rather than the producer's tensor.
             self.tensor_store.put_tensor(request_id, new_uuid, slice_view, info)
 
+    def _take_cached_read(self, request_id: Rid, info: TensorPointerInfo) -> bool:
+        """Whether an earlier edge already read the bytes ``info`` names, in
+        which case this edge's ref on them is taken here.
+
+        The store is keyed by uuid, and every slice the fanout cuts from one
+        producer tensor carries that tensor's uuid. A slice other than the one
+        stored under it is re-pointed to a uuid of this process's, which the
+        caller reads into when this returns False; its ack still names the
+        producer's uuid (``_collect_and_send_acks``).
+        """
+        store = self.tensor_store
+        if not store.check_uuid_presence(info.uuid):
+            return False
+        stored = store.get_info(info.uuid)
+        if stored.offset == info.offset and stored.nbytes == info.nbytes:
+            store.increment_ref(info.uuid, 1)
+            return True
+        key = (info.uuid, info.offset, info.nbytes)
+        slices = self.slice_uuids.setdefault(request_id, {})
+        local = slices.get(key)
+        if local is not None and store.check_uuid_presence(local):
+            info.uuid = local
+            store.increment_ref(local, 1)
+            return True
+        local = self._uuid_minter.mint()
+        slices[key] = local
+        self.slice_origins.setdefault(request_id, {})[local] = info.uuid
+        info.uuid = local
+        return False
+
     @abstractmethod
     def start_read_tensors(
         self, request_id: Rid, graph_edges: list[GraphEdge],
@@ -1315,12 +1350,16 @@ class TensorCommunicationManager(ABC):
         """``wire_request_id`` overrides ``rid_to_str(request_id)``, for a
         request that no longer has a handle."""
         acks: dict[str, dict[int, int]] = {}
+        origins = self.slice_origins.get(request_id)
         for edge in graph_edges:
             for info in edge.tensor_info:
+                uuid = info.uuid
+                if origins:
+                    uuid = origins.get(uuid, uuid)
                 if info.source_entity not in acks:
                     acks[info.source_entity] = {}
-                acks[info.source_entity][info.uuid] = acks[info.source_entity].get(
-                    info.uuid, 0) + 1
+                acks[info.source_entity][uuid] = acks[info.source_entity].get(
+                    uuid, 0) + 1
         for source_entity, tensors in acks.items():
             if source_entity == self.my_entity_id:
                 continue
@@ -1652,6 +1691,8 @@ class TensorCommunicationManager(ABC):
             sum([ep.graph_edges for ep in self.pending if ep.request_id == request_id], start=[]),
         )
         self.pending = [ep for ep in self.pending if ep.request_id != request_id]
+        self.slice_uuids.pop(request_id, None)
+        self.slice_origins.pop(request_id, None)
 
     def force_cleanup_request(self, request_id: Rid):
         """Unconditional teardown: drop every tensor for the request and unlink
@@ -1817,8 +1858,7 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                     )
                     self.tensor_store.increment_ref(info.uuid, 1)
                     continue
-                if self.tensor_store.check_uuid_presence(info.uuid):
-                    self.tensor_store.increment_ref(info.uuid, 1)
+                if self._take_cached_read(request_id, info):
                     continue
                 buffer = torch.empty(
                     info.dims, dtype=info.dtype, device=self.device
@@ -2274,16 +2314,16 @@ class SharedMemoryCommunicationManager(TensorCommunicationManager):
                         )
                         self.tensor_store.increment_ref(info.uuid, 1)
                         continue
-                    if self.tensor_store.check_uuid_presence(info.uuid):
-                        self.tensor_store.increment_ref(info.uuid, 1)
+                    producer_uuid = info.uuid
+                    if self._take_cached_read(request_id, info):
                         continue
                     if info.shm_segment is not None:
                         raise RuntimeError(
-                            f"tensor {info.uuid} from {info.source_entity} "
+                            f"tensor {producer_uuid} from {info.source_entity} "
                             "was staged in an SHM arena but this consumer "
                             "runs the file transport — MSTAR_SHM_ARENA must "
                             "match across the deployment")
-                    path = self._shm_path(info.source_entity, info.uuid)
+                    path = self._shm_path(info.source_entity, producer_uuid)
                     with open(path, "rb") as f:
                         f.seek(info.offset)
                         data = f.read(info.nbytes)

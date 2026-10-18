@@ -767,6 +767,61 @@ def test_a_peer_reads_its_own_half_of_a_sharded_edge(tmp_path):
         assert torch.equal(got, expected), f"rank {rank} read the wrong rows"
 
 
+@pytest.mark.parametrize("backend", ["python", "rust"])
+def test_two_slices_of_one_tensor_on_one_worker_do_not_alias(tmp_path, backend):
+    """``x`` goes from a TP=1 producer to a TP=2 ``B`` and a TP=4 ``C``, both
+    with rank 0 on worker_1, which so receives rows [0, 2) and row 0 under one
+    producer uuid. Keyed by the uuid alone, ``C`` got ``B``'s rows."""
+    cfg = ShardingConfig(
+        groups=[
+            ShardingGroup(nodes=["A"], tp_size=1, graph_walks=["decode"], _tp_rank=0),
+            ShardingGroup(nodes=["B"], tp_size=2, graph_walks=["decode"]),
+            ShardingGroup(nodes=["C"], tp_size=4, graph_walks=["decode"]),
+        ],
+        tp_enabled_nodes={"A", "B", "C"},
+        shard_dim={"x": 0},
+    )
+    cfg.setup({
+        NodeAndGraphWalk("A", "decode"): ["worker_0"],
+        NodeAndGraphWalk("B", "decode"): ["worker_1", "worker_2"],
+        NodeAndGraphWalk("C", "decode"): [f"worker_{i}" for i in range(1, 5)],
+    })
+    prod = _manager("worker_0", tmp_path)
+    cons = _manager("worker_1", tmp_path)
+    cons.communicator = _RecordingCommunicator()
+    if backend == "rust":
+        cons.tensor_store = TensorStore(RustTensorBookkeeping())
+    for mgr in (prod, cons):
+        mgr.register_request(7, cfg)
+
+    x = torch.arange(12, dtype=torch.float32).reshape(4, 3)
+    (info,) = prod.store_and_return_tensor_info(
+        7, {"x": [x]}, node_name="A", graph_walk="decode",
+    )["x"]
+    edges = [
+        cfg.fanout_graph_edges(
+            GraphEdge(next_node=node, name="x", tensor_info=[info]),
+            source_node="A", source_graph_walk="decode", dest_graph_walk="decode",
+        )["worker_1"]
+        for node in ("B", "C")
+    ]
+    prod.register_for_send_uuids(ParallelList([7], [[info.uuid]]))
+    prod.refresh_shm_placement(edges)
+
+    for fut in cons.start_read_tensors(7, edges, graph_walk="decode") or []:
+        fut.result()
+    ready = cons.get_ready_tensors(graph_walk="decode")[7]
+    got = {e.next_node: cons.get_tensor(e.tensor_info[0].uuid) for e in ready}
+    assert torch.equal(got["B"], x[:2])
+    assert torch.equal(got["C"], x[:1]), "C got the slice stored for B"
+    assert [msg.body.successful_tensors for _, msg in cons.communicator.sent] == [
+        {info.uuid: 2}
+    ]
+    for edge in ready:
+        cons.dereference(edge.tensor_info[0].uuid)
+    assert cons.tensor_store.get_all_uuids(7) == []
+
+
 def test_arena_stages_the_stored_host_copy(tmp_path):
     """A stored host copy is what lands in the arena (a host memcpy, no D2H);
     it differs from the stored tensor only so the test can tell."""

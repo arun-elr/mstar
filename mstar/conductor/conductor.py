@@ -491,6 +491,7 @@ class Conductor:
         self.worker_group_to_instance_rank: dict[int, dict[str, int]] = {}
 
         graph_walks = set()
+        streamed_inputs: dict[str, set[str]] = defaultdict(set)
         for wg in self.worker_graphs.values():
             for walk in wg.graph_walks:
                 graph_walks.add(walk)
@@ -499,6 +500,15 @@ class Conductor:
                     self.node_walk_to_wg[(name, walk)] = wg
                 if node.consumes_stream:
                     self.streaming_consumers.add(name)
+                    streamed_inputs[name] |= node._streaming_inputs
+        self.default_sharding_config.assert_streams_keep_tp_size(sorted({
+            (edge.name, name, walk, edge.next_node)
+            for wg in self.worker_graphs.values()
+            for name, node in wg.section.get_nodes().items()
+            for edge in node.outputs
+            if edge.name in streamed_inputs.get(edge.next_node, ())
+            for walk in wg.graph_walks
+        }))
 
         # v1: one sharding group per worker graph. Track which group "owns"
         # each wg so we can assert single-group-per-wg.

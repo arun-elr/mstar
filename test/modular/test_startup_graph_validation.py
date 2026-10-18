@@ -420,6 +420,56 @@ def test_single_node_consumer_walks_are_accepted(tmp_path, monkeypatch):
     assert c.node_walk_to_wg[("vocoder", "chunk")].ranks == [1, 2]
 
 
+@pytest.mark.parametrize("producer_tp,vocoder_tp,shard_dim,accepted", [
+    # a gathered stream: the consumer emits each chunk under a uuid its
+    # StreamBuffer never registered, and no chunk is ever released
+    (2, 1, {"codes": 0}, False),
+    # a sliced stream: local streaming hands over the whole tensor
+    (1, 2, {"codes": 0}, False),
+    (2, 2, {"codes": 0}, True),
+    (2, 1, {}, True),
+], ids=["gathered", "sliced", "same_tp", "replicated"])
+def test_sharded_stream_across_tp_sizes_is_rejected(
+    producer_tp, vocoder_tp, shard_dim, accepted, tmp_path, monkeypatch,
+):
+    path = tmp_path / "cfg.yaml"
+    path.write_text(yaml.safe_dump({
+        "max_seq_len": 64,
+        "node_groups": [
+            {"node_names": ["producer"], "ranks": list(range(producer_tp)), "tp_size": producer_tp},
+            {"node_names": ["vocoder"], "ranks": list(range(producer_tp, producer_tp + vocoder_tp)),
+             "tp_size": vocoder_tp},
+        ],
+        "sharding_config": {"shard_dim": shard_dim},
+    }))
+    model = _stream_model(_vocoder, tp_enabled_nodes=["producer", "vocoder"])
+    if accepted:
+        _start_conductor(model, str(path), tmp_path, monkeypatch)
+        return
+    with pytest.raises(RuntimeError, match=(
+        rf"Streamed signal 'codes' has a shard_dim, but its producer 'producer' in graph walk 'gen' "
+        rf"\(TP {producer_tp}\) and consumer 'vocoder' \(TP {vocoder_tp}\) differ in TP size"
+    )):
+        _start_conductor(model, str(path), tmp_path, monkeypatch)
+
+
+def test_sharded_stream_check_uses_the_walk_that_emits_it():
+    """A producer's TP group can be walk-specific: only the emitting walk's
+    size counts, whichever way the other walk's size would tip it."""
+    from mstar.distributed.base import ShardingGroup
+
+    cfg = ShardingConfig(
+        groups=[
+            ShardingGroup(nodes={"producer"}, tp_size=2, graph_walks={"warmup"}),
+            ShardingGroup(nodes={"vocoder"}, tp_size=2),
+        ],
+        tp_enabled_nodes={"producer", "vocoder"}, shard_dim={"codes": 0},
+    )
+    with pytest.raises(RuntimeError, match=r"in graph walk 'gen' \(TP 1\) and consumer 'vocoder' \(TP 2\)"):
+        cfg.assert_streams_keep_tp_size([("codes", "producer", "gen", "vocoder")])
+    cfg.assert_streams_keep_tp_size([("codes", "producer", "warmup", "vocoder")])
+
+
 def test_conductor_driven_walk_of_a_consumer_partition_is_accepted(tmp_path, monkeypatch):
     """A consumer partition's walk with no stream-consuming node runs one pass
     per conductor input, so several worker graphs are fine there."""
