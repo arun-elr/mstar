@@ -121,12 +121,12 @@ def judge(r: Reply, refs: Refs, expect_conflict: bool = False) -> str:
     as nondeterminism), or a failure: hang, error, crosstalk."""
     if r.hang:
         return "hang"
+    if refs.crosstalk(r.text, r.prompt):      # before a 409: a superseded stream may carry foreign text first
+        return "crosstalk"
     if r.status == 409 or r.error_status == 409:
         return "conflict" if expect_conflict else "error"
     if r.error or r.status is None or r.status >= 400:
         return "error"
-    if refs.crosstalk(r.text, r.prompt):
-        return "crosstalk"
     if r.closed:
         return "closed"
     if not r.text:
@@ -402,9 +402,10 @@ def run_session(url: str, pgid: int, arm: str, session: int, d: Path, cfg: dict,
             probe_result = asyncio.run(probe(url, cfg, refs))
             if probe_result in FAILED_REQUEST:
                 classes.add(probe_result)
-            after = settle(shm0, cfg["settle_s"], shm)
-            if shm0 >= 0 and after > shm0:
-                classes.add("leak")
+            if cfg.get("leak_check", True):
+                after = settle(shm0, cfg["settle_s"], shm)
+                if shm0 >= 0 and after > shm0:
+                    classes.add("leak")
             gone = sorted(p for p in procs if not alive(p))
         if gone:
             classes.add("crash")
@@ -512,7 +513,7 @@ class Verdict:
 def judge_model(model: str, base: Arm, head: Arm, status: str = "done", reason: str = "",
                 expected: int = 0) -> Verdict:
     v = Verdict(model, base, head, status, reason, expected=expected)
-    if base.n and head.n:
+    if base.n and head.n and not any(r.get("no_server") for r in base.runs):   # an unseen base: no outright
         v.outright = [c for c in OUTRIGHT if head.with_class(c) and not base.with_class(c)]
     if not v.unfinished:
         v.p = fisher_one_sided(head.failed, head.n, base.failed, base.n)
@@ -595,7 +596,8 @@ def render_md(verdicts: list[Verdict], run: dict, chart_url: str | None = None) 
               f"- Command: `{run.get('command', 'python -m benchmark.eval compare --stress')}`",
               f"- A run fails on a hang (no progress for {cfg['hang_s']:g} s), an HTTP 5xx, unexpected 4xx, empty "
               "reply or in-band error, cross-talk (a reply holding another prompt's answer), a leak (M\\* tensor "
-              f"files in /dev/shm above the post-warm-up count {cfg['settle_s']:g} s after the run) or a crash (a "
+              f"files in /dev/shm above the post-warm-up count {cfg['settle_s']:g} s after the run, checked when the "
+              "model's GPU is the only compare slot on its host) or a crash (a "
               "server process exits); runs a crash or a server that did not start left unrun count as failed",
               "- Verdict: a crash or cross-talk on head that base never shows fails outright; else head fails when "
               f"its failed-run count beats base's at one-sided Fisher exact p < {ALPHA}",

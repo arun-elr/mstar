@@ -64,6 +64,8 @@ def test_verdict_outright_classes_fisher_and_incomplete():
     assert not v.unfinished and v.flagged and v.p < 0.01
     v = stress.judge_model("m", lost, arm(*[[]] * 5), expected=5)
     assert v.unfinished and v.p is None and v.text() == "incomplete (base did not start)"
+    v = stress.judge_model("m", lost, arm(["crash"], *[[]] * 4), expected=5)
+    assert not v.flagged and not v.outright                                          # no base to compare with
 
 
 def test_request_outcomes():
@@ -84,6 +86,8 @@ def test_request_outcomes():
     assert stress.judge(Reply(0, status=409, error="in flight"), refs, expect_conflict=True) == "conflict"
     assert stress.judge(Reply(0, status=200, error="superseded", error_status=409), refs, True) == "conflict"
     assert stress.judge(Reply(0, status=409, error="superseded"), refs) == "error"           # 409 on a plain reuse
+    superseded = Reply(1, status=200, text="13 14 15", error="superseded", error_status=409)
+    assert stress.judge(superseded, refs, expect_conflict=True) == "crosstalk"              # foreign text, then 409
     assert stress.judge(Reply(0, status=200, hang=True), refs) == "hang"
 
 
@@ -245,7 +249,7 @@ def run_pair(tmp_path: Path, monkeypatch, head_mode: str, runs: int):
     fake_tree(runner.cache / "src" / head.sha, head_mode)
     assert runner.run_one(runner.slots[0], "fake") is None                       # no ABBA rerun for stress
     job = json.loads((run_dir / "jobs" / "fake.json").read_text())
-    assert job["stress"]["max_tokens"] == 16 and job["sessions"] == 1
+    assert job["stress"]["max_tokens"] == 16 and job["sessions"] == 1 and job["stress"]["leak_check"]
     md, code = compare.render(run_dir, man, args.calibration)
     return stress.write(run_dir, ["fake"])[1][0], md.read_text(), code
 
