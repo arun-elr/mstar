@@ -354,6 +354,22 @@ def test_process_prompt_builds_each_reference_mode(model):
     }
 
 
+def test_process_prompt_collapses_whitespace_like_the_reference(model, monkeypatch):
+    """``VoxCPM.generate`` turns each run of whitespace in the target text into
+    one space before tokenizing; the transcript of a continuation is kept as sent."""
+    seen = []
+    tokenize = model.tokenize
+    monkeypatch.setattr(model, "tokenize", lambda text: seen.append(text) or tokenize(text))
+    model.process_prompt("hello  \t world\n\nhello ", ["text"], ["audio"], instruct="warm   and calm")
+    assert seen == ["(warm and calm)hello world hello "]
+    seen.clear()
+    clip = torch.zeros(16000)
+    model.process_prompt(
+        "hello  world", ["text", "audio"], ["audio"], tensors={"audio_inputs": [clip]}, ref_text="a  b"
+    )
+    assert seen == ["hello world", "a  bhello world"]
+
+
 @pytest.mark.parametrize(
     "kwargs, cap",
     [
@@ -388,7 +404,9 @@ def test_a_one_patch_request_ends_after_prefill(model, budget, done):
     "kwargs, inputs, message",
     [
         ({"ref_text": "x"}, None, "ref_text needs"),
-        ({"cfg_value": -1}, None, "non-negative"),
+        ({"cfg_value": -1}, None, "between 0 and 10"),
+        ({"cfg_value": 10.5}, None, "between 0 and 10"),
+        ({"cfg_value": 1e39}, None, "between 0 and 10"),
         ({"cfg_value": float("nan")}, None, "finite"),
         ({"inference_timesteps": 4}, None, "deployment setting"),
         ({"max_new_tokens": 0}, None, "max_new_tokens"),
@@ -407,6 +425,54 @@ def test_process_prompt_rejects_prompts_past_the_context(model):
     long_text = " ".join(["hello"] * 80)  # 80 tokens + 490 patches > 512 positions
     with pytest.raises(ValueError, match="context"):
         model.process_prompt(long_text, ["text"], ["audio"])
+
+
+def test_process_prompt_bounds_the_text_length(checkpoint):
+    model = VoxCPM2Model(model_path_hf=str(checkpoint), max_text_tokens=4)
+    model.process_prompt("hello world hello world", ["text"], ["audio"])
+    with pytest.raises(ValueError, match="5 tokens.*at most 4"):
+        model.process_prompt("hello world hello world hello", ["text"], ["audio"])
+    assert VoxCPM2Model(model_path_hf=str(checkpoint)).max_text_tokens == int(VoxCPM2Config().max_len / 3) == 1365
+
+
+@pytest.mark.parametrize("bad", [0, -1, 1.5, True, "8"])
+def test_max_text_tokens_must_be_a_positive_int(checkpoint, bad):
+    with pytest.raises(ValueError, match="max_text_tokens"):
+        VoxCPM2Model(model_path_hf=str(checkpoint), max_text_tokens=bad)
+
+
+def test_shipped_cap_fits_both_caches_at_the_full_context(model):
+    """Each LM cache holds the shipped ``max_concurrent_requests`` at the full
+    context; one more request, or a smaller cache, is refused at startup."""
+    deployment = yaml.safe_load(CONFIG_PATH.read_text())
+    cap = deployment["max_concurrent_requests"]
+    assert cap == VoxCPM2Model.DEFAULT_MAX_CONCURRENT
+    model.validate_config_yaml(deployment, "voxcpm2.yaml")
+    per_request = -(-model.config.max_length // 128)
+    for spec in model.get_node_resources():
+        if hasattr(spec.config, "max_num_pages"):
+            assert spec.config.max_num_pages == 1 + cap * per_request
+    with pytest.raises(ValueError, match=rf"{cap + 1} concurrent requests .*resources\.base_kv"):
+        model.validate_config_yaml({**deployment, "max_concurrent_requests": cap + 1}, "voxcpm2.yaml")
+    small = {**deployment, "resources": {"res_kv": {"max_num_pages": cap * per_request}}}
+    with pytest.raises(ValueError, match=r"resources\.res_kv"):
+        model.validate_config_yaml(small, "voxcpm2.yaml")
+    large = {"max_concurrent_requests": 2 * cap, "resources": {
+        key: {"max_num_pages": 1 + 2 * cap * per_request} for key in ("base_kv", "res_kv")
+    }}
+    model.validate_config_yaml(large, "voxcpm2.yaml")
+
+
+@pytest.mark.parametrize("cap", [0, -2, 1.5, True, "8"])
+def test_max_concurrent_requests_must_be_a_positive_int(model, cap):
+    with pytest.raises(ValueError, match="positive int"):
+        model.validate_config_yaml({"max_concurrent_requests": cap}, "voxcpm2.yaml")
+
+
+def test_no_request_cap_is_a_warning(model, caplog):
+    with caplog.at_level("WARNING"):
+        model.validate_config_yaml({}, "voxcpm2.yaml")
+    assert "sets no max_concurrent_requests" in caplog.text
 
 
 def test_build_prompt_matches_the_reference_layout():
@@ -479,6 +545,20 @@ def test_load_audio_resamples_to_16k_and_bounds_duration(model, tmp_path):
     soundfile.write(path, torch.zeros(4410).numpy(), 44100)
     with pytest.raises(ValueError, match="between"):
         model.load_audio(str(path), "cpu")
+
+
+@pytest.mark.parametrize("payload", [b"just some text, not audio\n", b"RIFF\x24\x00\x00\x00WAVEfmt "])
+def test_load_audio_refuses_non_audio_without_naming_the_path(model, tmp_path, payload):
+    """An upload libsndfile cannot open is the client's error, and the message
+    the client gets does not show where the server stored it."""
+    pytest.importorskip("soundfile")
+    path = tmp_path / "uploads" / "f3a1c0de.wav"
+    path.parent.mkdir()
+    path.write_bytes(payload)
+    with pytest.raises(ValueError, match="not audio soundfile can read") as raised:
+        model.load_audio(str(path), "cpu")
+    assert str(tmp_path) not in str(raised.value) and path.name not in str(raised.value)
+    assert raised.value.__cause__ is None and raised.value.__suppress_context__
 
 
 # -- Talker -----------------------------------------------------------------------
@@ -648,21 +728,21 @@ def _ref_encoder(model) -> RefEncoderSubmodule:
     return RefEncoderSubmodule(_random_vae(model.config), model.config)
 
 
-def _old_digest(clip: torch.Tensor) -> str:
-    """The memo key's content hash as the RefEncoder used to take it, off the delivered clip."""
+def _clip_hash(clip: torch.Tensor) -> str:
+    """blake2b of the clip's float32 samples, taken here without ``reference_digest``."""
     return hashlib.blake2b(clip.to(torch.float32).reshape(-1).cpu().numpy().tobytes(), digest_size=16).hexdigest()
 
 
 @pytest.mark.parametrize("ref_text", ["", "world "])
 def test_ref_encoder_keys_its_memo_by_clip_content_and_mode_from_step_metadata(model, ref_text):
-    """The digest ``process_prompt`` takes on the host is the hash the
-    RefEncoder took of the delivered clip, so cached encodes hit as before."""
+    """The digest ``process_prompt`` takes on the host is the hash of the
+    clip the RefEncoder receives, so a later request with the clip hits the memo."""
     clip = torch.randn(20000, generator=torch.Generator().manual_seed(1)) * 0.1
     mode = MODE_REF_CONTINUATION if ref_text else MODE_REFERENCE
     edges, meta = _request(model, "hello", clip, ref_text=ref_text)
     delivered = {"audio_inputs": [clip.clone()]}  # the transport hands over a copy of the bytes
     prepared = _ref_encoder(model).prepare_inputs("talker_prefill_clone", _info("r", 0, meta), delivered)
-    assert prepared.kwargs == {"mode": mode, "key": (_old_digest(clip), mode)}
+    assert prepared.kwargs == {"mode": mode, "key": (_clip_hash(clip), mode)}
     assert torch.equal(prepared.tensor_inputs["clip"], clip)
     # the same voice in the other mode is another encoding; another clip is another key
     other_mode = _request(model, "hello", clip, ref_text="" if ref_text else "world ")[1]
@@ -673,15 +753,15 @@ def test_ref_encoder_keys_its_memo_by_clip_content_and_mode_from_step_metadata(m
     with torch.inference_mode():
         first = encoder.forward("talker_prefill_clone", None, **prepared.tensor_inputs, **prepared.kwargs)
         again = encoder.forward("talker_prefill_clone", None, **prepared.tensor_inputs, **prepared.kwargs)
-    assert list(encoder._cache) == [(_old_digest(clip), mode)]
+    assert list(encoder._cache) == [(_clip_hash(clip), mode)]
     assert again["ref_patches"][0] is first["ref_patches"][0]
 
 
-def test_talker_packs_a_mixed_batch_as_the_prompt_layout_edge_did(model):
+def test_talker_packs_a_mixed_batch_like_per_request_prompts(model):
     """Zero-shot, voice design, reference and continuation prefilled together,
     then a decode step at different patch counts: every packed tensor equals
-    the one built from the old ``[mode, max_patches, min_len]`` edge and
-    device ``torch.tensor`` offsets, in values, dtype and shape."""
+    the concatenation of each request's ``build_prompt`` layout (mode, patch
+    budget and min_len from step metadata), in values, dtype and shape."""
     talker, plan, _ = _talker(model)
     clip = torch.randn(18000, generator=torch.Generator().manual_seed(2)) * 0.1
     requests = {

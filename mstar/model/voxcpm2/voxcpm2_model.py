@@ -26,6 +26,7 @@ Request modes (``process_prompt``), as the reference ``VoxCPM.generate``:
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
 import re
 from pathlib import Path
@@ -76,6 +77,7 @@ STREAM_EDGE = "latent_patches"
 # model_kwargs key: prompt patches leading a continuation's VAE stream
 STREAM_LEAD_KEY = "vae_stream_lead_patches"
 _CJK = re.compile(r"^[\u4e00-\u9fff]{2,}$")
+logger = logging.getLogger(__name__)
 
 
 def reference_digest(clip: torch.Tensor) -> str:
@@ -119,12 +121,22 @@ class VoxCPM2Model(Model):
       may not be below) the decoder's receptive field.
     * ``compile_talker`` (true): ``torch.compile`` the decode step before its
       CUDA graphs are captured. ``false`` captures the eager step: start-up in
-      seconds instead of about ten minutes, at a lower decode rate.
+      seconds instead of 10 to 30 minutes cold, at a lower decode rate.
+    * ``max_text_tokens`` (``max_len / MAX_PATCHES_PER_TEXT_TOKEN``, 1365):
+      longest text one request may speak; past it the ``max_len`` patch
+      budget would end the audio before the text.
     """
 
     MODES = {"zero_shot": MODE_ZERO_SHOT, "reference": MODE_REFERENCE, "continuation": MODE_REF_CONTINUATION}
     REF_MIN_SECONDS = 0.5
     REF_MAX_SECONDS = 60.0
+    # the reference demo offers 1 to 3; float32 overflows to inf past about 3.4e38
+    MAX_CFG_VALUE = 10.0
+    # English speech measured at 1.3 to 2.9 patches per text token (24 zero-shot
+    # requests of 1,300 to 1,700 tokens), so text up to max_len / 3 tokens fits in max_len patches
+    MAX_PATCHES_PER_TEXT_TOKEN = 3.0
+    # configs/voxcpm2.yaml's max_concurrent_requests; the KV pools default to its size
+    DEFAULT_MAX_CONCURRENT = 32
     PREFILL_INPUTS = ("text_inputs", "gen_params")
     REF_ENCODER_INPUTS = ("audio_inputs",)
 
@@ -155,6 +167,10 @@ class VoxCPM2Model(Model):
         self.compile_talker = kwargs.get("compile_talker", True)
         if not isinstance(self.compile_talker, bool):
             raise ValueError(f"VoxCPM2 compile_talker must be true or false, got {self.compile_talker!r}")
+        limit = kwargs.get("max_text_tokens", int(self.config.max_len / self.MAX_PATCHES_PER_TEXT_TOKEN))
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+            raise ValueError(f"VoxCPM2 max_text_tokens must be a positive int, got {limit!r}")
+        self.max_text_tokens = limit
         # The reference tokenizer: the checkpoint's Llama tokenizer, with
         # multi-character CJK tokens split into characters (``mask_multichar_chinese_tokens``).
         self.tokenizer = LlamaTokenizerFast.from_pretrained(self.local_dir)
@@ -172,17 +188,55 @@ class VoxCPM2Model(Model):
 
     # -- resources / graph --------------------------------------------------
 
+    def validate_config_yaml(self, config: dict, config_path: str) -> None:
+        """Refuse a request cap either LM cache cannot hold.
+
+        Nothing preempts a request once a cache is full: the worker retries the
+        step that found no free page until the requests time out, while the
+        server still reports healthy. A request holds at most ``max_length``
+        positions (``process_prompt`` refuses longer ones), so
+        ``max_concurrent_requests`` such requests must fit in each cache next to
+        its sink page; the conductor queues the rest.
+        """
+        cap = config.get("max_concurrent_requests")
+        if cap is None:
+            logger.warning(
+                "%s sets no max_concurrent_requests: a burst of long requests can fill "
+                "the VoxCPM2 KV caches and stall until the requests time out", config_path,
+            )
+            return
+        if not isinstance(cap, int) or isinstance(cap, bool) or cap < 1:
+            raise ValueError(f"{config_path}: max_concurrent_requests must be a positive int; got {cap!r}")
+        overrides = config.get("resources") or {}
+        for spec in self.get_node_resources():
+            if not isinstance(spec, KVSpec):
+                continue
+            override = overrides.get(spec.resource_key) or {}
+            page_size = int(override.get("page_size", spec.config.page_size))
+            max_num_pages = int(override.get("max_num_pages", spec.config.max_num_pages))
+            per_request = -(-self.config.max_length // page_size)
+            need = 1 + cap * per_request
+            if need > max_num_pages:
+                raise ValueError(
+                    f"{config_path}: {cap} concurrent requests (max_concurrent_requests) need "
+                    f"{need} pages of resources.{spec.resource_key} ({per_request} per "
+                    f"{self.config.max_length}-position request and the sink page), which has "
+                    f"{max_num_pages}; raise max_num_pages or lower max_concurrent_requests"
+                )
+
     def get_node_resources(self) -> list[NodeResourceSpec]:
         def kv(stack) -> PagedKVConfig:
-            return PagedKVConfig(
+            config = PagedKVConfig(
                 num_layers=stack.num_hidden_layers,
                 num_kv_heads=stack.num_key_value_heads,
                 head_dim=stack.head_dim,
                 num_qo_heads=stack.num_attention_heads,
                 max_seq_len=self.config.max_length,
-                # 32k tokens: 64 requests of 500 tokens; about 1.2 GB for both LMs
-                max_num_pages=256,
             )
+            # the shipped max_concurrent_requests at the full context, and the
+            # sink page: 2049 pages, about 9.7 GB for both LMs
+            config.max_num_pages = 1 + self.DEFAULT_MAX_CONCURRENT * -(-config.max_seq_len // config.page_size)
+            return config
 
         nodes = {"Talker"}
         return [
@@ -274,9 +328,13 @@ class VoxCPM2Model(Model):
         import soundfile
 
         rate = self.config.audio_vae.sample_rate
-        info = soundfile.info(filepath)
-        self._check_reference_seconds(info.frames / info.samplerate if info.samplerate else 0.0)
-        waveform, sample_rate = soundfile.read(filepath, dtype="float32", always_2d=True)
+        try:
+            info = soundfile.info(filepath)
+            self._check_reference_seconds(info.frames / info.samplerate if info.samplerate else 0.0)
+            waveform, sample_rate = soundfile.read(filepath, dtype="float32", always_2d=True)
+        except soundfile.LibsndfileError:
+            # the client's error (400); libsndfile's message names the server's upload path
+            raise ValueError("VoxCPM2 ref_audio is not audio soundfile can read (WAV, FLAC, OGG or MP3)") from None
         audio = waveform.mean(axis=1)
         if sample_rate != rate:
             import soxr
@@ -338,13 +396,15 @@ class VoxCPM2Model(Model):
         instruct = str(kwargs.get("instruct") or kwargs.get("instructions") or "").strip()
         if instruct:
             text = f"({instruct}){text}"
+        # the reference's ``VoxCPM.generate``: runs of whitespace in the target become one space
+        text = re.sub(r"\s+", " ", text)
         if "inference_timesteps" in kwargs and int(kwargs["inference_timesteps"]) != self.inference_timesteps:
             raise ValueError(
                 f"VoxCPM2 serves inference_timesteps={self.inference_timesteps}; it is a deployment setting"
             )
         cfg_value = self._number(kwargs, "cfg_value", self.config.cfg_value)
-        if cfg_value < 0:
-            raise ValueError("VoxCPM2 cfg_value must be non-negative")
+        if not 0 <= cfg_value <= self.MAX_CFG_VALUE:
+            raise ValueError(f"VoxCPM2 cfg_value must be between 0 and {self.MAX_CFG_VALUE:g}, got {cfg_value:g}")
         min_len = self._number(kwargs, "min_len", self.config.min_len, int)
         max_len = self._patch_cap(kwargs)
         if min_len < 0 or not 1 <= max_len <= self.config.max_len:
@@ -370,6 +430,11 @@ class VoxCPM2Model(Model):
             mode = MODE_ZERO_SHOT
 
         target_ids = self.tokenize(text)
+        if len(target_ids) > self.max_text_tokens:
+            raise ValueError(
+                f"VoxCPM2 text is {len(target_ids)} tokens; one request speaks at most "
+                f"{self.max_text_tokens} (max_text_tokens). Split the text into shorter requests"
+            )
         # the reference tokenizes the transcript and the target as one string, with no separator
         ids = self.tokenize(ref_text + text) if mode == MODE_REF_CONTINUATION else list(target_ids)
         ids.append(AUDIO_START_TOKEN)
