@@ -2518,11 +2518,14 @@ class Worker:
         else:
             # Nothing could be evicted, so the batch has to get smaller or it will
             # refuse identically for ever. Hold the one request the admit named,
-            # not the whole batch, so the retry is immediate. Symmetric without
-            # coordinating: both ranks refuse the same batch for the same request.
+            # not the whole batch, so the retry is immediate, and limit the
+            # batch size, or other ready rows refill it to the same size.
+            # Symmetric without coordinating: both ranks refuse the same batch
+            # for the same request.
             blamed = getattr(node_batch.admit_error, "request_id", None)
             shed = [blamed] if blamed in batch_ids else list(batch_ids)
             self.scheduler.hold_requests(shed)
+            self.scheduler.limit_batch(batch.node_name, batch.graph_walk, len(batch_ids))
             key = (batch.node_name, batch.graph_walk)
             now = _time.monotonic()
             last, unlogged = self._hold_logged.get(key, (None, 0))
@@ -4929,6 +4932,7 @@ class Worker:
                     # failed rids upstream.
                     laps.skip()
                     if pending.node_batch.admit_error is None:
+                        self.scheduler.clear_batch_limit(pending.node_name, pending.graph_walk)
                         with self._span(
                             "worker.postprocess_batch",
                             cpu="worker.postprocess_batch.cpu",
