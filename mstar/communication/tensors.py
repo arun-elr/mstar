@@ -389,7 +389,10 @@ class TensorCommunicationManager(ABC):
     needs_flat_layout: bool = False
 
     # ---- shared: store ----
-    def _flat_layout(self, tensor: torch.Tensor, sharded: bool) -> torch.Tensor:
+    def _flat_layout(
+        self, tensor: torch.Tensor, sharded: bool,
+        ready_event: torch.cuda.Event | None = None,
+    ) -> torch.Tensor:
         """``tensor`` if one flat read of its ``nbytes`` from ``data_ptr()``
         reproduces it, else a contiguous copy. Only for a non-contiguous
         tensor on a ``needs_flat_layout`` transport.
@@ -399,6 +402,12 @@ class TensorCommunicationManager(ABC):
         since its slices are byte ranges of rows. A CUDA copy runs on a side
         stream so it does not queue behind the next step; the store waits for
         it before returning the descriptors.
+
+        The side stream is ordered after the producer only by ``ready_event``
+        (the step's completion event). Without one, the producer's writes must
+        already be complete when the store is called, not just queued ahead on
+        some stream: the default-stream sync of ``skip_cuda_sync=False``, or
+        the caller's own wait.
         """
         if not sharded and _is_dense(tensor):
             return tensor
@@ -407,6 +416,8 @@ class TensorCommunicationManager(ABC):
         stream = self._flat_copy_stream
         if stream is None:
             stream = self._flat_copy_stream = torch.cuda.Stream(device=tensor.device)
+        if ready_event is not None:
+            stream.wait_event(ready_event)
         with torch.cuda.stream(stream):
             copy = tensor.contiguous()
         self._flat_copy_pending = True
@@ -582,7 +593,8 @@ class TensorCommunicationManager(ABC):
         # (which waits for *only* the producing step, not the queued next
         # step), so the unconditional default-stream sync here would
         # uselessly drain GPU(N+1). Pass ``skip_cuda_sync=True`` from
-        # those call sites.
+        # those call sites, and only once the producer's writes are complete:
+        # a flat-layout copy (``_flat_layout``) reads them during this call.
         if not skip_cuda_sync and self._on_cuda:
             torch.cuda.default_stream().synchronize()
         request_ids: list[Rid] = []
@@ -779,6 +791,7 @@ class TensorCommunicationManager(ABC):
         graph_walk: str | None=None,
         skip_cuda_sync: bool = False,
         cpu_tensors: dict[Rid, NameToTensorList] | None = None,
+        ready_event: torch.cuda.Event | None = None,
     ) -> StoredOutputs:
         """Store a whole output batch and return the columns routing needs.
 
@@ -799,6 +812,11 @@ class TensorCommunicationManager(ABC):
         ``cpu_tensors`` mirrors ``outputs`` with host copies the caller already
         made (e.g. the stop check's), matched as in ``_host_copies_by_tensor``;
         kept only if ``needs_cpu_tensor``.
+
+        ``skip_cuda_sync=True`` as in ``store_and_return_tensor_info``: the
+        producer's writes must be complete, unless ``ready_event`` (the
+        producing step's completion event) is given, which a flat-layout copy
+        waits on before it reads them.
         """
         if not skip_cuda_sync and self._on_cuda:
             torch.cuda.default_stream().synchronize()
@@ -871,7 +889,7 @@ class TensorCommunicationManager(ABC):
                         )
                         if flat and not canonical.is_contiguous():
                             canonical = self._flat_layout(
-                                canonical, shard_dim is not None,
+                                canonical, shard_dim is not None, ready_event,
                             )
                         flat_uuids.append(tensor_uuid)
                         flat_rids.append(request_id)

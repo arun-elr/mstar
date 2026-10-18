@@ -140,6 +140,27 @@ def test_batch_store_gapped_views_arrive_intact(bookkeeping):
         assert torch.equal(got, want)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+def test_flat_copy_waits_on_the_ready_event():
+    """The copy runs on its own stream, so a producer still writing on
+    another stream is waited on through the step's completion event."""
+    prod = _mooncake("worker_0")
+    x = torch.zeros(1024, 1024, device="cuda")
+    torch.cuda.synchronize()
+    producer = torch.cuda.Stream()
+    with torch.cuda.stream(producer):
+        torch.cuda._sleep(200_000_000)
+        x.fill_(1.0)
+        done = torch.cuda.Event()
+        done.record(producer)
+    stored = prod.store_and_return_tensor_info_batch(
+        [1], {1: {"h": [x[:, :512]]}}, ["h"], skip_cuda_sync=True, ready_event=done,
+    )
+    copy = prod.get_tensor(stored.flat_uuids[0])
+    assert copy.is_contiguous() and copy.data_ptr() != x.data_ptr()
+    assert bool((copy == 1).all())
+
+
 class _UnfilteredSubmodule:
     filter_batched_output = NodeSubmodule.filter_batched_output
 
