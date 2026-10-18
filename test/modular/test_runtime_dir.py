@@ -154,6 +154,18 @@ def test_a_fresh_start_creates_0700_dirs(umask, tmp_path):
         comm.pull_socket.close()
 
 
+def test_a_subdir_of_a_shared_mount_is_accepted(umask, tmp_path):
+    """A volume mounted group-writable and setgid (e.g. Kubernetes ``fsGroup``)
+    is refused as the directory itself, but works as the parent of one."""
+    mount = tmp_path / "mount"
+    mount.mkdir()
+    mount.chmod(0o2777)
+    with pytest.raises(PermissionError, match="refusing"):
+        ensure_private_dir(mount)
+    made = ensure_private_dir(mount / "uploads")
+    assert _mode(made) & 0o077 == 0
+
+
 def test_upload_files_are_0600(umask, tmp_path):
     from mstar.api_server.entrypoint import _decode_ws_files
     from mstar.api_server.openai.serving_transcriptions import save_upload
