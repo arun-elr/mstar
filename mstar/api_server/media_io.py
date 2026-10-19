@@ -345,6 +345,9 @@ def check_resample_rate(rate: int, target: int) -> None:
 # and /generate audio, reference clips): the transcription route's limit.
 MAX_AUDIO_SECONDS = 30 * 60
 _SOUNDFILE_BLOCK_SECONDS = 10
+# libsndfile's MP3 decoder is seamless across reads only at whole 1152-sample
+# MPEG frames; a read that splits a frame glitches the samples after it
+_SOUNDFILE_BLOCK_ALIGN = 1152
 
 
 class AudioRefusedError(ValueError):
@@ -382,7 +385,7 @@ def read_soundfile_capped(path: str, max_seconds: float = MAX_AUDIO_SECONDS) -> 
         except ValueError as exc:
             raise AudioRefusedError(str(exc)) from None
         limit = int(max_seconds * rate)
-        block = max(1, _SOUNDFILE_BLOCK_SECONDS * rate)
+        block = max(1, _SOUNDFILE_BLOCK_SECONDS * rate // _SOUNDFILE_BLOCK_ALIGN) * _SOUNDFILE_BLOCK_ALIGN
         parts, frames = [], 0
         while True:
             data = f.read(min(block, limit + 1 - frames), dtype="float32", always_2d=True)

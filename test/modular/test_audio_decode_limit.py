@@ -416,6 +416,24 @@ def test_real_soundfile_decode_stops_at_the_limit(tmp_path):
     assert rate == 8000 and np.array_equal(audio, whole.mean(axis=1))
 
 
+def test_blockwise_mp3_decode_equals_one_read(tmp_path, monkeypatch):
+    """A read that splits an MPEG frame glitches the samples after it (0.027
+    on a 45 s, 44.1 kHz speech upload with 10 s blocks), so blocks are whole frames."""
+    sf = pytest.importorskip("soundfile")
+    if "MPEG_LAYER_III" not in sf.available_subtypes("MP3"):
+        pytest.skip("this libsndfile cannot write MP3")
+    monkeypatch.setattr(media_io, "_SOUNDFILE_BLOCK_SECONDS", 1)
+    rate = 22_050
+    t = np.arange(8 * rate) / rate
+    signal = 0.3 * np.sin(2 * np.pi * 440 * t) + 0.05 * np.random.default_rng(0).standard_normal(t.size)
+    path = tmp_path / "clip.mp3"
+    sf.write(path, signal.astype(np.float32), rate, format="MP3", subtype="MPEG_LAYER_III")
+    whole, _ = sf.read(path, dtype="float32", always_2d=True)
+    audio, got = media_io.read_soundfile_capped(str(path))
+    assert got == rate and audio.shape == (whole.shape[0],)
+    np.testing.assert_allclose(audio, whole.mean(axis=1), atol=1e-6, rtol=0)
+
+
 def _flac_without_length(path: Path, seconds: float, rate: int = 16000) -> None:
     """A FLAC whose STREAMINFO leaves the total sample count out (0), which
     the format allows for streamed encoders."""
