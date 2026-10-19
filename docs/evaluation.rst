@@ -203,7 +203,7 @@ suite (``run e2e --kind chat_image|image|video|pi05|frames|...``). Inputs are bu
 The run directory holds every results file and ``report/report.md`` (a table for a PR body, details in toggles),
 ``report/chart.png`` and ``report/summary.json``. ``compare`` exits with 1 when any row is flagged, else with 2
 when any row has no verdict (its job failed or was interrupted, the model was skipped or never got a GPU, or base
-is broken), else 0. A row is **flagged** when:
+is broken), else 0; on Ctrl-C it stops every job, prints one line and exits with 130. A row is **flagged** when:
 
 * **correctness changed**: greedy text is neither identical (share at least ``min_match``) nor close (median
   similarity 0.6 or more, length ratio 0.8 to 1.25), or any head reply is base's cut below 80% of its length
@@ -226,6 +226,7 @@ type, in ``benchmark/eval/e2e/calibration.yaml``. After a large change on ``main
 type, run ``compare --base main --head main`` for the models concerned, then
 ``python -m benchmark.eval calibrate <run dir>``; rows without a floor on the run's GPU are named in the report
 and judged on the passes' spread alone. A calibrated swing only widens a ``cases.yaml`` limit, never tightens it.
+Rows of the A/A run that failed or had request errors stay out of the floors; ``calibrate`` prints how many per model.
 
 Adding a suite
 --------------
