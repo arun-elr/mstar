@@ -331,16 +331,38 @@ def test_a_start_in_another_pid_namespace_keeps_live_segments(
 
 def test_a_dead_namespaces_segments_are_swept(monkeypatch, tmp_path):
     dead = "d" * 12
-    (tmp_path / f"mstar_{dead}.lock").touch()
+    lock = f"/dev/shm/mstar_{dead}.lock"
     seg = f"/dev/shm/mstar_{dead}_arena_w0_deadbeef.seg0"
+    open(lock, "wb").close()
     with open(seg, "wb") as f:
         f.write(b"x" * 64)
     try:
         _deployment_manager("sweeper", tmp_path, "c" * 16, monkeypatch)
         assert not os.path.exists(seg), "a dead namespace's segment was kept"
+        assert not os.path.exists(lock)
     finally:
-        if os.path.exists(seg):
-            os.unlink(seg)
+        for p in (seg, lock):
+            if os.path.exists(p):
+                os.unlink(p)
+
+
+def test_a_dead_process_in_another_shm_dir_keeps_live_segments(
+        monkeypatch, tmp_path):
+    """One deployment's processes can use different shm_dirs: the unheld lock
+    a dead one leaves in its shm_dir must not let a sweep take the live
+    segments in /dev/shm."""
+    live_dir, dead_dir = tmp_path / "live", tmp_path / "dead"
+    live_dir.mkdir()
+    dead_dir.mkdir()
+    a = _deployment_manager("w0", live_dir, "e" * 16, monkeypatch)
+    infos = a.store_and_return_tensor_info(
+        "r", {"x": [torch.arange(64, dtype=torch.uint8)]})
+    a.register_for_send("r", list(infos["x"]))
+    seg_path = a._own_segment_paths[0]
+    (dead_dir / f"mstar_{a._shm_namespace}.lock").touch()
+
+    _deployment_manager("w0", dead_dir, "f" * 16, monkeypatch)
+    assert os.path.exists(seg_path), "a live process's segment was swept"
 
 
 def test_dead_peer_segments_evicted(tmp_path):

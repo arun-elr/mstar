@@ -1959,13 +1959,11 @@ def _hold_namespace_lock(shm_dir: str, namespace: str) -> None:
         os.close(fd)
 
 
-def _sweep_dead_namespaces(
-    shm_dir: str, own_namespace: str, extra_dirs: tuple[str, ...] = ()
-) -> None:
-    """Delete every ``mstar_<ns>_*`` file, in ``shm_dir`` and ``extra_dirs``,
-    of each of this uid's namespaces whose lock this process can take
-    exclusively, then its lock file. A per-launch namespace never collides
-    with a dead run's files, so nothing else reclaims them."""
+def _sweep_dead_namespaces(shm_dir: str, own_namespace: str) -> None:
+    """Delete every ``mstar_<ns>_*`` file in ``shm_dir`` of each of this
+    uid's namespaces whose lock there this process can take exclusively,
+    then the lock file. A per-launch namespace never collides with a dead
+    run's files, so nothing else reclaims them."""
     try:
         names = os.listdir(shm_dir)
     except OSError:
@@ -1993,14 +1991,10 @@ def _sweep_dead_namespaces(
                 continue
             prefix = f"mstar_{m[1]}_"
             swept = 0
-            for d in dict.fromkeys((shm_dir, *extra_dirs)):
-                try:
-                    stale = [n for n in os.listdir(d) if n.startswith(prefix)]
-                except OSError:
-                    continue
-                for n in stale:
+            for stale in os.listdir(shm_dir):
+                if stale.startswith(prefix):
                     try:
-                        os.unlink(os.path.join(d, n))
+                        os.unlink(os.path.join(shm_dir, stale))
                         swept += 1
                     except OSError:
                         pass
@@ -2021,7 +2015,7 @@ class SharedMemoryCommunicationManager(TensorCommunicationManager):
     """Tensor transport via file I/O to a tmpfs directory (``/dev/shm``)."""
 
     #: Directories besides ``shm_dir`` that hold this transport's
-    #: ``mstar_<namespace>_*`` files, swept with a dead namespace.
+    #: ``mstar_<namespace>_*`` files; each gets its own namespace lock.
     _namespace_file_dirs: tuple[str, ...] = ()
 
     def __init__(
@@ -2061,9 +2055,13 @@ class SharedMemoryCommunicationManager(TensorCommunicationManager):
         self._shm_files: dict[int, str] = {}
         self._shm_namespace = _deployment_namespace(communicator)
         if self._shm_namespace:
-            _hold_namespace_lock(self.shm_dir, self._shm_namespace)
-            _sweep_dead_namespaces(self.shm_dir, self._shm_namespace,
-                                   self._namespace_file_dirs)
+            # A lock guards only the files in its own directory.
+            dirs = [d for d in dict.fromkeys(
+                (self.shm_dir, *self._namespace_file_dirs)) if os.path.isdir(d)]
+            for d in dirs:
+                _hold_namespace_lock(d, self._shm_namespace)
+            for d in dirs:
+                _sweep_dead_namespaces(d, self._shm_namespace)
 
         # Dedicated copy streams: D2H/H2D run here so they don't serialize
         # behind the next GPU step queued on the default stream.
