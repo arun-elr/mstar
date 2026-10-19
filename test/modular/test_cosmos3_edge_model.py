@@ -260,6 +260,16 @@ def test_edge_windowed_rollout_defaults_to_chained_61_32(tmp_path) -> None:
     assert (p["window_latent_units"], p["overlap_latent_units"]) == (8, 2)
 
 
+@pytest.mark.parametrize("num_frames", [60, 61, 62, 63, 64, 65, 94, 95, 96, 97])
+def test_edge_windowed_schedule_covers_every_requested_frame(tmp_path, num_frames) -> None:
+    """The schedule generates at least ``num_frames`` frames (the decoder trims
+    the rest); 62-64 used to fit one 61-frame window and came back short."""
+    model = _model(tmp_path, enable_windowed_video=True)
+    tf = model.config.vae.scale_factor_temporal
+    p = model._resolve_gen_params({"num_frames": num_frames, "stream_video": True}, ["image", "text"], ["video"])
+    assert 1 + (p["total_latent_units"] - 1) * tf >= num_frames
+
+
 def test_kv_windows_flagged_experimental_at_startup(tmp_path, caplog) -> None:
     with caplog.at_level(logging.WARNING, logger="mstar.model.cosmos3.cosmos3_model"):
         _model(tmp_path / "plain")

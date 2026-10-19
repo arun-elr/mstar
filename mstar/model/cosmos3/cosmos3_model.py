@@ -1432,7 +1432,9 @@ class Cosmos3Model(Model):
             # 0 retains all committed frames (no release).
             if context_frames:
                 context_units = 1 + (context_frames - 1) // tf
-        total_units = 1 + (num_frames - 1) // tf
+        # rounded up: the decoder trims the assembled video back to num_frames,
+        # but cannot add frames a short schedule never generated
+        total_units = 1 + -(-(num_frames - 1) // tf)
         # Sessions: a request may name a session (its last window is kept for
         # a follow-up) and resume one — the stored tail then re-pins the head
         # of window 0 as clean conditioning (the chained overlap, at least the
