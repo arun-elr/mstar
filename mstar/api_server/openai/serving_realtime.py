@@ -151,6 +151,8 @@ class RealtimeSession:
     # the client's audio rate; anything but SAMPLE_RATE goes through resampler
     input_rate: int = SAMPLE_RATE
     resampler: media_io.StreamResampler | None = None
+    # samples the last chunk was short of its boundary (see take_chunk)
+    short: int = 0
 
     @property
     def chunk_samples(self) -> int:
@@ -176,11 +178,17 @@ class RealtimeSession:
 
     def take_chunk(self) -> np.ndarray | None:
         """Every full chunk of pending audio as one array, or None until
-        enough arrived."""
-        if self.pending_samples < self.chunk_samples:
+        enough arrived. Output the resampler still holds for its lookahead
+        counts toward the chunk, so a chunk of 24 kHz input is decoded on the
+        append that completes it, not the one after; the chunk is then short
+        by those samples (``short``), which go with the next one."""
+        held = self.resampler.held() if self.resampler is not None else 0
+        k = (self.pending_samples + held - self.short) // self.chunk_samples
+        if k <= 0:
             return None
+        n = min(self.pending_samples, k * self.chunk_samples + self.short)
+        self.short = k * self.chunk_samples + self.short - n
         buf = np.concatenate(self.pending)
-        n = self.pending_samples // self.chunk_samples * self.chunk_samples
         chunk, rest = buf[:n], buf[n:]
         self.pending = [rest] if rest.size else []
         self.pending_samples = int(rest.size)
@@ -204,7 +212,7 @@ class RealtimeSession:
     def clear(self) -> None:
         if self.resampler is not None:
             self.resampler.reset()
-        self.pending, self.pending_samples, self.heard = [], 0, []
+        self.pending, self.pending_samples, self.heard, self.short = [], 0, [], 0
         self.chunk_id, self.raw_hypothesis, self.emitted = 0, "", ""
         self.item_id = f"item_{uuid.uuid4().hex[:12]}"
 
@@ -571,7 +579,8 @@ class RealtimeTranscription:
             return
         # a coalesced step counts every chunk it heard, so the prefix that keeps
         # sent text fixed starts after the same audio as with one step per chunk
-        s.chunk_id += max(1, chunk.size // s.chunk_samples)
+        # (rounded: at 24 kHz a chunk can be short by the resampler's lookahead)
+        s.chunk_id += max(1, round(chunk.size / s.chunk_samples))
         text = self.current_text()
         if final or tokenizer is None:
             hold = 0

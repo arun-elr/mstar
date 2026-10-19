@@ -848,6 +848,57 @@ def test_24khz_input_is_resampled_onto_the_true_timeline(client_and_stub):
     assert np.abs(heard[-1][50:-50] - tone_16k[50:-50]).max() < 4
 
 
+def test_24khz_chunk_is_decoded_on_the_append_that_completes_it(client_and_stub):
+    """The resampler's 1.5 ms lookahead does not hold a full chunk back until
+    the client's next append: the partial comes before the next event's reply."""
+    client, stub = client_and_stub
+    heard = _step_samples(stub)
+    tone = (np.sin(2 * np.pi * 440 * np.arange(24000) / 24000) * 8000).astype("<i2")
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "input_audio_format": {"type": "audio/pcm", "rate": 24000}, "mstar": {"chunk_seconds": 0.5}}}))
+        ws.receive_text()
+        for half in (tone[:12000], tone[12000:]):
+            _append_bytes(ws, half.tobytes())
+            ws.send_text(json.dumps({"type": "transcription_session.update", "session": {}}))
+            events = _recv_until(ws, "transcription_session.updated")
+            assert [e["type"] for e in events][0] == "mstar.transcription.partial"
+        _commit(ws)
+    assert [len(h) for h in heard] == [7976, 15976, 16000]
+
+
+def test_24khz_chunk_boundaries_stay_on_the_item_timeline(client_and_stub):
+    """The lookahead samples count toward a boundary once: appends that end
+    just short of each 0.5 s boundary decode when the input passes it, so the
+    steps stay on 8000-sample boundaries and do not drift earlier."""
+    client, stub = client_and_stub
+    heard = _step_samples(stub)
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "input_audio_format": {"type": "audio/pcm", "rate": 24000}, "mstar": {"chunk_seconds": 0.5}}}))
+        ws.receive_text()
+        for n in (12000, 11964, 11964, 11964):
+            _append_bytes(ws, _tone(n).tobytes())
+        _commit(ws)
+    assert [len(h) for h in heard] == [7976, 16000, 24000, 31928]
+
+
+def test_24khz_coalesced_step_counts_every_chunk_it_heard(client_and_stub):
+    """One append of two chunks is one step that counts both, so the stable
+    prefix starts where it would with one step per chunk."""
+    client, stub = client_and_stub
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "input_audio_format": {"type": "audio/pcm", "rate": 24000}}}))
+        ws.receive_text()
+        _append_bytes(ws, _tone(96000).tobytes())
+        events = _recv_until(ws, "mstar.transcription.partial")
+    assert events[-1]["chunk_id"] == 2 and events[-1]["audio_seconds"] == pytest.approx(4.0, abs=0.002)
+
+
 def test_24khz_item_cap_does_not_depend_on_how_the_audio_was_split(client_and_stub, monkeypatch):
     """At 24 kHz the cap rounds the whole item once: one second fits however
     the appends split it, and one sample more is refused."""
