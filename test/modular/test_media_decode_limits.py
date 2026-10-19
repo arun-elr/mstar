@@ -147,6 +147,7 @@ def test_refused_image_reaches_the_client_as_a_400(tmp_path, no_decode):
     wt.request_output_state = {}
     wt.device = "cpu"
     wt._prefix_streams = {}
+    wt._live_requests = {}
     wt.model = types.SimpleNamespace(load_image=lambda p, device: Model.load_image(None, p, device))
     request = PreprocessInput(
         request_id="r1", text="describe it", file_paths={"image": [path]},
@@ -414,6 +415,7 @@ def _preprocess_thread(model):
     wt.request_output_state = {}
     wt.device = "cpu"
     wt._prefix_streams = {}
+    wt._live_requests = {}
     wt.model = model
     return wt
 
