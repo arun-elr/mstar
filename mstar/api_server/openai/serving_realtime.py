@@ -183,8 +183,9 @@ def pcm16_to_float(payload: str, carry: bytes = b"") -> tuple[np.ndarray, bytes]
     split across two appends is joined instead of shifting every sample after
     it. Strict decoding: a malformed payload is an error, not silence."""
     # whitespace is allowed (base64.encodebytes wraps lines); anything else
-    # outside the alphabet is an error
-    raw = carry + base64.b64decode("".join(payload.split()), validate=True)
+    # outside the alphabet is an error. translate stays linear in the payload
+    # where split() would build a list of its pieces
+    raw = carry + base64.b64decode(payload.encode("ascii").translate(None, b" \t\n\r\v\f"), validate=True)
     whole = len(raw) - len(raw) % 2
     return np.frombuffer(raw[:whole], dtype="<i2").astype(np.float32) / 32768.0, raw[whole:]
 

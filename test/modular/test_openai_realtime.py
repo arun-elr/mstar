@@ -310,6 +310,23 @@ def test_line_wrapped_base64_is_accepted_and_kept_sample_for_sample(client_and_s
     assert _close_to(heard[-1], samples)
 
 
+def test_whitespace_in_base64_costs_memory_linear_in_the_payload():
+    """A frame of short base64 pieces between spaces is decoded without a
+    Python object per piece, so a client cannot turn one large frame into
+    hundreds of megabytes; non-ASCII is refused like any non-base64."""
+    import tracemalloc
+
+    payload = "AAAA " * 200_000  # 1 MB
+    tracemalloc.start()
+    audio, odd = serving_realtime.pcm16_to_float(payload)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert audio.size == 300_000 and not odd and not audio.any()
+    assert peak < 5_000_000, peak
+    with pytest.raises(ValueError):
+        serving_realtime.pcm16_to_float("AAAA\u00a0AAAA")
+
+
 def test_odd_byte_survives_commit_and_clear_drops_it(client_and_stub):
     """A commit takes whole samples; the byte of a sample split across the
     commit starts the next item. A clear drops it with the rest of the buffer."""

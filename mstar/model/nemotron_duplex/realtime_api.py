@@ -103,7 +103,8 @@ class RealtimeConnection:
         elif et == "input_audio_buffer.append":
             try:
                 # whitespace is allowed (base64.encodebytes wraps lines), as on the API server
-                pcm = self._odd_byte + base64.b64decode("".join((event.get("audio") or "").split()), validate=True)
+                audio = (event.get("audio") or "").encode("ascii").translate(None, b" \t\n\r\v\f")
+                pcm = self._odd_byte + base64.b64decode(audio, validate=True)
             except (ValueError, TypeError, AttributeError):
                 await self.send_json({"type": "error", "error": {"message": "audio is not base64"}})
                 return
