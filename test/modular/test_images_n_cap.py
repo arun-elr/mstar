@@ -90,3 +90,23 @@ def test_the_cap_follows_the_env(client_and_stub, monkeypatch):
     assert r.json()["error"]["message"] == "n must be between 1 and 2, got 3"
     assert not stub.submitted
     assert len(_images(client, n=2).json()["data"]) == 2
+
+
+@pytest.mark.parametrize("raw, cap", [
+    ("2", 2), (" 2 ", 2), ("2\n", 2), ("+3", 3), ("0", 1), ("-1", 1),
+    ("", 10), ("abc", 10), ("2_0", 10), ("1.5", 10), ("\uff12", 10),
+])
+def test_the_cap_parses_as_the_rust_frontend_does(monkeypatch, raw, cap):
+    # rust/server/src/main.rs::max_images_parses_as_python_does checks the same table
+    from mstar.api_server.openai.serving_images import max_images_per_request
+
+    monkeypatch.setenv("MSTAR_MAX_IMAGES_PER_REQUEST", raw)
+    assert max_images_per_request() == cap
+
+
+def test_a_non_positive_cap_still_serves_one_image(client_and_stub, monkeypatch):
+    client, _ = client_and_stub
+    monkeypatch.setenv("MSTAR_MAX_IMAGES_PER_REQUEST", "0")
+    for body in ({"prompt": "x"}, {"prompt": "x", "n": None}, {"prompt": "x", "n": 1}):
+        assert client.post("/v1/images/generations", json=body).status_code == 200, body
+    assert client.post("/v1/images/generations", json={"prompt": "x", "n": 2}).status_code == 400

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 from pathlib import Path
 from uuid import uuid4
 
@@ -113,11 +114,13 @@ DEFAULT_MAX_IMAGES_PER_REQUEST = 10
 
 def max_images_per_request() -> int:
     """Largest ``n`` one image request may ask for: ``MSTAR_MAX_IMAGES_PER_REQUEST``,
-    default 10 (OpenAI's range for the endpoint). The Rust frontend reads the same."""
-    try:
-        return int(os.environ["MSTAR_MAX_IMAGES_PER_REQUEST"])
-    except (KeyError, ValueError):
+    default 10 (OpenAI's range for the endpoint), at least 1. The Rust frontend
+    parses it the same way: an ASCII integer, surrounding whitespace allowed,
+    anything else the default."""
+    raw = os.environ.get("MSTAR_MAX_IMAGES_PER_REQUEST", "").strip()
+    if not re.fullmatch(r"[+-]?[0-9]+", raw):
         return DEFAULT_MAX_IMAGES_PER_REQUEST
+    return max(1, int(raw))
 
 
 def image_count(req) -> int:

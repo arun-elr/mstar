@@ -86,10 +86,8 @@ async fn main() {
             .unwrap_or(600),
     );
     // Same variable and default as serving_images.max_images_per_request.
-    let max_images_per_request: i64 = std::env::var("MSTAR_MAX_IMAGES_PER_REQUEST")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(10);
+    let max_images_per_request =
+        parse_max_images(std::env::var("MSTAR_MAX_IMAGES_PER_REQUEST").ok().as_deref());
 
     let bridge = socket_dir.map(|dir| {
         eprintln!("bridging to conductor at {dir}");
@@ -672,6 +670,19 @@ async fn images_generations(
 
 /// The request's `n`, 1 when omitted; outside `1..=limit` the 400 message,
 /// matching serving_images.image_count.
+/// `MSTAR_MAX_IMAGES_PER_REQUEST` as Python's `max_images_per_request` reads
+/// it: an ASCII integer, surrounding whitespace allowed, at least 1; anything
+/// else is the default 10.
+fn parse_max_images(raw: Option<&str>) -> i64 {
+    raw.map(str::trim)
+        .filter(|s| {
+            let digits = s.strip_prefix(['+', '-']).unwrap_or(s);
+            !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
+        })
+        .and_then(|s| s.parse::<i64>().ok())
+        .map_or(10, |n| n.max(1))
+}
+
 fn image_count(n: Option<i64>, limit: i64) -> Result<i64, String> {
     match n {
         None => Ok(1),
@@ -1096,5 +1107,16 @@ mod tests {
             );
         }
         assert_eq!(image_count(Some(3), 2), Err("n must be between 1 and 2, got 3".to_string()));
+    }
+
+    #[test]
+    fn max_images_parses_as_python_does() {
+        for (raw, cap) in [
+            (None, 10), (Some("2"), 2), (Some(" 2 "), 2), (Some("2\n"), 2), (Some("+3"), 3),
+            (Some("0"), 1), (Some("-1"), 1), (Some(""), 10), (Some("abc"), 10), (Some("2_0"), 10),
+            (Some("1.5"), 10), (Some("\u{ff12}"), 10),
+        ] {
+            assert_eq!(parse_max_images(raw), cap, "{raw:?}");
+        }
     }
 }
