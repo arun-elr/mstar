@@ -11,12 +11,19 @@ logger = logging.getLogger(__name__)
 # another path, or the path of a file:// URL. Ends at whitespace, a quote, a
 # bracket or a separator such as ":" or ",".
 _ABS_PATH = re.compile(r"(?:\bfile://|(?<![\w.:/)\]]))/[^\s'\"`,;:()\[\]{}<>|]+")
+# A quoted absolute path, taken whole: its directories may hold spaces or brackets.
+_QUOTED_PATH = re.compile(r"(['\"`])((?:file://)?/[^'\"`\n]*)\1")
+
+
+def _base_name(path: str) -> str:
+    return os.path.basename(path) or "<path>"
 
 
 def scrub_paths(text: str) -> str:
     """Replace each absolute file path in ``text`` with its base name, and a
     directory path (one ending in "/") with ``<path>``."""
-    return _ABS_PATH.sub(lambda m: os.path.basename(m.group(0)) or "<path>", text)
+    text = _QUOTED_PATH.sub(lambda m: m.group(1) + _base_name(m.group(2)) + m.group(1), text)
+    return _ABS_PATH.sub(lambda m: _base_name(m.group(0)), text)
 
 
 def client_error_text(
