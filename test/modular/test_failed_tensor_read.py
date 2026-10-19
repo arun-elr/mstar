@@ -408,6 +408,76 @@ def test_a_read_torn_down_mid_transfer_is_freed_once_it_stops(engine, first):
         assert me not in engine.polled_by(src[1].data_ptr())
 
 
+def test_a_read_that_fails_while_teardown_polls_it_keeps_its_buffers(engine, monkeypatch):
+    """Teardown polls the read just before the reader fails and hands over a
+    running transfer: the buffers wait for that transfer, not for the poll."""
+    mgr = engine.manager()
+    src = _sources(2)
+    engine.plan = {src[0].data_ptr(): [[-1]], src[1].data_ptr(): [[0]]}
+    future, ptrs = _start(mgr, "r", src)
+    assert list(future.exception(timeout=5).running) == [ptrs[1]]
+    poll = type(mgr)._poll_read
+    monkeypatch.setattr(mgr, "_poll_read", lambda ep: (False, None))
+    mgr.force_cleanup_request("r")
+    monkeypatch.setattr(mgr, "_poll_read", poll)
+
+    mgr.get_ready_tensors()
+    assert _kept(mgr) == ptrs and engine.unregistered == []
+    engine.report(src[1].data_ptr(), 1)
+    mgr.get_ready_tensors()
+    assert mgr._kept_reads == [] and sorted(engine.unregistered) == sorted(ptrs)
+
+
+def test_the_drain_waits_for_a_failed_reads_running_transfers(engine):
+    """READS_DONE lets the producer free what the read is reading, so a
+    failed read counts as in flight until its last transfer stops, and not
+    after its request is torn down."""
+    mgr = engine.manager()
+    src = _sources(2)
+    engine.plan = {src[0].data_ptr(): [[0, -1]], src[1].data_ptr(): [[0]]}
+    future, _ = _start(mgr, "r", src)
+    assert mgr.has_inflight_reads("r")
+    future.exception(timeout=5)
+    assert mgr.has_inflight_reads("r"), "the reader is done, the transfer is not"
+    mgr.get_ready_tensors()
+    assert mgr.take_failed_reads() and mgr.has_inflight_reads("r")
+    engine.report(src[1].data_ptr(), 1)
+    mgr.get_ready_tensors()
+    assert not mgr.has_inflight_reads("r")
+
+
+def test_a_torn_down_requests_kept_read_no_longer_holds_a_drain(engine):
+    mgr = engine.manager()
+    src = _sources(2)
+    engine.plan = {src[0].data_ptr(): [[-1]], src[1].data_ptr(): [[0]]}
+    future, ptrs = _start(mgr, "r", src)
+    future.exception(timeout=5)
+    mgr.get_ready_tensors()
+    assert mgr.has_inflight_reads("r")
+    mgr.force_cleanup_request("r")
+    assert not mgr.has_inflight_reads("r") and _kept(mgr) == ptrs
+
+
+def test_the_data_worker_holds_reads_done_for_a_failed_reads_running_transfer(tmp_path):
+    """The failed read's error chunks count as delivered, so the API server
+    reports the request drained; READS_DONE still waits for the transfer."""
+    from mstar.utils.ipc_format import ConductorMessageType as T
+
+    wt = _preprocess_thread(model=None)
+    wt._live_requests = {"r1": 1}
+    wt._draining_rids, wt._reads_done_sent = set(), set()
+    wt.sent = []
+    wt.communicator = SimpleNamespace(send=lambda entity, msg: wt.sent.append(msg))
+    running = {"r1"}
+    wt.tensor_manager = SimpleNamespace(has_inflight_reads=lambda rid: rid in running)
+
+    wt._finish_reading("r1", drained=True)
+    assert [m.message_type for m in wt.sent] == [] and "r1" in wt._draining_rids
+    running.clear()
+    wt._complete_drain_if_ready("r1")
+    assert [m.message_type for m in wt.sent] == [T.READS_DONE]
+
+
 @pytest.mark.parametrize("failure", [0, 2**64 - 1], ids=["zero", "legacy-uint64-minus-1"])
 @pytest.mark.parametrize("when", ["first-submit", "retry-submit"])
 def test_a_failed_submit_keeps_the_buffers_for_good(engine, failure, when):
