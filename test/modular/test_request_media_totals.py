@@ -57,6 +57,7 @@ def _preprocess_thread(model):
     wt.request_output_state = {}
     wt.device = "cpu"
     wt._prefix_streams = {}
+    wt._live_requests = {}
     wt.model = model
     return wt
 
