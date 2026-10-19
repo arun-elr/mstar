@@ -129,7 +129,9 @@ class _KeptRead:
     ``future`` is set while the read still runs in the reader thread, which
     owns its batch ids until it finishes. ``running`` holds the ids handed
     over after that (local pointer -> batch id), polled by the manager.
-    ``registered`` is index-parallel to ``buffers``."""
+    ``registered`` is index-parallel to ``buffers``. ``rid`` is None once the
+    request is torn down; ``request`` names it in logs."""
+    rid: Rid | None
     request: str
     buffers: list[torch.Tensor]
     registered: list[bool]
@@ -292,6 +294,14 @@ _TRANSFER_RUNNING = (0, -2)
 # between a read's status polls. Each poll takes the GIL, which the sync read's
 # wait never did; polling faster slows a main thread that releases it often.
 _READ_POLL_INTERVAL_S = 1e-4
+
+
+def _may_be_reading(future: Future) -> bool:
+    """A read still running, or one that failed and so may have left
+    transfers running until :meth:`get_ready_tensors` takes them over."""
+    if not future.done():
+        return True
+    return not future.cancelled() and future.exception() is not None
 
 
 def _submit_failed(batch_id: int) -> bool:
@@ -1595,14 +1605,15 @@ class TensorCommunicationManager(ABC):
         if not buffers:
             return
         kept = _KeptRead(
-            self.rid_to_str(ep.request_id), buffers, registered,
+            ep.request_id, self.rid_to_str(ep.request_id), buffers, registered,
             sum(b.nbytes for b in buffers),
         )
         logger.warning(
             "Keeping %d bytes of read buffers for request %s until its "
             "transfers report that they stopped", kept.nbytes, kept.request,
         )
-        if error is None and ep.future is not None and not ep.future.done():
+        if error is None and ep.future is not None:
+            # unfinished when polled: how it ends is read from the future later
             kept.future = ep.future
         elif not self._take_over(kept, error):
             return
@@ -1918,11 +1929,16 @@ class TensorCommunicationManager(ABC):
         segment. Synchronous (SHM) reads complete inside ``start_read_tensors``
         with ``future=None``, so they never count here; only outstanding
         async (RDMA) futures do. Gates the READS_DONE ACK during a drain.
+        So does a failed read whose transfers have not all stopped: they may
+        still be reading the producer's memory.
         """
         return any(
             ep.request_id == request_id
-            and ep.future is not None and not ep.future.done()
+            and ep.future is not None and _may_be_reading(ep.future)
             for ep in self.pending
+        ) or any(
+            kept.rid == request_id and (kept.future is not None or kept.running)
+            for kept in self._kept_reads
         )
 
     def cleanup_request(self, request_id: Rid, force: bool = False):
@@ -1946,6 +1962,9 @@ class TensorCommunicationManager(ABC):
                 self._keep_read_buffers(ep, error)
             else:
                 ack_edges.extend(ep.graph_edges)
+        for kept in self._kept_reads:
+            if kept.rid == request_id:
+                kept.rid = None
         self._failed_read_errors.pop(request_id, None)
         self._failed_reads = [f for f in self._failed_reads if f.request_id != request_id]
         self.read_finished.pop(request_id, None)
