@@ -44,4 +44,4 @@ The fixed cost dominates small tensors and the bandwidth large ones, so the fit 
 
 ## Related
 
-vLLM-Omni ships a cross-node Mooncake throughput test (`benchmarks/distributed/omni_connectors/cross_node_mooncake_transfer_engine.py`, copy, zero-copy and GPUDirect modes); the `*-pool` copy and zero-copy modes and GPU-resident buffers here follow its ideas. This tool adds per-size latency fitting, the inline crossover and control-channel interference for M\*'s own paths.
+A cross-node Mooncake throughput test (copy, zero-copy and GPUDirect modes between two nodes) is the test setup the `*-pool` copy and zero-copy modes and GPU-resident buffers here are modeled on. This tool adds per-size latency fitting, the inline crossover and control-channel interference for M\*'s own paths.
