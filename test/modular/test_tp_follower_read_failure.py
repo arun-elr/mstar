@@ -26,6 +26,7 @@ from test_micro_scheduler import NODE, WALK, _Engine, _Manager  # noqa: E402
 import mstar.communication.wire_types  # noqa: E402, F401  (registers the tags)
 from mstar.communication.tensors import StoredOutputs  # noqa: E402
 from mstar.communication.wire import decode, encode  # noqa: E402
+from mstar.engine.resources.step import StepContext  # noqa: E402
 from mstar.graph.base import GraphEdge, TensorPointerInfo  # noqa: E402
 from mstar.graph.runtime.base import FreedTensors, RouteOutput  # noqa: E402
 from mstar.model.submodule_base import BatchedModelOutput  # noqa: E402
@@ -37,11 +38,19 @@ from mstar.utils.ipc_format import (  # noqa: E402
     WorkerMessage,
     WorkerMessageType,
 )
-from mstar.worker.micro_scheduler import MicroScheduler  # noqa: E402
+from mstar.worker.micro_scheduler import MicroScheduler, ScheduledBatch  # noqa: E402
 from mstar.worker.worker import Worker  # noqa: E402
 
 WORKERS = ["w0", "w1"]
 
+
+
+def _node_batch(rids):
+    """The executing batch the leader broadcasts: its rows and step context."""
+    return SimpleNamespace(
+        node_name=NODE, graph_walk=WALK, request_ids=rids,
+        step_context=StepContext(request_ids=tuple(rids), graph_walk=WALK, slot=0, capture=False),
+    )
 
 def _rank(worker_id, manager, tensor_manager):
     """Instance rank ``WORKERS.index(worker_id)`` of a TP=2 instance of NODE."""
@@ -139,10 +148,7 @@ def test_a_follower_runs_the_leaders_step_on_a_placeholder_and_only_that_request
         batch = leader.scheduler.get_next_batch(leader_mgr)
         assert list(batch.request_to_worker_graph) == ["r0", "r1"]
         leader._in_flight_rids.update(batch.request_to_worker_graph)
-        leader.maybe_send_zmq_to_tp_followers(SimpleNamespace(
-            node_name=NODE, graph_walk=WALK,
-            request_ids=list(batch.request_to_worker_graph),
-        ))
+        leader.maybe_send_zmq_to_tp_followers(_node_batch(list(batch.request_to_worker_graph)))
         _deliver(leader, follower, WorkerMessageType.SCHEDULE_TP)
         assert follower.scheduler.get_next_batch(follower_mgr) is None  # r1 not here yet
 
@@ -210,9 +216,7 @@ def test_a_leader_told_before_it_schedules_never_broadcasts_the_request():
 
         batch = leader.scheduler.get_next_batch(leader_mgr)
         assert list(batch.request_to_worker_graph) == ["r0"]
-        leader.maybe_send_zmq_to_tp_followers(SimpleNamespace(
-            node_name=NODE, graph_walk=WALK, request_ids=["r0"],
-        ))
+        leader.maybe_send_zmq_to_tp_followers(_node_batch(["r0"]))
         _deliver(leader, follower, WorkerMessageType.SCHEDULE_TP)
         step = follower.scheduler.get_next_batch(follower_mgr)
         assert list(step.request_to_worker_graph) == ["r0"]
@@ -284,14 +288,15 @@ def _postprocess_fakes(w):
 def _finished_step(rids):
     """The step [rids] of NODE as it comes back from the forward."""
     pending = SimpleNamespace(
-        batch=SimpleNamespace(
-            node_name=NODE, request_to_worker_graph=dict.fromkeys(rids, "wg0"),
-            output_signals=["y"],
+        batch=ScheduledBatch(
+            node_name=NODE, graph_walk=WALK,
+            request_to_worker_graph=dict.fromkeys(rids, "wg0"), output_signals=["y"],
         ),
         node_batch=SimpleNamespace(
             request_ids=list(rids), per_request_info=dict.fromkeys(rids),
             failed_requests={}, completion_event=None, final_stream_rids=set(),
             resource_publish_info={}, stream_partition_done_rids=set(),
+            cached_rids=set(),
         ),
         node_name=NODE, partition="p", graph_walk=WALK, loop_name=None,
         speculative_new_iter=False,
@@ -308,10 +313,7 @@ def test_the_leader_drops_the_placeholder_row_once_told():
     leader, leader_mgr, follower, follower_mgr, read = _pair()
     try:
         batch = leader.scheduler.get_next_batch(leader_mgr)
-        leader.maybe_send_zmq_to_tp_followers(SimpleNamespace(
-            node_name=NODE, graph_walk=WALK,
-            request_ids=list(batch.request_to_worker_graph),
-        ))
+        leader.maybe_send_zmq_to_tp_followers(_node_batch(list(batch.request_to_worker_graph)))
         _deliver(leader, follower, WorkerMessageType.SCHEDULE_TP)
         read.exception(timeout=5)
         follower._check_ready_tensors()

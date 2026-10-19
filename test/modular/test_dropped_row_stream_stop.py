@@ -129,6 +129,7 @@ def _worker(eng, runtime):
     w.reported: dict[int, str] = {}
     w._fail_requests = w.reported.update
     w.request_state = SimpleNamespace(buffer_publish_info=lambda *a: None)
+    w.scheduler = SimpleNamespace(failed_rids=set())
     return w
 
 
