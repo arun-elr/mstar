@@ -2,6 +2,10 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  # Every merge is tested on main too: PRs that are each green alone can still
+  # break main when they land together.
+  push:
+    branches: [main]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -46,9 +50,11 @@ jobs:
           - name: CPU Core (TP lockstep sim)
             id: cpu-tests-tp-sim
             args: -n 3 test/modular/test_tp_async_lockstep_sim.py
+    # A new push to a PR cancels its older run. On main each merge commit gets
+    # its own group and is never cancelled, so every merge reports a result.
     concurrency:
-      group: ${{ matrix.id }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: true
+      group: ${{ matrix.id }}-${{ github.event.pull_request.number || github.sha }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
