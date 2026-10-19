@@ -210,6 +210,8 @@ class LingBotWorldModel(Model):
         intrinsics = torch.as_tensor(kwargs.get("intrinsics", ()), dtype=torch.float32)
         if intrinsics.numel() < 4 or intrinsics.numel() % 4:
             raise ValueError("LingBot-World requires intrinsics [fx, fy, cx, cy] (or one row per frame).")
+        if not (np.isfinite(poses).all() and torch.isfinite(intrinsics).all()):
+            raise ValueError("LingBot-World camera_poses and intrinsics must be finite numbers.")
 
         num_frames = int(kwargs.get("num_frames", len(poses)))
         lat_f = self.num_latent_frames(num_frames, len(poses))

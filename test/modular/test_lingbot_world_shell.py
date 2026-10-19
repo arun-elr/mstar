@@ -152,6 +152,21 @@ def test_process_prompt_rejects_requests_it_cannot_serve(model):
                              **{**ok, "intrinsics": [1.0, 2.0]})
 
 
+@pytest.mark.parametrize("frame", [0, 32])
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_process_prompt_refuses_a_non_finite_pose_or_intrinsic(model, frame, bad):
+    """Frame 32 is past the frames a 33-pose, 17-frame request samples."""
+    image = torch.zeros(3, 480, 832, dtype=torch.uint8)
+    poses = np.tile(np.eye(4), (33, 1, 1))
+    poses[frame, 0, 3] = bad
+    kwargs = dict(camera_poses=poses, intrinsics=[415.0, 415.0, 416.0, 240.0], num_frames=17)
+    with pytest.raises(ValueError, match="finite"):
+        model.process_prompt("p", ["text", "image"], ["video_frame"], tensors={"image_inputs": [image]}, **kwargs)
+    kwargs.update(camera_poses=np.tile(np.eye(4), (33, 1, 1)), intrinsics=[415.0, bad, 416.0, 240.0])
+    with pytest.raises(ValueError, match="finite"):
+        model.process_prompt("p", ["text", "image"], ["video_frame"], tensors={"image_inputs": [image]}, **kwargs)
+
+
 @pytest.mark.parametrize("size", [
     {"height": 100_000, "width": 100_000}, {"height": 1281, "width": 720}, {"height": -480}, {"width": 0},
 ])
