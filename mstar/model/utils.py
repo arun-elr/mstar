@@ -337,11 +337,15 @@ class ByteLevelDetokenizer:
     multi-byte UTF-8 character split across tokens must be emitted as raw
     bytes and reassembled client-side — per-token ``tokenizer.decode``
     would yield U+FFFD for each partial character.
+
+    Special tokens are dropped, like ``skip_special_tokens``, unless
+    ``keep_special``: then the joined bytes of any id sequence decode to what
+    ``tokenizer.decode(ids)`` gives.
     """
 
-    def __init__(self, tokenizer):
+    def __init__(self, tokenizer, keep_special: bool = False):
         self.tokenizer = tokenizer
-        self.special_ids = set(tokenizer.all_special_ids)
+        self.special_ids = frozenset() if keep_special else set(tokenizer.all_special_ids)
         # GPT-2's bytes_to_unicode: printable unicode char <-> raw byte.
         printable = (
             list(range(ord("!"), ord("~") + 1))
@@ -363,8 +367,52 @@ class ByteLevelDetokenizer:
             [i for i in token_ids if i not in self.special_ids]
         )
         for token in tokens:
-            raw.extend(self.byte_decoder[c] for c in token)
+            if token is None:  # an id past the vocabulary, which decode skips too
+                continue
+            try:
+                raw.extend(bytes(self.byte_decoder[c] for c in token))
+            except KeyError:
+                # an added token outside the byte alphabet ("<中>") is its own
+                # UTF-8, as in the tokenizers library's ByteLevel decoder
+                raw.extend(token.encode("utf-8"))
         return bytes(raw)
+
+    @staticmethod
+    def is_byte_level(tokenizer) -> bool:
+        """Whether ``to_bytes`` reproduces this tokenizer's ``decode``: a
+        ByteLevel decoder (fast) or a GPT-2 byte map (slow), and no
+        ``clean_up_tokenization_spaces`` rewrite."""
+        if getattr(tokenizer, "clean_up_tokenization_spaces", False):
+            return False
+        backend = getattr(tokenizer, "backend_tokenizer", None)
+        if backend is not None:
+            return type(backend.decoder).__name__ == "ByteLevel"
+        return isinstance(getattr(tokenizer, "byte_decoder", None), dict)
+
+
+class TextChunkDetokenizer:
+    """One decode step's text chunk for a model that streams a token per step.
+
+    With a byte-level tokenizer the chunk is the tokens' raw bytes, special
+    tokens kept, so a character split across steps reassembles in the API
+    server's incremental decoder and the joined reply equals
+    ``tokenizer.decode`` of all its ids. Any other tokenizer keeps the
+    per-step ``decode``.
+    """
+
+    __slots__ = ("tokenizer", "_bytes")
+
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+        self._bytes = (
+            ByteLevelDetokenizer(tokenizer, keep_special=True)
+            if ByteLevelDetokenizer.is_byte_level(tokenizer) else None
+        )
+
+    def to_bytes(self, token_ids: list[int]) -> bytes:
+        if self._bytes is None:
+            return self.tokenizer.decode(token_ids).encode("utf-8")
+        return self._bytes.to_bytes(token_ids)
 
 
 def drop_stop_tokens(
