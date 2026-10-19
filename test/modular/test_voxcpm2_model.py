@@ -744,7 +744,7 @@ def test_talker_declares_the_same_span_in_both_caches(model):
     step = talker.declare_step("talker_decode", ["a", "b"], [SimpleNamespace(input_seq_len=1)] * 2)
     assert set(step.steps) == {"base_kv", "base_attn", "base_pos", "res_kv", "res_attn"}
     assert [(s.request_id, s.span) for s in step.segments] == [("a", 1), ("b", 1)]
-    (graph,) = talker.get_cuda_graph_configs(torch.device("cpu"))
+    (graph,) = talker.get_accelerator_graph_configs(torch.device("cpu"))
     assert graph.capture_graph_walk == "talker_decode"
 
 
@@ -852,7 +852,7 @@ def test_talker_packs_a_mixed_batch_like_per_request_prompts(model):
 def test_capture_dummy_inputs_keep_the_static_keys_dtypes_and_shapes(model):
     """The decode graph's static inputs: what preprocess builds from the capture template at every bucket."""
     talker, _, _ = _talker(model)
-    (graph,) = talker.get_cuda_graph_configs(torch.device("cpu"))
+    (graph,) = talker.get_accelerator_graph_configs(torch.device("cpu"))
     cfg, dtype = model.config, talker._dtype()
     for bs in graph.capture_batch_sizes:
         packed = talker.preprocess(
@@ -876,7 +876,7 @@ def test_compile_talker_switch_reaches_the_decode_graph(checkpoint, monkeypatch)
     monkeypatch.setattr(voxcpm2_model, "load_generator", lambda config, *args: _random_generator(config))
     for kwargs, compiled in (({}, True), ({"compile_talker": True}, True), ({"compile_talker": False}, False)):
         model = VoxCPM2Model(model_path_hf=str(checkpoint), **kwargs)
-        (graph,) = model.get_submodule("Talker").get_cuda_graph_configs(torch.device("cpu"))
+        (graph,) = model.get_submodule("Talker").get_accelerator_graph_configs(torch.device("cpu"))
         assert model.compile_talker is compiled and graph.compile is compiled
     with pytest.raises(ValueError, match="compile_talker"):
         VoxCPM2Model(model_path_hf=str(checkpoint), compile_talker="false")
