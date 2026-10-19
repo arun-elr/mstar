@@ -18,6 +18,8 @@ EXPANDED_PATHS = SELECTOR_NS["expand_paths"](REPO_ROOT)
 IS_COLLECTED = SELECTOR_NS["is_collected"]
 # pytest's default python_files
 TEST_MODULE_PATTERNS = ("test_*.py", "*_test.py")
+# runs in its own CPU Core shard, beside the rest
+TP_SIM = "test/modular/test_tp_async_lockstep_sim.py"
 
 # test/cpu-core.txt as it was when CPU Core stopped reading it. Every module
 # it ran must stay selected; a module deleted on purpose moves to RETIRED.
@@ -258,6 +260,13 @@ class CpuSelectionTests(unittest.TestCase):
         workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text().splitlines()
         commands = [line.strip() for line in workflow if not line.strip().startswith("#")]
         self.assertIn(" ".join(CPU_TEST_PATHS), commands)
+
+    def test_the_tp_simulation_runs_in_its_own_shard(self):
+        workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertTrue((REPO_ROOT / TP_SIM).is_file())
+        self.assertTrue(IS_COLLECTED(TP_SIM, EXPANDED_PATHS))
+        self.assertIn(f"--ignore={TP_SIM}", workflow)
+        self.assertIn(f"args: -n 3 {TP_SIM}", workflow)
 
     def test_real_manifest_excludes_only_documented_incompatible_modules(self):
         excluded = manifest_lines("test/cpu-mac-exclude.txt")

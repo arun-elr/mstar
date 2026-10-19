@@ -125,7 +125,8 @@ The **CPU Core** job runs every test module under the directories in
 `test/modular/`, `test/distributed/`, the model-local `mstar/model/*/tests/`
 and a few more, on a GitHub-hosted Ubuntu runner whenever a PR targeting `main`
 is opened, updated or reopened, split over the runner's 4 cores with
-pytest-xdist. It needs no GPU or model weights. New updates cancel an older CPU
+pytest-xdist; `test_tp_async_lockstep_sim.py` runs in a second shard beside it,
+"CPU Core (TP lockstep sim)". It needs no GPU or model weights. New updates cancel an older CPU
 Core run for the same PR. The installation and invocation commands are in
 [the CI workflow](.github/workflows/ci.yml).
 
