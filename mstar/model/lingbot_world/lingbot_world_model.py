@@ -259,7 +259,11 @@ class LingBotWorldModel(Model):
         """uint8 ``[3, H, W]``: the resize and normalization are process_prompt's."""
         import torchvision
 
-        return TensorAndMetadata(torchvision.io.decode_image(filepath, mode=torchvision.io.ImageReadMode.RGB))
+        image = torchvision.io.decode_image(filepath, mode=torchvision.io.ImageReadMode.RGB)
+        if image.dtype == torch.uint16:
+            # a 16-bit PNG: keep the high byte, which is what PIL reads for the reference
+            image = (image.to(torch.int32) >> 8).to(torch.uint8)
+        return TensorAndMetadata(image)
 
     def postprocess(self, output: torch.Tensor, modality: str, request_kwargs: dict | None = None) -> bytes:
         if modality != "video_frame":

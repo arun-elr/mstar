@@ -173,6 +173,36 @@ def test_the_largest_area_and_an_extreme_aspect(model):
         model._preprocess_image(torch.zeros(3, 1, 4000, dtype=torch.uint8), {})
 
 
+def _png16_rgb(path, rgb16: np.ndarray):
+    """A 16-bit-per-channel RGB PNG (Pillow cannot write one)."""
+    import struct
+    import zlib
+
+    h, w, _ = rgb16.shape
+    rows = b"".join(b"\x00" + rgb16[y].astype(">u2").tobytes() for y in range(h))
+
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 16, 2, 0, 0, 0))
+                     + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+
+
+def test_a_16_bit_png_loads_as_the_8_bit_image_the_reference_reads(model, tmp_path):
+    """torchvision decodes a 16-bit PNG to uint16, which _preprocess_image would
+    take as [0, 65535] instead of [0, 255]; PIL (the reference's reader) keeps
+    the high byte."""
+    from PIL import Image
+
+    rgb16 = np.random.default_rng(0).integers(0, 65536, size=(24, 40, 3), dtype=np.uint16)
+    path = tmp_path / "rgb16.png"
+    _png16_rgb(path, rgb16)
+    image = model.load_image(str(path), "cpu").data
+    assert image.dtype == torch.uint8 and image.shape == (3, 24, 40)
+    expected = torch.from_numpy(np.asarray(Image.open(path).convert("RGB"))).permute(2, 0, 1)
+    assert torch.equal(image, expected)
+
+
 def test_prompt_clean_is_the_reference_tokenizers_whitespace_clean(model):
     # ftfy straightens curly quotes; the reference T5 tokenizer cleans every prompt this way.
     assert model.prompt_clean("  A \u201ctree\u201d &amp;amp; its\u00a0 reflection\n") == 'A "tree" & its reflection'
