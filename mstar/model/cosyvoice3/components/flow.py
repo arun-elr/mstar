@@ -93,8 +93,13 @@ class PreLookaheadLayer(nn.Module):
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """``[B, L, C] -> [B, L, C]``; position ``i`` reads inputs ``i .. i+3``."""
         x = F.pad(inputs.transpose(1, 2), (0, self.pre_lookahead_len))
-        x = F.leaky_relu(self.conv1(x))
-        x = self.conv2(F.pad(x, (self.conv2.kernel_size[0] - 1, 0)))
+        # In the flow solve these run in float32 with TF32 off. There, for
+        # B * L under about 500, cuDNN picks a plan that reserves about 40 GiB
+        # of workspace and takes about 155 ms a call (H200, cuDNN 9); the
+        # native convolution takes about 0.1 ms and is as close to float64.
+        with torch.backends.cudnn.flags(enabled=False):
+            x = F.leaky_relu(self.conv1(x))
+            x = self.conv2(F.pad(x, (self.conv2.kernel_size[0] - 1, 0)))
         return x.transpose(1, 2) + inputs
 
 

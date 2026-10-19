@@ -30,7 +30,7 @@ from mstar.api_server.openai.protocol import SpeechRequest
 from mstar.model.base import TensorAndMetadata
 from mstar.model.chatterbox.chatterbox_model import voice_key_for
 from mstar.model.cosyvoice3.components.dit import _SinusEmbedding, chunk_attention_mask
-from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, FlowRow, ReferenceVoice
+from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, FlowRow, PreLookaheadLayer, ReferenceVoice
 from mstar.model.cosyvoice3.components.hift import CausalHiFTGenerator, StreamState, stream_vocode
 from mstar.model.cosyvoice3.components.lm import CosyVoice3LM
 from mstar.model.cosyvoice3.components.sampling import hashed_uniform, ras_sample
@@ -65,6 +65,7 @@ from mstar.model.cosyvoice3.submodules import (
     FlowSubmodule,
     HiFTSubmodule,
     LMSubmodule,
+    _without_tf32,
     filter_tokens,
 )
 from mstar.model.registry import HF_MODELS, get_model_class
@@ -1151,6 +1152,32 @@ def test_flow_node_solves_without_tf32_and_restores_the_engine_setting(monkeypat
     finally:
         torch.set_float32_matmul_precision(prior[0])
         torch.backends.cudnn.allow_tf32 = prior[1]
+
+
+def test_pre_lookahead_convolutions_bypass_cudnn():
+    layer = PreLookaheadLayer(8, 16, 3)
+    seen = []
+    for conv in (layer.conv1, layer.conv2):
+        conv.register_forward_pre_hook(lambda _m, _x: seen.append(torch.backends.cudnn.enabled))
+    enabled = torch.backends.cudnn.enabled
+    layer(torch.randn(1, 5, 8))
+    assert seen == [False, False]
+    assert torch.backends.cudnn.enabled == enabled
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+def test_pre_lookahead_reserves_no_cudnn_workspace_in_the_float32_solve_on_cuda():
+    """One streamed hop's look-ahead (one row, 128 tokens, the model's widths)
+    under the flow solve's precision: cuDNN's plan there reserved about 40 GiB."""
+    layer = PreLookaheadLayer(80, 1024, 3).cuda().float()
+    x = torch.randn(1, 128, 80, device="cuda")
+    torch.cuda.synchronize()
+    before = torch.cuda.memory_reserved()
+    torch.cuda.reset_peak_memory_stats()
+    with torch.no_grad(), _without_tf32():
+        layer(x)
+    torch.cuda.synchronize()
+    assert torch.cuda.max_memory_reserved() - before < 2**30
 
 
 @pytest.mark.parametrize(
