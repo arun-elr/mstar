@@ -539,11 +539,23 @@ def test_load_audio_resamples_to_16k_and_bounds_duration(model, tmp_path):
     soundfile = pytest.importorskip("soundfile")
     pytest.importorskip("soxr")
     path = tmp_path / "clip.wav"
-    soundfile.write(path, torch.zeros(44100).numpy(), 44100)
+    tone = 0.1 * torch.sin(torch.arange(44100) * 0.05)
+    soundfile.write(path, tone.numpy(), 44100)
     loaded = model.load_audio(str(path), "cpu")
     assert loaded.metadata["sample_rate"] == 16000 and loaded.data.shape[0] == 16000
-    soundfile.write(path, torch.zeros(4410).numpy(), 44100)
+    soundfile.write(path, tone[:4410].numpy(), 44100)
     with pytest.raises(ValueError, match="between"):
+        model.load_audio(str(path), "cpu")
+
+
+@pytest.mark.parametrize("level", [0.0, 5e-4])
+def test_load_audio_refuses_a_silent_clip(model, tmp_path, level):
+    """Digital silence, or a constant offset with less than -60 dBFS of swing,
+    clones no voice: a 400 instead of seconds of near-silent audio."""
+    soundfile = pytest.importorskip("soundfile")
+    path = tmp_path / "silent.wav"
+    soundfile.write(path, (0.25 + level * torch.sin(torch.arange(32000) * 0.05)).numpy(), 16000)
+    with pytest.raises(ValueError, match="silent"):
         model.load_audio(str(path), "cpu")
 
 
