@@ -975,3 +975,25 @@ def test_a_windowed_upload_at_a_crafted_rate_is_refused_before_resampling(window
     )
     assert r.status_code == 400 and "unsupported sample rate 100003 Hz" in r.text, r.text
     assert api.submits == []
+    assert list(api.upload_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("error", [RuntimeError, ImportError])
+def test_a_windowed_upload_that_fails_to_decode_is_removed(windowing_route, monkeypatch, stream, error):
+    # the header is readable, the body is not: the decode raises something other than ValueError
+    from mstar.api_server import media_io
+
+    def broken(path, sample_rate):
+        raise error("corrupt stream")
+
+    monkeypatch.setattr(media_io, "decode_audio", broken)
+    client, api = windowing_route
+    r = client.post(
+        "/v1/audio/transcriptions",
+        data={"model": KEYS[0], "stream": "true" if stream else "false"},
+        files={"file": ("corrupt.wav", _wav_bytes(np.zeros(21 * 16000)), "audio/wav")},
+    )
+    assert r.status_code == 500, r.text
+    assert api.submits == []
+    assert list(api.upload_dir.iterdir()) == []
