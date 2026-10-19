@@ -311,6 +311,34 @@ def test_calibrate_folds_correctness_swings_into_a_run_seen_before(tmp_path):
     assert report.build_rows(rd2, [m], calibration=cal)[0].correct == "pass"
 
 
+def test_calibrate_leaves_failed_and_errored_rows_out_of_the_floors(tmp_path, monkeypatch, capsys):
+    """A drift from requests that errored or a job that broke is not A/A noise: folded in, it would set a floor
+    that hides a real regression of that size."""
+    rd, models = tmp_path / "aa", []
+    for name, head_s, (eb, eh), status in (("ok", 1.03, (0, 0), "done"), ("failing", 0.57, (7, 19), "done"),
+                                           ("errored", 1.4, (3, 3), "done"), ("broke", 1.3, (0, 0), "error")):
+        md = rd / "results" / name
+        write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0, errors=eb)
+        write_arm(md, "head", [(head_s, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0, errors=eh)
+        (md / "done.json").write_text(json.dumps({"status": status, "reason": "" if status == "done" else "boom"}))
+        (md / "compare.json").write_text(json.dumps({"c": [{"text_n": 8, "text_identical": 8}]}))
+        models.append(chat_model(name))
+    (rd / "run.json").write_text(json.dumps({**RUN, "head": RUN["base"], "models": [m.name for m in models]}))
+    rows = {r.model: r for r in report.build_rows(rd, models, calibration={})}
+    assert [rows[n].correct for n in ("ok", "failing", "errored", "broke")] == ["pass", "FAIL", "pass", "incomplete"]
+    assert all(rows[n].latency.delta_pct is not None for n in rows)          # every row has a drift to fold
+    path, excluded = tmp_path / "cal.json", {}
+    assert calibrate.add_run(rd, models, path, excluded) > 0
+    floors = {k.split(":", 1)[1].split("/", 1)[0] for k in calibrate.load(path) if "@c" in k}
+    assert floors == {"ok"}
+    assert excluded == {"failing": 1, "errored": 1, "broke": 1}
+    monkeypatch.setattr(compare.mf, "load", lambda _: mf.Manifest(models={m.name: m for m in models}, datasets={},
+                                                                    defaults={}))
+    path.unlink()
+    assert compare.cmd_calibrate(Namespace(cases="x", runs=[str(rd)], calibration=str(path))) == 0
+    assert capsys.readouterr().out.rstrip().endswith("left out of the floors: broke 1, errored 1, failing 1")
+
+
 def test_diverged_lengths_compare_matched_requests_at_c1_and_tokens_per_s_at_cmax(tmp_path):
     """Head's greedy text forks into replies twice as long on half the prompts: per pass p50 latency and req/s say
     -50%, while every request of equal length is exactly as fast."""

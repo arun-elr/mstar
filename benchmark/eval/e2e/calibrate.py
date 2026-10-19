@@ -51,8 +51,17 @@ def floor_pct(cal: dict, key: str) -> float | None:
     return report.FLOOR_FACTOR * max(abs(d) for d in e["deltas"])
 
 
-def add_run(run_dir: Path, models: list[Model], path: str | Path = DEFAULT) -> int:
+def noise_row(r: report.Row) -> bool:
+    """Whether a row's perf drift is A/A noise: correct, finished and without request errors on either arm. The
+    timings of a failed or errored row (requests that errored, a server that died, a job cut short) would widen the
+    floor until a real regression of that size reads as noise."""
+    return r.correct == "pass" and not any(r.errors.values())
+
+
+def add_run(run_dir: Path, models: list[Model], path: str | Path = DEFAULT,
+            excluded: dict[str, int] | None = None) -> int:
     """Fold one A/A run into the calibration; returns the number of entries recorded (0 when already folded in).
+    Failed or errored rows stay out of the perf floors; ``excluded`` gets how many per model.
 
     Perf drifts (``_runs``) and correctness swings (``_runs_correct``) are tracked apart, so a run folded in before
     correctness swings were recorded can still add those."""
@@ -70,7 +79,13 @@ def add_run(run_dir: Path, models: list[Model], path: str | Path = DEFAULT) -> i
         # The one-session drift that triggered an ABBA rerun is cross-process noise too: keep it beside the rerun's.
         first = report.build_rows(run_dir, models, calibration={}, reruns=False)
         reruns = [r for r in report.build_rows(run_dir, models, calibration={}) if r.rerun]
+        left_out = {(r.model, r.case) for r in first + reruns if not noise_row(r)}
+        if excluded is not None:
+            for model, _ in left_out:
+                excluded[model] = excluded.get(model, 0) + 1
         for r in first + reruns:
+            if (r.model, r.case) in left_out:
+                continue
             for p in [r.latency, r.throughput, *r.extra]:
                 if p and p.delta_pct is not None:
                     key = report.calibration_key(gpu, r.model, r.case, p.metric, p.conc)

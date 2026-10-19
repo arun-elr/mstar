@@ -90,8 +90,11 @@ def cmd_calibrate(args) -> int:
     man = mf.load(args.cases)
     for d in map(Path, args.runs):
         run = json.loads((d / "run.json").read_text())
-        n = calibrate.add_run(d, run_models(man, run), args.calibration)
-        print(f"{d}: {n} entries added to {args.calibration}")
+        excluded: dict[str, int] = {}
+        n = calibrate.add_run(d, run_models(man, run), args.calibration, excluded)
+        left_out = ", ".join(f"{name} {k}" for name, k in sorted(excluded.items())) or "none"
+        print(f"{d}: {n} entries added to {args.calibration}; failed or errored rows left out of the floors: "
+              f"{left_out}")
     return 0
 
 
