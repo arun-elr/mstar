@@ -716,7 +716,8 @@ models:
   # of its requests (#572's trigger). After every case `health` checks the server: its processes still alive, no
   # mstar /dev/shm entry left behind, no crash or transfer-failure line in its log. A finding head has and base
   # does not fails the row; base crashing reports it broken. Not in `all`: `tag:w2w` selects SHM and TCP (both also
-  # carry `transport`, with the Mooncake variants above), `tag:rdma` the RDMA ones.
+  # carry `transport`, with the Mooncake variants above), `tag:rdma` the RDMA ones. `tag:mooncake` stays the two
+  # one-worker entries above, so `--models all,tag:mooncake` does not pull in the 2- and 3-GPU entries.
   qwen3tts_1p7b_split_shm:
     serve: qwen3_tts_1p7b
     config: configs/qwen3tts_1p7b_split.yaml
@@ -757,7 +758,7 @@ models:
     case_timeout_s: 900
     health: true
     family: TTS
-    tags: [w2w, transport, mooncake, split, tts, speech-out, ar]
+    tags: [w2w, transport, split, tts, speech-out, ar]
     requires: [qwen_tts, mooncake.engine]
     est_min: 12
     cases: *qwen3tts_split_w2w
@@ -815,7 +816,7 @@ models:
     case_timeout_s: 900
     health: true
     family: TTS
-    tags: [w2w, transport, mooncake, disaggregated, tts, speech-out, ar]
+    tags: [w2w, transport, disaggregated, tts, speech-out, ar]
     requires: [mooncake.engine]
     est_min: 12
     cases: *orpheus_pd_w2w
@@ -879,7 +880,7 @@ models:
     case_timeout_s: 900
     health: true
     family: Omni
-    tags: [w2w, transport, mooncake, disaggregated, omni, speech-out, big]
+    tags: [w2w, transport, disaggregated, omni, speech-out, big]
     requires: [flash_attn, qwen_omni_utils, audioread, mooncake.engine]
     est_min: 18
     cases: *qwen3omni_pd_w2w

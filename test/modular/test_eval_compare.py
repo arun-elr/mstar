@@ -105,8 +105,7 @@ def test_shipped_manifest():
     assert {c.kind for x in m.models.values() for c in x.cases} >= {"tts", "asr", "duplex", *mf.CLIENT_KINDS}
     assert {c.check["kind"] for x in m.models.values() for c in x.cases} == set(mf.CHECKS)
     mc = m.select("tag:mooncake")
-    assert {x.name for x in mc} == {"qwen3_omni_mooncake", "orpheus_mooncake", "qwen3tts_1p7b_split_tcp",
-                                    "orpheus_pd_disaggregated_tcp", "qwen3omni_pd_disaggregated_tcp"}
+    assert {x.name for x in mc} == {"qwen3_omni_mooncake", "orpheus_mooncake"}   # not the 2- and 3-GPU w2w entries
     assert all(x.optional and x.serve_args[:2] == ["--tensor-comm-protocol", "TCP"] for x in mc)
     for x in m.models.values():
         for c in x.cases:

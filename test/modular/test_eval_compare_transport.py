@@ -37,6 +37,8 @@ def test_each_multi_worker_config_runs_over_shm_tcp_and_rdma_with_the_multi_gpu_
     assert {x.name for x in m.select("tag:rdma")} == {f"{c}_rdma" for c in CONFIGS}
     assert {f"{c}_{t}" for c in CONFIGS for t in ("shm", "tcp")} <= {x.name for x in m.select("tag:transport")}
     assert not {x.name for x in m.select("all")} & {f"{c}_{t}" for c in CONFIGS for t in ("shm", "tcp", "rdma")}
+    # tag:mooncake stays the two one-worker Mooncake entries: the w2w TCP entries need 2 and 3 GPUs
+    assert {x.name for x in m.select("tag:mooncake")} == {"qwen3_omni_mooncake", "orpheus_mooncake"}
     for c in CONFIGS:
         base, shm, tcp, rdma = (m.models[n] for n in (c, f"{c}_shm", f"{c}_tcp", f"{c}_rdma"))
         for x in (shm, tcp, rdma):
