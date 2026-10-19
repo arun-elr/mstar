@@ -237,26 +237,6 @@ def _worker_process_target(
     worker.run()
 
 
-def streaming_state(
-    connections,
-) -> tuple[dict[tuple[str, str, str], StreamingConnectionState], dict[tuple[str, str], list[str]]]:
-    """A request's connection state, one per stream edge keyed by
-    ``(from, to, edge)``, and every stream edge per ``(from, to)``. Two
-    partitions can share several edges (Qwen3-Omni's Thinker to Talker)."""
-    streaming_connections: dict[tuple[str, str, str], StreamingConnectionState] = {}
-    stream_edges: dict[tuple[str, str], list[str]] = {}
-    for conn in connections:
-        # a tuple: names may hold ":" or "->" ("C:x" + "y" vs "C" + "x:y")
-        key = (conn.from_partition, conn.to_partition, conn.edge_name)
-        streaming_connections[key] = StreamingConnectionState(
-            from_partition=conn.from_partition,
-            to_partition=conn.to_partition,
-            edge_name=conn.edge_name,
-        )
-        stream_edges.setdefault((conn.from_partition, conn.to_partition), []).append(conn.edge_name)
-    return streaming_connections, stream_edges
-
-
 @dataclass
 class RequestData:
     # Request-level shared state
@@ -281,10 +261,6 @@ class RequestData:
 
     # Per-streaming-connection state, keyed by (from_partition, to_partition, edge_name)
     streaming_connections: dict[tuple[str, str, str], StreamingConnectionState] = field(default_factory=dict)
-    # (from_partition, to_partition) -> every stream edge between them
-    stream_edges: dict[tuple[str, str], list[str]] = field(default_factory=dict)
-    # stream edge -> destination worker -> items its producer sent there
-    stream_items_sent: dict[str, dict[str, int]] = field(default_factory=dict)
 
     # output name -> chunks the workers emitted to the client; the API server
     # holds the request open until it has received this many of each
@@ -1076,7 +1052,15 @@ class Conductor:
             )
 
         # Build per-connection streaming state
-        streaming_connections, stream_edges = streaming_state(topology.connections)
+        streaming_connections: dict[tuple[str, str, str], StreamingConnectionState] = {}
+        for conn in topology.connections:
+            # a tuple: names may hold ":" or "->" ("C:x" + "y" vs "C" + "x:y")
+            key = (conn.from_partition, conn.to_partition, conn.edge_name)
+            streaming_connections[key] = StreamingConnectionState(
+                from_partition=conn.from_partition,
+                to_partition=conn.to_partition,
+                edge_name=conn.edge_name,
+            )
 
         # Collect all worker_graph_ids per worker for the NewRequest
         worker_to_worker_graph_ids: dict[str, list[int]] = defaultdict(list)
@@ -1094,7 +1078,6 @@ class Conductor:
             partition_states=partition_states,
             partition_definitions=partition_definitions,
             streaming_connections=streaming_connections,
-            stream_edges=stream_edges,
             resource_configs={},
             sharding_config=self._build_request_sharding_config(worker_graph_to_workers),
             conductor_ingest_time=ingest_time,
@@ -1522,13 +1505,13 @@ class Conductor:
         for name in body.output_signal_names:
             counts[name] = counts.get(name, 0) + 1
 
-        # Keyed by edge, not by this message's partition: a worker reports what
-        # it sent on whichever completion goes out next. Every rank's items
-        # are its own, so none is skipped.
-        for edge_name, per_worker in body.stream_items_sent.items():
-            sent = request_data.stream_items_sent.setdefault(edge_name, {})
-            for worker_id, n in per_worker.items():
-                sent[worker_id] = sent.get(worker_id, 0) + n
+        # Matched by edge, not by this message's partition: a worker reports
+        # what it sent on whichever completion goes out next. Every rank's
+        # items are its own, so none is skipped.
+        if body.stream_items_sent:
+            for conn in request_data.streaming_connections.values():
+                for worker_id, n in body.stream_items_sent.get(conn.edge_name, {}).items():
+                    conn.items_sent[worker_id] = conn.items_sent.get(worker_id, 0) + n
 
         pstate = request_data.partition_states.get(partition_name)
         if pstate is None:
@@ -1726,9 +1709,13 @@ class Conductor:
             if walks & pdef.graph_walks:
                 consumer_workers.update(worker_ids)
 
-        # The signal ends every stream from the producer, so it carries all of
-        # their counts, not just the one connection's.
-        edges = request_data.stream_edges.get((producer_partition, consumer_partition_name), [])
+        # The signal ends every stream from the producer, so it carries the
+        # counts of every edge between the two partitions.
+        conns = [
+            conn for conn in request_data.streaming_connections.values()
+            if conn.from_partition == producer_partition
+            and conn.to_partition == consumer_partition_name
+        ]
         for worker_id in consumer_workers:
             message = WorkerMessage(
                 message_type=WorkerMessageType.INPUT_SIGNALS,
@@ -1747,8 +1734,7 @@ class Conductor:
                     partition_name=consumer_partition_name,
                     producer_done=set([producer_partition]),
                     producer_done_items={
-                        edge: request_data.stream_items_sent.get(edge, {}).get(worker_id, 0)
-                        for edge in edges
+                        conn.edge_name: conn.items_sent.get(worker_id, 0) for conn in conns
                     },
                 ),
             )

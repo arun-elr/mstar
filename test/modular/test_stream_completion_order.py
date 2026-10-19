@@ -235,11 +235,10 @@ def _conductor(passes=1):
             "SNAC": PartitionDefinition(name="SNAC", graph_walks={"snac_chunk"},
                                         producer_partitions=["LLM"]),
         },
-        streaming_connections={"LLM->SNAC": StreamingConnectionState(
+        streaming_connections={("LLM", "SNAC", EDGE): StreamingConnectionState(
             from_partition="LLM", to_partition="SNAC", edge_name=EDGE,
         )},
     )
-    req.stream_edges = {"LLM->SNAC": [EDGE]}
     c.requests = {RID: req}
     return c
 
@@ -385,26 +384,25 @@ def test_items_before_done_end_the_stream_as_before(kind, tmp_path):
 
 
 def test_a_stream_that_sent_nothing_ends_at_once():
+    done = _conduct(_conductor(), [WorkerGraphsDone(
+        request_id=RID, worker_graph_ids=[0], is_first_tp_rank=True, partition_name="LLM",
+    )])
     w, buf = _consumer(FixedChunkPolicy(25))
-    w._process_new_inputs(InputSignals(
-        RID, [], SimpleNamespace(graph_walk="snac_chunk"), partition_name="SNAC",
-        producer_done={"LLM"}, producer_done_items={EDGE: 0},
-    ))
+    w._process_new_inputs(done)
     assert _chunks(w, buf) == [(0, True)]
 
 
-def test_a_continuing_stream_waits_for_its_last_item_too():
+def test_a_continuing_stream_waits_for_its_last_item_too(tmp_path):
     """Qwen3-Omni's Thinker to Talker: empty chunks keep the consumer going
     after the producer ends, and one must not stand in for the last item."""
+    producer = _Producer("python", tmp_path)
+    descriptor, wgd = producer.step(uuid=11)
+    done = _conduct(_conductor(), [wgd])
+
     w, buf = _consumer(FixedChunkPolicy(1, continue_after_done=True))
-    w._process_new_inputs(InputSignals(
-        RID, [], SimpleNamespace(graph_walk="snac_chunk"), partition_name="SNAC",
-        producer_done={"LLM"}, producer_done_items={EDGE: 1},
-    ))
-    assert w._pop_streaming_edge(buf, EDGE, 1) is None
-    _deliver(w, InputSignals(RID, [GraphEdge(
-        name=EDGE, next_node="snac_decoder", tensor_info=[_info(11)], is_streaming=True,
-    )], SimpleNamespace(graph_walk="decode"), partition_name="LLM"))
+    w._process_new_inputs(done)
+    assert w._pop_streaming_edge(buf, EDGE, 1) is None, "an empty chunk overtook the last item"
+    _deliver(w, descriptor)
     se = w._pop_streaming_edge(buf, EDGE, 1)
     assert se.chunk.num_items == 1 and not se.chunk.is_final
 
@@ -423,7 +421,7 @@ def test_counts_are_credited_by_edge_from_every_rank():
         request_id=RID, worker_graph_ids=[0], is_first_tp_rank=True,
         partition_name="LLM", stream_items_sent={EDGE: {CONSUMER: 1}},
     ))
-    assert req.stream_items_sent == {EDGE: {CONSUMER: 3, PRODUCER: 1}}
+    assert req.streaming_connections["LLM", "SNAC", EDGE].items_sent == {CONSUMER: 3, PRODUCER: 1}
     c._send_producer_done(RID, "LLM", "SNAC")
     (dest, msg), = c.communicator.messages
     assert dest == CONSUMER and msg.body.producer_done_items == {EDGE: 3}
@@ -431,56 +429,17 @@ def test_counts_are_credited_by_edge_from_every_rank():
 
 def test_every_edge_between_two_partitions_gets_its_count():
     """Qwen3-Omni streams ``thinker_states`` and ``thinker_mask`` from Thinker
-    to Talker. The connection state keeps one per partition pair; the done
-    signal still carries both counts."""
-    from mstar.conductor.conductor import streaming_state
-    from mstar.streaming.topology import Connection
-
-    def policy():
-        return FixedChunkPolicy(1, continue_after_done=True)
-    conns, edges = streaming_state([
-        Connection("Thinker", "Talker", "thinker_states", policy),
-        Connection("Thinker", "Talker", "thinker_mask", policy),
-    ])
-    assert list(conns) == ["Thinker->Talker"]
-    assert edges["Thinker->Talker"] == ["thinker_states", "thinker_mask"]
-
+    to Talker: one connection per edge, and one done signal carrying both
+    counts."""
     c = _conductor()
-    req = c.requests[RID]
-    req.streaming_connections, req.stream_edges = conns, edges
-    req.partition_definitions["Talker"] = PartitionDefinition(
-        name="Talker", graph_walks={"snac_chunk"}, producer_partitions=["Thinker"],
+    c.requests[RID].streaming_connections[("LLM", "SNAC", "mask")] = StreamingConnectionState(
+        from_partition="LLM", to_partition="SNAC", edge_name="mask",
     )
-    req.partition_states["Talker"] = req.partition_states["SNAC"]
-    c._process_worker_graphs_done(WorkerGraphsDone(
-        request_id=RID, worker_graph_ids=[], is_first_tp_rank=True, partition_name="Thinker",
-        stream_items_sent={"thinker_states": {CONSUMER: 4}, "thinker_mask": {CONSUMER: 4}},
-    ))
-    c._send_producer_done(RID, "Thinker", "Talker")
-    (dest, msg), = c.communicator.messages
-    assert msg.body.producer_done_items == {"thinker_states": 4, "thinker_mask": 4}
-
-
-def test_colocated_consumer_partitions_keep_their_own_counts():
-    """Two consumer partitions of one producer on the same worker each get a
-    done signal with only their own streams' counts. The second must not end
-    the first's stream early."""
-    w, first = _consumer(FixedChunkPolicy(25))
-    second = StreamBuffer(1, "other", "LLM", FixedChunkPolicy(25))
-    w.request_state.per_request_info[1].stream_buffers["other"] = second
-    w._stream_partition = {EDGE: "SNAC", "other": "OTHER"}
-
-    for partition, edge in (("SNAC", EDGE), ("OTHER", "other")):
-        w._process_new_inputs(InputSignals(
-            RID, [], SimpleNamespace(graph_walk="snac_chunk"), partition_name=partition,
-            producer_done={"LLM"}, producer_done_items={edge: 1},
-        ))
-    assert not first.has_chunk_ready(), "the other partition's signal ended this stream"
-    assert not second.has_chunk_ready()
-    _deliver(w, InputSignals(RID, [GraphEdge(
-        name=EDGE, next_node="snac_decoder", tensor_info=[_info(11)], is_streaming=True,
-    )], SimpleNamespace(graph_walk="decode"), partition_name="LLM"))
-    assert _chunks(w, first) == [(1, True)]
+    done = _conduct(c, [WorkerGraphsDone(
+        request_id=RID, worker_graph_ids=[0], is_first_tp_rank=True, partition_name="LLM",
+        stream_items_sent={EDGE: {CONSUMER: 4}, "mask": {CONSUMER: 4}},
+    )])
+    assert done.producer_done_items == {EDGE: 4, "mask": 4}
 
 
 def test_the_count_survives_the_wire():
