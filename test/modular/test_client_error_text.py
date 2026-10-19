@@ -145,6 +145,9 @@ class _FailingServer:
         self.exc = exc
         self.upload_dir = upload_dir
 
+    async def wait_for_request_id(self, request_id):
+        return None
+
     def submit_request(self, **kwargs):
         raise self.exc
 
@@ -192,10 +195,11 @@ def test_the_rust_frontend_bridge_answers_with_an_error_id(tmp_path, caplog):
     bridge = RustFrontendBridge.__new__(RustFrontendBridge)
     bridge.sent = []
     bridge._send = bridge.sent.append
+    bridge._keys = {}
     bridge.server = _FailingServer(FileNotFoundError(f"cannot open {tensor_file}"))
 
     bridge._submit({"rid": "r1", "text": "hi"})
-    asyncio.run(bridge._relay("r2"))
+    asyncio.run(bridge._relay("r2", None, bridge.server.iter_result_chunks("r2")))
 
     assert [m["rid"] for m in bridge.sent] == ["r1", "r2"]
     for message in bridge.sent:
