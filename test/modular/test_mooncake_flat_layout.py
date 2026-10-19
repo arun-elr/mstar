@@ -65,11 +65,14 @@ class _FlatCopyReader:
         for r in reads:
             ctypes.memmove(r.local_ptr, r.remote_ptr, r.nbytes)
 
+    def transfer_status(self, batch_id):
+        raise AssertionError("no read fails here, so no transfer is handed over")
+
 
 @pytest.fixture(autouse=True)
 def _no_transfer_engine(monkeypatch):
     monkeypatch.setattr(tensors, "MooncakeTransferEngine", _NoEngine)
-    monkeypatch.setattr(tensors, "AsyncMooncakeReader", _FlatCopyReader)
+    monkeypatch.setattr(tensors, "TrackedMooncakeReader", _FlatCopyReader)
 
 
 def _mooncake(entity, bookkeeping="python"):
