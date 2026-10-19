@@ -22,6 +22,8 @@ client's commit. ``{"type": "server_vad", "threshold", "prefix_padding_ms",
 ``input_audio_buffer.speech_started`` / ``.speech_stopped`` events with
 ``audio_start_ms`` / ``audio_end_ms`` on the session's audio timeline; a
 turn that reaches the item cap is committed there instead of refused.
+``{"type": "semantic_vad", "eagerness"}`` asks an end-of-turn model at each
+pause instead, and runs as ``server_vad`` when that model is unavailable.
 
 ``chunk_seconds`` below ``MIN_CHUNK_SECONDS`` is raised to it and must not
 pass the item cap, and the unfixed counts are non-negative integers; numeric
@@ -379,22 +381,25 @@ def _number(knobs: dict, name: str, default, lo: float, hi: float = math.inf, in
     return int(value) if integer else float(value)
 
 
-_TURN_DETECTION_KEYS = frozenset({"type", "threshold", "prefix_padding_ms", "silence_duration_ms",
-                                  "create_response", "interrupt_response", "idle_timeout_ms"})
+_TURN_DETECTION_KEYS = {
+    "server_vad": frozenset({"type", "threshold", "prefix_padding_ms", "silence_duration_ms",
+                             "create_response", "interrupt_response", "idle_timeout_ms"}),
+    "semantic_vad": frozenset({"type", "eagerness", "create_response", "interrupt_response"}),
+}
 
 
-def _turn_detection(value) -> realtime_vad.ServerVAD | None:
-    """A session's ``turn_detection``: null (the client commits) or
-    ``server_vad``; fields left out take OpenAI's defaults."""
+def _turn_detection(value) -> realtime_vad.ServerVAD | realtime_vad.SemanticVAD | None:
+    """A session's ``turn_detection``: null (the client commits),
+    ``server_vad`` or ``semantic_vad``; fields left out take OpenAI's defaults."""
     if value is None:
         return None
     td = _object(value, "turn_detection")
     kind = td.get("type")
-    if kind != "server_vad":
+    if not isinstance(kind, str) or kind not in _TURN_DETECTION_KEYS:
         what = f"type {_excerpt(kind)}" if isinstance(kind, str) else _excerpt(td)
-        raise ValueError(f"turn_detection {what} is not supported; use server_vad, "
+        raise ValueError(f"turn_detection {what} is not supported; use server_vad, semantic_vad, "
                          "or null to commit with input_audio_buffer.commit")
-    unknown = next((k for k in td if k not in _TURN_DETECTION_KEYS), None)
+    unknown = next((k for k in td if k not in _TURN_DETECTION_KEYS[kind]), None)
     if unknown is not None:
         raise ValueError(f"turn_detection.{_excerpt(unknown)} is not supported")
     if td.get("idle_timeout_ms") is not None:
@@ -404,6 +409,12 @@ def _turn_detection(value) -> realtime_vad.ServerVAD | None:
         flags[name] = td.get(name, True)
         if not isinstance(flags[name], bool):
             raise ValueError(f"turn_detection.{name} must be a boolean; got {_excerpt(flags[name])}")
+    if kind == "semantic_vad":
+        eagerness = td.get("eagerness", "auto")
+        if not isinstance(eagerness, str) or eagerness not in realtime_vad.EAGERNESS:
+            raise ValueError(f"turn_detection.eagerness must be one of low, medium, high, auto; "
+                             f"got {_excerpt(eagerness)}")
+        return realtime_vad.SemanticVAD(eagerness=eagerness, **flags)
     d = realtime_vad.ServerVAD()
     return realtime_vad.ServerVAD(
         threshold=_number(td, "threshold", d.threshold, 0.0, 1.0, scope="turn_detection"),
@@ -591,7 +602,8 @@ class RealtimeTranscription:
                     audio = await asyncio.to_thread(s.resample, audio)
                 await self.apply([("audio", audio)])
             else:
-                # off the event loop: one large append is thousands of VAD frames
+                # off the event loop: one large append is thousands of VAD frames,
+                # and an end-of-turn model call takes about 45 ms
                 await self.apply(await asyncio.to_thread(s.segment, audio))
         elif kind == "input_audio_buffer.commit":
             s = self.session
@@ -660,7 +672,10 @@ class RealtimeTranscription:
             raise ValueError("half a sample is pending; clear the input audio buffer before changing "
                              "the input sample rate")
         td = _turn_detection(session["turn_detection"]) if "turn_detection" in session else s.turn_detection
-        vad = None
+        vad = end_of_turn = None
+        if isinstance(td, realtime_vad.SemanticVAD) and (end_of_turn := realtime_vad.smart_turn()) is None:
+            # no end-of-turn model: run as server_vad, and the echo says so
+            td = realtime_vad.ServerVAD(create_response=td.create_response, interrupt_response=td.interrupt_response)
         if td != s.turn_detection:
             # with server_vad on, the resampler's lookahead is in no item between turns
             in_item = (s.pending_samples or s.heard or s.segmenter.speaking) if s.segmenter is not None \
@@ -695,7 +710,7 @@ class RealtimeTranscription:
         if td != s.turn_detection:
             old, s.turn_detection = s.segmenter, td
             s.segmenter = None if td is None else realtime_vad.TurnSegmenter(
-                vad(), td, int(s.max_item_seconds * SAMPLE_RATE), pos=s.stream_samples)
+                vad(), td, int(s.max_item_seconds * SAMPLE_RATE), pos=s.stream_samples, end_of_turn=end_of_turn)
             if old is not None:
                 # audio the old segmenter had not scored yet is not dropped
                 if s.segmenter is not None:

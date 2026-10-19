@@ -687,3 +687,155 @@ def test_silero_splits_real_speech_into_its_turns(client_and_stub):  # noqa: F81
     for turn, clip_start in zip(turns, (1000, 2000 + clip_ms), strict=True):
         assert turn["start"] <= clip_start + 100 and turn["end"] >= clip_start + clip_ms - 100
     _assert_items_are_the_stream(turns, heard, stream, sr=24000)
+
+
+# ---------------------------------------------------------------- semantic_vad
+
+
+class _EndOfTurn:
+    """Fake end-of-turn model: always returns ``p``, and records each call."""
+
+    def __init__(self, p):
+        self.p, self.calls = p, []
+
+    def __call__(self, audio):
+        self.calls.append(audio.size)
+        return self.p
+
+
+def _semantic(monkeypatch, p):
+    eot = _EndOfTurn(p)
+    monkeypatch.setattr(realtime_vad, "smart_turn", lambda: eot)
+    return eot
+
+
+def _run_semantic(client, stream, eagerness="medium"):
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "turn_detection": {"type": "semantic_vad", "eagerness": eagerness}, "mstar": {"chunk_seconds": 300}}}))
+        session = json.loads(ws.receive_text())["session"]
+        _send(ws, stream, step=1600)
+        events = _barrier(ws)
+    return session, events
+
+
+def test_semantic_vad_commits_at_a_pause_the_model_calls_final(vad_client, monkeypatch):
+    """P(end of turn) 0.9 at the 300 ms pause ends the turn there, well
+    before server_vad's 500 ms window."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    eot = _semantic(monkeypatch, 0.9)
+    stream = np.concatenate([_speech(10), _silence(40), _speech(5), _silence(20)])
+    session, events = _run_semantic(client, stream)
+    assert session["turn_detection"] == {"type": "semantic_vad", "eagerness": "medium",
+                                         "create_response": True, "interrupt_response": True}
+    turns = _turns(events)
+    # the pause reaches 300 ms on the 10th silent frame (320 ms); the next turn has 300 ms of prefix
+    assert [(t["start"], t["end"]) for t in turns] == [(0, 20 * 32), (50 * 32 - 300, 65 * 32)]
+    assert len(eot.calls) == 2 and eot.calls[0] == 20 * FRAME
+    _assert_items_are_the_stream(turns, heard, stream)
+
+
+def test_semantic_vad_keeps_listening_when_the_model_says_not_done(vad_client, monkeypatch):
+    """P 0.1 at a pause keeps the turn open: speech after it is the same
+    turn, and the silence limit (4 s at medium) ends it."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    eot = _semantic(monkeypatch, 0.1)
+    stream = np.concatenate([_speech(10), _silence(20), _speech(10), _silence(130)])
+    _, events = _run_semantic(client, stream)
+    turns = _turns(events)
+    assert [(t["start"], t["end"]) for t in turns] == [(0, (10 + 20 + 10 + 125) * 32)]
+    assert len(eot.calls) == 2          # once per pause, not once per frame
+    _assert_items_are_the_stream(turns, heard, stream)
+
+
+@pytest.mark.parametrize("eagerness,end_frames", [
+    ("high", 7),        # 0.6 >= 0.3: ends at the 200 ms pause (7 frames, 224 ms)
+    ("medium", 10),     # 0.6 >= 0.5: ends at the 300 ms pause (10 frames)
+    ("auto", 10),
+    ("low", 250),       # 0.6 < 0.7: no; the 8 s silence ends it (250 frames)
+])
+def test_semantic_vad_eagerness(vad_client, monkeypatch, eagerness, end_frames):
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    _semantic(monkeypatch, 0.6)
+    stream = np.concatenate([_speech(10), _silence(260)])
+    _, events = _run_semantic(client, stream, eagerness)
+    turns = _turns(events)
+    assert [(t["start"], t["end"]) for t in turns] == [(0, (10 + end_frames) * 32)]
+    _assert_items_are_the_stream(turns, heard, stream)
+
+
+def test_semantic_vad_without_the_model_runs_as_server_vad(vad_client, monkeypatch):
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    monkeypatch.setattr(realtime_vad, "smart_turn", lambda: None)
+    stream = np.concatenate([_speech(10), _silence(20)])
+    session, events = _run_semantic(client, stream, "high")
+    assert session["turn_detection"] == {
+        "type": "server_vad", "threshold": 0.5, "prefix_padding_ms": 300, "silence_duration_ms": 500,
+        "create_response": True, "interrupt_response": True}
+    turns = _turns(events)
+    assert [(t["start"], t["end"]) for t in turns] == [(0, (10 + 16) * 32)]
+    _assert_items_are_the_stream(turns, heard, stream)
+
+
+def test_semantic_vad_settings_are_validated(vad_client, monkeypatch):
+    client, _ = vad_client
+    _semantic(monkeypatch, 0.9)
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        for td, needle in (({"type": "semantic_vad", "eagerness": "eager"}, "eagerness must be one of"),
+                           ({"type": "semantic_vad", "silence_duration_ms": 500}, "silence_duration_ms' is not")):
+            ws.send_text(json.dumps({"type": "transcription_session.update", "session": {"turn_detection": td}}))
+            assert needle in json.loads(ws.receive_text())["error"]["message"]
+
+
+def _smart_turn_available() -> bool:
+    import importlib.util
+
+    if importlib.util.find_spec("onnxruntime") is None or importlib.util.find_spec("transformers") is None:
+        return False
+    return realtime_vad.smart_turn_weights() is not None and realtime_vad.silero_weights() is not None
+
+
+@pytest.mark.skipif(not _smart_turn_available(), reason="no Smart Turn / Silero weights or onnxruntime")
+def test_smart_turn_ends_real_turns_sooner_than_the_silence_window(client_and_stub):  # noqa: F811
+    """Real Silero and Smart Turn on real speech at 24 kHz: the clip twice is
+    two turns, each ending at the first 300 ms pause after the clip rather
+    than after 500 ms of silence."""
+    realtime_vad.silero_factory.cache_clear()
+    realtime_vad.smart_turn.cache_clear()
+    client, stub = client_and_stub
+    heard = _step_samples(stub)
+    with wave.open(str(Path(__file__).parents[1] / "qwen3-omni" / "audio.wav"), "rb") as wf:
+        clip = np.frombuffer(wf.readframes(wf.getnframes()), dtype="<i2")
+    gap = np.zeros(24000, dtype="<i2")
+    stream = np.concatenate([gap, clip, gap, clip, gap])
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "input_audio_format": {"type": "audio/pcm", "rate": 24000},
+            "turn_detection": {"type": "semantic_vad"}, "mstar": {"chunk_seconds": 300}}}))
+        assert json.loads(ws.receive_text())["session"]["turn_detection"]["type"] == "semantic_vad"
+        _send(ws, stream, step=480)
+        events = _barrier(ws)
+    turns = _turns(events)
+    clip_ms = clip.size * 1000 // 24000
+    assert len(turns) == 2
+    for turn, clip_end in zip(turns, (1000 + clip_ms, 2000 + 2 * clip_ms), strict=True):
+        assert clip_end - 100 <= turn["end"] < clip_end + 500
+    _assert_items_are_the_stream(turns, heard, stream, sr=24000)
+
+
+def test_missing_smart_turn_is_a_warning_and_no_model(monkeypatch, tmp_path, caplog):
+    monkeypatch.setenv("MSTAR_SMART_TURN_PATH", str(tmp_path / "missing.onnx"))
+    realtime_vad.smart_turn.cache_clear()
+    try:
+        with caplog.at_level("WARNING", logger=realtime_vad.__name__):
+            assert realtime_vad.smart_turn() is None
+    finally:
+        realtime_vad.smart_turn.cache_clear()
+    assert "semantic_vad will run as server_vad" in caplog.text
