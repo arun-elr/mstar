@@ -326,12 +326,21 @@ def test_the_bridge_relays_one_error():
     _data_worker_failure(s, pw.inputs[0].request_id, late=True)
     bridge = RustFrontendBridge.__new__(RustFrontendBridge)
     bridge.server = s
-    bridge._keys = {}
+    # as _submit does: submission 1's token names this submission's key
+    bridge._keys = {1: s.submission_key("X")}
+    assert bridge._keys[1] == pw.inputs[0].request_id
     sent = []
     bridge._send = sent.append
 
     asyncio.run(bridge._relay("X", 1, s.iter_result_chunks("X")))
 
-    assert [(m["t"], m.get("modality")) for m in sent] == [
-        ("chunk", "text"), ("chunk", "error"), ("done", None),
+    assert [(m["t"], m.get("modality"), m["rid"], m["sub"]) for m in sent] == [
+        ("chunk", "text", "X", 1), ("chunk", "error", "X", 1), ("done", None, "X", 1),
     ]
+    assert bridge._keys == {}, "the failed submission's token still names its key"
+
+    # the frontend's late abort for token 1 must not reach a retry under the id
+    s.submit_request(text="retry", request_id="X", **TEXT)
+    bridge._abort({"rid": "X", "sub": 1})
+    assert pw.aborted == []
+    assert pw.inputs[1].request_id in s.pending_requests
