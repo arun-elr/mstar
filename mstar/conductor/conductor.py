@@ -310,12 +310,6 @@ class DrainingRequest:
     failure_status: int = 500
 
 
-#: Wait after a teardown resend raises: the first resend is on the next loop
-#: pass, then each wait doubles from the first value up to the second, so a
-#: send that keeps failing costs a few attempts a second, not one per pass.
-TEARDOWN_RETRY_BACKOFF_S = (0.01, 1.0)
-
-
 def _message_name(message) -> str:
     """A message's type as a log or error text shows it: ``FAIL_REQUESTS``,
     not ``ConductorMessageType.FAIL_REQUESTS``."""
@@ -334,18 +328,6 @@ def _message_request_ids(message) -> list[str | None]:
     if isinstance(errors, dict) and errors:
         return list(errors)
     return [getattr(body, "request_id", None)]
-
-
-@dataclass
-class UnsentTeardown:
-    """A teardown send that raised: the only copy left of its message, since
-    nothing rebuilds a teardown message."""
-    request_id: str
-    entity: str
-    message: object
-    deadline: float  # give up once a resend fails after this
-    next_try: float = 0.0
-    backoff_s: float = 0.0
 
 
 class Conductor:
@@ -383,8 +365,6 @@ class Conductor:
         self._draining_deadlines: deque[tuple[float, str]] = deque()
         self._early_reads_done_deadlines: deque[tuple[float, str]] = deque()
         self._early_abort_deadlines: deque[tuple[float, str]] = deque()
-        # Teardown sends that raised, resent until they go out or time out.
-        self._unsent_teardown: list[UnsentTeardown] = []
 
         self.model = model
         self.hostname = hostname
@@ -736,11 +716,6 @@ class Conductor:
             if dr is not None and dr.failure_error is None:
                 continue  # completed or aborted, the client has already heard
             pending.append(request_id)
-        # Freed already, but their request_failed never went out.
-        pending += [
-            entry.request_id for entry in self._unsent_teardown
-            if entry.entity == "api_server"
-        ]
         for request_id in pending:
             self.communicator.send(
                 "api_server",
@@ -1252,44 +1227,17 @@ class Conductor:
         )
 
     def _send_for_teardown(self, request_id: str, entity: str, message):
+        """Send one teardown message; a send that raises is logged so it can't
+        skip the sends, drain record or free that follow it. A dead peer does
+        not raise on either transport (the send queues, then blocks at the
+        high-water mark), so this is only a backstop."""
         try:
             self.communicator.send(entity, message)
         except Exception:
             logger.exception(
-                "Could not send %s for request %s to %s; retrying",
-                message.message_type, request_id, entity,
+                "Could not send %s for request %s to %s",
+                _message_name(message), request_id, entity,
             )
-            self._unsent_teardown.append(UnsentTeardown(
-                request_id, entity, message,
-                deadline=time.perf_counter() + self._drain_ttl_s,
-            ))
-
-    def _retry_unsent_teardown(self):
-        """Resend teardown messages whose send raised, until each goes out or
-        its TTL runs out. Each one backs off on its own
-        (:data:`TEARDOWN_RETRY_BACKOFF_S`)."""
-        if not self._unsent_teardown:
-            return
-        now = time.perf_counter()
-        pending, self._unsent_teardown = self._unsent_teardown, []
-        first_s, max_s = TEARDOWN_RETRY_BACKOFF_S
-        for entry in pending:
-            if now < entry.next_try:
-                self._unsent_teardown.append(entry)
-                continue
-            try:
-                self.communicator.send(entry.entity, entry.message)
-            except Exception:
-                if now < entry.deadline:
-                    entry.backoff_s = min(max(2 * entry.backoff_s, first_s), max_s)
-                    entry.next_try = now + entry.backoff_s
-                    self._unsent_teardown.append(entry)
-                else:
-                    logger.exception(
-                        "Gave up sending %s for request %s to %s after %.0fs",
-                        entry.message.message_type, entry.request_id, entry.entity,
-                        self._drain_ttl_s,
-                    )
 
     def _finalize_draining(self, request_id: str):
         """Every reader has drained: send the hard RemoveRequest to all
@@ -1297,17 +1245,8 @@ class Conductor:
         dr = self.draining.pop(request_id, None)
         if dr is None:
             return
-        if self._unsent_teardown:
-            # A DRAIN_REQUEST still waiting for a resend would now land after
-            # the REMOVE_REQUEST below.
-            self._unsent_teardown = [
-                entry for entry in self._unsent_teardown
-                if entry.request_id != request_id
-                or entry.message.message_type != WorkerMessageType.DRAIN_REQUEST
-            ]
         # The drain record is gone, so nothing would ever finish this teardown
-        # later: a send that raises must not skip the other sends or the free,
-        # and is retried on its own.
+        # later: a send that raises must not skip the other sends or the free.
         for entity in dr.participants:
             self._send_for_teardown(
                 request_id, entity,
@@ -1898,7 +1837,6 @@ class Conductor:
                         except Exception as exc:
                             self._fail_after_error(request_id, "completing it", exc)
 
-                self._retry_unsent_teardown()
                 self._sweep_expiry()
 
             except Exception:

@@ -105,7 +105,6 @@ def _conductor(procs, inbox=()):
     c.requests = {}
     c.draining = {}
     c.waiting_queue = []
-    c._unsent_teardown = []
     return c
 
 

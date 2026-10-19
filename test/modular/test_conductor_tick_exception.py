@@ -112,7 +112,6 @@ def _conductor(*ticks, requests):
     c._draining_deadlines = deque()
     c._early_reads_done_deadlines = deque()
     c._early_abort_deadlines = deque()
-    c._unsent_teardown = []
     c._drain_ttl_s = 120.0
     c.worker_graphs = {0: SimpleNamespace(graph_walks={"decode"})}
     c.producer_triggered_partitions = set()
@@ -214,202 +213,6 @@ def test_a_completion_that_raises_after_notifying_is_torn_down_quietly():
     assert "a" not in c.requests and "a" not in c.draining
 
 
-def _send_raises_once(c, kind):
-    """The first send of ``kind`` raises, as a socket error would, and sends
-    nothing."""
-    send = c.communicator.send
-    raised = []
-
-    def _send(entity, msg):
-        if msg.message_type == kind and not raised:
-            raised.append(entity)
-            raise OSError(f"could not send {kind}")
-        send(entity, msg)
-    c.communicator.send = _send
-    return raised
-
-
-def test_a_completed_request_whose_teardown_send_raises_is_not_failed():
-    c = _conductor(
-        [_done("a")],
-        [_reads_done("a", PREPROCESS)],
-        [_reads_done("a", "worker_0"), _reads_done("a", PREPROCESS)],
-        requests={"a": _request()},
-    )
-    admitted = []
-    c.max_concurrent_requests = 1
-    c.waiting_queue = [SimpleNamespace(request_id="queued")]
-    c._admit_request = lambda body: admitted.append(body.request_id)
-    raised = _send_raises_once(c, WorkerMessageType.REMOVE_REQUEST)
-    _run(c)
-    assert "a" in _to_client(c, "request_complete")
-    assert _to_client(c, "request_failed") == {}
-    assert "a" not in c.requests and "a" not in c.draining
-    assert admitted == ["queued"]
-    # The send that raised is retried, and does not hold up the others.
-    removed = [
-        entity for entity, m in c.sent
-        if m.message_type == WorkerMessageType.REMOVE_REQUEST
-    ]
-    assert sorted(removed) == sorted(["worker_0", PREPROCESS])
-    assert removed[-1] == raised[0]
-
-
-def test_a_completion_whose_send_raises_fails_its_client():
-    c = _conductor(
-        [_done("a")],
-        [_reads_done("a", "worker_0"), _reads_done("a", PREPROCESS)],
-        requests={"a": _request()},
-    )
-    admitted = []
-    c.max_concurrent_requests = 1
-    c.waiting_queue = [SimpleNamespace(request_id="queued")]
-    c._admit_request = lambda body: admitted.append(body.request_id)
-    _send_raises_once(c, "request_complete")
-    _run(c)
-    assert _to_client(c, "request_complete") == {}
-    assert "could not send request_complete" in _to_client(c, "request_failed")["a"].error_message
-    assert "a" not in c.requests and "a" not in c.draining
-    assert admitted == ["queued"]
-
-
-def test_a_failure_whose_send_raises_still_reaches_its_client():
-    c = _conductor(
-        [_done("bad")],
-        [_reads_done("bad", "worker_0"), _reads_done("bad", PREPROCESS)],
-        requests={"bad": _request(raise_=ValueError)},
-    )
-    admitted = []
-    c.max_concurrent_requests = 1
-    c.waiting_queue = [SimpleNamespace(request_id="queued")]
-    c._admit_request = lambda body: admitted.append(body.request_id)
-    _send_raises_once(c, "request_failed")
-    _run(c)
-    failed = [
-        m.body for entity, m in c.sent
-        if entity == "api_server" and m.message_type == "request_failed"
-    ]
-    assert [f.request_id for f in failed] == ["bad"]
-    assert "model rejected this request's step" in failed[0].error_message
-    assert "bad" not in c.requests and "bad" not in c.draining
-    assert admitted == ["queued"]
-    assert c._unsent_teardown == []
-
-
-def test_a_failure_whose_drain_send_raises_still_reaches_its_client():
-    # The drain record is registered after the DRAIN_REQUEST sends; one that
-    # raised used to skip it, leaving the request with no barrier and no TTL.
-    # Two requests in one FAIL_REQUESTS: the second must not be skipped.
-    fail = ConductorMessage(
-        message_type=ConductorMessageType.FAIL_REQUESTS,
-        body=FailRequests(errors={"a": "worker failed a", "b": "worker failed b"}),
-    )
-    c = _conductor(
-        [fail],
-        [_reads_done(rid, entity) for rid in "ab" for entity in ("worker_0", PREPROCESS)],
-        requests={"a": _request(), "b": _request()},
-    )
-    raised = _send_raises_once(c, WorkerMessageType.DRAIN_REQUEST)
-    _run(c)
-    failed = _to_client(c, "request_failed")
-    assert failed["a"].error_message == "worker failed a"
-    assert failed["b"].error_message == "worker failed b"
-    assert not c.requests and not c.draining and c._unsent_teardown == []
-    drained = [
-        (m.body.request_id, entity) for entity, m in c.sent
-        if m.message_type == WorkerMessageType.DRAIN_REQUEST
-    ]
-    assert sorted(drained) == sorted((rid, e) for rid in "ab" for e in ("worker_0", PREPROCESS))
-    # The send that raised went out again, after the others.
-    assert ("a", raised[0]) in drained[2:]
-
-
-def test_a_rejection_whose_send_raises_does_not_interrupt_the_failure_batch():
-    # "a" finalizes on registration (its READS_DONE came early) and frees a
-    # slot; the queued request it admits is rejected, and the rejection's
-    # REMOVE_REQUEST send raises. "b", in the same FAIL_REQUESTS, must still
-    # fail, and the rejected request must still hear about it.
-    fail = ConductorMessage(
-        message_type=ConductorMessageType.FAIL_REQUESTS,
-        body=FailRequests(errors={"a": "worker failed a", "b": "worker failed b"}),
-    )
-    c = _conductor(
-        [fail],
-        [_reads_done("b", "worker_0"), _reads_done("b", PREPROCESS)],
-        requests={"a": _request(), "b": _request()},
-    )
-    c._early_reads_done["a"] = {"worker_0", PREPROCESS}
-    c.waiting_queue = [SimpleNamespace(request_id="queued")]
-    send = c.communicator.send
-    raised = []
-
-    def _send(entity, msg):
-        if (msg.message_type == WorkerMessageType.REMOVE_REQUEST
-                and msg.body.request_id == "queued" and not raised):
-            raised.append(entity)
-            raise OSError("could not send REMOVE_REQUEST")
-        send(entity, msg)
-    c.communicator.send = _send
-    _run(c)
-    failed = _to_client(c, "request_failed")
-    assert set(failed) == {"a", "b", "queued"}
-    assert "Ingest failed" in failed["queued"].error_message
-    assert not c.requests and not c.draining and c._unsent_teardown == []
-    assert (PREPROCESS, "queued") in [
-        (entity, m.body.request_id) for entity, m in c.sent
-        if m.message_type == WorkerMessageType.REMOVE_REQUEST
-    ]
-
-
-def test_a_drain_retry_is_dropped_once_its_barrier_finalizes():
-    # Its READS_DONE came anyway (here: early), so the barrier finalizes; a
-    # DRAIN_REQUEST resent after that would reach the worker after its
-    # REMOVE_REQUEST.
-    c = _conductor(
-        [_done("bad")],
-        [_reads_done("bad", "worker_0"), _reads_done("bad", PREPROCESS)],
-        [],
-        requests={"bad": _request(raise_=ValueError)},
-    )
-    send = c.communicator.send
-
-    def _send(entity, msg):
-        if entity == "worker_0" and msg.message_type == WorkerMessageType.DRAIN_REQUEST:
-            raise OSError("worker_0 unreachable")
-        send(entity, msg)
-    c.communicator.send = _send
-    _run(c)
-    assert "bad" in _to_client(c, "request_failed")
-    assert c._unsent_teardown == []
-    assert ("worker_0", WorkerMessageType.REMOVE_REQUEST) in [
-        (entity, m.message_type) for entity, m in c.sent
-    ]
-
-
-def test_an_unsendable_failure_is_dropped_after_the_ttl_and_failed_at_shutdown():
-    c = _conductor([], requests={})
-    c._drain_ttl_s = 0.0
-
-    def _send(entity, msg):
-        if msg.message_type == "request_failed":
-            raise OSError("api server unreachable")
-        c.sent.append((entity, msg))
-    c.communicator.send = _send
-    c.draining["bad"] = conductor_mod.DrainingRequest(
-        expected_acks=set(), participants={"worker_0"}, failure_error="boom",
-    )
-    c._finalize_draining("bad")
-    assert [entry.request_id for entry in c._unsent_teardown] == ["bad"]
-
-    c.communicator.send = lambda entity, msg: c.sent.append((entity, msg))
-    c._fail_all_requests("shutting down")
-    assert _to_client(c, "request_failed")["bad"].error_message == "shutting down"
-
-    c.communicator.send = _send
-    c._retry_unsent_teardown()
-    assert c._unsent_teardown == []
-
-
 def _fail_ab():
     return ConductorMessage(
         message_type=ConductorMessageType.FAIL_REQUESTS,
@@ -458,54 +261,36 @@ def test_one_request_that_raises_in_a_failure_batch_keeps_the_others_errors():
     assert by_rid["b"] == "worker failed b"
 
 
-def test_a_send_that_keeps_failing_backs_off_and_is_dropped_after_the_ttl(monkeypatch):
+def test_a_drain_send_that_raises_is_finished_by_the_drain_ttl(monkeypatch):
+    # A dead peer makes a send block, not raise; the one raise seen from a
+    # send is the Rust transport's EINTR on a signal.
     clock = [0.0]
     monkeypatch.setattr(conductor_mod.time, "perf_counter", lambda: clock[0])
-    c = _conductor([], requests={})
-    attempts = []
-
-    def _send(entity, msg):
-        attempts.append(clock[0])
-        raise OSError("worker_0 unreachable")
-    c.communicator.send = _send
-    c._send_for_teardown(
-        "x", "worker_0",
-        SimpleNamespace(message_type=WorkerMessageType.REMOVE_REQUEST),
+    c = _conductor(
+        [_done("bad")],
+        [_reads_done("bad", PREPROCESS)],
+        requests={"bad": _request(raise_=ValueError)},
     )
-    # one loop pass a millisecond, past the 120 s TTL
-    while clock[0] < c._drain_ttl_s + 2:
-        clock[0] += 0.001
-        c._retry_unsent_teardown()
-
-    assert c._unsent_teardown == []
-    # without the backoff: one attempt a pass, about 120,000
-    assert len(attempts) < 150
-    first_s, max_s = conductor_mod.TEARDOWN_RETRY_BACKOFF_S
-    assert attempts[2] - attempts[1] == pytest.approx(first_s, abs=0.002)
-    assert max(b - a for a, b in zip(attempts, attempts[1:], strict=False)) == pytest.approx(max_s, abs=0.002)
-
-
-def test_a_backed_off_send_goes_out_once_the_socket_recovers(monkeypatch):
-    clock = [0.0]
-    monkeypatch.setattr(conductor_mod.time, "perf_counter", lambda: clock[0])
-    c = _conductor([], requests={})
-    down = [True]
+    send = c.communicator.send
 
     def _send(entity, msg):
-        if down[0]:
-            raise OSError("worker_0 unreachable")
-        c.sent.append((entity, msg))
+        if entity == "worker_0" and msg.message_type == WorkerMessageType.DRAIN_REQUEST:
+            raise RuntimeError("zmq: Interrupted system call")
+        send(entity, msg)
     c.communicator.send = _send
-    message = SimpleNamespace(message_type=WorkerMessageType.REMOVE_REQUEST)
-    c._send_for_teardown("x", "worker_0", message)
-    for _ in range(100):
-        clock[0] += 0.001
-        c._retry_unsent_teardown()
-    down[0] = False
-    for _ in range(2000):
-        clock[0] += 0.001
-        c._retry_unsent_teardown()
-    assert c.sent == [("worker_0", message)] and c._unsent_teardown == []
+    _run(c)
+    # worker_0 never got its DRAIN_REQUEST, so its READS_DONE never comes
+    assert "bad" in c.draining and _to_client(c, "request_failed") == {}
+
+    clock[0] = c._drain_ttl_s
+    c._sweep_expiry()
+    failed = _to_client(c, "request_failed")
+    assert "model rejected this request's step" in failed["bad"].error_message
+    assert "bad" not in c.requests and "bad" not in c.draining
+    assert ("worker_0", "bad") in [
+        (entity, m.body.request_id) for entity, m in c.sent
+        if m.message_type == WorkerMessageType.REMOVE_REQUEST
+    ]
 
 
 def test_a_base_exception_is_not_swallowed():
