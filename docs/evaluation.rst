@@ -212,7 +212,9 @@ suite (``run e2e --kind chat_image|image|video|pi05|frames|...``). Inputs are bu
 ``--models tag:multi-gpu``. Such a model runs on N GPU slots of one host at once (``--hosts user@gpu8:0-7``), and
 a host with fewer slots never takes it. Each case has a wall cap (``case_timeout_s``): a case still running then has
 hung, its server's Python stacks are saved (``py-spy dump`` when installed) to ``stacks.txt``, a hung head fails the
-row and a hung base reports it broken.
+row and a hung base reports it broken. py-spy shows threads, not coroutines, so a hang at an ``await`` in the API
+server shows an idle event loop. Where ptrace is restricted, ``--stacks-sudo`` retries the dump with ``sudo -n``; it
+is off by default because a refused ``sudo`` is logged, and often mailed, on shared clusters.
 
 The run directory holds every results file and ``report/report.md`` (a table for a PR body, details in toggles),
 ``report/chart.png`` and ``report/summary.json``. ``compare`` exits with 1 when any row is flagged, else with 2

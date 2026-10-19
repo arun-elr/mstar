@@ -55,6 +55,9 @@ def add_args(sub) -> None:
     p.add_argument("--repeats", type=int, default=None, help="measured passes per point (default: cases.yaml)")
     p.add_argument("--no-rerun", action="store_true", help="report a flagged perf row without the 2-session rerun")
     p.add_argument("--gpus", default=None, help="local GPU indices to use (default: all)")
+    p.add_argument("--stacks-sudo", action="store_true",
+                   help="retry a hung case's py-spy dump with sudo -n where ptrace is restricted (off by default: "
+                        "a refused sudo is logged, and often mailed, on shared clusters)")
     p.add_argument("--hosts", default=None,
                    help="SSH targets instead of local GPUs: user@a,user@b:1 (host:gpu), user@c:0-7 (GPUs 0 to 7)")
     p.add_argument("--host-provider", default=None, metavar="MODULE:FACTORY",
@@ -291,7 +294,7 @@ class Runner:
                 "order": ["base", "head"] if position % 2 == 0 else ["head", "base"],
                 "python": self.python(slot), "evalfw": p["evalfw"], "data": p["data"], "host_dir": slot.host_dir,
                 "datasets": self.man.datasets, "arms": {"base": arm(self.base), "head": arm(self.head)},
-                "lease_s": LEASE_S}
+                "lease_s": LEASE_S, "stacks_sudo": bool(getattr(self.args, "stacks_sudo", False))}
 
     def run_one(self, slot: hosts.Slot, name: str) -> str | None:
         self.prepare(slot)

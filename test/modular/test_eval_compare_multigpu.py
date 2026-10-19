@@ -12,7 +12,7 @@ import subprocess
 import sys
 import threading
 import time
-from argparse import Namespace
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 import pytest
@@ -162,11 +162,15 @@ def test_dry_run_lists_which_multi_gpu_models_fit(tmp_path, monkeypatch, capsys)
 
 # ---------------------------------------------------------------- a hung case
 
+# Well above the fast arm's case on a loaded host (3 s passed 2 of 5 runs there), well below the slow server's delay
+CAP_S = 15
+
+
 def run_job(tmp_path: Path, slow: str) -> Path:
-    """Both arms of one fake model through ``arm`` with a 3 s case cap; the ``slow`` arm's server never answers
+    """Both arms of one fake model through ``arm`` with a CAP_S case cap; the ``slow`` arm's server never answers
     within it. Returns the results directory."""
     raw = copy.deepcopy(ONE)
-    raw["models"]["fake"]["case_timeout_s"] = 3
+    raw["models"]["fake"]["case_timeout_s"] = CAP_S
     man = mf.parse(raw)
     base, head = trees.Ref("main", "a" * 40, "main"), trees.Ref("x", "b" * 40, "PR #1")
     args = Namespace(python=sys.executable, data_dir=str(tmp_path / "data"), sessions=1, repeats=None)
@@ -193,7 +197,7 @@ def run_job(tmp_path: Path, slow: str) -> Path:
 def test_a_head_that_hangs_is_cut_at_the_cap_with_stacks_and_fails(tmp_path):
     out = run_job(tmp_path, slow="head")
     info = json.loads((out / "head" / "s0" / "startup.json").read_text())["cases"]["text"]
-    assert info["hung"] and info["cap_s"] == 3 and info["rc"] == "timeout" and info["server_alive_after"] is False
+    assert info["hung"] and info["cap_s"] == CAP_S and info["rc"] == "timeout" and info["server_alive_after"] is False
     stacks = (out / "head" / "s0" / "text" / "stacks.txt").read_text()
     assert stacks.startswith("# process group") and "## pid" in stacks
     assert "hung" not in json.loads((out / "base" / "s0" / "startup.json").read_text())["cases"]["text"]
@@ -210,6 +214,41 @@ def test_a_base_that_hangs_is_reported_broken_not_flagged(tmp_path):
     assert rows[0].correct == "base broken" and not rows[0].flagged and rows[0].unfinished
     md, code = compare.render(tmp_path / "run", man, str(tmp_path / "none.json"))
     assert code == 2 and "base hung" in md.read_text()
+
+
+@pytest.mark.parametrize("stacks_sudo", [False, True])
+def test_dump_stacks_retries_with_sudo_only_when_asked(tmp_path, monkeypatch, stacks_sudo):
+    """py-spy refused ptrace: without ``--stacks-sudo`` no ``sudo`` runs at all (a refused one is logged and often
+    mailed on shared clusters); with it, the dump is retried once per process through ``sudo -n``."""
+    bin_dir, calls = tmp_path / "bin", tmp_path / "sudo-calls"
+    bin_dir.mkdir()
+    spy = bin_dir / "py-spy"
+    spy.write_text("#!/bin/sh\necho 'Permission denied (os error 13)' >&2\nexit 1\n")
+    (bin_dir / "sudo").write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> {calls}\necho "Thread 1 (idle)"\n')
+    for f in (spy, bin_dir / "sudo"):
+        f.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(arm, "job", {"stacks_sudo": stacks_sudo})
+    arm.dump_stacks(os.getpgid(0), tmp_path / "stacks.txt")
+    stacks = (tmp_path / "stacks.txt").read_text()
+    assert "## pid" in stacks
+    if stacks_sudo:
+        assert calls.read_text().split()[:2] == ["-n", str(spy)] and "Thread 1 (idle)" in stacks
+    else:
+        assert not calls.exists() and "Permission denied" in stacks and "--stacks-sudo" in stacks
+
+
+def test_stacks_sudo_flag_reaches_the_job(tmp_path):
+    man = mf.parse(copy.deepcopy(ONE))
+    base, head = trees.Ref("main", "a" * 40, "main"), trees.Ref("x", "b" * 40, "PR #1")
+    s = hosts.Slot(hosts.LocalTransport(), None, host_dir=str(tmp_path / "host"))
+    for argv, want in (([], False), (["--stacks-sudo"], True)):
+        ap = ArgumentParser()
+        compare.add_args(ap.add_subparsers())
+        args = ap.parse_args(["compare", "--base", "main", "--head", "x", *argv])
+        args.python, args.data_dir = sys.executable, str(tmp_path / "data")
+        runner = compare.Runner(args, man, man.select("all"), base, head, tmp_path / "run", [s])
+        assert runner.job(s, "fake", str(tmp_path / "out"))["stacks_sudo"] is want
 
 
 def test_a_base_that_hangs_after_some_points_gates_head_timings_too(tmp_path):
