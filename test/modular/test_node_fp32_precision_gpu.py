@@ -164,12 +164,14 @@ def test_a_captured_default_node_keeps_tf32(setup):
 
 
 def test_a_compiled_capture_of_a_highest_node_is_full_fp32(setup):
-    """Inductor may pick its own GEMM kernel, so not bit-equal to eager cuBLAS;
-    its error stays at fp32 level, far under TF32's."""
+    """Max-autotune may pick a Triton GEMM template over cuBLAS, so the error is
+    neither bit-equal to eager nor within a fixed factor of it. Any fp32 kernel
+    stays under 1e-5 on these shapes (cuBLAS 4.6e-7, Triton 1.5e-6 on an H200);
+    TF32 lands near 3e-4."""
     engine, nodes, x = setup
     node = nodes["compiled"]
     err = _rel_err(_replay(engine, "compiled", x), x, node)
-    assert err <= 2 * _rel_err(_eager(node, x, "highest"), x, node)
+    assert err < 1e-5
     assert 10 * err < _rel_err(_eager(node, x, "high"), x, node)
 
 
