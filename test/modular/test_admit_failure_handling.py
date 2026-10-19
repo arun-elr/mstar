@@ -264,7 +264,9 @@ class _RefusedWorker(_HoldingWorker):
     def __init__(self):
         super().__init__()
         self.held: list[str] = []
-        self.scheduler = SimpleNamespace(hold_requests=self.held.extend)
+        self.scheduler = SimpleNamespace(
+            hold_requests=self.held.extend, limit_batch=lambda *args: None,
+        )
 
 
 @pytest.mark.parametrize(
