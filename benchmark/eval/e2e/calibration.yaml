@@ -180,15 +180,6 @@ b200:qwen3_omni/video_in/req_per_s@c8:
   deltas: [0.826, -2.946]
 b200:qwen3_omni/video_in/ttft_p50_s@c1:
   deltas: [2.056, 2.218]
-b200:qwen3_omni_mooncake/audio_out/correct:
-  kind: audio_len
-  swings: [11.1208]
-b200:qwen3_omni_mooncake/audio_out/req_per_s@c8:
-  deltas: [-43.468]
-b200:qwen3_omni_mooncake/audio_out/s_per_audio_s_p50@c1:
-  deltas: [0.599]
-b200:qwen3_omni_mooncake/audio_out/ttft_p50_s@c1:
-  deltas: [1.824]
 b200:qwen3_omni_mooncake/image_in/correct:
   kind: text_match
   swings: [0.5]
