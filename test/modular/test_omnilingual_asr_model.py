@@ -297,10 +297,8 @@ def test_wav_upload_decodes_at_its_rate_then_resamples(tmp_path, monkeypatch):
     "rate", [8000, 11025, 16000, 22050, 24000, 32000, 44056, 44100, 47952, 48000, 48048, 88200, 96000, 176400, 192000]
 )
 def test_common_and_pull_down_sample_rates_resample(rate):
-    audio.check_sample_rate(rate)
-    from mstar.api_server import media_io
-
-    media_io.check_resample_rate(rate, 16000)
+    samples = torch.zeros(rate // 100)
+    assert audio.to_16k_mono(samples, rate).shape == (160,)
 
 
 def test_a_header_rate_coprime_to_16k_is_refused_before_resampling(tmp_path, monkeypatch):
@@ -314,7 +312,8 @@ def test_a_header_rate_coprime_to_16k_is_refused_before_resampling(tmp_path, mon
         raise AssertionError("resampled from an unsupported rate")
 
     monkeypatch.setattr(torchaudio.functional, "resample", no_resample)
-    for rate in (24007, 100003, 0, 10**9):
+    # 655,325 Hz is under 2^24 taps only when the filter padding is left out
+    for rate in (24007, 100003, 655325, 0, 10**9):
         path = tmp_path / f"r{rate}.wav"
         path.write_bytes(_riff(1, 1, rate, 16, b"\x00\x00" * 24000))
         with pytest.raises(ValueError, match="unsupported sample rate"):
