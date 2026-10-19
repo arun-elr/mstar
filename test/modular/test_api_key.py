@@ -108,6 +108,14 @@ def test_cors_preflight_needs_no_key_and_a_401_keeps_cors_headers(keyed):
     assert denied.status_code == 401 and "access-control-allow-origin" in denied.headers
 
 
+def test_an_oversized_body_without_the_key_is_a_401_and_with_it_a_413(keyed, monkeypatch):
+    monkeypatch.setenv("MSTAR_MAX_BODY_MB", "1")
+    client = TestClient(entrypoint.app.build_middleware_stack())
+    big = b"x" * (2 * 2**20)
+    assert client.post("/v1/chat/completions", content=big).status_code == 401
+    assert client.post("/v1/chat/completions", content=big, headers=GOOD).status_code == 413
+
+
 def _sub_path_app():
     app = FastAPI(root_path="/proj/job")
     app.add_middleware(auth.APIKeyMiddleware, guard=auth.APIKeyGuard(KEY))

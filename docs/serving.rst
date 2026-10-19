@@ -191,7 +191,8 @@ whole app (FastAPI and the Rust frontend alike), and the comparison takes the sa
 however much of the key matches. CORS preflights still get their answer, since browsers
 send them without credentials. ``--api-key`` overrides the environment variable, but
 prefer the variable: a command-line flag is visible to every local user in the process
-list.
+list. An empty value turns the check off, so ``--api-key ""`` disables a key set in the
+environment, and so does a variable that expands to nothing (``--api-key "$UNSET_VAR"``).
 
 Clients send the key as their API key: ``MStarClient(base_url, api_key=...)`` (it reads
 ``MSTAR_API_KEY`` when not given one) or ``OpenAI(base_url=..., api_key=...)``; see
