@@ -8,6 +8,7 @@ and runs only when they are already in AudioSeal's cache.
 
 from __future__ import annotations
 
+import logging
 import sys
 from hashlib import sha1
 from types import SimpleNamespace
@@ -368,14 +369,47 @@ def test_replayed_pcm16_calls_equal_the_eager_ones_and_finals_pad_into_a_capture
     assert (eager_streams[2].caches - replay_streams[2].caches).abs().max() < 1e-5
 
 
+def test_calls_that_miss_the_captures_say_so_once(caplog):
+    """With captures in place, a chunk length with no capture, a batch over the
+    largest captured one and a partial frame each run eagerly and log it once."""
+    frame = 320 * 6
+    wmk = _watermarker()
+    configs = wmk.piecewise_configs([frame, 3 * frame], [1, 2])
+    runners = {label: _ReplayingRunner(config, [1, 2]) for label, config in configs.items()}
+    pcm = (_speechlike(4 * frame, seed=40).clamp(-1, 1) * 32767).to(torch.int16)
+    streams = [WatermarkStream() for _ in range(5)]
+    with caplog.at_level(logging.WARNING, logger="mstar.model.audio_watermark"):
+        for start in (0, 2 * frame):
+            wmk.apply_pcm16([pcm[start:start + 2 * frame]], streams[:1], runners=runners)
+            wmk.apply_pcm16([pcm[start:start + frame]] * 3, streams[1:4], runners=runners)
+        wmk.apply_pcm16([pcm[:frame + 100]], streams[4:], runners=runners)
+        wmk.apply_pcm16([pcm[frame + 100:2 * frame + 100]], streams[4:], runners=runners)
+    messages = [r.getMessage() for r in caplog.records if "runs eagerly" in r.getMessage()]
+    assert len(messages) == 3, messages
+    assert f"a chunk of {2 * frame} samples" in messages[0]
+    assert f"3 chunks of {frame} samples" in messages[1]
+    assert "partial frame" in messages[2]
+    assert all(not r.calls for r in runners.values())
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="mstar.model.audio_watermark"):
+        wmk.apply_pcm16([pcm[:frame]], [WatermarkStream()], runners=runners)
+        _watermarker().apply_pcm16([pcm[:2 * frame]], [WatermarkStream()])
+    assert not [r for r in caplog.records if "runs eagerly" in r.getMessage()]
+
+
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA graph capture needs CUDA")
 def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
     """The engine's piecewise runner captures ``_mark_pcm16`` per length and
     batch bucket. At a bucket's batch size a replay gives the eager call's
     samples and caches exactly, step after step; a batch padded up to its
     bucket, or a final chunk padded to a captured length, convolves another
-    shape, which cuDNN may run with another algorithm: a step or two of PCM16."""
+    shape, which cuDNN may run with another TF32 algorithm: within 2 steps of
+    PCM16 on Hopper, up to 14 on an A100, so other GPUs get 1e-3 of full scale.
+    Detection is unchanged either way."""
     from mstar.engine.cuda_graph_runner import PiecewiseCudaGraphRunner
+    from mstar.platforms import current_platform
+
+    padded_bound = 2 if current_platform.has_cuda_capability(9, 0) else 33
 
     class NoResources:
         def build_cuda_graph_buffers(self, *args, **kwargs):
@@ -407,7 +441,7 @@ def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
             got = wmk.apply_pcm16(chunks, replayed, runners=runners)
             want = wmk.apply_pcm16(chunks, eager)
             for g, w in zip(got, want, strict=True):
-                assert torch.equal(g, w) if exact else (g.int() - w.int()).abs().max() <= 2
+                assert torch.equal(g, w) if exact else (g.int() - w.int()).abs().max() <= padded_bound
             for r, e in zip(replayed, eager, strict=True):
                 assert torch.equal(r.caches, e.caches) if exact else torch.allclose(r.caches, e.caches, atol=1e-2)
         return replayed, eager
@@ -419,7 +453,7 @@ def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
     got = wmk.apply_pcm16(tail, replayed[:2], [True, True], runners=runners)
     want = wmk.apply_pcm16(tail, eager[:2], [True, True])
     for g, w in zip(got, want, strict=True):
-        assert g.shape == w.shape and (g.int() - w.int()).abs().max() <= 2
+        assert g.shape == w.shape and (g.int() - w.int()).abs().max() <= padded_bound
 
 
 def test_capture_lengths_must_be_whole_frames():

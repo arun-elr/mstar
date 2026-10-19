@@ -259,6 +259,7 @@ class AudioSealWatermarker:
         self._message_embedding = self._embed_message(generator, config)
         self._fresh = self._fresh_caches()
         self._capture_lengths: list[int] = []
+        self._eager_logged: set[tuple[str, int]] = set()
 
     @property
     def cache_size(self) -> int:
@@ -521,6 +522,8 @@ class AudioSealWatermarker:
                 out = runner.run({"pcm": pcm, "caches": caches}, real_bs=len(members))
                 marked, caches = out["pcm"], out["caches"]
             else:
+                if runners:
+                    self._log_eager("length" if runner is None else "batch", length, len(members))
                 marked, caches = self._mark_pcm16(pcm, caches)
             for row, i in enumerate(members):
                 stream = streams[i]
@@ -528,6 +531,8 @@ class AudioSealWatermarker:
                 stream.caches = None if finals[i] else caches[row]
                 results[i] = marked[row, :rows[row].shape[0]]
         if other:
+            if runners:
+                self._log_eager("partial", 0, len(other))
             floats = [chunks[i].to(self.device, torch.float32) / 32767 for i in other]
             marked = self.apply(floats, [streams[i] for i in other], [finals[i] for i in other])
             for i, m in zip(other, marked, strict=True):
@@ -535,6 +540,19 @@ class AudioSealWatermarker:
         return results  # type: ignore[return-value]
 
     # -- capture --------------------------------------------------------------
+
+    def _log_eager(self, reason: str, length: int, rows: int) -> None:
+        """Say once per reason and length that captures exist but a call runs
+        eagerly, so a config whose chunks miss every capture is visible."""
+        if (reason, length) in self._eager_logged:
+            return
+        self._eager_logged.add((reason, length))
+        what = {
+            "length": f"a chunk of {length} samples, a length with no capture",
+            "batch": f"{rows} chunks of {length} samples, more than its largest captured batch",
+            "partial": "a chunk that is not whole frames or has a partial frame pending",
+        }[reason]
+        logger.warning("audio watermark: %s runs eagerly (logged once)", what)
 
     @staticmethod
     def capture_label(samples: int) -> str:
