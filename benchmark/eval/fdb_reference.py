@@ -2,8 +2,10 @@
 
 Nothing here is vendored. Full-Duplex-Bench (github.com/DanielLin94144/Full-Duplex-Bench)
 is licensed CC BY-NC 4.0 (non-commercial), so its scoring code and its v1.5 data are
-downloaded from the official sources into the Hugging Face cache when a run needs them,
-pinned to one revision and checked against SHA-256 hashes:
+downloaded from the official sources into the Hugging Face cache when a run needs them.
+Each is pinned to one revision and checked against its SHA-256, except the v1.5 archives:
+Google Drive keeps no revisions, so ``download_dataset`` hashes them and records the hash
+with every result as the dataset revision instead of checking it:
 
 * ``get_timing.py``: stop and response intervals from Silero VAD speech spans (its
   ``torch.hub.load`` of Silero is bound to the pinned ``silero-vad`` package, so the
@@ -15,7 +17,7 @@ pinned to one revision and checked against SHA-256 hashes:
   preloaded local checkpoint;
 * the semantic A/F/U judge's frozen prompt, schema and control cases from sglang-omni
   (Apache-2.0), so its quality and coverage numbers are comparable with that runbook;
-* the four v1.5 subsets from the official Google Drive (``gdown``).
+* the four v1.5 subsets from the official Google Drive (``gdown``), hashed and recorded.
 
 The pins match sglang-omni PR #2668 (``benchmarks/duplex/fdb_v15``), which reports the
 same metrics, so numbers from either runner use one definition.
