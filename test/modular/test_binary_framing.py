@@ -232,6 +232,9 @@ class _ChunkServer:
     def submit_request(self, **kwargs):
         return None
 
+    def unread_release(self, request_id):
+        return lambda: None
+
     async def iter_result_chunks(self, request_id):
         for chunk in self._chunks:
             yield chunk

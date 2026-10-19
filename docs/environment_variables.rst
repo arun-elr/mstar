@@ -134,6 +134,18 @@ Communication
      - Under ``--log-stats``: how often the arena logs its occupancy /
        fragmentation snapshot (segments, free bytes, largest contiguous
        free block, pinned bytes).
+   * - ``MSTAR_READ_QUARANTINE_BUDGET_MB``
+     - ``1024``
+     - Per process: the buffers of a failed Mooncake/RDMA read are kept for
+       the life of the process (the transfer may still write into them), and
+       counted (reads, bytes). Past this many MB ``/health`` answers 503, on
+       the Python and the Rust frontend. What one failed read keeps depends
+       on its tensor: about 190 B for a text read, about 600 KB for an image
+       input read, so the default lasts about 1,700 failed image reads. The
+       memory keeps accumulating until
+       a restart, so a liveness probe on ``/health`` has to be configured to
+       act on it. The counts appear in the ``--log-stats`` report and in each
+       kept-buffer warning. Must be a finite, non-negative number.
 
 Models
 ------

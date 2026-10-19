@@ -18,6 +18,7 @@
 //!                        | {t:"abort", rid, sub}
 //!   conductor -> frontend: {t:"chunk", rid, sub, modality, data(bin), metadata}
 //!                        | {t:"done",  rid, sub}
+//!                        | {t:"pong",  rid, sub, msg}  (msg non-empty: unhealthy)
 //!
 //! `sub` names one submission and is never reused; `rid` is the client's id,
 //! which a client may reuse as soon as it drops a stream (that stream's `done`
@@ -56,6 +57,17 @@ pub enum StreamItem {
     /// frontend should return (from the error chunk's `metadata.status`).
     Error { status: u16, message: String },
     Done,
+}
+
+/// What the deep health check's ping learned about the backend.
+#[derive(Debug)]
+pub enum Health {
+    Healthy,
+    /// The backend answered but reports itself unhealthy; the reason is its
+    /// message (e.g. buffers kept from failed tensor reads past their budget).
+    Unhealthy(String),
+    /// No answer in time: the bridge loop or the backend behind it is gone.
+    Unreachable,
 }
 
 // ---- wire messages ----
@@ -249,7 +261,10 @@ impl Bridge {
     /// `Done`, or the 409 detail when a submission under `request_id` is
     /// still in flight. The `request_id` is caller-supplied
     /// (the serving handler mints `chatcmpl-…`/`speech-…`), matching mstar,
-    /// whose per-request RNG seed derives from `hash(request_id)`.
+    /// whose per-request RNG seed derives from `hash(request_id)`. Refuses
+    /// (`Err` with the message for a 409) an id that is still in flight and
+    /// leaves that request alone: replacing its route would hand its output
+    /// to the newcomer, and the server has no auth to tell clients apart.
     pub fn submit(
         &self,
         args: &SubmitArgs,
@@ -288,9 +303,8 @@ impl Bridge {
     }
 
     /// Liveness round-trip for the deep health check: send `{t:"ping"}` and
-    /// wait for the backend's pong (routed like a completed request). False
-    /// on timeout — the bridge loop or the backend behind it is gone.
-    pub async fn ping(&self, timeout: Duration) -> bool {
+    /// wait for the backend's pong (routed like a completed request).
+    pub async fn ping(&self, timeout: Duration) -> Health {
         let rid = format!("ping-{}", uuid::Uuid::new_v4());
         let (tx, mut rx) = unbounded_channel();
         let sub = self.next_sub.fetch_add(1, Ordering::Relaxed);
@@ -299,9 +313,13 @@ impl Bridge {
         if let Ok(payload) = rmp_serde::to_vec_named(&msg) {
             let _ = self.mbox.send("bridge", &payload);
         }
-        let ok = tokio::time::timeout(timeout, rx.recv()).await.is_ok();
+        let health = match tokio::time::timeout(timeout, rx.recv()).await {
+            Ok(Some(StreamItem::Error { message, .. })) => Health::Unhealthy(message),
+            Ok(Some(_)) => Health::Healthy,
+            Ok(None) | Err(_) => Health::Unreachable,
+        };
         self.routes.lock().expect("routes lock").remove(sub);
-        ok
+        health
     }
 
     /// Abort submission `sub` of `request_id` (client disconnected or timed
@@ -355,7 +373,12 @@ fn deliver(routes: &Routes, msg: Inbound) {
             true,
         ),
         "done" => (Some(StreamItem::Done), true),
-        // Liveness reply: completes the ping's route like a request.
+        // Liveness reply: completes the ping's route like a request. A
+        // non-empty `msg` is the backend reporting itself unhealthy.
+        "pong" if !msg.msg.is_empty() => (
+            Some(StreamItem::Error { status: 503, message: msg.msg }),
+            true,
+        ),
         "pong" => (Some(StreamItem::Done), true),
         _ => (None, false),
     };

@@ -4,6 +4,7 @@ stubbed — proves the HTTP surface, the msgpack bridge protocol, and the
 error path end to end without GPUs. Skipped unless the ``mstar_rust``
 extension is installed and the server binary is built
 (``cargo build --release`` in ``rust/server/``)."""
+import base64
 import contextlib
 import json
 import socket
@@ -45,6 +46,10 @@ class _StubAPIServer:
     def __init__(self):
         self.submitted = []
         self.aborted = []
+        self.problem = None
+
+    def health_problem(self):
+        return self.problem
 
     def submit_request(self, *, text=None, file_paths=None,
                        input_modalities, output_modalities,
@@ -219,6 +224,25 @@ def test_health_goes_red_when_the_bridge_dies(stack):
     assert e.value.code == 503
 
 
+def test_health_goes_red_with_the_backends_reason(stack):
+    """The backend answers the ping but reports itself unhealthy (here: kept
+    read buffers past their budget). The Rust /health must fail with that
+    reason, as the Python /health does, and recover when it clears."""
+    port, stub, _bridge, _proc = stack
+    stub.problem = (
+        "worker_0 keeps 1368 bytes of buffers from 7 failed tensor reads, "
+        "past its budget of 1048 bytes"
+    )
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=10)
+    assert e.value.code == 503
+    body = json.loads(e.value.read())
+    assert body == {"status": "unhealthy", "reason": stub.problem}
+
+    stub.problem = None
+    assert _wait_healthy(port)
+
+
 def test_sigterm_drains_and_exits(stack):
     import signal
 
@@ -296,6 +320,233 @@ def test_admission_permit_is_held_through_streaming_body():
         proc.wait(timeout=10)
 
 
+def test_generate_refuses_an_in_flight_request_id():
+    """A second /generate with the id of a request still streaming gets a 409.
+    Taking over the route would cut off the first stream, and the first
+    stream's abort would then cancel the id for both."""
+    import urllib.parse
+
+    gate = threading.Event()
+    stub = _GatedStub(gate)
+    resp_a = None
+    with _model_stack("qwen3_omni", stub) as (port, _upload_dir):
+        try:
+            def generate(timeout):
+                data = urllib.parse.urlencode(
+                    {"text": "hi", "request_id": "dup", "streaming": "true"}).encode()
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/generate", data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"})
+                return urllib.request.urlopen(req, timeout=timeout)
+
+            resp_a = generate(15)
+            deadline = time.time() + 10
+            while not stub.submitted and time.time() < deadline:
+                time.sleep(0.02)
+            assert len(stub.submitted) == 1
+            with pytest.raises(urllib.error.HTTPError) as e:
+                generate(5)
+            assert e.value.code == 409
+            gate.set()
+            body = resp_a.read().decode()
+            text = "".join(
+                base64.b64decode(json.loads(line)["data"]).decode()
+                for line in body.splitlines())
+            assert text == "Hello world"
+            assert len(stub.submitted) == 1 and stub.aborted == []
+        finally:
+            gate.set()
+            if resp_a is not None:
+                resp_a.close()
+
+
+def test_concurrent_generates_with_one_request_id_admit_exactly_one():
+    """Simultaneous streaming /generate calls under one id: one is served, every
+    other one gets a real 409 status (not a 200 stream carrying the error), and
+    no refused call aborts the one being served."""
+    import urllib.parse
+    from concurrent.futures import ThreadPoolExecutor
+
+    n = 16
+    gate = threading.Event()
+    stub = _GatedStub(gate)
+    with _model_stack("qwen3_omni", stub) as (port, _upload_dir):
+        def generate(rid, start):
+            data = urllib.parse.urlencode(
+                {"text": "hi", "request_id": rid, "streaming": "true"}).encode()
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/generate", data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"})
+            start.wait()
+            try:
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    return r.status, r.read().decode()
+            except urllib.error.HTTPError as e:
+                return e.code, e.read().decode()
+
+        rounds = []
+        with ThreadPoolExecutor(n) as pool:
+            for i in range(4):
+                gate.clear()
+                start = threading.Barrier(n)
+                futures = [pool.submit(generate, f"dup-{i}", start) for _ in range(n)]
+                deadline = time.time() + 10
+                while len(stub.submitted) <= i and time.time() < deadline:
+                    time.sleep(0.02)
+                time.sleep(0.5)  # let every other call reach the bridge first
+                gate.set()
+                rounds.append([f.result() for f in futures])
+
+    for results in rounds:
+        assert sorted(status for status, _ in results) == [200] + [409] * (n - 1)
+        body = next(body for status, body in results if status == 200)
+        text = "".join(
+            base64.b64decode(json.loads(line)["data"]).decode()
+            for line in body.splitlines())
+        assert text == "Hello world"
+    assert len(stub.submitted) == len(rounds) and stub.aborted == []
+
+
+def test_a_backend_refusal_keeps_its_http_status():
+    """An HTTPException from the backend's submit_request reaches the client
+    with its own status, not as a 500."""
+    class _RefusedError(Exception):
+        """fastapi's HTTPException, which this job does not install."""
+        status_code = 409
+        detail = "request_id 'dup' is already in use"
+
+    class _Refusing(_StubAPIServer):
+        def submit_request(self, **kwargs):
+            raise _RefusedError()
+
+    with _model_stack("qwen3_omni", _Refusing()) as (port, _upload_dir):
+        import urllib.parse
+        data = urllib.parse.urlencode(
+            {"text": "hi", "request_id": "dup", "streaming": "false"}).encode()
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/generate", data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"})
+        with pytest.raises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(req, timeout=15)
+    assert e.value.code == 409
+    assert "already in use" in e.value.read().decode()
+
+
+def test_generate_serves_the_id_again_once_its_request_ends():
+    """The refusal covers only a request still in flight: once a stream has
+    ended, the same id is served again."""
+    import urllib.parse
+
+    stub = _StubAPIServer()
+    with _model_stack("qwen3_omni", stub) as (port, _upload_dir):
+        def generate():
+            data = urllib.parse.urlencode(
+                {"text": "hi", "request_id": "again", "streaming": "true"}).encode()
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/generate", data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                return r.status, r.read().decode()
+
+        for _ in range(3):
+            status, body = generate()
+            assert status == 200
+            text = "".join(
+                base64.b64decode(json.loads(line)["data"]).decode()
+                for line in body.splitlines())
+            assert text == "Hello world"
+    assert [s["rid"] for s in stub.submitted] == ["again"] * 3
+
+
+class _AbortedEndsLateStub(_StubAPIServer):
+    """A "hang" submission streams nothing until it is aborted, then ends
+    cleanly, as ``APIServer``'s stream does once its request is dropped; it
+    ends only once a newer submission under its id exists, so its relay's
+    ``done`` reaches the frontend while the client's retry is in flight. Any
+    other submission answers after a short delay."""
+
+    def __init__(self):
+        super().__init__()
+        self.subs = []  # [rid, text, aborted] per submission, in submit order
+
+    def submit_request(self, **kwargs):
+        rid = super().submit_request(**kwargs)
+        self.subs.append([rid, kwargs.get("text"), False])
+        return rid
+
+    def submission_key(self, request_id):
+        return len(self.subs) - 1
+
+    def abort_request(self, request_id):
+        super().abort_request(request_id)
+        live = [k for k, (rid, _, aborted) in enumerate(self.subs)
+                if rid == request_id and not aborted]
+        if live:
+            self.subs[live[-1]][2] = True
+
+    def abort_submission(self, key):
+        super().abort_submission(key)
+        if key is not None:
+            self.subs[key][2] = True
+
+    def iter_result_chunks(self, request_id):
+        return self._stream(len(self.subs) - 1)
+
+    async def _stream(self, key):
+        import asyncio
+        if self.subs[key][1] == "hang":
+            while not (self.subs[key][2] and len(self.subs) > key + 1):
+                await asyncio.sleep(0.01)
+            return
+        await asyncio.sleep(0.2)
+        if not self.subs[key][2]:
+            yield _Chunk("text", b"Hello ")
+            yield _Chunk("text", b"world")
+
+
+def test_a_dropped_submissions_late_done_leaves_the_retry_alone():
+    """Drop a streaming /generate and resubmit its request_id at once: the
+    retry gets its own answer. The dropped submission's ``done`` arrives after
+    the retry's submit and must not end the retry as an empty 200."""
+    import urllib.parse
+
+    rounds = 5
+    stub = _AbortedEndsLateStub()
+    results = []
+    with _model_stack("qwen3_omni", stub) as (port, _upload_dir):
+        for i in range(rounds):
+            rid = f"retry-{i}"
+            form = urllib.parse.urlencode(
+                {"text": "hang", "request_id": rid, "streaming": "true"})
+            with socket.create_connection(("127.0.0.1", port), timeout=10) as s:
+                s.sendall((
+                    "POST /generate HTTP/1.1\r\nHost: localhost\r\n"
+                    "Content-Type: application/x-www-form-urlencoded\r\n"
+                    f"Content-Length: {len(form)}\r\n\r\n{form}").encode())
+                head = b""
+                while b"\r\n\r\n" not in head:
+                    data = s.recv(4096)
+                    assert data, "the server closed the first stream"
+                    head += data
+                assert head.startswith(b"HTTP/1.1 200"), head
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/generate",
+                data=urllib.parse.urlencode(
+                    {"text": "hi", "request_id": rid, "streaming": "true"}).encode(),
+                headers={"Content-Type": "application/x-www-form-urlencoded"})
+            try:
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    body = r.read().decode()
+                results.append((r.status, "".join(
+                    base64.b64decode(json.loads(line)["data"]).decode()
+                    for line in body.splitlines())))
+            except urllib.error.HTTPError as e:
+                results.append((e.code, e.read().decode()))
+        aborted = [text for _, text, gone in stub.subs if gone]
+    assert results == [(200, "Hello world")] * rounds, results
+    assert aborted == ["hang"] * rounds, "a dropped stream was not aborted"
+
+
 def test_tokenizer_env_fails_fast(tmp_path, monkeypatch):
     """MSTAR_TOKENIZER set -> the bridge refuses at construction (the model
     side owns tokenization), instead of 500-ing every request."""
@@ -356,6 +607,27 @@ def test_generate_accepts_both_content_types(stack):
     texts = [s["text"] for s in stub.submitted]
     assert texts.count("hi") == 2, stub.submitted
     assert all(s["mk"] == {"foo": 1} for s in stub.submitted)
+
+
+def test_generate_forwards_a_client_request_id_unchanged(stack):
+    """The bridge must pass a client-supplied id through as-is, including
+    one that looks like an internal id. Resolution to the live request is
+    the Python API server's job (``_lookup_client``)."""
+    import urllib.parse
+
+    port, stub, _bridge, _proc = stack
+    forged = "foo#t-1"
+    data = urllib.parse.urlencode({
+        "text": "hi", "output_modalities": "text",
+        "streaming": "false", "request_id": forged,
+    }).encode()
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{port}/generate", data=data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        body = json.loads(r.read())
+    assert stub.submitted[-1]["rid"] == forged
+    assert body.get("request_id") == forged
 
 
 _FAKE_MP4 = b"\x00\x00\x00\x18ftypmp42FAKE-MP4-BYTES"
