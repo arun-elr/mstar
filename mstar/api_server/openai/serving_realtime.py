@@ -79,9 +79,9 @@ logger = logging.getLogger(__name__)
 SAMPLE_RATE = 16000
 # Input rates a session accepts; 24 kHz (OpenAI's pcm rate) is resampled to SAMPLE_RATE.
 INPUT_SAMPLE_RATES = (16000, 24000)
-# Appends up to this many input samples (20 ms at 24 kHz, a fraction of a
-# millisecond of work) resample on the event loop; longer ones go to a thread.
-INLINE_RESAMPLE_SAMPLES = 480
+# Appends up to this many input samples (4 ms at 24 kHz) cost less to resample
+# than a thread hop, so they resample on the event loop; longer ones go to a thread.
+INLINE_RESAMPLE_SAMPLES = 96
 DEFAULT_CHUNK_SECONDS = 2.0
 DEFAULT_UNFIXED_CHUNKS = 2
 DEFAULT_UNFIXED_TOKENS = 5

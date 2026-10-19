@@ -948,11 +948,11 @@ def test_24khz_resampling_runs_off_the_event_loop(client_and_stub, monkeypatch):
             "input_audio_format": {"type": "audio/pcm", "rate": 24000}}}))
         ws.receive_text()
         _append_bytes(ws, b"\x01")
-        _append_bytes(ws, b"\x02" + np.zeros(479, dtype="<i2").tobytes() + b"\x03")
+        _append_bytes(ws, b"\x02" + np.zeros(95, dtype="<i2").tobytes() + b"\x03")
         _append_bytes(ws, np.zeros(24000, dtype="<i2").tobytes())
         _commit(ws)
     loop = threads["loop"]
-    assert [(n, t == loop) for n, t in threads["resample"]] == [(480, True), (24000, False)]
+    assert [(n, t == loop) for n, t in threads["resample"]] == [(96, True), (24000, False)]
 
 
 def test_unsupported_rate_and_a_rate_change_mid_item_are_refused(client_and_stub):
