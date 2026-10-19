@@ -187,7 +187,8 @@ A worker keys its own state by a small integer handle ([mstar/worker/rid_table.p
 
 ```bash
 ruff check .                          # CI enforces this
-python -m pytest test/modular/ mstar/model/cosmos3/tests/test_windowed_decode.py
+python -m pytest test/modular/ mstar/model/cosmos3/tests/test_windowed_decode.py \
+    test/distributed/test_fanout_shapes.py
                                       # the CPU Core CI job, no GPU or weights
 pytest test/integration/              # needs GPU + weights
 cd rust && cargo test --release --no-default-features && pytest ../test/rust/

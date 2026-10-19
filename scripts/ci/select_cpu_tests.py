@@ -10,7 +10,11 @@ skip themselves.
 import sys
 from pathlib import Path, PurePosixPath
 
-CPU_TEST_PATHS = ("test/modular", "mstar/model/cosmos3/tests/test_windowed_decode.py")
+CPU_TEST_PATHS = (
+    "test/modular",
+    "mstar/model/cosmos3/tests/test_windowed_decode.py",
+    "test/distributed/test_fanout_shapes.py",
+)
 IGNORE = "--ignore="
 
 

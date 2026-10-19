@@ -121,7 +121,8 @@ the dynamic loader. The local Rust check configures `LD_LIBRARY_PATH` for it.
 ### CPU core tests on GitHub
 
 The **CPU Core** job runs every module under `test/modular/` (plus
-`mstar/model/cosmos3/tests/test_windowed_decode.py`) on a GitHub-hosted Ubuntu
+`mstar/model/cosmos3/tests/test_windowed_decode.py` and
+`test/distributed/test_fanout_shapes.py`) on a GitHub-hosted Ubuntu
 runner whenever a PR targeting `main` is opened, updated or reopened. It needs
 no GPU or model weights. New updates cancel an older CPU Core run for the same
 PR. The installation and invocation commands are in
