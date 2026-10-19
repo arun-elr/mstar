@@ -27,7 +27,11 @@ from mstar.api_server.request_types import (
 )
 from mstar.communication.communicator import BaseCommunicator, CommProtocol, make_communicator
 from mstar.communication.event import EventWakeup
-from mstar.communication.tensors import NameToTensorList, create_tensor_communication_manager
+from mstar.communication.tensors import (
+    FailedRead,
+    NameToTensorList,
+    create_tensor_communication_manager,
+)
 from mstar.engine.resources.kv.config import KVSpec, PagedKVConfig
 from mstar.engine.resources.kv.keys import PageItem, chain, end_key, fingerprint, page_items
 from mstar.engine.resources.spec import apply_yaml_overrides
@@ -902,7 +906,7 @@ class PreprocessWorkerThread:
         ``abort`` (False for a request the conductor has not seen) stops the
         request's walk, since its client already has its answer.
         """
-        logger.exception("%s failed for request %s", stage, request_id)
+        logger.error("%s failed for request %s", stage, request_id, exc_info=exc)
         status = 400 if isinstance(exc, (ValueError, TypeError)) else 500
         chunks = [
             ResultChunk(
@@ -1040,9 +1044,29 @@ class PreprocessWorkerThread:
             graph_edges=[result.graph_edge],
         )
 
+    def _fail_unread_outputs(self, failed: FailedRead) -> None:
+        """Fail the request of a read that will not be delivered: one error
+        chunk in the output slot of each tensor it would have delivered. The
+        manager already acked or kept its buffers."""
+        request_id = failed.request_id
+        state = self.request_output_state.get(request_id)
+        metadata = self.tensor_uuid_to_metadata_per_request.get(request_id, {})
+        for edge in failed.graph_edges:
+            for info in edge.tensor_info:
+                metadata.pop(info.uuid, None)
+                slot = state.order.pop(info.uuid, None) if state is not None else None
+                self._fail_request(
+                    request_id, failed.error, "output tensor read",
+                    sequence=slot[0] if slot is not None else None,
+                )
+
     def _process_read_tensors(self):
         did_work = False
-        for request_id, graph_edges in self.tensor_manager.get_ready_tensors().items():
+        ready = self.tensor_manager.get_ready_tensors()
+        for failed in self.tensor_manager.take_failed_reads():
+            did_work = True
+            self._fail_unread_outputs(failed)
+        for request_id, graph_edges in ready.items():
             did_work = True
             for graph_edge in graph_edges:
                 modality = graph_edge.name.replace("_output", "")
