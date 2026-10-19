@@ -32,6 +32,7 @@ from mstar.graph.special_destinations import EMIT_TO_CLIENT
 from mstar.model.submodule_base import BatchedModelOutput
 from mstar.utils.containers import ParallelList
 from mstar.utils.ipc_format import ConductorMessageType, RemoveRequest
+from mstar.worker.micro_scheduler import ScheduledBatch
 from mstar.worker.worker import Worker
 
 
@@ -260,9 +261,9 @@ def _decode_step(rids, final_stream=()):
         final_stream_rids=set(final_stream), resource_publish_info={},
         stream_partition_done_rids=set(), cached_rids=set(),
     )
-    batch = SimpleNamespace(
-        node_name="llm", request_to_worker_graph=dict.fromkeys(rids, 0),
-        output_signals=["tok"],
+    batch = ScheduledBatch(
+        node_name="llm", graph_walk="decode",
+        request_to_worker_graph=dict.fromkeys(rids, 0), output_signals=["tok"],
     )
     outputs = BatchedModelOutput(
         per_rid_outputs={r: {"tok": [torch.tensor([r])]} for r in rids},
@@ -313,6 +314,21 @@ def test_a_step_of_only_failed_rids_routes_nothing():
     assert w.log.routed == [] and w.log.sent == []
     assert pending.batch.request_to_worker_graph == {}
     assert pending.node_batch.request_ids == []
+
+
+def test_a_failed_rid_leaves_the_batch_walk_grouping():
+    """The batch's rids-by-walk grouping is cached once built; a failed rid
+    taken out of an in-flight step must leave it too, or routing reaches the
+    rid's row after it is gone."""
+    w = _postprocess_worker(refuse=set())
+    w.scheduler.failed_rids.add(0)
+    pending, outputs = _decode_step([0, 1])
+    assert pending.batch.rids_by_walk() == {"decode": [0, 1]}
+
+    Worker._postprocess_batch(w, pending, outputs)
+
+    assert pending.batch.rids_by_walk() == {"decode": [1]}
+    assert w.log.routed == [[1]] and w.log.sent == [[1]]
 
 
 @pytest.mark.parametrize("has_event", [True, False])

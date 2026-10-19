@@ -3229,7 +3229,7 @@ class Worker:
             if torn_down:
                 for rid in torn_down:
                     outputs.pop(rid, None)
-                    batch_N.batch.request_to_worker_graph.pop(rid, None)
+                    batch_N.batch.discard_rid(rid)
                     batch_N.node_batch.per_request_info.pop(rid, None)
                     # no terminal-stream stop or partition done for it either
                     batch_N.node_batch.final_stream_rids.discard(rid)
