@@ -2,9 +2,11 @@
 """Print the pytest arguments for the Mac CPU smoke suite.
 
 The paths are the ones the GitHub CPU Core job runs (.github/workflows/ci.yml);
-there is no list of test files. New modules under test/modular are included
+there is no list of test files. New modules under these paths are included
 automatically, and modules that need a GPU, weights or an optional package
-skip themselves.
+skip themselves. Every other test module in the repository is listed in
+NOT_CPU_CORE with the place it runs instead; test/ci/test_cpu_selection.py
+fails on a test module that is in neither.
 """
 
 import sys
@@ -12,14 +14,39 @@ from pathlib import Path, PurePosixPath
 
 CPU_TEST_PATHS = (
     "test/modular",
-    "mstar/model/cosmos3/tests/test_windowed_decode.py",
-    "test/distributed/test_fanout_shapes.py",
+    "test/distributed",
+    "test/chatterbox",
+    "test/kokoro",
+    "test/omnivoice",
+    "mstar/model/*/tests",
+    "benchmark/worker_phases",
 )
+NOT_CPU_CORE = {
+    "test/ci": "the build job runs it with unittest, without PyTorch",
+    "test/rust": "the rust-transport job runs it against the built mstar_rust extension",
+    "test/integration": "needs a GPU and real weights; skips without the checkpoint",
+    "test/sampling_test": "CUDA sampler kernels; test_penalty_gate.py needs the CUDA generator",
+    "test/pi05/batch_test.py": "a load-test script named like a test module; it has no tests",
+}
 IGNORE = "--ignore="
 
 
 def read_manifest(path):
     return [line.strip() for line in path.read_text().splitlines() if line.strip()]
+
+
+def expand_paths(root, patterns=CPU_TEST_PATHS):
+    """Return the CPU test paths with each glob replaced by the directories it matches."""
+    paths = []
+    for pattern in patterns:
+        if "*" not in pattern:
+            paths.append(pattern)
+            continue
+        matches = sorted(p.relative_to(root).as_posix() for p in root.glob(pattern) if p.is_dir())
+        if not matches:
+            raise ValueError(f"CPU test path matches nothing: {pattern}")
+        paths.extend(matches)
+    return paths
 
 
 def is_collected(path, collected_paths):
@@ -49,8 +76,9 @@ def main():
     root = Path(__file__).resolve().parents[2]
     try:
         excluded = read_manifest(root / "test/cpu-mac-exclude.txt")
-        selected = select_tests(list(CPU_TEST_PATHS), excluded)
-        for path in CPU_TEST_PATHS:
+        paths = expand_paths(root)
+        selected = select_tests(paths, excluded)
+        for path in paths:
             if not (root / path).exists():
                 raise ValueError(f"CPU test path does not exist: {path}")
         for path in excluded:

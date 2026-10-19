@@ -120,28 +120,35 @@ the dynamic loader. The local Rust check configures `LD_LIBRARY_PATH` for it.
 
 ### CPU core tests on GitHub
 
-The **CPU Core** job runs every module under `test/modular/` (plus
-`mstar/model/cosmos3/tests/test_windowed_decode.py` and
-`test/distributed/test_fanout_shapes.py`) on a GitHub-hosted Ubuntu
-runner whenever a PR targeting `main` is opened, updated or reopened. It needs
-no GPU or model weights. New updates cancel an older CPU Core run for the same
-PR. The installation and invocation commands are in
+The **CPU Core** job runs every test module under the directories in
+`CPU_TEST_PATHS` ([scripts/ci/select_cpu_tests.py](scripts/ci/select_cpu_tests.py)):
+`test/modular/`, `test/distributed/`, the model-local `mstar/model/*/tests/`
+and a few more, on a GitHub-hosted Ubuntu runner whenever a PR targeting `main`
+is opened, updated or reopened, split over the runner's 4 cores with
+pytest-xdist. It needs no GPU or model weights. New updates cancel an older CPU
+Core run for the same PR. The installation and invocation commands are in
 [the CI workflow](.github/workflows/ci.yml).
 
-There is no list of tests to add to: a new module under `test/modular/` runs in
-CI as soon as it exists, so it must pass or skip on a CPU-only machine without
-model weights or optional packages:
+There is no list of test files to add to: a new module under one of those
+directories runs in CI as soon as it exists, so it must pass or skip on a
+CPU-only machine without model weights or optional packages. A test module
+anywhere else must be listed in `NOT_CPU_CORE` in the same script, with the
+place it runs instead; `test/ci/test_cpu_selection.py` fails on a module in
+neither, and on any module the old `test/cpu-core.txt` ran that is no longer
+selected. Within the selected directories:
 
 - a module that needs CUDA throughout sets
   `pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason=...)`;
-- a module that imports an optional package (`flashinfer`, `misaki`,
-  `qwen-tts`, `mstar_rust`, ...) at module level calls
-  `pytest.importorskip("<package>")` before that import;
+- a module that imports an optional package at module level calls
+  `pytest.importorskip("<module>")` with the import name (`flashinfer`,
+  `misaki`, `qwen_tts`, `mstar_rust`, ...) before that import;
 - a single test that needs one makes the same call at its top, and a
   real-weights test skips when the checkpoint isn't cached;
 - a test that is broken on `main` gets `@pytest.mark.skip(reason=...)` in its
   own file, with a reason that says why and names the PR or issue fixing it
-  when one exists, so the fix removes the skip.
+  when one exists, so the fix removes the skip;
+- a test that reads or writes a fixed path or port uses `tmp_path` or a free
+  port instead, since the workers run tests concurrently.
 
 Run the new file with CI's installation before opening the PR. Check ARM
 compatibility before extending the Mac exclusion list. CI prints the slowest
