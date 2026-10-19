@@ -790,6 +790,19 @@ class RealtimeBridge:
                                 "only 24000 is supported",
                                 etype="invalid_request_error",
                                 code="unsupported_audio_format"))
+                        audio_in = {}
+                        if isinstance(session, dict):
+                            audio_in = (session.get("audio") or {}).get("input") or {}
+                        if isinstance(audio_in, dict) and audio_in.get("turn_detection") is not None:
+                            # no server turn detection: say so, and echo the
+                            # session as served rather than as asked
+                            out_stream.put_nowait(self._error(
+                                "server turn detection is not supported; set audio.input.turn_detection "
+                                "to null and end each turn with input_audio_buffer.commit",
+                                etype="invalid_request_error",
+                                code="unsupported_turn_detection"))
+                            session = {**session, "audio": {**session["audio"],
+                                                            "input": {**audio_in, "turn_detection": None}}}
                         out_stream.put_nowait(self._session_updated(session))
                     elif etype == "input_audio_buffer.append":
                         raw = _decode_pcm16_b64(event.get("audio", ""))
