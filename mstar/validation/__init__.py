@@ -84,12 +84,20 @@ def validate_deployment(
             deployment = Deployment(worker_graphs, sharding_config)
     # After get_worker_graphs: a model may declare resources by placement
     # (BAGEL's disaggregated prefill), and workers get the model as it is now.
-    specs = model.get_node_resources()
-    problems += check_resources(model, specs, config)
-    if deployment is not None:
-        problems += check_worker_graphs(
-            model, deployment.worker_graphs, deployment.sharding_config, specs,
-        )
+    # a model may read checkpoint files here (LTX-2.5): its failure joins the
+    # problems found so far, and the checks that need the specs are skipped
+    try:
+        specs = model.get_node_resources()
+    except (ValueError, OSError) as e:
+        problems.append(f"declaring the node resources failed: {type(e).__name__}: {e}")
+    except _UNREADABLE as e:
+        problems.append(_unreadable("get_node_resources", e))
+    else:
+        problems += check_resources(model, specs, config)
+        if deployment is not None:
+            problems += check_worker_graphs(
+                model, deployment.worker_graphs, deployment.sharding_config, specs,
+            )
 
     if problems:
         raise DeploymentError(config_path, problems)
