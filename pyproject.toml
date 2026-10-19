@@ -211,7 +211,7 @@ qwen3_tts = [
 fish_s2_pro = [
     "flashinfer-python>=0.6.14",
     "huggingface-hub",
-    "mooncake-transfer-engine",
+    "mooncake-transfer-engine>=0.3.13.post1",
     "safetensors",
     "soundfile",  # reference-audio decoding for voice cloning
     "transformers",
