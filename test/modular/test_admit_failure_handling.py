@@ -195,6 +195,12 @@ def test_a_refused_new_iteration_does_not_push_back_a_row_whose_loop_stopped(new
     assert sorted(worker.queue.pushed_back) == (["r0"] if new_iter else ["r0", "r1"])
 
 
+# the scheduler's batch-size calls, for stubs whose tests are about the holds
+_NO_LIMITS = dict(
+    at_cap=lambda *args: False, cap_batch=lambda *args: None, limit_batch=lambda *args: None,
+)
+
+
 class _HoldingWorker:
     """Binds the real allocation handler onto a worker with nothing to evict."""
 
@@ -205,7 +211,7 @@ class _HoldingWorker:
     def __init__(self):
         self._graph_runtime = _Runtime()
         self.scheduler = SimpleNamespace(
-            hold_requests=lambda rids: None, limit_batch=lambda *args: None,
+            hold_requests=lambda rids: None, **_NO_LIMITS,
         )
         self._hold_logged = {}
         # not a sharded node, so this rank runs its own OOM recovery
@@ -219,9 +225,9 @@ class _HoldingWorker:
     def _apply_pending_removes_safe_to_drop(self, in_flight_rids):
         del in_flight_rids
 
-    def _try_offload_cold_request(self, node_name, batch_ids, affected_resources=None):
+    def _try_offload_cold_request(self, node_name, batch_ids, affected_resources=None, inside_only=False):
         # no victim
-        del node_name, batch_ids, affected_resources
+        del node_name, batch_ids, affected_resources, inside_only
 
 
 def _hold(worker, monkeypatch, at: float, walk: str = "walk") -> None:
@@ -264,9 +270,7 @@ class _RefusedWorker(_HoldingWorker):
     def __init__(self):
         super().__init__()
         self.held: list[str] = []
-        self.scheduler = SimpleNamespace(
-            hold_requests=self.held.extend, limit_batch=lambda *args: None,
-        )
+        self.scheduler = SimpleNamespace(hold_requests=self.held.extend, **_NO_LIMITS)
 
 
 @pytest.mark.parametrize(
@@ -318,11 +322,18 @@ def test_a_hold_on_another_walk_is_logged_inside_the_interval(monkeypatch, caplo
 # --- a refused batch with nothing to evict is retried smaller ---------------
 
 
-def _refusing_loop(fits: int, ready: int, cap: int, passes: int):
+def _sized_refusal(rid, rows_fit=None, rows_fit_alone=None) -> AllocationFailed:
+    error = _alloc_failed(rid)
+    error.rows_fit, error.rows_fit_alone = rows_fit, rows_fit_alone
+    return error
+
+
+def _refusing_loop(fits: int, ready: int, cap: int, passes: int, sized: bool = True):
     """Schedule and admit like the worker loop, against a real scheduler: a
     batch of more than ``fits`` rows is refused on its first row past them,
-    with nothing to evict. Returns the scheduler, the batch sizes refused,
-    and the first batch admitted (None if none was)."""
+    with nothing to evict. ``sized`` refusals say how many rows fit, as the
+    paged KV cache's do. Returns the scheduler, the batch sizes refused, and
+    the first batch admitted (None if none was)."""
     sched = _scheduler(_Engine(max_bs=cap))
     manager = _Manager([f"r{i}" for i in range(ready)])
     worker = _HoldingWorker()
@@ -336,8 +347,8 @@ def _refusing_loop(fits: int, ready: int, cap: int, passes: int):
             return sched, refused, rids
         refused.append(len(rids))
         node_batch = SimpleNamespace(
-            node_name=SCHED_NODE, admit_error=_alloc_failed(rids[fits]),
-            failed_resource="kv",
+            node_name=SCHED_NODE, failed_resource="kv",
+            admit_error=_sized_refusal(rids[fits], fits if sized else None),
         )
         worker._handle_allocation_failure(batch, node_batch)
     return sched, refused, None
@@ -356,41 +367,152 @@ def test_a_refused_batch_with_nothing_to_evict_is_retried_smaller():
     assert refused == [16] and len(admitted) == 15
 
 
-def test_the_batch_keeps_shrinking_until_it_fits():
+def test_one_refusal_sizes_the_retry_from_the_rows_that_fit():
+    """Three of eight fit: the retry is three rows, not one row fewer per
+    refusal (8, 7, 6, 5, 4 refused before)."""
     _, refused, admitted = _refusing_loop(fits=3, ready=48, cap=8, passes=32)
 
-    assert refused == [8, 7, 6, 5, 4]
+    assert refused == [8]
     assert len(admitted) == 3
+
+
+def test_a_refusal_that_does_not_say_what_fits_halves_the_batch():
+    _, refused, admitted = _refusing_loop(fits=3, ready=48, cap=8, passes=32, sized=False)
+
+    assert refused == [8, 4]
+    assert len(admitted) == 2
 
 
 def test_an_admitted_step_lifts_the_limit():
     sched, _, admitted = _refusing_loop(fits=15, ready=48, cap=16, passes=4)
     assert len(admitted) == 15
 
-    sched.clear_batch_limit(SCHED_NODE, SCHED_WALK)
+    sched.clear_batch_limit(SCHED_NODE, SCHED_WALK, len(admitted))
 
     assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 16
 
 
 def test_the_limit_never_drops_below_one_row():
     sched = _scheduler(_Engine(max_bs=4))
-    sched.limit_batch(SCHED_NODE, SCHED_WALK, 1)
+    sched.limit_batch(SCHED_NODE, SCHED_WALK, 0)
+    sched.cap_batch(SCHED_NODE, SCHED_WALK, 0)
 
     assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 1
 
 
+def test_a_refused_batch_below_its_cap_is_not_limited():
+    """Nine running requests decode in a step of nine, the cap is 32, and the
+    admit refuses with nothing to evict. Every ready row is already in the
+    batch, so holding the blamed one is what makes the retry smaller. A limit
+    of eight on top kept a running row out of the steps after the hold, and
+    a row outside the batch is the one the next eviction takes first."""
+    sched = _scheduler(_Engine(max_bs=32))
+    manager = _Manager([f"d{i}" for i in range(9)])
+    worker = _HoldingWorker()
+    worker.scheduler = sched
+    worker._graph_runtime = manager.runtime
+    batch = _next_batch(sched, manager)
+    rids = list(batch.request_to_worker_graph)
+    assert len(rids) == 9
+
+    worker._handle_allocation_failure(batch, SimpleNamespace(
+        node_name=SCHED_NODE, failed_resource="kv",
+        admit_error=_sized_refusal(rids[6], rows_fit=6, rows_fit_alone=9),
+    ))
+    sched.held_until.clear()  # the backoff ran out
+
+    retry = _next_batch(sched, manager)
+    assert len(retry.request_to_worker_graph) == 9, "a running row was kept out of the step"
+
+
+class _EvictingWorker(_HoldingWorker):
+    """The real victim search, over requests ``holders`` that hold pages."""
+
+    _try_offload_cold_request = Worker._try_offload_cold_request
+    _select_eviction_victim = Worker._select_eviction_victim
+
+    def __init__(self, holders):
+        super().__init__()
+        self.offloaded: list[str] = []
+        self.eviction_policy = SimpleNamespace(value="lru")
+        self._last_active = {(rid, SCHED_NODE): float(i) for i, rid in enumerate(holders)}
+        engine = SimpleNamespace(
+            evictable=lambda node: True,
+            is_offloaded=lambda node, rid: rid in self.offloaded,
+            reclaimable=lambda node, rid, resources: rid in holders,
+            offload_request=lambda node, rid: self.offloaded.append(rid) or 12,
+        )
+        self.engine_manager = SimpleNamespace(get_engine=lambda node: engine)
+
+
+def test_a_batch_the_pool_cannot_hold_alone_is_capped_not_evicted_for():
+    """Sixteen prefills of 12 pages need 192 and the pool has 191. Four
+    decoding requests hold pages, and on each refusal one was offloaded and
+    the batch retried at sixteen: it can never fit, and the victim reloads
+    into the pages it freed. Nothing outside the batch is evicted now, and
+    the walk stays capped at fifteen after a step of fifteen admits."""
+    usable, row = 191, 12
+    sched = _scheduler(_Engine(max_bs=16))
+    manager = _Manager([f"p{i}" for i in range(48)])
+    worker = _EvictingWorker(holders=[f"d{i}" for i in range(4)])
+    worker.scheduler = sched
+    worker._graph_runtime = manager.runtime
+    sizes = []
+    for _ in range(8):
+        batch = _next_batch(sched, manager)
+        rids = list(batch.request_to_worker_graph)
+        sizes.append(len(rids))
+        # an offloaded decoder reloads by the next pass, so its pages are back
+        free = usable - row * 4
+        if row * len(rids) <= free:
+            break
+        worker._handle_allocation_failure(batch, SimpleNamespace(
+            node_name=SCHED_NODE, failed_resource="kv",
+            admit_error=_sized_refusal(
+                rids[free // row], rows_fit=free // row, rows_fit_alone=usable // row,
+            ),
+        ))
+        worker.offloaded.clear()
+    assert worker.offloaded == [] and sizes == [16, 11], (
+        f"batch sizes {sizes}: the full batch was retried after evicting a decoder"
+    )
+
+    sched.clear_batch_limit(SCHED_NODE, SCHED_WALK, 11)
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 15
+    sched.clear_batch_limit(SCHED_NODE, SCHED_WALK, 15)
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 15, (
+        "a step at the cap lifted it, so the next full batch is refused again"
+    )
+    sched.clear_batch_limit(SCHED_NODE, SCHED_WALK, 3)
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 16
+
+
+def test_a_batch_too_big_alone_still_evicts_its_own_rows():
+    """Running requests that outgrow the pool together: evicting one of
+    them is what lets the rest step, as before."""
+    # the request outside the batch is the least recently run
+    worker = _EvictingWorker(holders=["outside", "r0", "r1"])
+    worker.scheduler = SimpleNamespace(hold_requests=lambda rids: None, **_NO_LIMITS)
+    batch, node_batch = _batches(_sized_refusal("r1", rows_fit=1, rows_fit_alone=1))
+    node_batch.failed_resource = "kv"
+    batch.node_name = node_batch.node_name = SCHED_NODE
+
+    worker._handle_allocation_failure(batch, node_batch)
+
+    assert worker.offloaded == ["r0"], "an outside request was evicted for a batch it cannot help"
+
+
 def test_a_step_of_one_walk_lifts_its_combined_walks_limit():
-    """A mixed batch of two refused leaves its combined walk a limit of one
-    row, so every step under it holds one walk and carries that walk's label.
-    The first of them to admit has to lift the limit, or the walks never
-    batch together again."""
+    """A mixed batch limited to one row: every step under it holds one walk
+    and carries that walk's label. The first of them to admit has to lift
+    the limit, or the walks never batch together again."""
     sched = _combined_scheduler(_Engine(max_bs=8))
-    sched.limit_batch(SCHED_NODE, MIXED, 2)
+    sched.limit_batch(SCHED_NODE, MIXED, 1)
 
     limited = _next_batch(sched, _Manager(["p0", "d0"], walks={"p0": "prefill"}))
     assert limited.graph_walk != MIXED and len(limited.request_to_worker_graph) == 1
 
-    sched.clear_batch_limit(SCHED_NODE, limited.graph_walk)
+    sched.clear_batch_limit(SCHED_NODE, limited.graph_walk, 1)
 
     mixed = _next_batch(sched, _Manager(["p1", "d1"], walks={"p1": "prefill"}))
     assert mixed.graph_walk == MIXED, "the combined walk stayed limited to one row"

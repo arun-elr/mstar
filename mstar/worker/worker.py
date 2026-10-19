@@ -1613,13 +1613,15 @@ class Worker:
 
     def _try_offload_cold_request(
         self, node_name: str, batch_ids: set[int],
-        affected_resources: set[str] | None= None
+        affected_resources: set[str] | None= None,
+        inside_only: bool = False,
     ) -> int | None:
         """Offload one request's state for ``node_name``, freeing room to retry.
 
         Prefers a victim outside *batch_ids*; falls back to one inside it (the
-        caller then excludes it from execution). Returns the victim, or None
-        when nothing could be reclaimed.
+        caller then excludes it from execution). ``inside_only`` takes only
+        the latter. Returns the victim, or None when nothing could be
+        reclaimed.
         """
         engine = self.engine_manager.get_engine(node_name)
         if not engine.evictable(node_name):
@@ -1628,6 +1630,7 @@ class Worker:
         active = [
             rid for (rid, node) in self._last_active
             if node == node_name and not engine.is_offloaded(node_name, rid)
+            and (not inside_only or rid in batch_ids)
         ]
 
         # a request admitted but not yet run holds no pages: offloading it
@@ -1637,6 +1640,8 @@ class Worker:
         ]
 
         if not candidates:
+            if inside_only:
+                return None
             logger.warning(
                 "No eviction candidate on %s for %s: %d active requests, none "
                 "with pages of it to reclaim now.", node_name,
@@ -2499,12 +2504,20 @@ class Worker:
         if self._is_tp_follower_node(batch.node_name):
             return
 
+        # A batch the pool cannot hold even with nothing else resident does not
+        # fit after evicting a request outside it: that request only comes back
+        # into the pages it freed. Only a row of the batch makes the retry smaller.
+        reason = node_batch.admit_error
+        alone = getattr(reason, "rows_fit_alone", None)
+        too_big = alone is not None and alone < len(batch_ids)
+
         # scope the eviction to whichever resource actually ran out, when the
         # admit named one
         failed = node_batch.failed_resource
         victim_id = self._try_offload_cold_request(
             node_batch.node_name, batch_ids,
             affected_resources=None if failed is None else {failed},
+            inside_only=too_big,
         )
 
         if victim_id is not None:
@@ -2518,14 +2531,23 @@ class Worker:
         else:
             # Nothing could be evicted, so the batch has to get smaller or it will
             # refuse identically for ever. Hold the one request the admit named,
-            # not the whole batch, so the retry is immediate, and limit the
-            # batch size, or other ready rows refill it to the same size.
-            # Symmetric without coordinating: both ranks refuse the same batch
-            # for the same request.
-            blamed = getattr(node_batch.admit_error, "request_id", None)
+            # not the whole batch, so the retry is immediate. A batch at its cap
+            # also gets a limit, or other ready rows refill it to the same size:
+            # the rows the free pages held, or half when the resource does not
+            # say. Below the cap a limit only leaves running rows out of the
+            # step, where the next eviction picks them first. Symmetric without
+            # coordinating: both ranks refuse the same batch for the same request.
+            blamed = getattr(reason, "request_id", None)
             shed = [blamed] if blamed in batch_ids else list(batch_ids)
             self.scheduler.hold_requests(shed)
-            self.scheduler.limit_batch(batch.node_name, batch.graph_walk, len(batch_ids))
+            if self.scheduler.at_cap(batch.node_name, batch.graph_walk, len(batch_ids)):
+                if too_big:
+                    self.scheduler.cap_batch(batch.node_name, batch.graph_walk, alone)
+                fit = getattr(reason, "rows_fit", None)
+                self.scheduler.limit_batch(
+                    batch.node_name, batch.graph_walk,
+                    len(batch_ids) // 2 if fit is None else fit,
+                )
             key = (batch.node_name, batch.graph_walk)
             now = _time.monotonic()
             last, unlogged = self._hold_logged.get(key, (None, 0))
@@ -4932,7 +4954,10 @@ class Worker:
                     # failed rids upstream.
                     laps.skip()
                     if pending.node_batch.admit_error is None:
-                        self.scheduler.clear_batch_limit(pending.node_name, pending.graph_walk)
+                        self.scheduler.clear_batch_limit(
+                            pending.node_name, pending.graph_walk,
+                            len(pending.batch.request_to_worker_graph),
+                        )
                         with self._span(
                             "worker.postprocess_batch",
                             cpu="worker.postprocess_batch.cpu",

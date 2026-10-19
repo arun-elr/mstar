@@ -1794,7 +1794,9 @@ class KVManager(AttentionResource):
                     segment.request_id, segment.label, seq_len,
                 )
                 if not alloc_res.success:
-                    return AdmitOutcome(ok=False, reason=alloc_res.error)
+                    return AdmitOutcome(
+                        ok=False, reason=self._sized_refusal(step, ctx, alloc_res.error),
+                    )
                 if alloc_res.new_pages:
                     self._admit_reserved_pages.setdefault(
                         (segment.request_id, segment.label), []
@@ -1824,6 +1826,53 @@ class KVManager(AttentionResource):
         # retention is applied at commit (see `_apply_retention`)
 
         return ADMIT_OK
+
+    def _sized_refusal(
+        self, step: KVStep, ctx: StepContext, error: AdmitFailedReason,
+    ) -> AdmitFailedReason:
+        """``error`` with the step's ``rows_fit`` and ``rows_fit_alone`` filled
+        in, or a terminal refusal when the request it names needs more pages
+        than the whole pool has: no eviction can make that fit, so retrying it
+        only spins until the client gives up. Caller holds ``_lock``.
+
+        A request's footprint is every page it would hold after the step,
+        including the ones it holds already; the pool is every page but the
+        sink, cached prefixes included, since those can be evicted.
+        """
+        if not isinstance(error, AllocationFailed):
+            return error
+        page_size = self.config.page_size
+        footprint: dict[str, int] = {}
+        for segment in step.segments:
+            if ctx.is_padding_row(segment.request_id):
+                continue
+            stream = self._streams.get(segment.request_id, {}).get(segment.label)
+            held = 0 if stream is None else len(stream.page_indices)
+            stored = 0 if stream is None else stream.stored_len
+            pages = max(held, -(-(stored + segment.span) // page_size))
+            footprint[segment.request_id] = footprint.get(segment.request_id, 0) + pages
+        capacity = self.config.max_num_pages - 1
+        own = footprint.get(error.request_id, 0)
+        if own > capacity:
+            return AdmitRuntimeError(
+                message=(
+                    f"Request {error.request_id} needs {own} pages of {self.name} "
+                    f"for this step, more than the {capacity} the pool holds; "
+                    "raise max_num_pages or shorten the request."
+                ),
+                request_ids=frozenset({error.request_id}),
+            )
+        rows = list(footprint)
+        if error.request_id in rows:
+            error.rows_fit = rows.index(error.request_id)
+        total = alone = 0
+        for rid in rows:
+            total += footprint[rid]
+            if total > capacity:
+                break
+            alone += 1
+        error.rows_fit_alone = alone
+        return error
 
     def rollback_admit(self, step: KVStep, ctx: StepContext) -> None:
         """Give back the pages this admit freshly acquired, and clear the
