@@ -7,15 +7,14 @@ of the turn's silence window; audio after that point, even in the same
 append, is segmented for the next turn, so a turn end inside one append never
 drops the start of the next utterance, and each sample is committed exactly once.
 
-The probability comes from Silero VAD (MIT), a 2 MB TorchScript model run on
-CPU, about 0.3 ms per 32 ms frame. Its weights are read from disk only:
-``MSTAR_SILERO_VAD_PATH``, else the copy bundled with the ``silero-vad``
-package (``pip install 'mstar[vad]'``).
+The probability comes from Silero VAD (MIT), its 2 MB ONNX export run by
+onnxruntime on one CPU thread, about 0.15 ms per 32 ms frame. Its weights are
+read from disk only: ``MSTAR_SILERO_VAD_PATH``, else the copy bundled with
+the ``silero-vad`` package (``pip install 'mstar[vad]'``).
 """
 
 from __future__ import annotations
 
-import copy
 import functools
 import importlib.util
 import logging
@@ -65,51 +64,65 @@ class ServerVAD:
 
 
 class SileroVAD:
-    """Silero VAD for one stream (the model carries the stream's state)."""
+    """Silero VAD for one stream. The ONNX session is shared and stateless;
+    the stream keeps the model's recurrent state and the last CONTEXT
+    samples, which the model reads before each frame."""
 
-    def __init__(self, model):
-        self._model = model
+    CONTEXT = 64
+
+    def __init__(self, session):
+        self._session = session
+        self.reset()
 
     def __call__(self, frame: np.ndarray) -> float:
-        import torch
-
-        with torch.no_grad():
-            return float(self._model(torch.from_numpy(np.ascontiguousarray(frame, dtype=np.float32))[None],
-                                     SAMPLE_RATE))
+        x = np.concatenate([self._context, np.asarray(frame, dtype=np.float32)])[None]
+        prob, self._state = self._session.run(None, {"input": x, "state": self._state, "sr": _SR})
+        self._context = x[0, -self.CONTEXT:]
+        return float(prob[0, 0])
 
     def reset(self) -> None:
-        self._model.reset_states()
+        self._state = np.zeros((2, 1, 128), dtype=np.float32)
+        self._context = np.zeros(self.CONTEXT, dtype=np.float32)
+
+
+_SR = np.array(SAMPLE_RATE, dtype=np.int64)
 
 
 def silero_weights() -> Path | None:
-    """The Silero TorchScript file this server uses, or None."""
+    """The Silero ONNX file this server uses, or None."""
     path = os.environ.get("MSTAR_SILERO_VAD_PATH")
     if path:
         return Path(path)
     spec = importlib.util.find_spec("silero_vad")
     if spec is None or not spec.submodule_search_locations:
         return None
-    bundled = Path(next(iter(spec.submodule_search_locations))) / "data" / "silero_vad.jit"
+    bundled = Path(next(iter(spec.submodule_search_locations))) / "data" / "silero_vad.onnx"
     return bundled if bundled.is_file() else None
 
 
 @functools.lru_cache(maxsize=1)
 def silero_factory() -> Callable[[], SpeechProbability] | None:
-    """Make one SileroVAD per session from a model loaded once, or return
-    None (with one warning) when no weights are available."""
+    """Make one SileroVAD per session over a model loaded once, or return
+    None (with one warning) when the weights or onnxruntime are missing."""
     path = silero_weights()
     if path is None:
         logger.warning("server_vad is unavailable: no Silero VAD weights (set MSTAR_SILERO_VAD_PATH "
                        "or install mstar[vad])")
         return None
     try:
-        import torch
+        import onnxruntime as ort
 
-        model = torch.jit.load(str(path), map_location="cpu").eval()
+        # one thread: a 32 ms frame is too small to split, and a multi-thread
+        # pool's workers would spin between every session's frames
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = options.inter_op_num_threads = 1
+        options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        session = ort.InferenceSession(str(path), options, providers=["CPUExecutionProvider"])
     except Exception:  # noqa: BLE001 — a bad file disables server_vad, not the server
-        logger.exception("server_vad is unavailable: cannot load Silero VAD weights from %s", path)
+        logger.exception("server_vad is unavailable: cannot load Silero VAD from %s (needs onnxruntime, "
+                         "mstar[vad])", path)
         return None
-    return lambda: SileroVAD(copy.deepcopy(model))
+    return lambda: SileroVAD(session)
 
 
 class TurnSegmenter:

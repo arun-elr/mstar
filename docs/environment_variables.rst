@@ -256,7 +256,7 @@ Read by ``mstar-serve`` / ``mstar.api_server.entrypoint``.
        ``api_key``. See :ref:`api-key`.
    * - ``MSTAR_SILERO_VAD_PATH``
      - unset
-     - Silero VAD TorchScript file (``silero_vad.jit``) for ``/v1/realtime``
+     - Silero VAD ONNX file (``silero_vad.onnx``) for ``/v1/realtime``
        ``server_vad`` turn detection, read by
        ``realtime_vad.silero_weights``. Unset, the copy bundled with the
        ``silero-vad`` package (``mstar[vad]``) is used; with neither,

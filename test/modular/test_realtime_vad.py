@@ -9,7 +9,9 @@ and each transition fires once on the session timeline.
 """
 
 import base64
+import importlib.util
 import json
+import sys
 import wave
 from pathlib import Path
 
@@ -24,6 +26,7 @@ from test_openai_realtime import _step_samples, client_and_stub  # noqa: E402, F
 from mstar.api_server.openai import realtime_vad  # noqa: E402
 
 FRAME = realtime_vad.FRAME
+_REAL_SILERO = realtime_vad.silero_weights() is not None and importlib.util.find_spec("onnxruntime") is not None
 
 
 class _EnergyVAD:
@@ -479,7 +482,40 @@ def test_server_vad_without_weights_is_refused(client_and_stub, monkeypatch):  #
     assert err["type"] == "error" and "server_vad is unavailable" in err["error"]["message"]
 
 
-@pytest.mark.skipif(realtime_vad.silero_weights() is None, reason="no Silero VAD weights")
+def test_missing_onnxruntime_disables_server_vad_with_a_warning(monkeypatch, tmp_path, caplog):
+    weights = tmp_path / "silero_vad.onnx"
+    weights.write_bytes(b"onnx")
+    monkeypatch.setenv("MSTAR_SILERO_VAD_PATH", str(weights))
+    monkeypatch.setitem(sys.modules, "onnxruntime", None)
+    realtime_vad.silero_factory.cache_clear()
+    try:
+        assert realtime_vad.silero_factory() is None
+    finally:
+        realtime_vad.silero_factory.cache_clear()
+    assert "needs onnxruntime" in caplog.text
+
+
+@pytest.mark.skipif(not _REAL_SILERO, reason="no Silero VAD weights or onnxruntime")
+def test_silero_streams_share_one_model_but_not_its_state():
+    """Streams interleaved through the one ONNX session score each frame as
+    they would alone, and reset starts a stream over."""
+    realtime_vad.silero_factory.cache_clear()
+    make = realtime_vad.silero_factory()
+    with wave.open(str(Path(__file__).parents[1] / "qwen3-omni" / "audio.wav"), "rb") as wf:
+        clip = np.frombuffer(wf.readframes(wf.getnframes()), dtype="<i2")[::3][: 40 * FRAME] / 32768.0
+    frames = clip.astype(np.float32).reshape(-1, FRAME)
+    alone = [p for v in [make()] for p in (v(f) for f in frames)]
+    a, b = make(), make()
+    together = []
+    for f, g in zip(frames, frames[::-1], strict=True):
+        together.append(a(f))
+        b(g)
+    assert together == alone and max(alone) > 0.5
+    a.reset()
+    assert [a(f) for f in frames] == alone
+
+
+@pytest.mark.skipif(not _REAL_SILERO, reason="no Silero VAD weights or onnxruntime")
 def test_silero_splits_real_speech_into_its_turns(client_and_stub):  # noqa: F811
     """Real Silero on real speech at 24 kHz: the clip twice with 1 s of
     silence between is two turns, each holding its whole clip."""

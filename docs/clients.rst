@@ -348,9 +348,9 @@ Per-model notes:
   drops what the VAD has not put in a turn yet. ``create_response`` and
   ``interrupt_response`` are accepted and echoed but do nothing in a transcription
   session; ``idle_timeout_ms`` and other types are refused. With 24 kHz input each
-  decision waits 1 ms more for the resampler. Install ``mstar[vad]`` (Silero VAD, MIT,
-  bundled 2 MB weights, CPU only) or point ``MSTAR_SILERO_VAD_PATH`` at the TorchScript
-  file; weights are never downloaded. The Dynamo bridge has no turn detection yet and
+  decision waits 3 ms more for the resampler. Install ``mstar[vad]`` (Silero VAD, MIT,
+  bundled 2 MB ONNX weights, run by onnxruntime on one CPU thread) or point
+  ``MSTAR_SILERO_VAD_PATH`` at the ONNX file; weights are never downloaded. The Dynamo bridge has no turn detection yet and
   refuses it.
 - **Kokoro** — ``voice`` is one of the 54 bundled voices (default ``af_heart``) or a
   blend such as ``af_bella+af_sky`` or ``af_bella(2)+af_sky(1)``; ``speed`` scales the

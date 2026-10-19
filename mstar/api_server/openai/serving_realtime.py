@@ -661,7 +661,7 @@ class RealtimeTranscription:
             if s.item_samples() or (s.segmenter is not None and s.segmenter.speaking):
                 raise ValueError("commit or clear the input audio buffer before changing turn_detection")
             if td is not None and (vad := realtime_vad.silero_factory()) is None:
-                raise ValueError("server_vad is unavailable on this server (no Silero VAD weights); "
+                raise ValueError("server_vad is unavailable here (Silero VAD did not load; see the server log); "
                                  "set turn_detection to null and commit with input_audio_buffer.commit")
         knobs = _object(session.get("mstar"), "mstar")
         chunk_seconds = _number(knobs, "chunk_seconds", s.chunk_seconds, MIN_CHUNK_SECONDS, s.max_item_seconds,
