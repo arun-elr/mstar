@@ -24,9 +24,9 @@ sys.path.insert(0, ".")
 
 import pytest
 import torch
+from test_micro_scheduler import MIXED, _combined_scheduler, _Engine, _Manager, _next_batch, _scheduler
 from test_micro_scheduler import NODE as SCHED_NODE
 from test_micro_scheduler import WALK as SCHED_WALK
-from test_micro_scheduler import _Engine, _Manager, _next_batch, _scheduler
 
 from mstar.engine.engine import Engine, ExecutingBatch
 from mstar.engine.resources import (
@@ -377,6 +377,23 @@ def test_the_limit_never_drops_below_one_row():
     sched.limit_batch(SCHED_NODE, SCHED_WALK, 1)
 
     assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 1
+
+
+def test_a_step_of_one_walk_lifts_its_combined_walks_limit():
+    """A mixed batch of two refused leaves its combined walk a limit of one
+    row, so every step under it holds one walk and carries that walk's label.
+    The first of them to admit has to lift the limit, or the walks never
+    batch together again."""
+    sched = _combined_scheduler(_Engine(max_bs=8))
+    sched.limit_batch(SCHED_NODE, MIXED, 2)
+
+    limited = _next_batch(sched, _Manager(["p0", "d0"], walks={"p0": "prefill"}))
+    assert limited.graph_walk != MIXED and len(limited.request_to_worker_graph) == 1
+
+    sched.clear_batch_limit(SCHED_NODE, limited.graph_walk)
+
+    mixed = _next_batch(sched, _Manager(["p1", "d1"], walks={"p1": "prefill"}))
+    assert mixed.graph_walk == MIXED, "the combined walk stayed limited to one row"
 
 
 # --- the unbatchable path admits everything before it runs anything --------

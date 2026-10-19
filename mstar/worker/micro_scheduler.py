@@ -378,8 +378,16 @@ class MicroScheduler:
         self.batch_limits[key] = min(limit, self.batch_limits.get(key, limit))
 
     def clear_batch_limit(self, node_name: str, graph_walk: str) -> None:
-        """A step of ``(node_name, graph_walk)`` admitted: back to its cap."""
+        """A step of ``(node_name, graph_walk)`` admitted: back to its cap.
+
+        A step of a real walk lifts its combined walk's limit too: a mixed
+        batch refused at two rows leaves a limit of one, which no mixed step
+        can meet, so no step under the combined label would ever lift it.
+        """
         self.batch_limits.pop((node_name, graph_walk), None)
+        combined = self.combined_walk_of.get((node_name, graph_walk))
+        if combined is not None:
+            self.batch_limits.pop((node_name, combined), None)
 
     def tp_rids(self, message: ScheduleTPNode) -> list[int]:
         """``ScheduleTPNode`` crosses the wire, so its rids are strings; these
