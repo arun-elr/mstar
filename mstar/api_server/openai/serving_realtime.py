@@ -165,7 +165,7 @@ class RealtimeSession:
     short: int = 0
     # server turn detection (None: the client commits); the segmenter, like
     # the resampler, spans turns, so a commit does not reset either
-    turn_detection: realtime_vad.ServerVAD | None = None
+    turn_detection: realtime_vad.ServerVAD | realtime_vad.SemanticVAD | None = None
     segmenter: realtime_vad.TurnSegmenter | None = None
     stream_samples: int = 0    # SAMPLE_RATE samples written this session: the event timeline
     # the input clock: stream_samples at the last rate change, and input samples since

@@ -249,7 +249,7 @@ Endpoints and model coverage:
        ``mstar.transcription.partial`` (whole current hypothesis) out; ``commit``
        finishes the utterance. Input is ``pcm16`` at 16 kHz (the default) or
        ``{"type": "audio/pcm", "rate": 24000}``, resampled to 16 kHz. Turn
-       detection is null (client commits) or ``server_vad``; see below.
+       detection is null (client commits), ``server_vad`` or ``semantic_vad``; see below.
    * - ``POST /v1/images/generations``
      - ``bagel``
      - Text-to-image.
