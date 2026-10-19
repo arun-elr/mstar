@@ -77,7 +77,6 @@ class RealtimeConnection:
             system_prompt=self.cfg.get("instructions"),
         )
         self._consumed_audio = False
-        self._odd_byte = b""
 
     async def start(self):
         self._open_stream()
@@ -120,6 +119,7 @@ class RealtimeConnection:
             await self._finish_response()
         elif et == "input_audio_buffer.clear":
             self._open_stream()  # fresh turn — re-prime the current system prompt
+            self._odd_byte = b""  # only clear drops it: a cancel or update does not end the byte stream
         elif et == "response.cancel":
             self._open_stream()
             await self._finish_response()

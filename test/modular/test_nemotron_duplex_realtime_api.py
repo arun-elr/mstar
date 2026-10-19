@@ -68,3 +68,16 @@ def test_clear_drops_the_odd_byte_and_bad_base64_is_an_error():
     ])
     assert bytes(model.streams[-1].fed) == b"\x04\x05"
     assert sent[-1]["type"] == "error" and sent[-1]["error"]["message"] == "audio is not base64"
+
+
+def test_cancel_and_session_update_keep_the_odd_byte():
+    """A barge-in (response.cancel) or a prompt change opens a fresh stream,
+    but the client's byte stream goes on, so the pending byte is kept."""
+    raw = (np.sin(np.arange(1600) * 0.05) * 8000).astype("<i2").tobytes()
+    model, _ = _run([
+        _append(raw[:1001]),
+        {"type": "response.cancel"},
+        {"type": "session.update", "session": {"voice": "Other"}},
+        _append(raw[1001:]),
+    ])
+    assert bytes(model.streams[-1].fed) == raw[1000:]
