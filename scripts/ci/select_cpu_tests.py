@@ -18,6 +18,7 @@ CPU_TEST_PATHS = (
     "test/chatterbox",
     "test/kokoro",
     "test/omnivoice",
+    "test/sampling_test",
     "mstar/model/*/tests",
     "benchmark/worker_phases",
 )
@@ -25,7 +26,6 @@ NOT_CPU_CORE = {
     "test/ci": "the build job runs it with unittest, without PyTorch",
     "test/rust": "the rust-transport job runs it against the built mstar_rust extension",
     "test/integration": "needs a GPU and real weights; skips without the checkpoint",
-    "test/sampling_test": "CUDA sampler kernels; test_penalty_gate.py needs the CUDA generator",
     "test/pi05/batch_test.py": "a load-test script named like a test module; it has no tests",
 }
 IGNORE = "--ignore="

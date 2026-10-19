@@ -188,7 +188,7 @@ A worker keys its own state by a small integer handle ([mstar/worker/rid_table.p
 ```bash
 ruff check .                          # CI enforces this
 python -m pytest test/modular test/distributed test/chatterbox test/kokoro \
-    test/omnivoice mstar/model/*/tests benchmark/worker_phases
+    test/omnivoice test/sampling_test mstar/model/*/tests benchmark/worker_phases
                                       # the CPU Core CI job (CI adds -p xdist -n 4), no GPU or weights
 pytest test/integration/              # needs GPU + weights
 cd rust && cargo test --release --no-default-features && pytest ../test/rust/

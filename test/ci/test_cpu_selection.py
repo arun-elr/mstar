@@ -181,6 +181,7 @@ FROZEN_CPU_CORE = (
     "test/modular/test_worker_speculation_loop_counter.py",
     "test/modular/test_xpu_attention.py",
     "test/modular/test_z_image_model.py",
+    "test/sampling_test/test_penalty_gate.py",
 )
 RETIRED = {
     "test/modular/test_cpu_core_list.py": "checked test/cpu-core.txt and was deleted with it",
