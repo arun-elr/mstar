@@ -324,6 +324,19 @@ def test_realtime_malformed_append_is_a_client_error(tmp_path):
     assert _committed_pcm(server) == [PCM]
 
 
+def test_realtime_line_wrapped_base64_is_accepted(tmp_path):
+    """``base64.encodebytes`` wraps lines every 76 characters, as main accepted."""
+    server = _FakeRealtimeServer([_chunk("text", b"ok")], tmp_path)
+    tone = (np.sin(np.arange(1600) * 0.05) * 8000).astype("<i2").tobytes()
+    out = _run_connection(server, [
+        {"type": "session.update", "session": {"type": "realtime", "model": "q3o"}},
+        {"type": "input_audio_buffer.append", "audio": base64.encodebytes(tone).decode("ascii")},
+        {"type": "input_audio_buffer.commit"},
+    ])
+    assert "error" not in [e["type"] for e in out]
+    assert _committed_pcm(server) == [tone]
+
+
 def test_realtime_empty_commit_errors(tmp_path):
     server = _FakeRealtimeServer([], tmp_path)
     out = _run_connection(server, [

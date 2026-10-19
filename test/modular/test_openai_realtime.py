@@ -274,8 +274,8 @@ def _commit(ws) -> None:
 
 
 def _close_to(heard: np.ndarray, samples: np.ndarray) -> bool:
-    # the step WAV is written from float32, which can move a sample by 1 LSB
-    return heard.shape == samples.shape and int(np.abs(heard - samples.astype(np.int32)).max()) <= 1
+    # the step WAV holds the client's int16 samples exactly
+    return heard.shape == samples.shape and np.array_equal(heard, samples.astype(np.int32))
 
 
 def test_sample_split_across_appends_is_joined(client_and_stub):
@@ -292,6 +292,22 @@ def test_sample_split_across_appends_is_joined(client_and_stub):
             _append_bytes(ws, raw[i:i + 1001])
         _commit(ws)
     assert _close_to(heard[-1], tone)
+
+
+def test_line_wrapped_base64_is_accepted_and_kept_sample_for_sample(client_and_stub):
+    """``base64.encodebytes`` wraps lines every 76 characters; the whitespace
+    is skipped, and full-scale samples reach the engine unchanged."""
+    client, stub = client_and_stub
+    heard = _step_samples(stub)
+    samples = np.concatenate([_tone(1600), np.array([-32768, 32767, -1, 1, 0], dtype="<i2")])
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append",
+                                 "audio": base64.encodebytes(samples.tobytes()).decode("ascii")}))
+        ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": "AAA*"}))
+        assert json.loads(ws.receive_text())["error"]["message"] == "audio is not base64"
+        _commit(ws)
+    assert _close_to(heard[-1], samples)
 
 
 def test_odd_byte_survives_commit_and_clear_drops_it(client_and_stub):

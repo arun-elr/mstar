@@ -515,7 +515,8 @@ def _decode_pcm16_b64(audio_b64) -> bytes | None:
     if not isinstance(audio_b64, str):
         return None
     try:
-        return base64.b64decode(audio_b64, validate=True)
+        # whitespace is allowed (base64.encodebytes wraps lines), as on the API server
+        return base64.b64decode("".join(audio_b64.split()), validate=True)
     except Exception:  # noqa: BLE001 — refuse the malformed chunk, keep the session
         return None
 

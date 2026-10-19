@@ -81,3 +81,13 @@ def test_cancel_and_session_update_keep_the_odd_byte():
         _append(raw[1001:]),
     ])
     assert bytes(model.streams[-1].fed) == raw[1000:]
+
+
+def test_line_wrapped_base64_is_accepted_and_a_non_string_is_an_error():
+    raw = (np.sin(np.arange(1600) * 0.05) * 8000).astype("<i2").tobytes()
+    model, sent = _run([
+        {"type": "input_audio_buffer.append", "audio": base64.encodebytes(raw).decode("ascii")},
+        {"type": "input_audio_buffer.append", "audio": 12345},
+    ])
+    assert bytes(model.streams[-1].fed) == raw
+    assert sent[-1]["type"] == "error" and sent[-1]["error"]["message"] == "audio is not base64"

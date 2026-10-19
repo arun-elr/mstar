@@ -102,8 +102,9 @@ class RealtimeConnection:
             await self.send_json({"type": "session.updated", "session": self.cfg})
         elif et == "input_audio_buffer.append":
             try:
-                pcm = self._odd_byte + base64.b64decode(event.get("audio") or "", validate=True)
-            except ValueError:
+                # whitespace is allowed (base64.encodebytes wraps lines), as on the API server
+                pcm = self._odd_byte + base64.b64decode("".join((event.get("audio") or "").split()), validate=True)
+            except (ValueError, TypeError, AttributeError):
                 await self.send_json({"type": "error", "error": {"message": "audio is not base64"}})
                 return
             # the stream takes whole int16 samples; an odd trailing byte waits
