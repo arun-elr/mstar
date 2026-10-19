@@ -1194,6 +1194,7 @@ def test_stream_window_widths_bound_every_window(model):
     assert stream_window_widths((1, 2, 4), 8, 5) == (1, 3, 7, 13)
     assert stream_window_widths((1, 2, 4), 8, 22) == (1, 3, 7, 15, 23, 30)
     assert stream_window_widths((4,), 2, 0) == (2, 4)
+    assert stream_window_widths((), 8, 5) == (8, 13)
     widths = stream_window_widths(model.stream_schedule, model.stream_chunk_patches, model.stream_left_context)
     for lead in (0, 2, model.stream_left_context):
         policy = model.get_partition_topology().connections[0].chunk_policy_factory()
