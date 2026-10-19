@@ -168,6 +168,19 @@ def test_silence_window_boundary(vad_client, silence_ms, gap_frames, ends):
     _assert_items_are_the_stream(turns, heard, stream)
 
 
+def test_zero_silence_window_ends_a_turn_on_its_first_silent_frame(vad_client):
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    stream = np.concatenate([_speech(10), _silence(3)])
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        _open(ws, silence_duration_ms=0, prefix_padding_ms=0)
+        _send(ws, stream, step=stream.size)
+        events = _barrier(ws)
+    turns = _turns(events)
+    assert [(t["start"], t["end"]) for t in turns] == [(0, 11 * 32)]
+    _assert_items_are_the_stream(turns, heard, stream)
+
+
 def test_back_to_back_turns_in_10ms_appends(vad_client):
     client, stub = vad_client
     heard = _step_samples(stub)

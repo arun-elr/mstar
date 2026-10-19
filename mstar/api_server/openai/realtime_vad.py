@@ -164,7 +164,8 @@ class TurnSegmenter:
         ops.append(("audio", frame))
         self._turn += FRAME
         self._silence = self._silence + FRAME if p < self._neg else 0
-        if self._silence >= self._silence_cap or self._turn >= self.max_turn:
+        # at least one silent frame, so silence_duration_ms 0 does not end a turn mid-speech
+        if (self._silence and self._silence >= self._silence_cap) or self._turn >= self.max_turn:
             self._stop(start + FRAME, ops)
 
     def _stop(self, end: int, ops: list) -> None:

@@ -558,14 +558,15 @@ class RealtimeTranscription:
                     audio = await asyncio.to_thread(s.resample, audio)
                 await self.apply([("audio", audio)])
             else:
-                await self.apply(s.segmenter.feed(s.resample(audio)))
+                # off the event loop: one large append is thousands of VAD frames
+                await self.apply(await asyncio.to_thread(s.segmenter.feed, s.resample(audio)))
         elif kind == "input_audio_buffer.commit":
             s = self.session
             tail = s.drain_resampler()
             if s.segmenter is None:
                 await self.apply([("audio", tail)])
             else:
-                await self.apply(s.segmenter.feed(tail) + s.segmenter.end_turn())
+                await self.apply(await asyncio.to_thread(s.segmenter.feed, tail) + s.segmenter.end_turn())
             await self.commit()
         elif kind == "input_audio_buffer.clear":
             s = self.session

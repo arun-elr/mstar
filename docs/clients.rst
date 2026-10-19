@@ -247,8 +247,8 @@ Endpoints and model coverage:
        ``conversation.item.input_audio_transcription.delta`` (append-only) and
        ``mstar.transcription.partial`` (whole current hypothesis) out; ``commit``
        finishes the utterance. Input is ``pcm16`` at 16 kHz (the default) or
-       ``{"type": "audio/pcm", "rate": 24000}``, resampled to 16 kHz. There is
-       no server turn detection: ``turn_detection`` must be null.
+       ``{"type": "audio/pcm", "rate": 24000}``, resampled to 16 kHz. Turn
+       detection is null (client commits) or ``server_vad``; see below.
    * - ``POST /v1/images/generations``
      - ``bagel``
      - Text-to-image.
