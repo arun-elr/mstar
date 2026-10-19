@@ -528,14 +528,17 @@ def test_adapter_refuses_a_file_under_the_upload_dir(tmp_path):
 def test_adapter_fetches_a_url_only_when_the_server_allows(tmp_path, monkeypatch):
     from mstar.api_server import media_io
 
-    fetched = []
+    fetched, checked = [], []
     monkeypatch.setattr(media_io, "save_remote_url", lambda url, upload_dir: fetched.append(url) or ("audio", "p"))
+    # the decode check itself runs on real clips in test_media_paths.py
+    monkeypatch.setattr(media_io, "check_ref_audio", lambda path, decoder: checked.append((path, decoder)))
     monkeypatch.delenv("MSTAR_ALLOW_REMOTE", raising=False)
     with pytest.raises(ValueError, match="Remote media fetch is disabled"):
         adapters.CosyVoice3Adapter().speech_to_request(_speech(ref_audio="https://example.com/a.wav"), tmp_path)
     monkeypatch.setenv("MSTAR_ALLOW_REMOTE", "1")
     sa = adapters.CosyVoice3Adapter().speech_to_request(_speech(ref_audio="https://example.com/a.wav"), tmp_path)
     assert fetched == ["https://example.com/a.wav"] and sa.file_paths == {"audio": ["p"]}
+    assert checked == [("p", "soundfile")]
 
 
 # -- repetition-aware sampling -------------------------------------------------------------
