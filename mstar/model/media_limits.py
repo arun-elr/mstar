@@ -176,7 +176,11 @@ def read_image(filepath: str, *, rgb: bool = False) -> torch.Tensor:
             array = np.array(image.convert("RGB"))
         return torch.from_numpy(array).permute(2, 0, 1).contiguous()
     mode = torchvision.io.ImageReadMode.RGB if rgb else torchvision.io.ImageReadMode.UNCHANGED
-    return torchvision.io.decode_image(filepath, mode=mode)
+    image = torchvision.io.decode_image(filepath, mode=mode)
+    if image.dtype == torch.uint16:
+        # a 16-bit PNG: its high byte, as Pillow reads a 16-bit RGB PNG
+        image = (image.to(torch.int32) >> 8).to(torch.uint8)
+    return image
 
 
 def probe_video(filepath: str) -> tuple[int, float, int, int] | None:

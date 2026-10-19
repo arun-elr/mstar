@@ -47,6 +47,22 @@ def _png(path, width, height, *, rows=None):
     return str(path)
 
 
+def _png16(path, samples, color_type):
+    """A 16-bit PNG of ``samples`` (``[H, W, C]`` uint16): color type 0 gray, 2 RGB."""
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    height, width = samples.shape[:2]
+    raw = b"".join(b"\x00" + samples[y].astype(">u2").tobytes() for y in range(height))
+    path.write_bytes(
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 16, color_type, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(raw))
+        + chunk(b"IEND", b"")
+    )
+    return str(path)
+
+
 def _gif_lzw(n_pixels):
     """``n_pixels`` of colour 0, coded with a clear code often enough that the code width stays 3 bits."""
     codes = []
@@ -515,3 +531,21 @@ def test_probe_reads_torchcodec_metadata_without_a_scan(monkeypatch):
     _fake_torchcodec(monkeypatch, [], _Metadata(num_frames=10), opened=opened)
     assert probe_video("clip.mp4") == (10, 30.0, 64, 64)
     assert opened == [{"seek_mode": "approximate"}]
+
+
+@pytest.mark.parametrize("color_type,channels", [(2, 3), (0, 1)])
+def test_a_16_bit_png_reads_as_uint8(tmp_path, color_type, channels):
+    """torchvision decodes a 16-bit PNG to uint16; read_image keeps the high
+    byte, so the base loader's divide by 255 stays in [0, 1]."""
+    import numpy as np
+    from PIL import Image
+
+    samples = np.random.default_rng(0).integers(0, 65536, size=(12, 20, channels), dtype=np.uint16)
+    path = _png16(tmp_path / "deep.png", samples, color_type)
+    image = read_image(path)
+    assert image.dtype == torch.uint8 and image.shape == (channels, 12, 20)
+    assert torch.equal(image, torch.from_numpy((samples >> 8).astype(np.uint8)).permute(2, 0, 1))
+    if channels == 3:
+        assert torch.equal(image, torch.from_numpy(np.asarray(Image.open(path).convert("RGB"))).permute(2, 0, 1))
+    loaded = Model.load_image(None, path, "cpu").data
+    assert 0.0 <= loaded.min() and loaded.max() <= 1.0
