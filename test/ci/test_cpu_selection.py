@@ -245,6 +245,15 @@ class CpuSelectionTests(unittest.TestCase):
         unused = [path for path in NOT_CPU_CORE if not any(IS_COLLECTED(m, [path]) for m in modules)]
         self.assertEqual(unused, [], "NOT_CPU_CORE entries that cover no test module")
 
+    def test_selected_modules_outside_packages_have_unique_basenames(self):
+        # pytest's default import mode imports these by basename, so two of them stop
+        # the whole run at collection with "import file mismatch"
+        by_name = {}
+        for path in repo_test_modules():
+            if IS_COLLECTED(path, EXPANDED_PATHS) and not (REPO_ROOT / path).with_name("__init__.py").exists():
+                by_name.setdefault(Path(path).name, []).append(path)
+        self.assertEqual({name: paths for name, paths in by_name.items() if len(paths) > 1}, {})
+
     def test_model_local_test_directories_are_selected(self):
         model_tests = sorted(p.parent.relative_to(REPO_ROOT).as_posix()
                              for p in REPO_ROOT.glob("mstar/model/*/tests/test_*.py"))

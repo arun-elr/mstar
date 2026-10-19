@@ -149,7 +149,15 @@ selected. Within the selected directories:
   own file, with a reason that says why and names the PR or issue fixing it
   when one exists, so the fix removes the skip;
 - a test that reads or writes a fixed path or port uses `tmp_path` or a free
-  port instead, since the workers run tests concurrently.
+  port instead, since the workers run tests concurrently;
+- a test module outside a Python package has a basename no other selected
+  module has (pytest imports it by that name; the guard checks);
+- a guard on a reference package named like an mstar model (`kokoro`,
+  `chatterbox`, `omnivoice`, ...) imports a submodule only the reference has,
+  e.g. `pytest.importorskip("kokoro.model")`. `mstar/model` is a namespace
+  package, so pytest puts it on `sys.path` for the model-local tests, and from
+  then on the bare name finds mstar's own model package for the rest of the
+  session.
 
 Run the new file with CI's installation before opening the PR. Check ARM
 compatibility before extending the Mac exclusion list. CI prints the slowest

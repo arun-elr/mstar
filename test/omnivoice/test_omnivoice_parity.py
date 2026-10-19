@@ -28,11 +28,11 @@ unoptimised dense one.  The tiers say which is which:
 
 Run the structural tier anywhere::
 
-    pytest test/omnivoice/test_parity.py -k "layout or schedule or prefix or mask_class"
+    pytest test/omnivoice/test_omnivoice_parity.py -k "layout or schedule or prefix or mask_class"
 
 and the rest on a box with a GPU and the checkpoint::
 
-    OMNIVOICE_PATH=/path/to/OmniVoice pytest test/omnivoice/test_parity.py
+    OMNIVOICE_PATH=/path/to/OmniVoice pytest test/omnivoice/test_omnivoice_parity.py
 """
 
 import os
