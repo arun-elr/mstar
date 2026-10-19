@@ -31,6 +31,15 @@ class HostLostError(RuntimeError):
     """The host stopped answering (ssh failed), as opposed to a job that failed on it."""
 
 
+class Interrupted(KeyboardInterrupt):
+    """Ctrl-C during ``run_slots``; ``stopped`` says whether every slot stopped its job before ``run_slots`` gave up
+    waiting (a job left running stops itself when its lease runs out)."""
+
+    def __init__(self, stopped: bool):
+        super().__init__(stopped)
+        self.stopped = stopped
+
+
 class Transport(Protocol):
     name: str
 
@@ -272,11 +281,16 @@ def run_slots(slots: list[Slot], queue: WorkQueue, run_one: Callable[[Slot, str]
     try:
         while not all_done.wait(timeout=1):
             pass
-    except BaseException:   # Ctrl-C, or SIGTERM / SIGHUP turned into SystemExit by the CLI
+    except BaseException as e:   # Ctrl-C, or SIGTERM / SIGHUP turned into SystemExit by the CLI
         queue.stop()
         if stop is not None:
             stop.set()   # run_one sees it, stops its job on the host and returns
-        all_done.wait(timeout=300)
+        try:
+            stopped = all_done.wait(timeout=300)
+        except KeyboardInterrupt:   # a second Ctrl-C: stop waiting
+            stopped = False
+        if isinstance(e, KeyboardInterrupt):
+            raise Interrupted(stopped) from None
         raise
     for name in queue.pending():   # every slot was lost before these could run
         on_given_up(name)

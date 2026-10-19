@@ -1040,11 +1040,8 @@ hosts.run_slots([slot], hosts.WorkQueue(["fake"], {{}}), runner.run_one, stop=ru
 """
 
 
-def test_sigterm_to_compare_stops_the_remote_job_before_compare_exits(tmp_path):
-    """A signal that lands while the main thread waits must not let compare exit before its slot threads have
-    stopped their jobs (Thread.join can return early after an interrupted join)."""
-    code = SIGTERM_RUN.format(root=str(compare.TOOL_ROOT), tests=str(Path(__file__).parent), tmp=str(tmp_path))
-    proc = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+def wait_for_fake_job_in_a_case(tmp_path: Path) -> Path:
+    """The fake job's status.json once its first server is serving a case."""
     for _ in range(300):
         found = list((tmp_path / "home" / "mstar-eval" / "runs").glob("run-*/fake.1/status.json"))
         if found:
@@ -1056,6 +1053,15 @@ def test_sigterm_to_compare_stops_the_remote_job_before_compare_exits(tmp_path):
             break
         threading.Event().wait(0.1)
     assert procs_under(tmp_path / "home")
+    return status
+
+
+def test_sigterm_to_compare_stops_the_remote_job_before_compare_exits(tmp_path):
+    """A signal that lands while the main thread waits must not let compare exit before its slot threads have
+    stopped their jobs (Thread.join can return early after an interrupted join)."""
+    code = SIGTERM_RUN.format(root=str(compare.TOOL_ROOT), tests=str(Path(__file__).parent), tmp=str(tmp_path))
+    proc = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    status = wait_for_fake_job_in_a_case(tmp_path)
     proc.send_signal(subprocess.signal.SIGTERM)
     proc.wait(120)
     done = json.loads((status.parent / "done.json").read_text())
@@ -1063,6 +1069,42 @@ def test_sigterm_to_compare_stops_the_remote_job_before_compare_exits(tmp_path):
     state = json.loads((tmp_path / "run" / "state.json").read_text())
     assert state["models"]["fake"]["status"] == "interrupted"
     assert not procs_under(tmp_path / "home")
+
+
+CTRL_C_RUN = SIGTERM_RUN.split("for sig in", maxsplit=1)[0] + r"""
+def fake_compare(args):
+    hosts.run_slots([slot], hosts.WorkQueue(["fake"], {{}}), runner.run_one, stop=runner.stop)
+    return 0
+compare.cmd_compare = fake_compare
+cli.main(["compare", "--head", "main"])
+"""
+
+
+def test_ctrl_c_on_compare_stops_the_remote_job_and_prints_one_line(tmp_path):
+    code = CTRL_C_RUN.format(root=str(compare.TOOL_ROOT), tests=str(Path(__file__).parent), tmp=str(tmp_path))
+    proc = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            start_new_session=True)
+    status = wait_for_fake_job_in_a_case(tmp_path)
+    os.killpg(proc.pid, subprocess.signal.SIGINT)          # a terminal's Ctrl-C: the whole foreground group
+    _, err = proc.communicate(timeout=120)
+    assert proc.returncode == 130
+    assert "Traceback" not in err and err.strip().splitlines()[-1] == "interrupted; remote job stopped"
+    assert json.loads((status.parent / "done.json").read_text())["status"] == "interrupted"
+    assert not procs_under(tmp_path / "home")
+
+
+def test_ctrl_c_messages_say_whether_the_jobs_were_stopped():
+    from benchmark.eval import cli
+
+    assert cli._interrupted(KeyboardInterrupt()) == "interrupted; no job was running"
+    assert cli._interrupted(hosts.Interrupted(True)) == "interrupted; remote job stopped"
+    try:
+        try:
+            raise hosts.Interrupted(False)
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt from None              # a second Ctrl-C during cleanup keeps the first's news
+    except KeyboardInterrupt as e:
+        assert cli._interrupted(e) == "interrupted; a job still running stops itself within 10 min (its lease)"
 
 
 def test_a_job_killed_during_head_fails_the_rows_head_never_answered(tmp_path):

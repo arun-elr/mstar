@@ -32,6 +32,7 @@ from pathlib import Path
 
 from benchmark.eval import datasets
 from benchmark.eval.e2e import compare as e2e_compare
+from benchmark.eval.e2e import hosts as e2e_hosts
 from benchmark.eval.harness import SAVE_AUDIO, run_point
 from benchmark.eval.load import MODES, LoadSpec
 from benchmark.eval.schema import collect_metadata, served_models
@@ -268,6 +269,17 @@ def _exit_on_signal(signum, frame) -> None:  # noqa: ARG001
     raise SystemExit(128 + signum)
 
 
+def _interrupted(e: BaseException | None) -> str:
+    """The one line ``compare`` prints on Ctrl-C instead of a traceback."""
+    while e is not None and not isinstance(e, e2e_hosts.Interrupted):   # a second Ctrl-C while cleaning up
+        e = e.__context__
+    if e is None:
+        return "interrupted; no job was running"
+    if e.stopped:
+        return "interrupted; remote job stopped"
+    return f"interrupted; a job still running stops itself within {e2e_compare.LEASE_S // 60} min (its lease)"
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     for sig in (signal.SIGTERM, signal.SIGHUP):
@@ -279,7 +291,12 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "rescore":
         cmd_rescore(args)
     elif args.command == "compare":
-        sys.exit(e2e_compare.cmd_compare(args))
+        try:
+            code = e2e_compare.cmd_compare(args)
+        except KeyboardInterrupt as e:
+            print(_interrupted(e), file=sys.stderr)
+            code = 128 + signal.SIGINT
+        sys.exit(code)
     elif args.command == "calibrate":
         sys.exit(e2e_compare.cmd_calibrate(args))
     else:
