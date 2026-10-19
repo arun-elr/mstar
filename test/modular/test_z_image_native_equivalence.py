@@ -157,13 +157,29 @@ def test_caption_encoder_tap_is_the_second_to_last_hidden_state():
     assert torch.equal(expected[0], ours[0]) and torch.equal(expected[1, :9], ours[1, :9])
 
 
-@pytest.mark.skip(reason="differs from the padded batch in the last digit on CPU (torch 2.9.1)")
-def test_caption_encoder_real_token_states_ignore_trailing_padding():
-    # real-token states are independent of how much padding follows (what lets rows batch)
+def test_caption_encoder_real_token_states_ignore_what_the_padding_holds():
+    # real tokens never see the padding (what lets rows batch); same shapes, so the same kernels
     native, ids, mask, _, ours = _tiny_caption_encoder()
+    other = ids.clone()
+    other[1, 9:] = 7
     with torch.no_grad():
-        shorter = native(ids[1:, :9], mask[1:, :9])
-    assert torch.equal(shorter[0], ours[1, :9])
+        repadded = native(other, mask)
+    assert torch.equal(repadded[0], ours[0]) and torch.equal(repadded[1, :9], ours[1, :9])
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="on some CPU hosts (torch 2.9.1+cpu) a shorter batch differs in the last digit",
+)
+def test_caption_encoder_real_token_states_ignore_how_much_padding_follows():
+    # Both batches are padded, so both take the masked SDPA path. A batch without padding takes
+    # the is_causal path (as HF does), a different kernel, so it is not compared bit for bit.
+    native, ids, mask, _, _ = _tiny_caption_encoder()
+    native, ids, mask = native.cuda(), ids.cuda(), mask.cuda()
+    with torch.no_grad():
+        full = native(ids, mask)
+        shorter = native(ids[1:, :10], mask[1:, :10])
+    assert torch.equal(shorter[0, :9], full[1, :9])
 
 
 def test_euler_step_with_negated_fp32_velocity_matches_reference_scheduler():
