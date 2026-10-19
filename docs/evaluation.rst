@@ -187,10 +187,16 @@ running ``compare`` (each arm imports its own tree and builds its own ``rust/`` 
 environment); the client, the checks and the report always come from that checkout, so ``main`` can be measured
 before it has this framework. Each model runs on one GPU: base and head back to back, arm order alternating from
 model to model, every case at each concurrency in its ``conc`` with ``repeats`` passes after warmup waves.
-``--sessions 2`` runs two server sessions per arm (ABBA). With ``--hosts``, idle hosts take whatever models are
+``--sessions 2`` runs two server sessions per arm (ABBA). Each arm's first server start gets twice the model's
+``startup_timeout_s``, since it may compile from cold caches whichever arm goes first; later starts get it once.
+The ``rust/`` extension is built with the environment's ``pip``, or ``uv pip`` when it has none (a uv venv); if a
+tree both arms share cannot be built, both run the environment's ``mstar_rust`` and the report says so.
+Exported trees, ``rust/`` builds, local jobs' outputs and the inputs live in ``--work-dir`` (default
+``$XDG_CACHE_HOME/mstar-eval``, else ``~/.cache/mstar-eval``; ``--data-dir`` moves the inputs alone).
+With ``--hosts``, idle hosts take whatever models are
 still queued; a host that stops answering is dropped and its model requeued. Hosts need key-based ``ssh``,
-``rsync`` 3.2.3 or newer at both ends, an M\* environment (``--host-python``) and the Hugging Face Hub (with a login for gated repos such
-as Orpheus) or a warm cache. Machines that must
+``rsync`` at both ends, an M\* environment (``--host-python``) and the Hugging Face Hub (with a login for gated repos such
+as Orpheus) or a warm cache; their work directory is ``--host-dir``. Machines that must
 be started first are a launcher's job: ``--host-provider module:factory`` supplies the hosts and is told when the
 run ends (``benchmark/eval/e2e/hosts.py``).
 
@@ -202,18 +208,21 @@ suite (``run e2e --kind chat_image|image|video|pi05|frames|...``). Inputs are bu
 
 The run directory holds every results file and ``report/report.md`` (a table for a PR body, details in toggles),
 ``report/chart.png`` and ``report/summary.json``. ``compare`` exits with 1 when any row is flagged, else with 2
-when any row has no verdict (its job failed or was interrupted, the model was skipped or never got a GPU, or base
-is broken), else 0; on Ctrl-C it stops every job, prints one line and exits with 130. A row is **flagged** when:
+when any row has no verdict (its job failed or was interrupted, the model was skipped or never got a GPU, base
+is broken, or base answered no request at some server session and concurrency, whatever head did), else 0; on Ctrl-C it stops every job, prints one line and exits with 130. A row is **flagged** when:
 
 * **correctness changed**: greedy text is neither identical (share at least ``min_match``) nor close (median
   similarity 0.6 or more, length ratio 0.8 to 1.25), or any head reply is base's cut below 80% of its length
   (empty replies included); speech WER (Whisper
   large-v3 round trip for TTS) rose more than ``max_increase`` points; a seeded image, video or frame stream fell
   below ``min_db`` PSNR against base; VLA actions moved more than ``tol``; duplex take-turn or yield rates dropped
-  more than ``tol``; a request-path status code changed; or head had more request errors than base;
+  more than ``tol``; a request-path status code changed; head had more request errors than base; or head answered
+  no request at a server session and concurrency where base answered some (request errors per arm are a column of
+  the main table);
 * **a regression**: c=1 latency or c=max throughput is worse by more than 5%, by more than two combined standard
   deviations of the passes, and by more than 1.5 times the largest drift that row showed between two server
-  processes of identical code (its A/A noise floor). When base and head return different output lengths for the
+  processes of identical code in its last 8 A/A runs (its A/A noise floor; a lone drift over 10% and over three
+  times the median of the others is left out until a second run agrees). When base and head return different output lengths for the
   same requests, latency is compared over the requests whose lengths matched, else per token or audio second;
 * **head does not build** (its ``rust/`` extension or Rust frontend) while base does, or **head does not start**
   while base does.

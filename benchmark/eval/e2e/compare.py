@@ -12,6 +12,7 @@ import copy
 import dataclasses
 import hashlib
 import json
+import os
 import re
 import shlex
 import shutil
@@ -26,11 +27,15 @@ from benchmark.eval.e2e import manifest as mf
 from benchmark.eval.e2e.report import RERUN_TAG
 
 TOOL_ROOT = Path(__file__).resolve().parents[3]
-CACHE = Path("~/.cache/mstar-eval").expanduser()
 POLL_S = 15
 LEASE_S = 600           # a job whose lease compare has not renewed this long stops itself (arm.watch_lease)
 GPU_TYPES = ("gb200", "b200", "h200", "h100", "a100", "l40s", "l40", "l4", "a10g")
 FETCH_EXCLUDE = ("audio/",)   # saved outputs and audio stay on the host; compare.json already holds their facts
+
+
+def default_work_dir() -> Path:
+    """``$XDG_CACHE_HOME/mstar-eval``, else ``~/.cache/mstar-eval``."""
+    return Path(os.environ.get("XDG_CACHE_HOME") or "~/.cache").expanduser() / "mstar-eval"
 
 
 def gpu_type(name: str) -> str:
@@ -57,7 +62,10 @@ def add_args(sub) -> None:
     p.add_argument("--host-python", default="python3", help="Python of the M* environment on the SSH hosts")
     p.add_argument("--host-dir", default="mstar-eval", help="work directory on the SSH hosts (relative to home)")
     p.add_argument("--remote", default=None, help="git remote for PR heads (default: the mstar-project/mstar one)")
-    p.add_argument("--data-dir", default=str(CACHE / "e2e-data"), help="inputs (built on first use)")
+    p.add_argument("--work-dir", default=None,
+                   help="exported trees, rust/ builds, local jobs' outputs and the inputs on this machine "
+                        "(default $XDG_CACHE_HOME/mstar-eval, else ~/.cache/mstar-eval)")
+    p.add_argument("--data-dir", default=None, help="inputs, built on first use (default <work dir>/e2e-data)")
     p.add_argument("--cases", default=str(mf.DEFAULT), help="the manifest")
     p.add_argument("--calibration", default=str(calibrate.DEFAULT), help="A/A noise floors and swings")
     p.add_argument("--out", default=None, help="run directory (default eval-results/compare/<time>-<head>)")
@@ -69,6 +77,14 @@ def add_args(sub) -> None:
     c.add_argument("runs", nargs="+", help="run directories of compare --base X --head X")
     c.add_argument("--cases", default=str(mf.DEFAULT))
     c.add_argument("--calibration", default=str(calibrate.DEFAULT))
+
+
+def work_dir(args) -> Path:
+    return Path(args.work_dir).expanduser() if args.work_dir else default_work_dir()
+
+
+def data_dir(args) -> Path:
+    return Path(args.data_dir).expanduser() if args.data_dir else work_dir(args) / "e2e-data"
 
 
 def run_models(man: mf.Manifest, run: dict) -> list[mf.Model]:
@@ -185,8 +201,8 @@ class Runner:
         self.attempt: dict[str, int] = {}
         # Remote namespace: unique per invocation, whatever --out is called (two runs may share a host).
         self.run_key = f"{run_dir.name}-{uuid.uuid4().hex[:8]}"
-        self.cache = CACHE / "compare"
-        self.data = Path(args.data_dir).expanduser()
+        self.cache = work_dir(args) / "compare"
+        self.data = data_dir(args)
         self.evalfw = evalfw_id(TOOL_ROOT)
         self.data_id = tree_id(self.data)
 
@@ -440,7 +456,7 @@ def _run(args, man, models, base, head, slots) -> int:
         (run_dir / "run.json").open("x").close()
     except FileExistsError:
         raise SystemExit(f"{run_dir} already holds a run; pass a new --out") from None
-    data = Path(args.data_dir).expanduser()
+    data = data_dir(args)
     if not (data / "e2e-data.json").exists():
         print(f"building the inputs into {data} (once)", file=sys.stderr)
         media.build(data)

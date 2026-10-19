@@ -2,10 +2,11 @@
 
 The passes inside one server session underestimate the spread between two server processes (kernel selection and
 batching differ per process). Every A/A run records, per row, metric and GPU type, how far two processes of the
-same code drifted; the report then requires a delta to clear ``report.FLOOR_FACTOR`` times the largest drift before
-it calls the row faster or a regression. The same runs record how far each row's correctness number moved (WER
-points, identical-text share, audio length, PSNR ...), and the report widens a manifest limit that this noise alone
-would trip (``report.correct_limit``).
+same code drifted; the report then requires a delta to clear ``report.FLOOR_FACTOR`` times the largest recent drift
+before it calls the row faster or a regression (``report.floor_from``: the last ``FLOOR_WINDOW`` drifts, without a
+lone drift far above the others, so one noisy A/A run cannot widen a floor for good). The same runs record how far
+each row's correctness number moved (WER points, identical-text share, audio length, PSNR ...), and the report
+widens a manifest limit that this noise alone would trip (``report.correct_limit``).
 
 ``calibration.yaml`` next to this file is the shared baseline; ``--calibration PATH`` keeps a private one (YAML,
 or JSON for a ``.json`` path).
@@ -45,10 +46,7 @@ def save(cal: dict, path: str | Path = DEFAULT) -> None:
 
 
 def floor_pct(cal: dict, key: str) -> float | None:
-    e = cal.get(key)
-    if not e or not e.get("deltas"):
-        return None
-    return report.FLOOR_FACTOR * max(abs(d) for d in e["deltas"])
+    return report.floor_from((cal.get(key) or {}).get("deltas") or [])
 
 
 def noise_row(r: report.Row) -> bool:

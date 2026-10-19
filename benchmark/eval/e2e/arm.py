@@ -33,6 +33,9 @@ from benchmark.eval.server import ManagedServer, ServerError, is_healthy
 
 CASE_TIMEOUT_S = 3600
 IDLE_MB = 2000
+# Each arm's first server start may compile from cold caches (whichever arm goes first pays the shared compiles,
+# and a head that changed kernels compiles those even second), so it gets this many times startup_timeout_s.
+COLD_START_FACTOR = 2.0
 
 job: dict = {}
 out = Path(".")
@@ -120,6 +123,15 @@ def host_lock(name: str):
         yield
 
 
+def pip_install(python: str) -> list[str] | None:
+    """``pip install`` into ``python``'s environment: its own pip, else ``uv pip`` (a uv venv has no pip)."""
+    r = subprocess.run([python, "-m", "pip", "--version"], capture_output=True, text=True, check=False)
+    if r.returncode == 0:
+        return [python, "-m", "pip", "install"]
+    uv = shutil.which("uv", path=f"{Path(python).parent}{os.pathsep}{base_env()['PATH']}")
+    return [uv, "pip", "install", "--python", python] if uv else None
+
+
 def build_rust(arm: dict) -> str | None:
     """``mstar_rust`` for the arm's ``rust/`` tree into a shared site dir; returns the problem, or None."""
     tree = arm.get("rust_tree")
@@ -129,8 +141,11 @@ def build_rust(arm: dict) -> str | None:
     with host_lock(f"rust-{tree}"):
         if not (site / ".complete").exists():
             shutil.rmtree(site, ignore_errors=True)
-            r = subprocess.run([job["python"], "-m", "pip", "install", "-q", "--no-deps", "--target", str(site),
-                                f"{arm['src']}/rust"], capture_output=True, text=True, check=False)
+            pip = pip_install(job["python"])
+            if pip is None:
+                return "mstar_rust not built: the M* environment has no pip and no uv is on PATH"
+            r = subprocess.run([*pip, "-q", "--no-deps", "--target", str(site), f"{arm['src']}/rust"],
+                               capture_output=True, text=True, check=False)
             if r.returncode != 0:
                 return f"mstar_rust build failed: {(r.stdout + r.stderr).strip()[-300:]}"
             (site / ".complete").touch()
@@ -157,10 +172,13 @@ def build_rust_server(arm: dict) -> str | None:
 
 
 def requirements_problem(arm: dict) -> str:
+    """What the arm's environment lacks of the model's ``requires``: a module to import, or ``module:function`` to
+    call with no arguments (the server's own loader, when it loads a package without importing it)."""
     mods = job["model"].get("requires", [])
     if not mods:
         return ""
-    code = ("import importlib, sys\nbad = []\nfor m in sys.argv[1:]:\n    try:\n        importlib.import_module(m)\n"
+    code = ("import importlib, sys\nbad = []\nfor m in sys.argv[1:]:\n    mod, _, fn = m.partition(':')\n"
+            "    try:\n        x = importlib.import_module(mod)\n        if fn:\n            getattr(x, fn)()\n"
             "    except Exception as e:\n        bad.append(f'{m}: {type(e).__name__}')\nprint('; '.join(bad))")
     r = subprocess.run([job["python"], "-c", code, *mods], env={**os.environ, **server_env(arm)}, cwd=arm["src"],
                        capture_output=True, text=True, timeout=600, check=False)
@@ -205,8 +223,10 @@ def run_arm(arm_name: str, session: int) -> dict:
     sampler = VramSampler()
     sampler.start()
     config = str(Path(arm["src"]) / model["config"]) if model.get("config") else None
+    timeout = model["startup_timeout_s"] * (COLD_START_FACTOR if session == 0 else 1.0)
+    info["startup_timeout_s"] = timeout
     server = ManagedServer(model["serve"], config, extra_args=serve_args(arm), env=server_env(arm),
-                           log_path=d / "server.log", startup_timeout_s=model["startup_timeout_s"],
+                           log_path=d / "server.log", startup_timeout_s=timeout,
                            python=job["python"], cwd=arm["src"])
     cases: dict = {}
     try:

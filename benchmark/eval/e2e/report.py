@@ -28,6 +28,20 @@ FLOOR_FACTOR = 1.5          # a perf delta must clear 1.5x the largest drift two
 CORRECT_FACTOR = 1.5        # and a correctness limit 1.5x the largest swing of its number
 TEXT_MATCH_FLOOR = 0.1      # A/A noise never lowers the identical-output share below this
 PSNR_FLOOR_DB = 20.0        # nor the PSNR limit below this
+FLOOR_WINDOW = 8            # a floor follows the most recent A/A drifts of its row, so it can shrink again
+OUTLIER_FACTOR = 3.0        # a drift over 3x the median of the row's others is one noisy run until another agrees
+OUTLIER_MIN_PCT = 10.0      # and only a drift over 10% is ever left out
+
+
+def floor_from(deltas: list[float]) -> float | None:
+    """The cross-process noise floor (% of base) from a row's A/A drifts: FLOOR_FACTOR times the largest of the
+    last FLOOR_WINDOW, leaving out a lone outlier (a second drift of that size makes it count)."""
+    d = [abs(x) for x in deltas[-FLOOR_WINDOW:] if isinstance(x, (int, float)) and math.isfinite(x)]
+    if not d:
+        return None
+    kept = [x for i, x in enumerate(d) if len(d) == 1 or x <= OUTLIER_MIN_PCT
+            or x <= OUTLIER_FACTOR * statistics.median(d[:i] + d[i + 1:])]
+    return FLOOR_FACTOR * max(kept)
 
 
 @dataclass
@@ -78,6 +92,8 @@ class Row:
     no_baseline: bool = False           # perf row with no A/A noise floor for this GPU (calibrate it)
     rerun: str = ""                     # flagged with one session, judged on a 2-session (ABBA) rerun
     broken: str = ""                    # the one arm whose rust/ (or Rust frontend) did not build
+    silent: str = ""                    # head | base | both: an arm with a point where no request succeeded
+    rust: dict[str, str] = field(default_factory=dict)   # arms whose shared rust/ tree did not build: why
 
     @property
     def flagged(self) -> bool:
@@ -99,6 +115,9 @@ class Row:
             return "**head does not start**"
         if self.starts.get("base") is False:
             return "base does not start"
+        if self.silent:
+            return {"head": "**head answers no request**", "base": "base answers no request",
+                    "both": "neither arm answers a request"}[self.silent]
         perfs_with_data = [p for p in (self.latency, self.throughput) if p and p.verdict != "n/a"]
         if self.correct in ("incomplete", "base broken") and not perfs_with_data and self.request_path is None:
             return self.note or self.correct
@@ -482,6 +501,7 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
         else f"{done['status']}: {done.get('reason', '')}".strip(": "))
     perf_pct, sigma = float(m.thresholds.get("perf_pct", 5)), float(m.thresholds.get("noise_sigma", 2))
     files = a.files(c.id)
+    mute = ""
 
     def at(conc: int) -> dict[str, list[Path]]:
         return {k: [f for f in v if f.name.endswith(f"-c{conc}.json")] for k, v in files.items()}
@@ -496,8 +516,8 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
     def floor_of(p: Perf, orig: str | None) -> float | None:
         for metric in dict.fromkeys((p.metric, orig)):   # a normalized metric falls back to its source
             e = calibration.get(calibration_key(gpu, m.name, c.id, metric, p.conc)) or {}
-            if e.get("deltas"):
-                return FLOOR_FACTOR * max(abs(d) for d in e["deltas"])
+            if (f := floor_from(e.get("deltas") or [])) is not None:
+                return f
         return None
 
     errs = {arm: int(sum(_vals(files[arm], "errors"))) for arm in ("base", "head")}
@@ -529,11 +549,19 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
         swings = (calibration.get(correct_key(gpu, m.name, c.id)) or {}).get("swings")
         corr, detail = judge_correct(c, a.compare.get(c.id, []), errs, swings)
         gaps, absent = point_gaps(a, files, c) if timed else ([], [])
+        silent = silent_points(files) if timed else {"base": [], "head": []}
         died = [s for s, alive in a.alive_after(c.id).items() if alive["head"] is False and alive["base"] is not False]
         if gaps:
             corr, detail = "FAIL", f"head wrote no results for {', '.join(gaps)}; {detail}"
         elif died:
             corr, detail = "FAIL", f"head server died during this case ({', '.join(died)}); {detail}"
+        elif head_only := [p for p in silent["head"] if p not in silent["base"]]:
+            mute = "head"
+            corr, detail = "FAIL", f"head answered no request at {', '.join(head_only)}; {detail}"
+        elif silent["base"]:   # nothing to judge head against at those points, whatever head did
+            mute = "both" if silent["head"] else "base"
+            who = "neither arm answered a request" if mute == "both" else "base answered no request"
+            corr, detail = "base broken", f"{who} at {', '.join(silent['base'])}; {detail}"
         elif absent and corr == "pass":
             corr, detail = "incomplete", f"no results for {', '.join(absent)}; {detail}"
     with_data = [p for p in (lat, thru) if p and p.base.mean is not None and p.head.mean is not None]
@@ -541,7 +569,8 @@ def _row(a: _Arms, m: Model, c: Case, status: dict, gpu: str, calibration: dict)
     note, detail = _public(note), _public(detail)   # reasons can quote server errors: no paths or addresses
     return Row(model=m.name, family=m.family, case=c.id, modality=c.modality, starts=a.starts, correct=corr,
                correct_detail=detail, latency=lat, throughput=thru, extra=extra, startup_s=a.startup,
-               peak_vram_gb=a.vram, errors=errs, request_path=rp, note=note, broken=broken,
+               peak_vram_gb=a.vram, errors=errs, request_path=rp, note=note, broken=broken, silent=mute,
+               rust={k: _public(str(v)) for k, v in (done.get("rust") or {}).items() if v},
                no_baseline=bool(with_data) and all(floors.get(id(p)) is None for p in with_data))
 
 
@@ -557,6 +586,26 @@ def point_gaps(a: _Arms, files: dict[str, list[Path]], c: Case) -> tuple[list[st
     expected = {(s, conc) for s in sessions for conc in c.conc}
     fmt = lambda pts: [f"{s} c={conc}" for s, conc in sorted(pts)]  # noqa: E731
     return fmt(base - head), fmt(expected - base)   # base missing a point: nothing to judge head against
+
+
+def silent_points(files: dict[str, list[Path]]) -> dict[str, list[str]]:
+    """Per arm, the points (server session and concurrency) it wrote results for in which no request succeeded:
+    a server that answers every request with an error still yields metrics (WER 100%, 0 req/s) that compare equal."""
+    out = {}
+    for arm, fs in files.items():
+        ok: dict[tuple[str, int], int] = {}
+        for f in fs:
+            conc = re.search(r"-c(\d+)\.json$", f.name)
+            if not conc:
+                continue
+            try:
+                reps = json.loads(f.read_text()).get("repeats", [])
+            except (OSError, ValueError):
+                continue
+            point = (f.parent.parent.name, int(conc.group(1)))
+            ok[point] = ok.get(point, 0) + sum(1 for rep in reps for r in rep.get("requests", []) if r.get("ok"))
+        out[arm] = [f"{s} c={conc}" for (s, conc), n in sorted(ok.items()) if n == 0]
+    return out
 
 
 def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = None,
@@ -584,6 +633,7 @@ def build_rows(run_dir: Path, models: list[Model], calibration: dict | None = No
                 r2.errors = {arm: r.errors.get(arm, 0) + r2.errors.get(arm, 0) for arm in ("base", "head")}
                 if r.correct == "FAIL":
                     r2.correct, r2.correct_detail = "FAIL", f"first run: {r.correct_detail}"
+                    r2.silent = r2.silent or r.silent
                 r = r2
             rows.append(r)
     return rows
@@ -632,6 +682,11 @@ def starts_cell(r: Row) -> str:
     return f"base {'yes' if b else 'no' if b is False else '?'}, head {'yes' if h else 'no' if h is False else '?'}"
 
 
+def errors_cell(r: Row) -> str:
+    eb, eh = r.errors.get("base", 0), r.errors.get("head", 0)
+    return f"**{eb} / {eh}**" if eh > eb or r.silent else f"{eb} / {eh}"
+
+
 def hosts_text(run: dict) -> str:
     slots = run.get("slots") or []
     hosts = sorted({s.rsplit(":", 1)[0] for s in slots})
@@ -654,13 +709,22 @@ def render_md(rows: list[Row], run: dict, chart_url: str | None = None) -> str:
         lines.append(f"**{len(flagged)} of {len(rows)} rows flagged** (regression over {pct}% beyond noise, a "
                      "correctness change, or a head that no longer builds or starts).")
     elif not unfinished:
-        lines.append(f"No regressions: {len(rows)} rows across {len(models)} models, every one starts, keeps its "
-                     f"outputs, and stays within {pct}% (or within noise).")
+        lines.append(f"No regressions: {len(rows)} rows across {len(models)} models, every one starts, answers its "
+                     f"requests, keeps its outputs, and stays within {pct}% (or within noise).")
     else:
         lines.append(f"No regressions in {len(rows) - len(unfinished)} complete rows.")
     if unfinished:
-        lines.append(f"**{len(unfinished)} rows incomplete or with a broken base** "
-                     f"({', '.join(sorted({r.model for r in unfinished}))}); see the table.")
+        lines.append(f"**{len(unfinished)} rows have no verdict** (incomplete, a broken base, or a base that answered "
+                     f"no request; {', '.join(sorted({r.model for r in unfinished}))}); see the table.")
+    erred = [r for r in rows if any(r.errors.values())]
+    if erred:
+        lines.append(f"**{len(erred)} rows had request errors** (base {sum(r.errors.get('base', 0) for r in erred)}, "
+                     f"head {sum(r.errors.get('head', 0) for r in erred)} in total); see the Errors column.")
+    no_rust = {r.model: r.rust for r in rows if r.rust}
+    if no_rust:
+        lines.append(f"**No per-arm `rust/` build for {', '.join(no_rust)}** "
+                     f"({'; '.join(sorted({p for d in no_rust.values() for p in d.values()}))}): both arms of those "
+                     "models ran the environment's `mstar_rust`, so they do not cover `rust/`.")
     reruns = [r for r in rows if r.rerun]
     if reruns:
         lines.append(f"{len(reruns)} rows flagged with one server session per arm were rerun with two (ABBA) and are "
@@ -673,17 +737,21 @@ def render_md(rows: list[Row], run: dict, chart_url: str | None = None) -> str:
               f"(order alternated per model), {run.get('repeats', 3)} measured passes per point, "
               f"{run.get('sessions', 1)} server session(s) per arm. Deltas are signed so that positive means head "
               "is better (lower latency, higher throughput).", ""]
-    lines += ["| Model | Modality | Starts | Correct | c=1 latency, base to head | c=max throughput, base to head "
-              "| Verdict |",
-              "|---|---|---|---|---|---|---|"]
+    lines += ["| Model | Modality | Starts | Correct | Errors, base / head | c=1 latency, base to head "
+              "| c=max throughput, base to head | Verdict |",
+              "|---|---|---|---|---|---|---|---|"]
     for r in perf_rows:
         corr = {"pass": "yes", "FAIL": f"**no** ({r.correct_detail})"}.get(r.correct, r.correct)
-        lines.append(f"| {r.model} | {r.modality} | {starts_cell(r)} | {corr} | {fmt_perf(r.latency)} | "
-                     f"{fmt_perf(r.throughput)} | {r.verdict()}{' (2-session rerun)' if r.rerun else ''} |")
+        if r.silent and r.correct != "FAIL":
+            corr = f"{corr} ({r.correct_detail})"
+        lines.append(f"| {r.model} | {r.modality} | {starts_cell(r)} | {corr} | {errors_cell(r)} | "
+                     f"{fmt_perf(r.latency)} | {fmt_perf(r.throughput)} | "
+                     f"{r.verdict()}{' (2-session rerun)' if r.rerun else ''} |")
     for r in rp_rows:
         corr = r.correct if r.correct != "pass" else "yes"
         verdict = {"FAIL": "**changed**", "pass": "same"}.get(r.correct, r.note or r.correct)
-        lines.append(f"| {r.model} | {r.modality} | {starts_cell(r)} | {corr} ({r.correct_detail}) | | | {verdict} |")
+        lines.append(f"| {r.model} | {r.modality} | {starts_cell(r)} | {corr} ({r.correct_detail}) | | | | "
+                     f"{verdict} |")
     if chart_url:
         lines += ["", "![Per model and modality, head's c=1 latency and c=max throughput relative to base on one "
                   f"{gpu}; positive means head is better, the grey band marks {pct}%, error bars are the noise margin.]"
@@ -719,14 +787,16 @@ def render_md(rows: list[Row], run: dict, chart_url: str | None = None) -> str:
     lines += ["<details>", "<summary>Setup</summary>", "",
               f"- base: {base['label']} (`{base['sha'][:9]}`), head: {head['label']} (`{head['sha'][:9]}`)",
               f"- GPU: {gpu}; one model per GPU at a time, {hosts_text(run)}; each arm imports its own checkout "
-              "(and its own `rust/` build) in one Python environment",
+              "(and its own `rust/` build" + (f", except {', '.join(no_rust)}: see above" if no_rust else "")
+              + ") in one Python environment",
               f"- Command: `{run.get('command', 'python -m benchmark.eval compare')}`",
               "- Checks: greedy text identity (or close similarity with no truncation) at c=1, Whisper-large-v3 WER "
               "for speech, PSNR against base for seeded images and video, max action difference for VLA, duplex "
               "take-turn and yield rates, status codes for the request path",
               f"- Regression: worse than {pct}%, more than {sigma} combined standard deviations of the passes, and "
               f"more than {FLOOR_FACTOR} times the largest drift the same row showed between two processes of "
-              "identical code (A/A calibration); better by the same margin is reported as faster. Where base and "
+              f"identical code in its last {FLOOR_WINDOW} A/A runs, a lone outlier run left out (A/A calibration); "
+              "better by the same margin is reported as faster. Where base and "
               "head returned different output lengths, c=1 latency uses only the requests whose lengths matched "
               "(else latency per token or audio second) and throughput counts output tokens or audio seconds per "
               "second",
@@ -803,7 +873,7 @@ def summary_json(rows: list[Row]) -> list[dict[str, Any]]:
              "correct_detail": r.correct_detail, "latency": p(r.latency), "throughput": p(r.throughput),
              "extra": [p(x) for x in r.extra], "startup_s": r.startup_s, "peak_vram_gb": r.peak_vram_gb,
              "errors": r.errors, "flagged": r.flagged, "verdict": r.verdict(), "note": r.note,
-             "no_baseline": r.no_baseline, "rerun": r.rerun} for r in rows]
+             "no_baseline": r.no_baseline, "rerun": r.rerun, "silent": r.silent, "rust": r.rust} for r in rows]
 
 
 def write(run_dir: Path, models: list[Model], chart_url: str | None = None, calibration: dict | None = None,

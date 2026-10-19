@@ -20,8 +20,14 @@
 #   status_match same status code (and identity flags) per request-path case
 #   duplex       take-turn and yield rates within tol of base
 #   audio_len    total c=1 audio seconds within pct of base
-# Every check also fails when head has more request errors than base. `compare calibrate` widens a limit that two
-# processes of identical code already cross (never tighter than the value here).
+# Every check also fails when head has more request errors than base, or answered no request at a session and
+# concurrency where base answered some; a base that answered none there leaves the row without a verdict.
+# `compare calibrate` widens a limit that two processes of identical code already cross (never tighter than the
+# value here).
+#
+# `requires`: what the server needs in the environment, checked in each arm's checkout before any server starts (the
+# model is skipped when both arms lack it): a module to import, or `module:function` to call with no arguments (the
+# server's own loader, for a package it loads without importing it).
 #
 # Perf: `latency` is the c=1 metric (lower is better), `throughput` the c=max metric (higher is better), `extra` are
 # shown in the details. A delta is a regression when it is worse than perf_pct, beyond noise_sigma combined standard
@@ -131,7 +137,9 @@ models:
     config: configs/qwen3tts.yaml
     family: TTS
     tags: [tts, speech-out, ar]
-    requires: [qwen_tts]
+    # The server loads qwen-tts' codec files through its own loader (with a transformers 5.x shim); `import
+    # qwen_tts` raises under transformers 5.x, so it is not the check.
+    requires: ["mstar.model.qwen3_tts.qwen3_tts_model:_load_qwen3_tts_codec_classes"]
     est_min: 9
     cases:
       - id: tts

@@ -8,6 +8,8 @@ import copy
 import json
 import math
 import os
+import re
+import shlex
 import subprocess
 import sys
 import threading
@@ -214,8 +216,10 @@ def chat_model(name="m", kind="chat_text", check=None, conc=(1, 8)):
                              perf=p, check=check or {"kind": "text_match", "min_match": 0.5})])
 
 
-def write_arm(md: Path, arm: str, reqs1, reqsn, wall_n: float, audio=False, session=0, passes=3, errors=0):
-    """reqs: (e2e_s, output length) per request; the pass metrics are what the suites compute."""
+def write_arm(md: Path, arm: str, reqs1, reqsn, wall_n: float, audio=False, session=0, passes=3, errors=0,
+              failed=()):
+    """reqs: (e2e_s, output length) per request; the pass metrics are what the suites compute. ``failed``: the
+    concurrencies at which every request failed (a server answering each one with a 500)."""
     d = md / arm / f"s{session}" / "c"
     d.mkdir(parents=True, exist_ok=True)
     (md / arm / f"s{session}" / "startup.json").write_text(json.dumps({"healthy": True, "startup_s": 10}))
@@ -229,6 +233,10 @@ def write_arm(md: Path, arm: str, reqs1, reqsn, wall_n: float, audio=False, sess
         p50 = (lat[len(lat) // 2 - 1] + lat[len(lat) // 2]) / 2
         metrics = {"lat_p50_s": p50, "e2e_s_p50": p50, "req_per_s": len(rows) / wall,
                    "audio_s_per_s": sum(ln for _, ln in reqs) / wall, "errors": errors}
+        if conc in failed:
+            rows = [{"id": r["id"], "ok": False, "error": "HTTP 500"} for r in rows]
+            metrics = {"lat_p50_s": None, "e2e_s_p50": None, "req_per_s": 0.0, "audio_s_per_s": 0.0,
+                       "errors": len(rows)}
         reps = [{"index": k, "wall_s": wall, "metrics": metrics, "requests": rows} for k in range(passes)]
         (d / f"x-{arm}-c{conc}.json").write_text(json.dumps({"schema": "mstar-eval/1", "suite": "e2e", "label": "x",
                                                              "config": {}, "meta": {}, "repeats": reps,
@@ -649,10 +657,12 @@ class FakeRemote:
         return subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=timeout,
                               cwd=self.home, check=False)
 
-    def push(self, local, remote):
+    def push(self, local, remote):   # as SSHTransport.push: the parent first, then rsync
+        self.sh(f"mkdir -p {shlex.quote(str(Path(remote).parent))}")
         hosts._rsync([f"{local}/" if local.is_dir() else str(local), remote])
 
     def pull(self, remote, local, exclude=()):
+        local.mkdir(parents=True, exist_ok=True)
         hosts._rsync([*[f"--exclude={e}" for e in exclude], f"{remote}/", f"{local}/"])
 
 
@@ -672,8 +682,8 @@ def test_one_model_runs_both_arms_on_a_remote_slot_and_reports(tmp_path, monkeyp
                                                   "models": ["fake"]}))
     (tmp_path / "data" / "media").mkdir(parents=True)
     args = Namespace(python=sys.executable, host_python=sys.executable, host_dir="mstar-eval",
-                     data_dir=str(tmp_path / "data"), sessions=1, repeats=None, no_rerun=True,
-                     calibration=str(tmp_path / "cal.json"))
+                     work_dir=str(tmp_path / "work"), data_dir=str(tmp_path / "data"), sessions=1, repeats=None,
+                     no_rerun=True, calibration=str(tmp_path / "cal.json"))
     slot = hosts.Slot(FakeRemote(home), None)
     runner = compare.Runner(args, man, models, base, head, run_dir, [slot])
     runner.cache = tmp_path / "cache"
@@ -718,8 +728,8 @@ def test_stopping_compare_stops_the_job_and_its_servers(tmp_path, monkeypatch):
     (run_dir / "run.json").write_text(json.dumps({**RUN, "models": ["fake"]}))
     (tmp_path / "data").mkdir()
     args = Namespace(python=sys.executable, host_python=sys.executable, host_dir="mstar-eval",
-                     data_dir=str(tmp_path / "data"), sessions=1, repeats=None, no_rerun=True,
-                     calibration=str(tmp_path / "cal.json"))
+                     work_dir=str(tmp_path / "work"), data_dir=str(tmp_path / "data"), sessions=1, repeats=None,
+                     no_rerun=True, calibration=str(tmp_path / "cal.json"))
     slot = hosts.Slot(hosts.LocalTransport(), None)
     runner = compare.Runner(args, man, man.select("all"), base, head, run_dir, [slot])
     runner.cache = tmp_path / "cache"
@@ -761,7 +771,7 @@ def test_a_flagged_model_queues_an_abba_rerun_of_its_flagged_cases(tmp_path):
     finish(rd, md)
     man = mf.Manifest(models={"m": chat_model()}, datasets={}, defaults={})
     args = Namespace(sessions=1, no_rerun=False, repeats=None, calibration=str(tmp_path / "none.json"),
-                     data_dir=str(tmp_path))
+                     work_dir=str(tmp_path / "work"), data_dir=str(tmp_path))
     runner = compare.Runner(args, man, [chat_model()], trees.Ref("a", "a" * 40, "a"), trees.Ref("b", "b" * 40, "b"),
                             rd, [])
     assert runner.maybe_rerun("m") == "m__abba" and runner.rerun_cases["m__abba"] == ["c"]
@@ -846,7 +856,8 @@ def test_a_job_whose_lease_is_not_renewed_stops_itself_and_its_servers(tmp_path)
             {"id": "text", "client": "chat_text", "n": 4, "check": {"kind": "text_match", "min_match": 0.5},
              "perf": {"latency": "lat_p50_s"}}]}}})
     base = trees.Ref("main", "a" * 40, "main")
-    args = Namespace(python=sys.executable, data_dir=str(tmp_path / "data"), sessions=1, repeats=None)
+    args = Namespace(python=sys.executable, work_dir=str(tmp_path / "work"), data_dir=str(tmp_path / "data"),
+                     sessions=1, repeats=None)
     slot = hosts.Slot(hosts.LocalTransport(), None, host_dir=str(tmp_path / "host"))
     runner = compare.Runner(args, man, man.select("all"), base, base, tmp_path / "run", [slot])
     runner.cache = tmp_path / "cache"
@@ -1028,7 +1039,7 @@ base = trees.Ref("main", "a" * 40, "main")
 (tmp / "run" / "run.json").write_text(json.dumps({{**T.RUN, "models": ["fake"]}}))
 (tmp / "data").mkdir()
 args = Namespace(python=sys.executable, host_python=sys.executable, host_dir="mstar-eval", data_dir=str(tmp / "data"),
-                 sessions=1, repeats=None, no_rerun=True, calibration=str(tmp / "cal.json"))
+                 work_dir=str(tmp / "work"), sessions=1, repeats=None, no_rerun=True, calibration=str(tmp / "cal.json"))
 (tmp / "home").mkdir()
 slot = hosts.Slot(T.FakeRemote(tmp / "home"), None)
 runner = compare.Runner(args, man, man.select("all"), base, base, tmp / "run", [slot])
@@ -1329,3 +1340,208 @@ def test_truncated_text_replies_fail_even_when_enough_others_are_identical():
     v, detail = report.judge_correct(c, [facts], {})
     assert v == "FAIL" and "8 head replies are base's cut short" in detail
     assert report.judge_correct(c, [{**facts, "text_truncated": 0}], {})[0] == "pass"
+
+
+# ---------------------------------------------------------------- arms that answer no request, environment checks
+
+def visible(md: str) -> str:
+    """The part of a report outside its collapsed sections."""
+    return re.sub(r"<details>.*?</details>", "", md, flags=re.S)
+
+
+def silent_run(tmp_path: Path, base_failed, head_failed):
+    """Whisper-like ASR rows where an arm answers every request at the given concurrencies with a 500: WER reads
+    100% on a failed arm, so a WER check alone sees no change when both fail."""
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(0.2, 3.0)] * 8, [(0.4, 3.0)] * 8, wall_n=1.0, audio=True, failed=base_failed)
+    write_arm(md, "head", [(0.2, 3.0)] * 8, [(0.4, 3.0)] * 8, wall_n=1.0, audio=True, failed=head_failed)
+    wer = {"base": 1.0 if 1 in base_failed else 0.02, "head": 1.0 if 1 in head_failed else 0.02}
+    finish(rd, md, [{"wer_base": wer["base"], "wer_head": wer["head"]}])
+    m = chat_model(kind="tts", check={"kind": "wer", "max_increase": 0.5})
+    calib = tmp_path / "calib.yaml"
+    calib.write_text("{}\n")
+    man = mf.Manifest(models={"m": m}, datasets={}, defaults={})
+    row = report.build_rows(rd, [m], calibration={})[0]
+    md_path, code = compare.render(rd, man, str(calib))
+    return row, md_path.read_text(), code
+
+
+def test_every_request_failing_on_both_arms_has_no_verdict_and_says_so(tmp_path):
+    r, text, code = silent_run(tmp_path, (1, 8), (1, 8))
+    assert r.correct == "base broken" and r.unfinished and not r.flagged and code == 2
+    assert r.silent == "both" and r.verdict() == "neither arm answers a request"
+    assert r.correct_detail.startswith("neither arm answered a request at s0 c=1, s0 c=8")
+    top = visible(text)
+    assert "keeps its outputs" not in top and "No regressions:" not in top
+    assert "Errors, base / head" in top and "**48 / 48**" in top          # 8 requests x 3 passes x 2 points
+    assert "**1 rows had request errors** (base 48, head 48 in total)" in top
+
+
+def test_a_base_that_answers_no_request_leaves_the_row_without_a_verdict(tmp_path):
+    r, text, code = silent_run(tmp_path, (1, 8), ())
+    assert r.correct == "base broken" and r.silent == "base" and code == 2
+    assert r.verdict() == "base answers no request" and "base answered no request at s0 c=1, s0 c=8" in text
+    r, _, code = silent_run(tmp_path / "cmax", (8,), ())                  # base fails only at c=max
+    assert r.correct == "base broken" and r.correct_detail.startswith("base answered no request at s0 c=8") \
+        and code == 2
+
+
+def test_a_head_that_answers_no_request_fails_the_row(tmp_path):
+    r, text, code = silent_run(tmp_path, (), (1, 8))
+    assert r.correct == "FAIL" and r.flagged and code == 1 and r.verdict() == "**head answers no request**"
+    assert "head answered no request at s0 c=1, s0 c=8" in r.correct_detail and "**0 / 48**" in visible(text)
+    r, _, code = silent_run(tmp_path / "cmax", (), (8,))                  # c=1 outputs agree, c=max all 500s
+    assert r.correct == "FAIL" and code == 1 and "head answered no request at s0 c=8" in r.correct_detail
+
+
+def test_a_shared_rust_tree_that_did_not_build_is_said_in_the_report(tmp_path):
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    finish(rd, md)
+    why = "mstar_rust not built: the M* environment has no pip and no uv is on PATH"
+    (md / "done.json").write_text(json.dumps({"status": "done", "rust": {"base": why, "head": why}}))
+    text = report.render_md(report.build_rows(rd, [chat_model()], calibration={}), json.loads((rd / "run.json")
+                                                                                              .read_text()))
+    assert f"**No per-arm `rust/` build for m** ({why})" in visible(text)
+    assert "own `rust/` build, except m: see above" in text
+
+
+def fake_bin(d: Path, name: str, script: str) -> Path:
+    d.mkdir(parents=True, exist_ok=True)
+    (d / name).write_text("#!/bin/sh\n" + script)
+    (d / name).chmod(0o755)
+    return d / name
+
+
+def test_rust_build_uses_uv_pip_when_the_environment_has_no_pip(tmp_path, monkeypatch):
+    from benchmark.eval.e2e import arm
+
+    bin_dir = tmp_path / "venv" / "bin"
+    py = fake_bin(bin_dir, "python", 'if [ "$2" = pip ]; then echo "No module named pip" >&2; exit 1; fi\n')
+    log = tmp_path / "uv.log"
+    fake_bin(bin_dir, "uv", f'echo "$@" > {log}\nmkdir -p "$8"\n')
+    monkeypatch.setattr(arm, "job", {"python": str(py), "host_dir": str(tmp_path / "host"), "model": {}})
+    a = {"src": str(tmp_path / "src"), "rust_tree": "t"}
+    assert arm.build_rust(a) is None
+    site = tmp_path / "host" / "rust" / "t" / "site"
+    assert log.read_text().split() == ["pip", "install", "--python", str(py), "-q", "--no-deps", "--target",
+                                       str(site), f"{a['src']}/rust"]
+    assert a["rust_site"] == str(site) and (site / ".complete").exists()
+    (bin_dir / "uv").unlink()
+    monkeypatch.setattr(arm, "base_env", lambda: {"PATH": str(tmp_path / "empty")})
+    assert "no pip and no uv" in arm.build_rust({"src": "s", "rust_tree": "other"})
+
+
+def test_requires_can_call_the_servers_own_loader(tmp_path, monkeypatch):
+    from benchmark.eval.e2e import arm
+
+    (tmp_path / "eager_pkg").mkdir()          # like qwen_tts under transformers 5.x: its __init__ raises
+    (tmp_path / "eager_pkg" / "__init__.py").write_text("raise TypeError('wants transformers 4.57.3')\n")
+    (tmp_path / "loader.py").write_text("def load():\n    return 1\n\ndef bad():\n    raise ImportError('x')\n")
+    for requires, want in ((["loader:load", "json"], ""), (["eager_pkg"], "eager_pkg: TypeError"),
+                           (["loader:bad"], "loader:bad: ImportError"),
+                           (["loader:nope"], "loader:nope: AttributeError")):
+        monkeypatch.setattr(arm, "job", {"python": sys.executable, "model": {"requires": requires}})
+        assert arm.requirements_problem({"src": str(tmp_path)}) == want
+    qwen = mf.load().models["qwen3_tts"].requires
+    assert qwen == ["mstar.model.qwen3_tts.qwen3_tts_model:_load_qwen3_tts_codec_classes"]
+    module, fn = qwen[0].split(":")
+    assert f"def {fn}(" in Path(module.replace(".", "/") + ".py").read_text()
+
+
+def test_results_pulls_work_with_an_rsync_older_than_3_2_3(tmp_path, monkeypatch):
+    """RHEL 8's rsync 3.1.3 has no --mkpath; every push and pull lands in a directory whose parents may not exist."""
+    real = subprocess.run(["bash", "-c", "command -v rsync"], capture_output=True, text=True,
+                          check=False).stdout.strip()
+    if not real:
+        pytest.skip("no rsync")
+    fake_bin(tmp_path / "bin", "rsync", 'for a in "$@"; do [ "$a" = --mkpath ] && { echo "rsync: --mkpath: unknown '
+             f'option" >&2; exit 1; }}; done\nexec {real} "$@"\n')
+    monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}{os.pathsep}{os.environ['PATH']}")
+    src = tmp_path / "src"
+    (src / "sub").mkdir(parents=True)
+    (src / "sub" / "f.txt").write_text("x")
+    (src / "audio").mkdir()
+    t = hosts.LocalTransport()
+    t.push(src, str(tmp_path / "host" / "a" / "b"))
+    assert (tmp_path / "host" / "a" / "b" / "sub" / "f.txt").read_text() == "x"
+    t.pull(str(src), tmp_path / "results" / "m.partial", exclude=("audio/",))
+    assert (tmp_path / "results" / "m.partial" / "sub" / "f.txt").exists()
+    assert not (tmp_path / "results" / "m.partial" / "audio").exists()
+    calls = []
+    ssh = hosts.SSHTransport("u@h")
+    monkeypatch.setattr(ssh, "sh", lambda script, timeout=None: calls.append(script) or
+                        subprocess.CompletedProcess([], 0, "", ""))
+    monkeypatch.setattr(hosts, "_rsync", lambda args, host="local": calls.append(args))
+    ssh.push(src, "/w/evalfw/x/benchmark/eval")
+    assert calls[0] == "mkdir -p /w/evalfw/x/benchmark" and calls[1][-1] == "u@h:/w/evalfw/x/benchmark/eval"
+
+
+def test_work_dir_flag_and_xdg_cache_home(tmp_path, monkeypatch):
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    compare.add_args(parser.add_subparsers())
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    man = mf.Manifest(models={}, datasets={}, defaults={})
+    ref = trees.Ref("a", "a" * 40, "a")
+    for argv, cache, data in (([], tmp_path / "xdg" / "mstar-eval", tmp_path / "xdg" / "mstar-eval" / "e2e-data"),
+                              (["--work-dir", str(tmp_path / "w")], tmp_path / "w", tmp_path / "w" / "e2e-data"),
+                              (["--work-dir", str(tmp_path / "w"), "--data-dir", str(tmp_path / "d")], tmp_path / "w",
+                               tmp_path / "d")):
+        args = parser.parse_args(["compare", "--head", "x", *argv])
+        runner = compare.Runner(args, man, [], ref, ref, tmp_path / "run", [])
+        assert runner.cache == cache / "compare" and runner.data == data
+    monkeypatch.delenv("XDG_CACHE_HOME")
+    assert compare.default_work_dir() == Path("~/.cache/mstar-eval").expanduser()
+
+
+COLD_START = '''import os, time
+marker = os.environ["FAKE_COMPILE_CACHE"]
+if not os.path.exists(marker):   # the first server to start compiles; the caches it leaves serve every later one
+    time.sleep({cold})
+    open(marker, "w").close()
+'''
+
+
+def test_whichever_arm_starts_first_on_cold_caches_still_starts(tmp_path, monkeypatch):
+    """The first start pays the cold compiles: with a timeout sized for a warm start, the arm that goes first used
+    to read "does not start" (base on one order, head on the other)."""
+    from benchmark.eval.e2e import arm
+
+    for order in (["base", "head"], ["head", "base"]):
+        root = tmp_path / order[0]
+        srcs = {a: fake_tree(root / "src" / a) for a in ("base", "head")}
+        for s in srcs.values():
+            main = s / "mstar" / "cli" / "main.py"
+            main.write_text(COLD_START.format(cold=2.5) + main.read_text())
+        monkeypatch.setattr(arm, "out", root / "out")
+        (root / "out").mkdir()
+        monkeypatch.setattr(arm, "job", {
+            "python": sys.executable, "gpu": None, "host_dir": str(root / "host"),
+            "model": {"name": "fake", "serve": "fake", "startup_timeout_s": 2.0, "cases": [], "serve_args": [],
+                      "env": {"FAKE_COMPILE_CACHE": str(root / "compiled")}},
+            "arms": {a: {"src": str(s)} for a, s in srcs.items()}})
+        infos = {a: arm.run_arm(a, 0) for a in order}
+        assert all(i["healthy"] for i in infos.values()), (order, infos)
+        assert infos[order[0]]["startup_s"] > 2.0 and infos[order[1]]["startup_s"] < 2.0
+        assert arm.run_arm(order[0], 1)["startup_timeout_s"] == 2.0     # later sessions: the manifest's timeout
+
+
+def test_one_noisy_aa_run_does_not_widen_a_floor_for_good(tmp_path):
+    """qwen c=8 on a loaded node: one A/A drift of 29.7% next to 7.1% took the floor from 10.7% to 44.5%."""
+    assert report.floor_from([7.13]) == pytest.approx(10.7, abs=0.01)
+    assert report.floor_from([7.13, 29.67]) == pytest.approx(10.7, abs=0.01)          # a lone outlier
+    assert report.floor_from([7.13, 29.67, -31.0]) == pytest.approx(46.5)              # confirmed by a second run
+    assert report.floor_from([0.5, 7.1]) == pytest.approx(10.65)                       # under 10%: always counts
+    assert report.floor_from([40.0, 41.0, 42.0] + [5.0] * 8) == pytest.approx(7.5)     # the last 8: floors shrink
+    assert report.floor_from([]) is None and report.floor_from([math.nan]) is None
+    rd, md = tmp_path, tmp_path / "results" / "m"
+    write_arm(md, "base", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.0)
+    write_arm(md, "head", [(1.0, 96)] * 8, [(1.0, 96)] * 8, wall_n=2.5)               # -20% at c=8
+    finish(rd, md)
+    cal = {"h200:m/c/req_per_s@c8": {"deltas": [7.13, -29.67]}}
+    assert calibrate.floor_pct(cal, "h200:m/c/req_per_s@c8") == pytest.approx(10.7, abs=0.01)
+    r = report.build_rows(rd, [chat_model()], calibration=cal)[0]
+    assert r.throughput.verdict == "regression" and r.flagged

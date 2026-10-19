@@ -58,10 +58,12 @@ class LocalTransport:
 
     def push(self, local: Path, remote: str) -> None:
         if Path(remote).resolve() != local.resolve():
+            Path(remote).parent.mkdir(parents=True, exist_ok=True)
             _rsync([f"{local}/" if local.is_dir() else str(local), remote])
 
     def pull(self, remote: str, local: Path, exclude: tuple[str, ...] = ()) -> None:
         if Path(remote).resolve() != local.resolve():
+            local.mkdir(parents=True, exist_ok=True)
             _rsync([*[f"--exclude={e}" for e in exclude], f"{remote}/", f"{local}/"])
 
 
@@ -80,6 +82,9 @@ class SSHTransport:
         return r
 
     def push(self, local: Path, remote: str) -> None:
+        r = self.sh(f"mkdir -p {shlex.quote(str(Path(remote).parent))}", timeout=120)
+        if r.returncode:
+            raise RuntimeError(f"{self.name}: cannot create {Path(remote).parent}: {r.stderr.strip()[-200:]}")
         _rsync(["-e", shlex.join(["ssh", *SSH_OPTS]), f"{local}/" if local.is_dir() else str(local),
                 f"{self.name}:{remote}"], host=self.name)
 
@@ -90,8 +95,8 @@ class SSHTransport:
 
 
 def _rsync(args: list[str], host: str = "local") -> None:
-    r = subprocess.run(["rsync", "-a", "--mkpath", *args], capture_output=True, text=True, stdin=subprocess.DEVNULL,
-                       check=False)
+    """Callers create the destination's parent: ``--mkpath`` needs rsync 3.2.3, and RHEL 8 ships 3.1.3."""
+    r = subprocess.run(["rsync", "-a", *args], capture_output=True, text=True, stdin=subprocess.DEVNULL, check=False)
     if r.returncode in (12, 30, 35, 255):   # connection-level failures
         raise HostLostError(f"{host}: rsync: {r.stderr.strip()[-300:]}")
     if r.returncode != 0:
