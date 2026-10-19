@@ -69,6 +69,24 @@ def test_16k_wav_samples_are_the_file_samples(tmp_path, video_only_ffmpeg):
     assert torch.equal(out.data, torch.from_numpy(_tone(16_000)[:, 0]))
 
 
+@pytest.mark.parametrize("rate", [100_003, 48_001])
+def test_a_crafted_header_rate_is_refused_before_resampling(tmp_path, video_only_ffmpeg, monkeypatch, rate):
+    """torchaudio's kernel for a rate coprime to 16 kHz holds about rate * 16000
+    floats (6.4 GB at 100,003 Hz). FFmpeg resampled on this path before, so the
+    libsndfile path must refuse such a header before torchaudio sees it."""
+    sf = pytest.importorskip("soundfile")
+    import torchaudio
+
+    def no_resample(*_args, **_kwargs):
+        raise AssertionError("a crafted rate reached torchaudio's resampler")
+
+    monkeypatch.setattr(torchaudio.functional, "resample", no_resample)
+    path = tmp_path / "crafted.wav"
+    sf.write(path, _tone(16_000), rate, subtype="PCM_16")
+    with pytest.raises(ValueError, match=f"unsupported sample rate {rate} Hz"):
+        Model.load_audio(None, str(path), "cpu")
+
+
 def test_other_containers_still_go_to_torchcodec(tmp_path, video_only_ffmpeg):
     path = tmp_path / "clip.m4a"
     path.write_bytes(b"\x00\x00\x00\x18ftypM4A " + b"\x00" * 64)
