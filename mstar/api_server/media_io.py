@@ -310,21 +310,27 @@ def resolve_media_ref(ref: str, upload_dir: Path, *, allow_remote: bool = False)
 # Outbound: wrap raw model output for client surfaces
 # ---------------------------------------------------------------------------
 
-# torchaudio's resampling kernel holds about (rate / g) * (target / g) floats,
-# g = gcd(rate, target): 3.0M for the 47,952 Hz pull-down rate to 16 kHz, but
-# 1.15G for a 48,001 Hz header resampled to 24 kHz
+# torchaudio's resampling kernel holds (target / g) * (rate / g + 2 * width)
+# floats, g = gcd(rate, target), width its filter's half-length (default
+# lowpass_filter_width 6, rolloff 0.99): 3.0M for the 47,952 Hz pull-down rate
+# to 16 kHz, but 1.15G for a 48,001 Hz header resampled to 24 kHz
 MAX_RESAMPLE_KERNEL = 1 << 24
 MAX_SAMPLE_RATE = 768_000
+
+
+def resample_kernel_size(rate: int, target: int) -> int:
+    """Floats in torchaudio's default sinc kernel resampling ``rate`` to ``target``."""
+    g = math.gcd(rate, target)
+    orig, new = rate // g, target // g
+    width = math.ceil(6 * orig / (min(orig, new) * 0.99))
+    return new * (orig + 2 * width)
 
 
 def check_resample_rate(rate: int, target: int) -> None:
     """Refuse a file rate outside ``1..MAX_SAMPLE_RATE`` Hz or whose
     resampling to ``target`` would cost more than :data:`MAX_RESAMPLE_KERNEL`
     (every real rate, pull-down rates included, passes)."""
-    if not 1 <= rate <= MAX_SAMPLE_RATE:
-        raise ValueError(f"unsupported sample rate {rate} Hz; resample the audio to a standard rate")
-    g = math.gcd(rate, target)
-    if (rate // g) * (target // g) > MAX_RESAMPLE_KERNEL:
+    if not 1 <= rate <= MAX_SAMPLE_RATE or resample_kernel_size(rate, target) > MAX_RESAMPLE_KERNEL:
         raise ValueError(f"unsupported sample rate {rate} Hz; resample the audio to a standard rate")
 
 

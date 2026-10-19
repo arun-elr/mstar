@@ -12,6 +12,7 @@ library stand-in otherwise (``soundfile`` is the optional ``audio`` extra).
 """
 
 import io
+import math
 import sys
 import tempfile
 import types
@@ -138,6 +139,18 @@ def test_common_and_pull_down_rates_pass_the_bound(rate, target):
 def test_unbounded_or_out_of_range_rates_are_refused(rate, target):
     with pytest.raises(ValueError, match=f"unsupported sample rate {rate} Hz; resample the audio to a standard rate"):
         media_io.check_resample_rate(rate, target)
+
+
+def test_the_bound_counts_the_kernel_torchaudio_builds():
+    from torchaudio.functional.functional import _get_sinc_resample_kernel
+
+    for rate, target in [(44100, 16000), (47952, 16000), (22050, 16000), (8000, 24000), (16000, 16000)]:
+        kernel, _ = _get_sinc_resample_kernel(rate, target, math.gcd(rate, target))
+        assert media_io.resample_kernel_size(rate, target) == kernel.numel(), (rate, target, torchaudio.__version__)
+    # (target / g) * (rate / g) alone is under 2**24 here, the padded kernel is not
+    assert 655_325 * 16_000 // math.gcd(655_325, 16_000) ** 2 <= media_io.MAX_RESAMPLE_KERNEL
+    with pytest.raises(ValueError, match="unsupported sample rate 655325 Hz"):
+        media_io.check_resample_rate(655_325, 16_000)
 
 
 @pytest.mark.parametrize("load,target", LOADERS)
