@@ -335,7 +335,8 @@ class TurnSegmenter:
         # at least one silent frame, so silence_duration_ms 0 does not end a turn mid-speech
         done = bool(self._silence) and self._silence >= self._silence_cap
         if self._eot is not None:
-            self._recent.append(frame)
+            # a copy: a view would keep the whole append it came in alive
+            self._recent.append(frame.copy())
             if not done and paused < self._pause_cap <= self._silence:
                 done = self._eot(np.concatenate(self._recent)) >= self._eot_threshold
         if done:
@@ -353,12 +354,14 @@ class TurnSegmenter:
             ops.append(("audio", prefix))
         if self._eot is not None:
             self._recent.clear()
-            self._recent.append(prefix)
+            self._recent.append(prefix.copy())
 
     def _stop(self, end: int, ops: list) -> None:
         ops.append(("speech_stopped", samples_to_ms(end)))
         ops.append(("commit",))
         self.speaking, self._silence, self._turn = False, 0, 0
+        if self._eot is not None:
+            self._recent.clear()
 
     def end_turn(self) -> list[tuple]:
         """A client commit: an open turn takes the partial frame and stops
@@ -387,6 +390,8 @@ class TurnSegmenter:
         self._rest = np.zeros(0, dtype=np.float32)
         self._prefix = np.zeros(0, dtype=np.float32)
         self.speaking, self._silence, self._turn = False, 0, 0
+        if self._eot is not None:
+            self._recent.clear()
         self.vad.reset()
 
     def shift(self, n: int) -> None:

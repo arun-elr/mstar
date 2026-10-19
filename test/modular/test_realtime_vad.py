@@ -768,6 +768,22 @@ def test_semantic_vad_eagerness(vad_client, monkeypatch, eagerness, end_frames):
     _assert_items_are_the_stream(turns, heard, stream)
 
 
+def test_semantic_history_holds_only_its_window_and_is_dropped_at_the_turn_end():
+    """The 8 s the model hears are copies, emptied when the turn ends or is
+    cleared, so one long append is not kept alive by its frames."""
+    seg = realtime_vad.TurnSegmenter(_EnergyVAD(), realtime_vad.SemanticVAD(), 300 * 16000,
+                                     end_of_turn=_EndOfTurn(0.1))
+    append = np.concatenate([_speech(400), _silence(10)]).astype(np.float32) / 32768
+    seg.feed(append)
+    assert seg.speaking and not any(np.shares_memory(piece, append) for piece in seg._recent)
+    assert sum(piece.size for piece in seg._recent) <= realtime_vad.SMART_TURN_SECONDS * 16000 + FRAME
+    seg.feed(np.zeros(130 * FRAME, dtype=np.float32))
+    assert not seg.speaking and not seg._recent
+    seg.feed(append)
+    seg.reset()
+    assert not seg._recent
+
+
 def test_semantic_vad_without_the_model_runs_as_server_vad(vad_client, monkeypatch):
     client, stub = vad_client
     heard = _step_samples(stub)
