@@ -130,6 +130,7 @@ class VoxCPM2Model(Model):
     MODES = {"zero_shot": MODE_ZERO_SHOT, "reference": MODE_REFERENCE, "continuation": MODE_REF_CONTINUATION}
     REF_MIN_SECONDS = 0.5
     REF_MAX_SECONDS = 60.0
+    REF_MIN_PEAK = 1e-3
     # the reference demo offers 1 to 3; float32 overflows to inf past about 3.4e38
     MAX_CFG_VALUE = 10.0
     # English speech measured at 1.3 to 2.9 patches per text token (24 zero-shot
@@ -336,6 +337,10 @@ class VoxCPM2Model(Model):
             # the client's error (400); libsndfile's message names the server's upload path
             raise ValueError("VoxCPM2 ref_audio is not audio soundfile can read (WAV, FLAC, OGG or MP3)") from None
         audio = waveform.mean(axis=1)
+        # as Chatterbox does; cloned from digital silence, the model speaks about
+        # three times the usual length of near silence
+        if float(abs(audio - audio.mean()).max()) < self.REF_MIN_PEAK:
+            raise ValueError("VoxCPM2 ref_audio is silent (it never swings past -60 dBFS)")
         if sample_rate != rate:
             import soxr
 
