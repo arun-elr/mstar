@@ -785,9 +785,10 @@ nearest valid counts.
 
 **Size ceiling.** ``height x width x num_frames`` may not exceed
 ``max_video_pixels`` (default 268,435,456, about 3.6x the default clip; raise
-it under the yaml's ``model_kwargs``), and each axis must fit the DiT's 1,024
-rotary positions (height and width up to 32,768, ``num_frames`` up to 4,093).
-Either is a 400 naming the limit.
+it under the yaml's ``model_kwargs``), each axis must fit the DiT's 1,024
+rotary positions (``num_frames`` up to 4,093), and height and width are at most
+16,384, the largest side the mp4 encoder (libx264) opens. Each is a 400 naming
+the limit.
 
 **Compiled DiT shapes.** With ``compile_dit`` the DiT compiles one graph per
 input shape, so only the ``"WxHxF"`` shapes in ``compile_dit_sizes`` (default

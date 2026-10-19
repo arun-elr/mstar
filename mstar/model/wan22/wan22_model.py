@@ -63,6 +63,9 @@ from mstar.model.wan22.submodules import (
 
 logger = logging.getLogger(__name__)
 
+# libx264, which postprocess encodes with, refuses a frame wider or taller than this
+_MP4_MAX_SIDE = 16384
+
 
 class Wan22Model(Model):
     """Wan2.2-TI2V-5B video generation model (TI2V-5B variant only)."""
@@ -277,7 +280,8 @@ class Wan22Model(Model):
         height and width must be multiples of 32 (VAE downsample 16 x DiT patch 2),
         num_frames must be 4k+1 (the VAE compresses time by 4 around an anchor
         frame), height x width x num_frames must not exceed ``max_video_pixels``, each
-        axis must fit the DiT's rotary table, and fps must be positive.
+        axis must fit the DiT's rotary table and each side the mp4 encoder, and fps
+        must be positive.
 
         This runs on the data worker because that is where a ValueError becomes a
         400 for the one bad request. Left to fail later, none of these fail well:
@@ -335,6 +339,13 @@ class Wan22Model(Model):
                 f"Wan2.2 supports at most height {max_h}, width {max_w} and num_frames "
                 f"{max_frames} (the DiT's {rope} rotary positions per axis); got "
                 f"{height}x{width}x{frames}."
+            )
+        # postprocess encodes the clip with libx264, which opens no stream past this
+        # side; checked here, not after the video is generated
+        if max(height, width) > _MP4_MAX_SIDE:
+            raise ValueError(
+                f"Wan2.2 supports at most {_MP4_MAX_SIDE} pixels per side (the mp4 encoder's "
+                f"limit); got {height}x{width}."
             )
 
         # An explicit ``fps: null`` means "unset", same as an absent key.

@@ -202,3 +202,20 @@ def test_a_size_above_max_video_pixels_is_rejected() -> None:
 def test_an_axis_past_the_rotary_table_is_rejected(size) -> None:
     with pytest.raises(ValueError, match="1024 rotary positions"):
         _model()._validate_generation_size(size)
+
+
+@pytest.mark.parametrize("size", [
+    {"height": 32, "width": 16416, "num_frames": 1},
+    {"height": 16416, "width": 32, "num_frames": 1},
+    {"height": 32, "width": 32768, "num_frames": 1},
+])
+def test_a_side_past_the_mp4_encoder_is_rejected_before_generating(size) -> None:
+    """Under the rotary limit but past libx264's 16384-pixel side, postprocess
+    would fail after the whole video is generated (a 500)."""
+    with pytest.raises(ValueError, match="16384 pixels per side"):
+        _model()._validate_generation_size(size)
+
+
+def test_the_largest_side_the_mp4_encoder_takes_passes() -> None:
+    _model()._validate_generation_size({"height": 32, "width": 16384, "num_frames": 1})
+    _model()._validate_generation_size({"height": 16384, "width": 32, "num_frames": 1})
