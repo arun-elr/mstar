@@ -410,19 +410,9 @@ look for ``--torch-backend`` if unsure; ``export UV_TORCH_BACKEND=auto`` is equi
 
 .. note::
 
-   **Mooncake on a CUDA 13 torch.** The extras install ``mooncake-transfer-engine``,
-   Mooncake's default wheel, which is built for CUDA 12 and links ``libcudart.so.12``. An extra
-   can't choose a dependency by CUDA version, so it installs that wheel next to a cu130 torch
-   too. A CUDA 13 torch doesn't bring the CUDA 12 runtime, so ``TCP`` and ``RDMA`` transport
-   fail at startup with ``libcudart.so.12: cannot open shared object file``; ``SHM`` is not
-   affected. Swap in Mooncake's CUDA 13 build, which installs the same ``mooncake`` package:
-
-   .. code-block:: bash
-
-      uv pip uninstall mooncake-transfer-engine
-      uv pip install --reinstall --no-deps mooncake-transfer-engine-cuda13
-
-   Installing an extra again puts the CUDA 12 build back, so repeat the swap afterwards.
+   **Mooncake on a CUDA 13 torch.** The extras install Mooncake's CUDA 12 wheel, which can't
+   load next to a cu130 torch, so ``TCP`` and ``RDMA`` transport fail at startup; ``SHM`` is
+   not affected. Swap in its CUDA 13 build as described in :ref:`mooncake-cuda13`.
 
 **Manual fallback.** If you can't use the flag, install the pinned torch trio from the
 matching CUDA index **first**, then install ``mstar`` (the resolver then treats the
@@ -562,6 +552,8 @@ Fix — complete the environment's own cuDNN so it never falls back to the syste
 
 ``--no-deps`` leaves torch in place; pip may print a harmless warning that torch pins
 ``9.20.0.48``. cuDNN is ABI-compatible within the v9 series, so the newer patch runs fine.
+
+.. _mooncake-cuda13:
 
 ``libcudart.so.12: cannot open shared object file``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
