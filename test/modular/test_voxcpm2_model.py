@@ -939,7 +939,10 @@ def test_vae_batches_windows_of_different_widths(model):
 # -- adapter -------------------------------------------------------------------
 
 
-def test_adapter_maps_voice_design_and_cloning(tmp_path):
+def test_adapter_maps_voice_design_and_cloning(tmp_path, monkeypatch):
+    # the decode check itself runs on real clips in test_media_paths.py
+    checked = []
+    monkeypatch.setattr(adapters.media_io, "check_ref_audio", lambda path, decoder: checked.append(decoder))
     adapter = adapters.VoxCPM2Adapter()
     req = SpeechRequest(
         model="voxcpm2", input="hello", voice="alloy", speed=1.2, seed=7, instructions="a calm voice", cfg_value=2.5
@@ -955,6 +958,7 @@ def test_adapter_maps_voice_design_and_cloning(tmp_path):
     )
     assert clone.input_modalities == ["text", "audio"] and "ref_audio" not in clone.model_kwargs
     assert Path(clone.file_paths["audio"][0]).is_file() and clone.model_kwargs["ref_text"] == "words"
+    assert checked == ["soundfile"]
 
 
 def _wav_bytes() -> bytes:
@@ -1048,6 +1052,9 @@ def test_adapter_takes_data_urls_and_gated_urls(media_dirs, monkeypatch):
     from mstar.api_server import media_io
 
     uploads, _ = media_dirs
+    # the decode check itself runs on real clips in test_media_paths.py
+    checked = []
+    monkeypatch.setattr(media_io, "check_ref_audio", lambda path, decoder: checked.append(decoder))
     adapter = adapters.VoxCPM2Adapter()
     _stored_reference(uploads, "data:audio/wav;base64," + base64.b64encode(_wav_bytes()).decode())
     url = SpeechRequest(model="voxcpm2", input="hi", ref_audio="https://example.com/voice.wav")
@@ -1057,5 +1064,6 @@ def test_adapter_takes_data_urls_and_gated_urls(media_dirs, monkeypatch):
     monkeypatch.setenv("MSTAR_ALLOW_REMOTE", "1")
     monkeypatch.setattr(media_io, "save_remote_url", lambda ref, upload_dir: ("audio", str(upload_dir / "fetched.wav")))
     assert adapter.speech_to_request(url, uploads).file_paths == {"audio": [str(uploads / "fetched.wav")]}
+    assert checked == ["soundfile", "soundfile"]
     with pytest.raises(ValueError, match="base64 string"):
         adapter.speech_to_request(SpeechRequest(model="voxcpm2", input="hi", ref_audio=["x"]), uploads)
