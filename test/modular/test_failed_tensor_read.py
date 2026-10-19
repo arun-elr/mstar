@@ -471,6 +471,7 @@ class _AsyncEngine(_Engine):
         self.polls = []  # (thread name, batch id)
         self.submits = []  # (session, local ptr)
         self.violations = []
+        self.failed_submit_id = 0
 
     def get_local_topology(self):
         import json
@@ -484,8 +485,8 @@ class _AsyncEngine(_Engine):
         with self.lock:
             attempt = sum(1 for s, p in self.submits if (s, p) == (session, local[0]))
             self.submits.append((session, local[0]))
-            if session == "no-submit":
-                return 0
+            if session == "no-submit" or (session == "fails-then-no-submit" and attempt > 0):
+                return self.failed_submit_id
             batch_id = self.next_id
             self.next_id += 1
             self.batches[batch_id] = (session, attempt, local[0], remote[0], lengths[0])
@@ -494,7 +495,7 @@ class _AsyncEngine(_Engine):
     def _state(self, session, attempt):
         if session == "peer" or (session == "flaky" and attempt > 0):
             return 1
-        if session in ("fails", "flaky"):
+        if session in ("fails", "flaky", "fails-then-no-submit"):
             return -1
         if session == "gated":
             return 1 if self.gate.is_set() else 0
@@ -662,10 +663,13 @@ def test_a_transfer_that_never_reports_is_parked_at_the_cap_and_logged_once(capl
         mgr._async_reader._executor.shutdown(wait=True)
 
 
-def test_a_read_whose_submit_failed_is_parked_at_once(caplog):
+@pytest.mark.parametrize("failed_id", [0, 2**64 - 1])
+def test_a_read_whose_submit_failed_is_parked_at_once(caplog, failed_id):
     """A failed submit may have posted part of its transfer and leaves no id
-    to ask, so nothing can say it stopped."""
+    to ask, so nothing can say it stopped. Mooncake before 0.3.13 reports the
+    failure as uint64 -1 rather than 0; polling that id would crash."""
     engine = _AsyncEngine()
+    engine.failed_submit_id = failed_id
     mgr = _draining_manager(engine)
     try:
         (future,) = mgr.start_read_tensors("r", [_remote_edge(97, torch.tensor([1]), "no-submit")])
@@ -677,6 +681,21 @@ def test_a_read_whose_submit_failed_is_parked_at_once(caplog):
         assert kept.parked and mgr.parked_reads == 1
         assert sum("Parking" in r.getMessage() for r in caplog.records) == 1
         assert engine.polls == [] and engine.unregistered == []
+    finally:
+        mgr._async_reader._executor.shutdown(wait=True)
+
+
+@pytest.mark.parametrize("failed_id", [0, 2**64 - 1])
+def test_a_retry_whose_submit_failed_is_not_polled(failed_id):
+    engine = _AsyncEngine(hcas=["mlx5_0"])
+    engine.failed_submit_id = failed_id
+    mgr = _draining_manager(engine)
+    try:
+        (future,) = mgr.start_read_tensors("r", [_remote_edge(98, torch.tensor([1]), "fails-then-no-submit")])
+        error = future.exception(timeout=5)
+        assert "submit failed" in str(error) and error.in_flight == {}
+        assert len(engine.submits) == 2 and failed_id not in [i for _, i in engine.polls]
+        assert engine.violations == []
     finally:
         mgr._async_reader._executor.shutdown(wait=True)
 

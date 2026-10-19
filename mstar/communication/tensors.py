@@ -340,6 +340,12 @@ class TransferReadInfo:
     fp: FutureAndPointers | None = None
 
 
+def _submit_failed(batch_id: int) -> bool:
+    """A failed ``batch_transfer_async_read``: 0, or uint64 -1 from Mooncake
+    releases before 0.3.13, which polling would dereference and crash on."""
+    return batch_id <= 0 or batch_id == 2**64 - 1
+
+
 class AsyncMooncakeReader:
     """Background thread for non-blocking mooncake READ operations.
 
@@ -452,7 +458,7 @@ class AsyncMooncakeReader:
         error: str | None = None
         for info in read_info:
             batch_id = submit(info)
-            if batch_id == 0:
+            if _submit_failed(batch_id):
                 # a failed submit may have posted part of the transfer
                 unknown.add(info.local_ptr)
                 error = "Mooncake read submit failed"
@@ -471,7 +477,7 @@ class AsyncMooncakeReader:
                         break
                     attempts[ptr] += 1
                     batch_id = submit(info)
-                    if batch_id == 0:
+                    if _submit_failed(batch_id):
                         unknown.add(ptr)
                         error = "Mooncake read submit failed"
                         break
