@@ -4,7 +4,8 @@
 probability, and returns what to do in stream order: start a turn, add audio
 to it, stop it, commit it. A commit covers exactly the frames up to the end
 of the turn's silence window; audio after that point, even in the same
-append, is segmented for the next turn. sglang-omni#1322 lost that suffix.
+append, is segmented for the next turn, so a turn end inside one append never
+drops the start of the next utterance, and each sample is committed exactly once.
 
 The probability comes from Silero VAD (MIT), a 2 MB TorchScript model run on
 CPU, about 0.3 ms per 32 ms frame. Its weights are read from disk only:

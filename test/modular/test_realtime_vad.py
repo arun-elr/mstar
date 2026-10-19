@@ -2,9 +2,10 @@
 
 A fake speech probability (frame energy) stands in for Silero, so the
 segmentation is exact and the tests need no weights. Every test checks the
-invariant sglang-omni#1322 broke: each committed item is exactly the stream
-between its ``audio_start_ms`` and ``audio_end_ms``, so nothing after a
-turn's end is lost, and each transition fires once on the session timeline.
+invariant that each committed item is exactly the stream between its
+``audio_start_ms`` and ``audio_end_ms``: a turn end inside one append must not
+drop the start of the next utterance, each sample is committed exactly once,
+and each transition fires once on the session timeline.
 """
 
 import base64
@@ -111,8 +112,8 @@ def _assert_items_are_the_stream(turns, finals, stream, sr=16000):
 
 
 def test_one_append_with_speech_silence_speech(vad_client):
-    """sglang-omni#1322's repro: one 32 ms speech frame, sixteen silent
-    frames, one speech frame, all in one append. The commit takes the first
+    """One 32 ms speech frame, sixteen silent frames, one speech frame, all
+    in one append: the turn end falls inside the append. The commit takes the first
     turn; the second utterance stays and becomes the next turn."""
     client, stub = vad_client
     heard = _step_samples(stub)
