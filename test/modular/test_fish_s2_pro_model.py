@@ -486,7 +486,7 @@ def test_preprocess_packs_the_tensors_the_per_row_device_copies_did():
     assert_same_tensor(packed["last_token_indices"], torch.tensor(seq_lens).cumsum(0) - 1)
     assert_same_tensor(packed["suppress_eos"], old_flags([True, True, True]))
 
-    (graph_config,) = ar.get_cuda_graph_configs(torch.device("cpu"))
+    (graph_config,) = ar.get_accelerator_graph_configs(torch.device("cpu"))
     template = graph_config.single_request_inputs
     assert template.kwargs == {"suppress_eos": False} and not template.tensor_inputs
     padded = [decode_row(True), decode_row(False), *graph_config.get_node_inputs(2, 0)]

@@ -33,7 +33,7 @@ import torch
 
 from mstar.communication.tensors import NameToTensorList
 from mstar.conductor.request_info import CurrentForwardPassInfo
-from mstar.engine.cuda_graph_config import BatchedCudaGraphConfig, CudaGraphConfig
+from mstar.engine.accelerator_graph_config import AcceleratorGraphConfig, BatchedAcceleratorGraphConfig
 from mstar.engine.engine import ExecutingBatch
 from mstar.engine.resources import AttentionStep, KVStep, PositionStep, SamplerStep, Segment, SlotLease, SubmoduleStep
 from mstar.engine.resources.sampler.resource import SamplerResource
@@ -351,12 +351,14 @@ class ARSubmodule(ARNodeSubmodule):
         del graph_walk
         return self.MAX_BATCH_SIZE
 
-    def get_cuda_graph_configs(self, device: torch.device, tp_world_size: int = 1) -> list[CudaGraphConfig]:
+    def get_accelerator_graph_configs(
+        self, device: torch.device, tp_world_size: int = 1
+    ) -> list[AcceleratorGraphConfig]:
         """Capture the whole one-token decode step (both ARs and sampling) per batch bucket."""
         del tp_world_size
         dtype = self.slow_ar.semantic_head.dtype
         return [
-            BatchedCudaGraphConfig(
+            BatchedAcceleratorGraphConfig(
                 capture_graph_walk="ar_decode",
                 single_request_inputs=ARNodeInputs(
                     input_embeds=torch.zeros(1, self.config.slow_ar.dim, dtype=dtype, device=device),
@@ -368,10 +370,10 @@ class ARSubmodule(ARNodeSubmodule):
             )
         ]
 
-    def can_use_cuda_graphs(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
+    def can_use_accelerator_graphs(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
         if batch.graph_walk != "ar_decode" or not self.can_batch(batch, model_inputs):
             return False
-        return super().can_use_cuda_graphs(batch, model_inputs)
+        return super().can_use_accelerator_graphs(batch, model_inputs)
 
 
 # ===========================================================================
@@ -561,11 +563,13 @@ class CodecSubmodule(ARNodeSubmodule):
         del graph_walk
         return self.MAX_BATCH_SIZE
 
-    def get_cuda_graph_configs(self, device: torch.device, tp_world_size: int = 1) -> list[CudaGraphConfig]:
+    def get_accelerator_graph_configs(
+        self, device: torch.device, tp_world_size: int = 1
+    ) -> list[AcceleratorGraphConfig]:
         del device, tp_world_size
         return []
 
-    def can_use_cuda_graphs(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
+    def can_use_accelerator_graphs(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
         del batch, model_inputs
         return False
 
