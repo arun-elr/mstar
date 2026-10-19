@@ -997,3 +997,21 @@ def test_realtime_refuses_server_turn_detection(tmp_path):
     echoed = out[1]["session"]["audio"]["input"]
     assert echoed["turn_detection"] is None and echoed["format"]["rate"] == 24000
     assert "input_audio_buffer.committed" in [e["type"] for e in out]
+
+
+@pytest.mark.parametrize("fmt", [{"type": "audio/pcm", "rate": 16000}, {"type": "audio/pcmu"}])
+def test_realtime_refused_format_is_not_applied(tmp_path, fmt):
+    """A refused input format leaves the audio read as before: the echo says
+    24 kHz PCM, and the committed WAV is 24 kHz, not the rate just refused."""
+    server = _FakeRealtimeServer([_chunk("text", b"ok")], tmp_path)
+    out = _run_connection(server, [
+        {"type": "session.update", "session": {"type": "realtime", "model": "q3o",
+                                               "audio": {"input": {"format": fmt}}}},
+        _append(PCM),
+        {"type": "input_audio_buffer.commit"},
+    ])
+    assert [e["type"] for e in out][:2] == ["error", "session.updated"]
+    assert out[0]["error"]["code"] == "unsupported_audio_format"
+    assert out[1]["session"]["audio"]["input"]["format"] == {"type": "audio/pcm", "rate": 24000}
+    with wave.open(server.submitted[0]["file_paths"]["audio"][0], "rb") as wf:
+        assert wf.getframerate() == 24000 and wf.readframes(wf.getnframes()) == PCM

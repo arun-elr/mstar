@@ -79,6 +79,9 @@ logger = logging.getLogger(__name__)
 SAMPLE_RATE = 16000
 # Input rates a session accepts; 24 kHz (OpenAI's pcm rate) is resampled to SAMPLE_RATE.
 INPUT_SAMPLE_RATES = (16000, 24000)
+# Appends up to this many input samples (20 ms at 24 kHz, a fraction of a
+# millisecond of work) resample on the event loop; longer ones go to a thread.
+INLINE_RESAMPLE_SAMPLES = 480
 DEFAULT_CHUNK_SECONDS = 2.0
 DEFAULT_UNFIXED_CHUNKS = 2
 DEFAULT_UNFIXED_TOKENS = 5
@@ -276,6 +279,9 @@ def _input_rate(fmt, current: int) -> int:
     if fmt == "pcm16":
         return SAMPLE_RATE
     if isinstance(fmt, dict) and fmt.get("type") == "audio/pcm":
+        if extra := sorted(set(fmt) - {"type", "rate"}):
+            # channels, encoding and the like would change how the bytes read
+            raise ValueError(f"input_audio_format takes only type and rate; got {_excerpt(extra)}")
         rate = fmt.get("rate", 24000)
         if not isinstance(rate, bool) and rate in INPUT_SAMPLE_RATES:
             return int(rate)
@@ -476,7 +482,9 @@ class RealtimeTranscription:
                 ))
                 return
             s.odd_byte = odd_byte
-            if s.resampler is None:
+            if not audio.size:
+                return
+            if s.resampler is None or audio.size <= INLINE_RESAMPLE_SAMPLES:
                 s.append(audio)
             else:
                 # off the event loop: resampling a long append takes long enough
@@ -516,10 +524,10 @@ class RealtimeTranscription:
                              "the input sample rate")
         if session.get("turn_detection") is not None:
             td = session["turn_detection"]
-            kind = td.get("type") if isinstance(td, dict) else td
+            kind = td.get("type") if isinstance(td, dict) else None
             raise ValueError(
-                f"turn_detection {_excerpt(kind)} is not supported; set turn_detection to null "
-                "and end each utterance with input_audio_buffer.commit"
+                f"turn_detection {_excerpt(kind if isinstance(kind, str) else td)} is not supported; "
+                "set turn_detection to null and end each utterance with input_audio_buffer.commit"
             )
         knobs = _object(session.get("mstar"), "mstar")
         chunk_seconds = _number(knobs, "chunk_seconds", s.chunk_seconds, MIN_CHUNK_SECONDS, s.max_item_seconds,

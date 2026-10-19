@@ -812,6 +812,10 @@ def test_turn_detection_is_refused_and_echoed_as_null(client_and_stub):
         }}))
         err = json.loads(ws.receive_text())
         assert err["type"] == "error" and "turn_detection 'server_vad' is not supported" in err["error"]["message"]
+        for td, shown in (({}, "turn_detection {} is"), ({"type": None}, "turn_detection {'type': None} is"),
+                          (False, "turn_detection False is")):
+            ws.send_text(json.dumps({"type": "transcription_session.update", "session": {"turn_detection": td}}))
+            assert json.loads(ws.receive_text())["error"]["message"].startswith(shown)
         ws.send_text(json.dumps({"type": "transcription_session.update", "session": {"turn_detection": None}}))
         updated = json.loads(ws.receive_text())
     assert updated["type"] == "transcription_session.updated"
@@ -867,7 +871,8 @@ def test_24khz_item_cap_does_not_depend_on_how_the_audio_was_split(client_and_st
 
 def test_24khz_resampling_runs_off_the_event_loop(client_and_stub, monkeypatch):
     """A long 24 kHz append is resampled in a worker thread, so it does not
-    stall the event loop every session shares."""
+    stall the event loop every session shares; a short one, or one with no
+    whole sample, costs less than the hop and stays on the loop."""
     import threading
 
     from mstar.api_server import media_io
@@ -877,7 +882,7 @@ def test_24khz_resampling_runs_off_the_event_loop(client_and_stub, monkeypatch):
     push, send = media_io.StreamResampler.push, serving_realtime.RealtimeTranscription.send
 
     def recording_push(self, x):
-        threads["resample"] = threading.get_ident()
+        threads.setdefault("resample", []).append((len(x), threading.get_ident()))
         return push(self, x)
 
     async def recording_send(self, event):
@@ -891,9 +896,12 @@ def test_24khz_resampling_runs_off_the_event_loop(client_and_stub, monkeypatch):
         ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
             "input_audio_format": {"type": "audio/pcm", "rate": 24000}}}))
         ws.receive_text()
-        _append_bytes(ws, np.zeros(2400, dtype="<i2").tobytes())
+        _append_bytes(ws, b"\x01")
+        _append_bytes(ws, b"\x02" + np.zeros(479, dtype="<i2").tobytes() + b"\x03")
+        _append_bytes(ws, np.zeros(24000, dtype="<i2").tobytes())
         _commit(ws)
-    assert threads["resample"] != threads["loop"]
+    loop = threads["loop"]
+    assert [(n, t == loop) for n, t in threads["resample"]] == [(480, True), (24000, False)]
 
 
 def test_unsupported_rate_and_a_rate_change_mid_item_are_refused(client_and_stub):
@@ -901,7 +909,8 @@ def test_unsupported_rate_and_a_rate_change_mid_item_are_refused(client_and_stub
     with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
         ws.receive_text()
         for fmt, needle in (({"type": "audio/pcm", "rate": 44100}, "rate must be 16000 or 24000"),
-                            ("g711_ulaw", "input_audio_format must be")):
+                            ("g711_ulaw", "input_audio_format must be"),
+                            ({"type": "audio/pcm", "rate": 24000, "channels": 2}, "takes only type and rate")):
             ws.send_text(json.dumps({"type": "transcription_session.update", "session": {"input_audio_format": fmt}}))
             assert needle in json.loads(ws.receive_text())["error"]["message"]
         _append_bytes(ws, _tone(800).tobytes())
@@ -941,6 +950,7 @@ def test_stream_resampler_is_split_invariant_and_keeps_time():
     exact = np.sin(2 * np.pi * 1000 * np.arange(whole.size) / 16000) * 0.5
     assert np.abs(whole[50:-50] - exact[50:-50]).max() < 1e-4
     # above the 8 kHz Nyquist of the output: filtered, not folded back
-    alias = np.sin(2 * np.pi * 10000 * np.arange(n) / 24000).astype(np.float32)
-    out = np.concatenate([r.push(alias), r.flush()])
-    assert np.sqrt((out[100:-100] ** 2).mean()) < 1e-3
+    for hz in (8250, 10000):  # just past the Nyquist folds to just under it
+        alias = np.sin(2 * np.pi * hz * np.arange(n) / 24000).astype(np.float32)
+        out = np.concatenate([r.push(alias), r.flush()])
+        assert np.sqrt((out[100:-100] ** 2).mean()) < 1e-3, hz
