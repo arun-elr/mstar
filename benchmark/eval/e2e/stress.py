@@ -636,9 +636,9 @@ def render_md(verdicts: list[Verdict], run: dict, chart_url: str | None = None) 
               f"- base: {base['label']} (`{base['sha'][:9]}`), head: {head['label']} (`{head['sha'][:9]}`)",
               f"- Command: `{run.get('command', 'python -m benchmark.eval compare --stress')}`",
               f"- A run fails on a hang (no progress for {cfg['hang_s']:g} s), an HTTP 5xx, unexpected 4xx, empty "
-              "reply or in-band error, cross-talk (a reply holding another prompt's answer), a leak (M\\* tensor "
-              f"files in /dev/shm above the post-warm-up count {cfg['settle_s']:g} s after the run, checked when the "
-              "model's GPU is the only compare slot on its host) or a crash (a "
+              "reply or in-band error, cross-talk (a reply holding another prompt's answer), a leak (the server's "
+              f"own M\\* tensor files in /dev/shm above the post-warm-up count {cfg['settle_s']:g} s after the run; "
+              "other servers' files on the host are not counted) or a crash (a "
               "server process exits); runs a crash or a server that did not start left unrun count as failed",
               "- Verdict: a crash or cross-talk on head that base never shows fails outright; else head fails when "
               f"its failed-run count beats base's at one-sided Fisher exact p < {ALPHA}",
