@@ -9,15 +9,20 @@ one server on the host.
 
 import getpass
 import os
+import re
 import tempfile
 
 
 def _user() -> str:
+    """The user name, or the uid when there is none or it is not a short
+    ASCII name: a socket path holds at most 107 bytes, and the longest
+    entity name under the prefix needs about 50 of them."""
     try:
-        return getpass.getuser()
+        name = getpass.getuser()
     except (KeyError, OSError):
         # No passwd entry for this uid, as in containers run with an arbitrary uid.
-        return str(os.getuid())
+        name = ""
+    return name if re.fullmatch(r"[A-Za-z0-9._-]{1,32}", name) else str(os.getuid())
 
 
 def per_port_socket_prefix(port: int) -> str:

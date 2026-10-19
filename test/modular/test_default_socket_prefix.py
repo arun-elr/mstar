@@ -136,3 +136,13 @@ def test_two_servers_on_their_default_prefixes_keep_their_own_inboxes():
                 s.close()
         for prefix in (a, b):
             shutil.rmtree(prefix, ignore_errors=True)
+
+
+@pytest.mark.parametrize("name, kept", [("alice", True), ("a" * 32, True), ("a" * 33, False),
+                                        ("\u00e9" * 30, False), ("a b", False), ("", False)])
+def test_the_prefix_holds_the_user_name_only_when_it_is_short_and_ascii(monkeypatch, name, kept):
+    monkeypatch.setattr(socket_prefix.getpass, "getuser", lambda: name)
+    prefix = socket_prefix.per_port_socket_prefix(65535)
+    assert prefix == f"/tmp/mstar_{name if kept else os.getuid()}_65535/"
+    # a 45-byte socket name, longer than any a deployment binds, still fits a socket path
+    assert len((prefix + "x" * 41 + ".ipc").encode()) <= 107
