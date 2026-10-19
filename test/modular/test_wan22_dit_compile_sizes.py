@@ -116,6 +116,26 @@ def test_cfg_on_and_off_at_a_listed_shape_stay_within_two_compiles(monkeypatch) 
     assert {key[0][0] for key in compiles} == {1, 2}  # CFG off and on
 
 
+def test_a_swapped_in_transformer_runs_at_every_shape(monkeypatch) -> None:
+    """The reference tests replace ``node.transformer`` with a recording wrapper;
+    the saved eager forward belongs to the original and must not bypass it."""
+    _stub_compile(monkeypatch)
+    node = _node(True)
+    original, seen = node.transformer, []
+
+    class Recording(nn.Module):
+        dtype = torch.float32
+
+        def forward(self, **kwargs):
+            seen.append(tuple(kwargs["hidden_states"].shape[2:]))
+            return original.forward(**kwargs)
+
+    node.transformer = Recording()
+    for shape in ((64, 32, 5), *UNLISTED):
+        _step(node, *shape, 5.0)
+    assert len(seen) == 1 + len(UNLISTED)
+
+
 def test_real_dynamo_compiles_nothing_for_unlisted_shapes(monkeypatch) -> None:
     """Real Dynamo guards with a counting backend: the eager forward of an
     unlisted shape adds no graph, and a listed shape adds one per CFG setting

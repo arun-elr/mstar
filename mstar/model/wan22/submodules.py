@@ -383,7 +383,8 @@ class Wan22DitSubmodule(_SingleRequestMixin, _Fp32IslandMixin, NodeSubmodule):
         self._compiled_shapes: set[tuple[int, ...]] = set()
         self._eager_forward = None
         if self._compile_dit and transformer is not None:
-            self._eager_forward = transformer.forward
+            # with the transformer it belongs to: one swapped in later runs its own forward
+            self._eager_forward = (transformer, transformer.forward)
             transformer.forward = torch.compile(
                 transformer.forward, fullgraph=False, dynamic=False,
             )
@@ -549,7 +550,9 @@ class Wan22DitSubmodule(_SingleRequestMixin, _Fp32IslandMixin, NodeSubmodule):
         encoder_hidden_states = (
             torch.cat([text_embeds_pos, text_embeds_neg], dim=0) if do_cfg else text_embeds_pos
         ).to(self.transformer.dtype)
-        transformer = self.transformer if compiled or self._eager_forward is None else self._eager_forward
+        transformer = self.transformer
+        if not compiled and self._eager_forward is not None and self._eager_forward[0] is transformer:
+            transformer = self._eager_forward[1]
         out = transformer(
             hidden_states=hidden_states,
             timestep=timestep,
