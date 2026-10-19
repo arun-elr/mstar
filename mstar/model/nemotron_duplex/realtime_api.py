@@ -68,6 +68,7 @@ class RealtimeConnection:
         self.stream = None
         self._response_open = False
         self._consumed_audio = False           # any user audio fed yet?
+        self._odd_byte = b""                   # first byte of a sample split across appends
 
     def _open_stream(self):
         """(Re)create the duplex stream, priming the current system prompt."""
@@ -76,6 +77,7 @@ class RealtimeConnection:
             system_prompt=self.cfg.get("instructions"),
         )
         self._consumed_audio = False
+        self._odd_byte = b""
 
     async def start(self):
         self._open_stream()
@@ -100,7 +102,17 @@ class RealtimeConnection:
                         "started is applied on the next input_audio_buffer.clear"}})
             await self.send_json({"type": "session.updated", "session": self.cfg})
         elif et == "input_audio_buffer.append":
-            pcm = base64.b64decode(event["audio"])
+            try:
+                pcm = self._odd_byte + base64.b64decode(event.get("audio") or "", validate=True)
+            except ValueError:
+                await self.send_json({"type": "error", "error": {"message": "audio is not base64"}})
+                return
+            # the stream takes whole int16 samples; an odd trailing byte waits
+            # for the rest of its sample in the next append
+            whole = len(pcm) - len(pcm) % 2
+            pcm, self._odd_byte = pcm[:whole], pcm[whole:]
+            if not pcm:
+                return
             self._consumed_audio = True
             await self._consume(self.stream.append_audio(pcm))
         elif et == "input_audio_buffer.commit":

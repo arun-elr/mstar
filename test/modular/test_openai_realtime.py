@@ -11,6 +11,7 @@ import json
 import sys
 import tempfile
 import types
+import wave
 from pathlib import Path
 
 import numpy as np
@@ -243,6 +244,76 @@ def test_bad_events_report_errors_but_keep_the_session(client_and_stub):
         assert "unknown event" in json.loads(ws.receive_text())["error"]["message"]
         ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": "%%%"}))
         assert json.loads(ws.receive_text())["error"]["message"] == "audio is not base64"
+
+
+def _step_samples(stub) -> list[np.ndarray]:
+    """Make the stub keep the int16 samples each engine step heard."""
+    heard: list[np.ndarray] = []
+    submit = stub.submit_request
+
+    def recording_submit(**kw):
+        with wave.open(kw["file_paths"]["audio"][0], "rb") as wf:
+            heard.append(np.frombuffer(wf.readframes(wf.getnframes()), dtype="<i2").astype(np.int32))
+        return submit(**kw)
+
+    stub.submit_request = recording_submit
+    return heard
+
+
+def _tone(n: int, freq: float = 220.0) -> np.ndarray:
+    return (np.sin(2 * np.pi * freq * np.arange(n) / 16000) * 8000).astype("<i2")
+
+
+def _append_bytes(ws, raw: bytes) -> None:
+    ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": base64.b64encode(raw).decode("ascii")}))
+
+
+def _commit(ws) -> None:
+    ws.send_text(json.dumps({"type": "input_audio_buffer.commit"}))
+    _recv_until(ws, "conversation.item.input_audio_transcription.completed")
+
+
+def _close_to(heard: np.ndarray, samples: np.ndarray) -> bool:
+    # the step WAV is written from float32, which can move a sample by 1 LSB
+    return heard.shape == samples.shape and int(np.abs(heard - samples.astype(np.int32)).max()) <= 1
+
+
+def test_sample_split_across_appends_is_joined(client_and_stub):
+    """A client forwarding a byte stream (say, a pipe's ``read()``) can split
+    a sample across two appends. The odd byte waits for the next append;
+    dropping it would shift every later sample by one byte into noise."""
+    client, stub = client_and_stub
+    heard = _step_samples(stub)
+    tone = _tone(3200)
+    raw = tone.tobytes()
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        for i in range(0, len(raw), 1001):
+            _append_bytes(ws, raw[i:i + 1001])
+        _commit(ws)
+    assert _close_to(heard[-1], tone)
+
+
+def test_odd_byte_survives_commit_and_clear_drops_it(client_and_stub):
+    """A commit takes whole samples; the byte of a sample split across the
+    commit starts the next item. A clear drops it with the rest of the buffer."""
+    client, stub = client_and_stub
+    heard = _step_samples(stub)
+    first, second = _tone(1600), _tone(1600, freq=440.0)
+    raw = first.tobytes() + second.tobytes()
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        _append_bytes(ws, raw[:3201])
+        _commit(ws)
+        _append_bytes(ws, raw[3201:])
+        _commit(ws)
+        _append_bytes(ws, b"\x7f")
+        ws.send_text(json.dumps({"type": "input_audio_buffer.clear"}))
+        assert json.loads(ws.receive_text())["type"] == "input_audio_buffer.cleared"
+        _append_bytes(ws, first.tobytes())
+        _commit(ws)
+    assert [len(h) for h in heard] == [1600, 1600, 1600]
+    assert _close_to(heard[0], first) and _close_to(heard[1], second) and _close_to(heard[2], first)
 
 
 def test_bad_session_update_is_an_error_and_changes_nothing(client_and_stub):
