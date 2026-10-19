@@ -2205,7 +2205,13 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             if tensor.nbytes:
                 ret_value = self.transfer_engine.unregister_memory(tensor.data_ptr())
                 if ret_value != 0:
-                    raise RuntimeError("Mooncake memory unregistration failed.")
+                    # Logged, not raised: the tensor is dropped either way, and
+                    # a raise would abort the rest of a request's teardown
+                    # (from REMOVE_REQUEST, in the worker's main loop).
+                    logger.error(
+                        "Mooncake memory unregistration failed for uuid %s: %s",
+                        uuid, ret_value,
+                    )
         self.tensor_store.remove_tensor(uuid)
 
     def start_read_tensors(
@@ -2250,8 +2256,6 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 self.tensor_store.put_tensor(
                     request_id=request_id, uuid=info.uuid, tensor=buffer, info=info,
                 )
-                self.tensor_store.set_metadata(info.uuid, mem_registered=True
-                )
                 # +1 for transit (released by get_ready_tensors)
                 # +1 for graph-node usage (released by _cleanup_consumed_inputs)
                 self.tensor_store.increment_ref(info.uuid, 2
@@ -2264,8 +2268,23 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 if info.nbytes == 0:
                     continue
 
-                if self.protocol in (CommProtocol.RDMA, CommProtocol.TCP):
-                    self.transfer_engine.register_memory(buffer.data_ptr(), info.nbytes)
+                # Marked only once registered: teardown unregisters what is
+                # marked.
+                ret_value = (
+                    self.transfer_engine.register_memory(
+                        buffer.data_ptr(), info.nbytes,
+                    )
+                    if self.protocol in (CommProtocol.RDMA, CommProtocol.TCP)
+                    else 0
+                )
+                if ret_value == 0:
+                    self.tensor_store.set_metadata(info.uuid, mem_registered=True)
+                else:
+                    logger.warning(
+                        "Mooncake refused to register the read buffer for "
+                        "request %s, uuid %s: %s",
+                        self.rid_to_str(request_id), info.uuid, ret_value,
+                    )
 
                 read_info.append(TransferReadInfo(
                     source_session_id=info.source_session_id,

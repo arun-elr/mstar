@@ -26,12 +26,12 @@ from mstar.communication.tensors import (
     StoredOutputs,
     TensorCommunicationManager,
 )
-from mstar.graph.base import GraphEdge, GraphNode
+from mstar.graph.base import GraphEdge, GraphNode, TensorPointerInfo
 from mstar.graph.runtime.base import FreedTensors, RouteOutput, SendInput
 from mstar.graph.special_destinations import EMIT_TO_CLIENT
 from mstar.model.submodule_base import BatchedModelOutput
 from mstar.utils.containers import ParallelList
-from mstar.utils.ipc_format import ConductorMessageType
+from mstar.utils.ipc_format import ConductorMessageType, RemoveRequest
 from mstar.worker.worker import Worker
 
 
@@ -60,6 +60,9 @@ class _Engine:
 
     def unregister_memory(self, ptr):
         self.unregistered.append(ptr)
+        return 0
+
+    def batch_transfer_sync_read(self, session_id, local_ptrs, remote_ptrs, nbytes):
         return 0
 
 
@@ -361,3 +364,119 @@ def test_an_overlapping_view_fails_only_its_request_on_real_mooncake():
     assert mgr.tensor_store.is_registered(r1[0])
     mgr.force_cleanup_request("r0")
     mgr.force_cleanup_request("r1")
+
+
+def _real_manager(monkeypatch, rust):
+    """Mooncake over TCP, with the bookkeeper the given graph runtime uses."""
+    pytest.importorskip("mooncake.engine")
+    if rust:
+        pytest.importorskip("mstar_rust")
+    monkeypatch.setenv("MSTAR_RUST_GRAPH", "1" if rust else "0")
+    from mstar.communication.tensors import create_tensor_communication_manager
+
+    mgr = create_tensor_communication_manager(
+        protocol=CommProtocol.TCP, my_entity_id="w0", hostname="localhost",
+        device="cpu", communicator=_Communicator(), tcp_transfer_device="lo",
+    )
+    assert type(mgr.tensor_store.bookkeeping).__name__ == (
+        "RustTensorBookkeeping" if rust else "PythonTensorBookkeeping"
+    )
+    return mgr
+
+
+@pytest.mark.parametrize("rust", [False, True], ids=["python", "rust"])
+def test_a_failed_unregister_does_not_stop_the_teardown(monkeypatch, rust):
+    """A tensor the engine no longer has registered (Mooncake answers -3)
+    leaves no part of the request behind: before, the raise skipped the
+    request's other tensors."""
+    mgr = _real_manager(monkeypatch, rust)
+    tensors = [torch.randn(4, 64) for _ in range(3)]
+    uuids = _store(mgr, "r0", *tensors)
+    assert mgr.register_for_send_uuids(ParallelList(["r0"], [uuids])) is None
+    assert mgr.transfer_engine.unregister_memory(tensors[1].data_ptr()) == 0
+
+    mgr.force_cleanup_request("r0")
+
+    assert mgr.tensor_store.get_all_uuids("r0") == []
+    assert not any(mgr.tensor_store.check_uuid_presence(u) for u in uuids)
+    # the other two are unregistered: registering them again does not overlap
+    for t in (tensors[0], tensors[2]):
+        assert mgr.transfer_engine.register_memory(t.data_ptr(), t.nbytes) == 0
+        assert mgr.transfer_engine.unregister_memory(t.data_ptr()) == 0
+
+
+@pytest.mark.parametrize("rust", [False, True], ids=["python", "rust"])
+def test_remove_request_finishes_when_an_unregister_fails(monkeypatch, rust):
+    """REMOVE_REQUEST runs to the end, so the rid leaves the scheduler and
+    the graph runtime; before, the raise stopped it in force cleanup and
+    reached the worker's main loop."""
+    mgr = _real_manager(monkeypatch, rust)
+    t = torch.randn(4, 64)
+    uuids = _store(mgr, 3, t)
+    assert mgr.register_for_send_uuids(ParallelList([3], [uuids])) is None
+    assert mgr.transfer_engine.unregister_memory(t.data_ptr()) == 0
+    released = []
+    w = Worker.__new__(Worker)
+    w.is_tp_follower = False
+    w._rid = lambda wire: 3
+    w._in_flight_rids = set()
+    w._draining_rids, w._pending_drains, w._reads_done_sent = set(), set(), set()
+    w._stream_buffer_rids = set()
+    w._pending_removes = set()
+    w._last_active = {}
+    w.streaming_buffers = {}
+    w.tensor_manager = mgr
+    w.engine_manager = SimpleNamespace(
+        remove_request=lambda rid: None, evictable_nodes=lambda: [],
+    )
+    w.request_state = SimpleNamespace(remove_request=lambda rid: None)
+    w.profile_info = SimpleNamespace(pop_request=lambda rid: None)
+    w.scheduler = SimpleNamespace(
+        clear_rid=lambda rid, wire: released.append(("scheduler", rid)),
+    )
+    w._graph_runtime = SimpleNamespace(
+        get_sharding_config=lambda rid: None,
+        remove_request=lambda rid: released.append(("runtime", rid)),
+    )
+
+    Worker._remove_request(w, RemoveRequest(request_id="r"))
+
+    assert released == [("scheduler", 3), ("runtime", 3)]
+    assert mgr.tensor_store.get_all_uuids(3) == []
+
+
+class _RefusingEngine(_Engine):
+    """Refuses every registration and, like Mooncake, answers -3 when asked
+    to unregister memory it never registered."""
+
+    def register_memory(self, ptr, nbytes):
+        return -7
+
+    def unregister_memory(self, ptr):
+        self.unregistered.append(ptr)
+        return -3
+
+
+def test_a_read_buffer_the_engine_refused_is_not_marked_registered():
+    """Teardown unregisters what is marked; a read buffer marked registered
+    whatever the engine said made it unregister memory never registered."""
+    engine = _RefusingEngine()
+    mgr = _manager(engine)
+    try:
+        edge = GraphEdge(name="x", next_node="n")
+        edge.tensor_info = [TensorPointerInfo(
+            dims=(4,), dtype=torch.float32, stride=(1,), nbytes=16,
+            address=0x1000, uuid=77, source_session_id="peer:1",
+            source_entity="w1",
+        )]
+        futures = mgr.start_read_tensors("r0", [edge])
+        for f in futures:
+            f.result()
+
+        assert mgr.tensor_store.check_uuid_presence(77)
+        assert not mgr.tensor_store.is_registered(77)
+        mgr.force_cleanup_request("r0")
+        assert engine.unregistered == []
+        assert not mgr.tensor_store.check_uuid_presence(77)
+    finally:
+        mgr._async_reader._executor.shutdown(wait=True)
