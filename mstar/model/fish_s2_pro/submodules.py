@@ -409,7 +409,7 @@ class CodecSubmodule(ARNodeSubmodule):
                 f"stack's {receptive_field}-frame receptive field"
             )
         self.conv_context = self.codec.conv_context_frames
-        self.max_new_frames = max(*self.codec.chunk_schedule, self.codec.chunk_frames)
+        self.max_new_frames = max([*self.codec.chunk_schedule, self.codec.chunk_frames])
         self._geometry_stager = PinnedStager(torch.long, numel=2 * self.MAX_BATCH_SIZE)
         if not self.codec.exact_streaming:
             logger.warning(

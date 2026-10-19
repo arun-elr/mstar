@@ -30,6 +30,7 @@ Request state machine:
 from __future__ import annotations
 
 import hashlib
+import math
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +101,19 @@ def clip_digest(clip: torch.Tensor) -> str:
     """Content key of a reference clip, under which its codes are memoised."""
     samples = clip.detach().to(device="cpu", dtype=torch.float32).contiguous()
     return hashlib.blake2b(samples.numpy().tobytes(), digest_size=16).hexdigest()
+
+
+# torchaudio's resampling kernel holds about (rate / g) * (target / g) taps for
+# g = gcd(rate, target): a coprime rate like 44101 Hz makes it gigabytes. Every
+# real rate, pull-down rates included, stays far below this.
+_MAX_SAMPLE_RATE = 768_000
+_MAX_RESAMPLE_KERNEL = 1 << 24
+
+
+def _check_resample_rate(rate: int, target: int) -> None:
+    g = math.gcd(rate, target) if rate > 0 else 1
+    if not 1 <= rate <= _MAX_SAMPLE_RATE or (rate // g) * (target // g) > _MAX_RESAMPLE_KERNEL:
+        raise ValueError(f"unsupported sample rate {rate} Hz; resample the audio to a standard rate")
 
 
 class FishS2ProModel(Model):
@@ -268,10 +282,11 @@ class FishS2ProModel(Model):
 
         # Bound the clip before decoding it: a small compressed file can hold hours of audio.
         info = soundfile.info(filepath)
-        self._check_reference_duration(info.frames / info.samplerate if info.samplerate else 0.0)
+        target = self.config.codec.sample_rate
+        _check_resample_rate(info.samplerate, target)
+        self._check_reference_duration(info.frames / info.samplerate)
         waveform, sample_rate = soundfile.read(filepath, dtype="float32", always_2d=True)
         audio = torch.from_numpy(waveform).mean(dim=1)
-        target = self.config.codec.sample_rate
         if sample_rate != target:
             audio = audio_functional.resample(audio, sample_rate, target)
         return TensorAndMetadata(data=audio.to(device), metadata={"sample_rate": target, "num_channels": 1})

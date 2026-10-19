@@ -330,6 +330,13 @@ def test_codec_preprocess_stages_window_geometry_as_the_per_column_copies_did(co
     assert packed["start_offset"].tolist() == [0, 4, 40, 100]
 
 
+@pytest.mark.parametrize("schedule", [(), (2, 3)])
+def test_codec_sizes_its_window_with_or_without_a_schedule(schedule):
+    config = tiny_config(chunk_schedule=schedule)
+    submodule = CodecSubmodule(random_decoder(config), config)
+    assert submodule.max_new_frames == max([*schedule, config.codec.chunk_frames])
+
+
 def test_codec_rejects_conv_context_below_the_receptive_field():
     config = tiny_config(conv_context_frames=1)
     with pytest.raises(ValueError, match="receptive field"):

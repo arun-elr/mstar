@@ -172,6 +172,19 @@ def test_adapter_refuses_server_paths_and_clips_it_cannot_decode(tmp_path):
     assert not any(tmp_path.iterdir())
 
 
+@pytest.mark.parametrize("rate, refused", [(44100, False), (48000, False), (16000, False), (44101, True)])
+def test_load_audio_refuses_a_rate_whose_resampling_kernel_is_unbounded(tmp_path, rate, refused):
+    sf = pytest.importorskip("soundfile")
+    path = tmp_path / "ref.wav"
+    sf.write(path, torch.zeros(rate).numpy(), rate)  # 1 s, inside the duration bounds
+    model = tiny_model()
+    if refused:
+        with pytest.raises(ValueError, match="unsupported sample rate"):
+            model.load_audio(str(path), "cpu")
+    else:
+        assert model.load_audio(str(path), "cpu").metadata["sample_rate"] == model.config.codec.sample_rate
+
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
