@@ -188,6 +188,22 @@ def test_model_hook_that_cannot_read_a_resources_block_is_reported_with_the_rest
     ], problems
 
 
+def test_a_model_that_cannot_declare_its_resources_is_reported_with_the_rest(tmp_path):
+    """LTX-2.5 reads checkpoint configs in ``get_node_resources``."""
+    class _MissingCheckpoint(_Model):
+        def get_node_resources(self):
+            raise FileNotFoundError(2, "No such file or directory", "ckpt/vae/config.json")
+
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text(yaml.safe_dump({"node_groups": [{"node_names": ["llm"], "ranks": [0]}]}))
+    problems = _problems(_MissingCheckpoint(), str(cfg))
+    assert problems == [
+        "the config must define `max_seq_len`",
+        "declaring the node resources failed: FileNotFoundError: [Errno 2] No such file or directory: "
+        "'ckpt/vae/config.json'",
+    ], problems
+
+
 def test_unreadable_sharding_config_is_reported_with_the_rest(tmp_path):
     cfg = tmp_path / "cfg.yaml"
     cfg.write_text(yaml.safe_dump({
