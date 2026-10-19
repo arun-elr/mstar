@@ -30,12 +30,13 @@ import asyncio
 from collections.abc import Callable
 
 from fastapi import HTTPException
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 
 from mstar.api_server import media_io
 from mstar.api_server.openai._util import release_unread, rid
 from mstar.api_server.openai.protocol import VoiceCard, VoiceList
 from mstar.api_server.openai.speech_chunking import split_sentences
+from mstar.api_server.streaming_response import ReleasingStreamingResponse
 
 
 def _plan_chunks(req, adapter, text: str) -> list[str]:
@@ -132,9 +133,10 @@ async def create_speech(api, model_name, adapter, req, raw_request=None):  # noq
                 release_unread(api, pending, 1)
                 raise
             stream_owns_uploads = True
-            return StreamingResponse(
+            return ReleasingStreamingResponse(
                 _stream_pcm(api, submit, len(chunks), pending, first_iter, first, sample_rate,
                             with_wav_header=not raw_pcm, file_paths=args.file_paths),
+                release=lambda: release_unread(api, pending, 0),
                 media_type="audio/pcm" if raw_pcm else "audio/wav",
                 headers={"Cache-Control": "no-cache"},
             )
