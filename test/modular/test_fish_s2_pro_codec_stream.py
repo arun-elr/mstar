@@ -379,6 +379,24 @@ def test_codec_state_loads_completely_and_rejects_gaps(config, decoder):
         load_codec_state(FishDACDecoder(config.codec), bad_rope, prefixes)
 
 
+def test_codec_runs_the_checkpoints_rope_table_even_one_bf16_step_off(config, decoder):
+    """Some hosts compute one entry of a table one bf16 step away from the one
+    stored in ``codec.pth``; the stored table loads, so every host runs the same
+    values. A table from another rope base is still refused."""
+    state = {name: tensor.float() for name, tensor in decoder.state_dict().items()}
+    key = "quantizer.post_module.freqs_cis"
+    stored = precompute_freqs_cis(256, 16, 10000.0)
+    stored.view(torch.int16).view(-1)[1001] += 1
+    fresh = FishDACDecoder(config.codec)
+    assert not torch.equal(fresh.quantizer.post_module.freqs_cis, stored)
+    load_codec_state(fresh, {**state, key: stored}, ("quantizer.", "decoder."))
+    assert torch.equal(fresh.quantizer.post_module.freqs_cis, stored)
+
+    other_base = precompute_freqs_cis(256, 16, 5000.0)
+    with pytest.raises(RuntimeError, match="RoPE table"):
+        load_codec_state(FishDACDecoder(config.codec), {**state, key: other_base}, ("quantizer.", "decoder."))
+
+
 def test_ref_encoder_emits_frames_and_memoises_by_clip(config):
     torch.manual_seed(0)
     encoder = FishDACEncoder(config.codec).eval()

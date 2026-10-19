@@ -541,11 +541,18 @@ def _fold_weight_norm(state: dict[str, torch.Tensor]) -> Iterator[tuple[str, tor
             yield name, tensor
 
 
+# Two bf16 steps at |x| near 1; a wrong rope base or length is off by far more.
+_ROPE_TABLE_ATOL = 2.0**-6
+
+
 def load_codec_state(module: nn.Module, state: dict[str, torch.Tensor], prefixes: Iterable[str]) -> None:
     """Load the ``prefixes`` subtrees of ``codec.pth`` into ``module``; fail on any gap.
 
-    RoPE tables (``freqs_cis``) are checked against the module's own instead
-    of loaded: a mismatch means the architecture constants are wrong.
+    RoPE tables (``freqs_cis``) are loaded from the checkpoint, so every host
+    runs the same bf16 values: ``torch.polar`` plus a bf16 round differs by one
+    step on some CPUs and libm builds. The module's own table must still agree
+    within :data:`_ROPE_TABLE_ATOL`; a larger gap means the architecture
+    constants are wrong.
     """
     prefixes = tuple(prefixes)
     params = dict(module.named_parameters())
@@ -556,8 +563,14 @@ def load_codec_state(module: nn.Module, state: dict[str, torch.Tensor], prefixes
             continue
         if name.endswith(".freqs_cis"):
             own = buffers.get(name)
-            if own is None or own.shape != tensor.shape or not torch.equal(own.cpu(), tensor):
+            if (
+                own is None
+                or own.shape != tensor.shape
+                or (own.detach().cpu().float() - tensor.float()).abs().max() > _ROPE_TABLE_ATOL
+            ):
                 raise RuntimeError(f"Fish codec RoPE table {name} differs from the reference table")
+            with torch.no_grad():
+                own.copy_(tensor.to(dtype=own.dtype))
             continue
         target = params.get(name)
         if target is None:
