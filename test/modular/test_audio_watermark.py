@@ -332,6 +332,34 @@ def test_detect_resamples_to_the_rate_the_mark_was_added_at(rate, expected):
     assert MARK_SAMPLE_RATE == 24_000 and fake.lengths == [expected]
 
 
+@pytest.mark.parametrize(
+    ("decoded", "argv", "verdict"),
+    [
+        (0xBEEF, ["--message", "0xBEEF"], "watermarked"),
+        (0xBEEF, ["--message", "1011111011101111"], "watermarked"),
+        (0x1234, ["--message", "48879"], "not watermarked"),
+        (0x1234, [], "watermarked"),
+    ],
+)
+def test_detect_cli_counts_a_file_as_marked_only_with_the_deployments_message(
+    tmp_path, monkeypatch, capsys, decoded, argv, verdict
+):
+    """An unmarked file re-encoded as MP3 can score above the threshold (50 of
+    167 served Qwen3-TTS files did) but decodes to some other message."""
+    sf = pytest.importorskip("soundfile")
+    from mstar.model import audio_watermark
+
+    class _Detector:
+        def detect(self, audio, sample_rate):
+            return 0.9, decoded
+
+    monkeypatch.setattr(audio_watermark.AudioSealDetector, "build", classmethod(lambda cls, device: _Detector()))
+    path = tmp_path / "speech.wav"
+    sf.write(path, torch.zeros(24_000).numpy(), 24_000)
+    audio_watermark._main(["detect", *argv, str(path)])
+    assert capsys.readouterr().out.startswith(f"{path}: {verdict} (score 0.900")
+
+
 def test_stream_refuses_chunks_after_its_final_one():
     wmk = _watermarker()
     stream = WatermarkStream()

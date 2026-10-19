@@ -120,6 +120,13 @@ def _parse_message(value: Any) -> int:
     return value
 
 
+def _cli_message(value: str) -> int:
+    """A message on the command line: 16 characters of 0/1, or an int (``0xBEEF``, ``48879``)."""
+    if len(value) == MESSAGE_BITS and not set(value) - {"0", "1"}:
+        return _parse_message(value)
+    return _parse_message(int(value, 0))
+
+
 def import_audioseal():
     try:
         import audioseal
@@ -463,12 +470,19 @@ def _main(argv: list[str] | None = None) -> None:
     detect.add_argument("files", nargs="+", help="whole utterances; a clip under a few seconds can miss the mark")
     detect.add_argument("--device", default="cpu")
     detect.add_argument("--threshold", type=float, default=0.5, help="score above which a file counts as marked")
+    detect.add_argument(
+        "--message", type=_cli_message, default=None,
+        help="the deployment's message (0xBEEF, 48879 or 16 bits): a file counts as marked only if it decodes to it",
+    )
     args = parser.parse_args(argv)
     detector = AudioSealDetector.build(args.device)
     for path in args.files:
         audio, sample_rate = sf.read(path, dtype="float32", always_2d=True)
         score, message = detector.detect(torch.from_numpy(audio.mean(axis=1)), sample_rate)
-        verdict = "watermarked" if score > args.threshold else "not watermarked"
+        # MP3 coding noise alone can push an unmarked file's score past 0.5;
+        # it does not decode to the deployment's message
+        marked = score > args.threshold and (args.message is None or message == args.message)
+        verdict = "watermarked" if marked else "not watermarked"
         print(f"{path}: {verdict} (score {score:.3f}, message 0x{message:04x}, {sample_rate} Hz)")
 
 

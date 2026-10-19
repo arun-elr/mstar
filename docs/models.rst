@@ -310,8 +310,10 @@ Qwen3-TTS notes
   Unknown keys or out-of-range values fail startup, and so does ``enabled: true``
   without the package. Each request's PCM is marked chunk by chunk with its own
   streaming state, so a streamed utterance carries the same mark as a whole one.
-  Check files with ``python -m mstar.model.audio_watermark detect out.wav``
-  (``--threshold``, default 0.5; ``--device``; needs ``.[audio]`` for
+  Check files with ``python -m mstar.model.audio_watermark detect --message 0xBEEF out.wav``
+  (``--message``, the deployment's payload: without it the verdict is the
+  score alone, and an unmarked file re-encoded as MP3 can score above 0.5;
+  ``--threshold``, default 0.5; ``--device``; needs ``.[audio]`` for
   ``soundfile``); a file at another rate than 24 kHz is resampled to 24 kHz
   first, since the mark is found only at the rate it was added at. Detect on
   whole utterances: a clip under a few seconds can miss the mark. The helper lives in ``mstar/model/audio_watermark.py``.
