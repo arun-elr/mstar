@@ -97,6 +97,9 @@ class _TensorManager:
             hook()
         return {}
 
+    def take_failed_reads(self):
+        return []
+
     def has_inflight_reads(self, request_id):
         return False
 
@@ -190,7 +193,10 @@ class _Rig:
         """Nothing is kept for the rid."""
         assert rid not in self.worker._draining_rids
         assert rid not in self.worker._reads_done_sent
-        assert rid not in self.worker._live_requests
+        assert rid not in self.worker.in_flight_requests
+        assert rid not in self.worker._pending_ids
+        assert rid not in self.worker._pre_admit_cancelled
+        assert rid not in self.worker._failed_rids
 
 
 @pytest.fixture
@@ -244,8 +250,9 @@ def test_abort_after_hard_remove_does_not_drain(rig):
 
     r.assert_forgotten("X")
     assert len(r.reads_done("X")) == 1
-    # still forwarded: the conductor owns what an abort for an id means
-    assert len(r.conductor.sent_of(ConductorMessageType.ABORT_REQUEST, "X")) == 1
+    # dropped: the conductor removed the request before this abort, and keys
+    # are never reused, so the abort names nothing
+    assert r.conductor.sent_of(ConductorMessageType.ABORT_REQUEST, "X") == []
 
 
 def test_preprocess_failure_release_leaves_nothing(rig):
@@ -343,59 +350,6 @@ def test_abort_queued_before_a_failing_preprocess_leaves_nothing(rig):
     r.assert_forgotten("X")
 
 
-def test_late_remove_of_a_finished_request_does_not_swallow_a_retry(rig):
-    """The old request's REMOVE_REQUEST lands after a retry under its id was
-    already preprocessed; the retry must still deliver and ACK."""
-    r = rig()
-    r.submit("X")
-    r.api.finished_reading("X", drained=True)
-    r.settle()
-    r.submit("X")
-    r.conductor.deliver(WorkerMessageType.REMOVE_REQUEST, RemoveRequest("X"))
-    r.settle()
-
-    r.api.new_result_token("X", 7, None, "text_inputs", "text")
-    assert r.worker.out_queue.get(timeout=2).data == b"<7>"
-    acked = len(r.reads_done("X"))
-    r.api.finished_reading("X", drained=True)
-    r.settle()
-    assert len(r.reads_done("X")) == acked + 1
-
-    r.conductor.deliver(WorkerMessageType.REMOVE_REQUEST, RemoveRequest("X"))
-    r.settle()
-    r.assert_forgotten("X")
-
-
-def test_abort_of_a_queued_retry_does_not_swallow_the_next_retry(rig):
-    """A fails; B reuses the id and is aborted before preprocessing (its abort
-    also drops A from recently_completed, so A's release never comes); C reuses
-    it again and is preprocessed before B's REMOVE_REQUEST lands. C must ACK."""
-    r = rig()
-    r.submit("X")
-    r.fail_in_engine("X")
-
-    r.hold()
-    r.api.new_request(_input("X"))
-    r.api.abort_request("X")
-    r.resume()
-    assert len(r.conductor.sent_of(ConductorMessageType.NEW_REQUEST, "X")) == 2
-
-    r.submit("X")
-    r.conductor.deliver(WorkerMessageType.REMOVE_REQUEST, RemoveRequest("X"))
-    r.settle()
-
-    r.api.new_result_token("X", 7, None, "text_inputs", "text")
-    assert r.worker.out_queue.get(timeout=2).data == b"<7>"
-    acked = len(r.reads_done("X"))
-    r.api.finished_reading("X", drained=True)
-    r.settle()
-    assert len(r.reads_done("X")) == acked + 1
-
-    r.conductor.deliver(WorkerMessageType.REMOVE_REQUEST, RemoveRequest("X"))
-    r.settle()
-    r.assert_forgotten("X")
-
-
 def test_release_queued_just_before_a_retry_does_not_drain_it(rig):
     """A's release is queued after the loop's release stage, and a retry B under
     the id right after it, both before the same pass takes B from in_queue."""
@@ -420,33 +374,6 @@ def test_release_queued_just_before_a_retry_does_not_drain_it(rig):
     assert len(r.reads_done("X")) == acked + 1
 
 
-def test_two_late_removals_do_not_swallow_a_retry(rig):
-    """A finishes and B is rejected, both released, and a third request C under
-    the id starts before either REMOVE_REQUEST lands. C must still ACK."""
-    r = rig()
-    r.submit("X")
-    r.api.finished_reading("X", drained=True)
-    r.settle()
-    r.submit("X")
-    r.api.finished_reading("X", drained=False)
-    r.settle()
-    r.submit("X")
-    r.conductor.deliver(WorkerMessageType.REMOVE_REQUEST, RemoveRequest("X"))
-    r.conductor.deliver(WorkerMessageType.REMOVE_REQUEST, RemoveRequest("X"))
-    r.settle()
-
-    r.api.new_result_token("X", 7, None, "text_inputs", "text")
-    assert r.worker.out_queue.get(timeout=2).data == b"<7>"
-    acked = len(r.reads_done("X"))
-    r.api.finished_reading("X", drained=True)
-    r.settle()
-    assert len(r.reads_done("X")) == acked + 1
-
-    r.conductor.deliver(WorkerMessageType.REMOVE_REQUEST, RemoveRequest("X"))
-    r.settle()
-    r.assert_forgotten("X")
-
-
 def test_a_backlog_of_late_releases_leaves_nothing(rig):
     """Every removal lands before any of the releases."""
     r = rig()
@@ -467,5 +394,5 @@ def test_a_backlog_of_late_releases_leaves_nothing(rig):
 
     assert not r.worker._draining_rids
     assert not r.worker._reads_done_sent
-    assert not r.worker._live_requests
+    assert not r.worker.in_flight_requests
     assert all(len(r.reads_done(rid)) == 1 for rid in rids)
