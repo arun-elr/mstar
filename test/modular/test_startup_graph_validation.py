@@ -37,7 +37,7 @@ from mstar.distributed.base import ShardingConfig
 from mstar.graph.base import GraphEdge, GraphNode, Loop, Sequential, TensorPointerInfo
 from mstar.graph.runtime.base import ColumnarEdgeSpecs, RouteInput, SendInput
 from mstar.graph.runtime.python import PythonGraphRuntime
-from mstar.graph.special_destinations import EMIT_TO_CLIENT
+from mstar.graph.special_destinations import EMIT_TO_CLIENT, EMPTY_DESTINATION
 from mstar.model.base import Model
 from mstar.model.registry import MODEL_REGISTRY, get_model_class, model_init_kwargs
 from mstar.streaming.chunk_policy import FixedChunkPolicy
@@ -183,11 +183,11 @@ def test_one_node_on_different_ranks_per_walk_is_accepted(tmp_path, monkeypatch)
 # -- stream-driven walks ------------------------------------------------------
 
 
-def _stream_model(chunk_walk, extra_walks=None, tp_enabled_nodes=()):
+def _stream_model(chunk_walk, extra_walks=None, tp_enabled_nodes=(), producer=None):
     """Producer partition P streams ``codes`` into consumer partition C."""
     def walks():
         out = {
-            "gen": GraphNode(name="producer", input_names=["prompt"], outputs=[
+            "gen": producer() if producer else GraphNode(name="producer", input_names=["prompt"], outputs=[
                 StreamingGraphEdge(next_node="vocoder", name="codes", target_partition="C"),
             ]),
             "chunk": chunk_walk(),
@@ -450,6 +450,35 @@ def test_sharded_stream_across_tp_sizes_is_rejected(
         rf"Streamed signal 'codes' has a shard_dim, but its producer 'producer' in graph walk 'gen' "
         rf"\(TP {producer_tp}\) and consumer 'vocoder' \(TP {vocoder_tp}\) differ in TP size"
     )):
+        _start_conductor(model, str(path), tmp_path, monkeypatch)
+
+
+@pytest.mark.parametrize("accumulated", [False, True], ids=["outputs", "accumulated_outputs"])
+def test_a_loop_streaming_a_sharded_signal_across_tp_sizes_is_rejected(accumulated, tmp_path, monkeypatch):
+    """The stream leaves through the Loop's own outputs, not the inner node's edge."""
+    def generate():
+        stream = StreamingGraphEdge(next_node="vocoder", name="codes", target_partition="C")
+        return Loop(
+            name="generate", max_iters=2,
+            section=GraphNode(name="producer", input_names=["prompt"], outputs=[
+                GraphEdge(next_node=EMPTY_DESTINATION, name="codes"),
+            ]),
+            outputs=[] if accumulated else [stream],
+            accumulated_outputs=[stream] if accumulated else [],
+        )
+
+    path = tmp_path / "cfg.yaml"
+    path.write_text(yaml.safe_dump({
+        "max_seq_len": 64,
+        "node_groups": [
+            {"node_names": ["producer"], "ranks": [0, 1], "tp_size": 2},
+            {"node_names": ["vocoder"], "ranks": [2]},
+        ],
+        "sharding_config": {"shard_dim": {"codes": 0}},
+    }))
+    model = _stream_model(_vocoder, producer=generate, tp_enabled_nodes=["producer", "vocoder"])
+    match = r"producer 'producer' in graph walk 'gen' \(TP 2\) and consumer 'vocoder' \(TP 1\)"
+    with pytest.raises(RuntimeError, match=match):
         _start_conductor(model, str(path), tmp_path, monkeypatch)
 
 

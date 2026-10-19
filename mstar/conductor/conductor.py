@@ -501,14 +501,27 @@ class Conductor:
                 if node.consumes_stream:
                     self.streaming_consumers.add(name)
                     streamed_inputs[name] |= node._streaming_inputs
-        self.default_sharding_config.assert_streams_keep_tp_size(sorted({
+        stream_edges = {
             (edge.name, name, walk, edge.next_node)
             for wg in self.worker_graphs.values()
             for name, node in wg.section.get_nodes().items()
             for edge in node.outputs
             if edge.name in streamed_inputs.get(edge.next_node, ())
             for walk in wg.graph_walks
-        }))
+        }
+        # a Loop streams its outputs on completion; the producer is the inner
+        # node that makes the signal
+        stream_edges |= {
+            (edge.name, name, walk, edge.next_node)
+            for wg in self.worker_graphs.values()
+            for loop in wg.section.get_loops().values()
+            for edge in loop.outputs + loop.accumulated_outputs
+            if edge.name in streamed_inputs.get(edge.next_node, ())
+            for name, node in loop.get_nodes().items()
+            if any(out.name == edge.name for out in node.outputs)
+            for walk in wg.graph_walks
+        }
+        self.default_sharding_config.assert_streams_keep_tp_size(sorted(stream_edges))
 
         # v1: one sharding group per worker graph. Track which group "owns"
         # each wg so we can assert single-group-per-wg.
