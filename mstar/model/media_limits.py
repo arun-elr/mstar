@@ -25,6 +25,8 @@ MIN_FRAME_PIXELS = 64 * 64
 DEFAULT_MAX_MEDIA_FILES = 16
 # torchvision decodes these (GIF is read with Pillow); anything else is a 400
 IMAGE_FORMATS = ("PNG", "JPEG", "WEBP", "GIF")
+# a loader that decodes with Pillow also reads the other image types the API accepts
+PILLOW_IMAGE_FORMATS = IMAGE_FORMATS + ("BMP", "TIFF")
 
 
 def _positive_int_env(name: str, default: int) -> int:
@@ -125,10 +127,11 @@ def _charge_request(kind: str, pixels: int) -> None:
         budget.charge(kind, pixels)
 
 
-def check_image_size(filepath: str) -> tuple[str, bool]:
+def check_image_size(filepath: str, formats: tuple[str, ...] = IMAGE_FORMATS) -> tuple[str, bool]:
     """Refuse an image whose header promises more than ``max_image_pixels()``
-    or that is not in ``IMAGE_FORMATS``; returns Pillow's name for the format
-    and whether the file holds more than one frame.
+    or that is not in ``formats`` (the ones the caller's decoder reads);
+    returns Pillow's name for the format and whether the file holds more than
+    one frame.
 
     Reads the header only. The decoders allocate what the header declares, so
     it cannot understate the decode.
@@ -141,7 +144,7 @@ def check_image_size(filepath: str) -> tuple[str, bool]:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", Image.DecompressionBombWarning)
-            with Image.open(filepath, formats=IMAGE_FORMATS) as image:
+            with Image.open(filepath, formats=formats) as image:
                 width, height = image.size
                 fmt = image.format or ""
                 animated = bool(getattr(image, "is_animated", False))
