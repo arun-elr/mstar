@@ -136,12 +136,36 @@ class _TwoStreamModel(Model):
         return None
 
 
-def _two_stream_conductor(tmp_path, monkeypatch):
+class _ColonNamesModel(_TwoStreamModel):
+    """Two connections whose names join to the same "P->C:x:y" string."""
+
+    WALKS = {"P": "p", "C:x": "c1", "C": "c2"}
+
+    def get_graph_walk_graphs(self):
+        return {walk: GraphNode(name=walk, input_names=["x"], outputs=[]) for walk in self.WALKS.values()}
+
+    def get_partitions(self):
+        return [PartitionDefinition(name, {walk}) for name, walk in self.WALKS.items()]
+
+    def get_partition_topology(self):
+        return PartitionTopology(list(self.WALKS), [
+            Connection("P", "C:x", "y", lambda: FixedChunkPolicy(1)),
+            Connection("P", "C", "x:y", lambda: FixedChunkPolicy(1)),
+        ])
+
+    def get_initial_forward_pass_args(self, partition_name, *a, **k):
+        metadata = CurrentForwardConductorMetadata(graph_walk=self.WALKS[partition_name], is_prefill=False)
+        return ForwardPassArgs(metadata, [], [])
+
+
+def _two_stream_conductor(tmp_path, monkeypatch, model=None):
+    model = model or _TwoStreamModel()
+    nodes = sorted(model.get_graph_walk_graphs())
     cfg = tmp_path / "cfg.yaml"
-    cfg.write_text(yaml.safe_dump({"max_seq_len": 64, "node_groups": [{"node_names": ["p", "c"], "ranks": [0]}]}))
+    cfg.write_text(yaml.safe_dump({"max_seq_len": 64, "node_groups": [{"node_names": nodes, "ranks": [0]}]}))
     monkeypatch.setattr(Conductor, "_launch_workers", lambda self: None)
     monkeypatch.setattr(conductor_mod, "make_communicator", lambda **kw: SimpleNamespace(send=lambda *a: None))
-    c = Conductor(_TwoStreamModel(), str(cfg), socket_path_prefix=str(tmp_path / "s"))
+    c = Conductor(model, str(cfg), socket_path_prefix=str(tmp_path / "s"))
     c._ingest_request(NewRequestConductor(
         request_id="rid", initial_signals={}, initial_input_modalities=["text"],
         initial_output_modalities=["text"], input_metadata={}, model_kwargs={}))
@@ -163,3 +187,14 @@ def test_producer_done_goes_once_per_consumer_partition(tmp_path, monkeypatch):
 
     assert sent == [("P", "C")]
     assert all(x.producer_done for x in c.requests["rid"].get_incoming_connections("C"))
+
+
+def test_connections_whose_names_join_alike_are_both_tracked(tmp_path, monkeypatch):
+    c = _two_stream_conductor(tmp_path, monkeypatch, _ColonNamesModel())
+    sent = []
+    monkeypatch.setattr(c, "_send_producer_done", lambda rid, src, dst: sent.append((src, dst)))
+    req = c.requests["rid"]
+    assert [x.edge_name for x in req.get_incoming_connections("C:x")] == ["y"]
+    assert [x.edge_name for x in req.get_incoming_connections("C")] == ["x:y"]
+    c._process_done_forward("rid", "P")
+    assert sorted(sent) == [("P", "C"), ("P", "C:x")]

@@ -257,8 +257,8 @@ class RequestData:
     partition_states: dict[str, PartitionState] = field(default_factory=dict)
     partition_definitions: dict[str, PartitionDefinition] = field(default_factory=dict)
 
-    # Per-streaming-connection state (keyed by "from_partition->to_partition:edge_name")
-    streaming_connections: dict[str, StreamingConnectionState] = field(default_factory=dict)
+    # Per-streaming-connection state, keyed by (from_partition, to_partition, edge_name)
+    streaming_connections: dict[tuple[str, str, str], StreamingConnectionState] = field(default_factory=dict)
 
     # for api server recv bookeeping
     final_outputs: dict[str, NestedLoopIndices] = field(default_factory=dict)
@@ -1029,9 +1029,10 @@ class Conductor:
             )
 
         # Build per-connection streaming state
-        streaming_connections: dict[str, StreamingConnectionState] = {}
+        streaming_connections: dict[tuple[str, str, str], StreamingConnectionState] = {}
         for conn in topology.connections:
-            key = f"{conn.from_partition}->{conn.to_partition}:{conn.edge_name}"
+            # a tuple: names may hold ":" or "->" ("C:x" + "y" vs "C" + "x:y")
+            key = (conn.from_partition, conn.to_partition, conn.edge_name)
             streaming_connections[key] = StreamingConnectionState(
                 from_partition=conn.from_partition,
                 to_partition=conn.to_partition,
