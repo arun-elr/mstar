@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import multiprocessing as mp
 import os
 import platform
@@ -121,6 +122,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         raise SystemExit(f"sizes {odd} are not whole {args.dtype} tensors ({itemsize} bytes each)")
     if args.gpu_busy_ms < 0:
         raise SystemExit("--gpu-busy-ms must be >= 0")
+    # NaN passes every comparison the run loops make, so it would never end
+    for flag in ("bg_rate", "probe_interval_ms", "duration", "timeout_s"):
+        if not math.isfinite(getattr(args, flag)) or getattr(args, flag) <= 0:
+            raise SystemExit(f"--{flag.replace('_', '-')} must be a finite number > 0")
+    if not math.isfinite(args.p99_budget_ms) or args.p99_budget_ms < 0:
+        raise SystemExit("--p99-budget-ms must be a finite number >= 0")
+    over = [s for s in args.sizes if s > args.max_bytes_per_size]
+    if over:
+        raise SystemExit(f"sizes {over} are larger than --max-bytes-per-size ({args.max_bytes_per_size})")
     if args.torch_threads is not None:
         if args.torch_threads < 1:
             raise SystemExit("--torch-threads must be >= 1")
@@ -610,8 +620,10 @@ class Sender:
             p["burst_bytes"] = p["bg_size"] * a.bg_streams
             p["extra_p99_us"] = p["probe_p99_us"] - base["probe_p99_us"]
             p["extra_after_burst_p99_us"] = p["after_burst_p99_us"] - base["after_burst_p99_us"]
+        # a point whose probes did not all come back has only a lower bound on its p99
         ok = [p["burst_bytes"] for p in points[1:]
-              if max(p["extra_p99_us"], p["extra_after_burst_p99_us"]) <= budget_us]
+              if not p["unanswered_probes"] and not base["unanswered_probes"]
+              and max(p["extra_p99_us"], p["extra_after_burst_p99_us"]) <= budget_us]
         return {
             "idle": idle,
             "bg_streams": a.bg_streams, "bg_rate_hz": a.bg_rate,
@@ -671,10 +683,12 @@ class Sender:
         deadline = time.perf_counter() + 5.0
         while sent_at and time.perf_counter() < deadline:
             handle(recv(self.comm, 0.05))
+        unanswered = count_unanswered(sent_at, tagged, rtts, after_burst, time.perf_counter())
         self._ctl("size_done")
         report = self._await(self._reply("report"))
         out = {
             "probes": len(rtts),
+            "unanswered_probes": unanswered,
             "probe_p50_us": percentile(rtts, 50) * 1e6,
             "probe_p99_us": percentile(rtts, 99) * 1e6,
             "after_burst_p50_us": percentile(after_burst, 50) * 1e6 if after_burst else 0.0,
@@ -693,6 +707,18 @@ class Sender:
     def close(self) -> None:
         self._ctl("stop")
         self.busy.stop()
+
+
+def count_unanswered(sent_at: dict[int, float], tagged: set[int], rtts: list[float],
+                     after_burst: list[float], now: float) -> int:
+    """Count the probes still unanswered at the drain deadline and add each one's
+    age so far to the samples: a lower bound on its round trip, so the slowest
+    probes are not dropped from the percentiles."""
+    for seq, t0 in sent_at.items():
+        rtts.append(now - t0)
+        if seq in tagged:
+            after_burst.append(now - t0)
+    return len(sent_at)
 
 
 # -- receiver ----------------------------------------------------------------------

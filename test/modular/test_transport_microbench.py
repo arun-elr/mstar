@@ -46,6 +46,21 @@ def test_arguments_are_checked():
     with pytest.raises(SystemExit, match="not whole float32"):
         microbench.parse_args(["--dtype", "float32", "--sizes", "1,5"])
     assert microbench.parse_args(["--dtype", "float32", "--sizes", "4,64"]).sizes == [4, 64]
+    for flag in ("--duration", "--bg-rate", "--probe-interval-ms", "--timeout-s"):
+        for bad in ("nan", "inf", "0", "-1"):
+            with pytest.raises(SystemExit, match="finite number > 0"):
+                microbench.parse_args([flag, bad])
+    with pytest.raises(SystemExit, match="larger than --max-bytes-per-size"):
+        microbench.parse_args(["--sizes", "63,64,65", "--max-bytes-per-size", "64"])
+    assert microbench.parse_args(["--sizes", "63,64", "--max-bytes-per-size", "64"]).sizes == [63, 64]
+
+
+def test_unanswered_probes_count_toward_the_percentiles():
+    rtts, after_burst = [0.001], [0.001]
+    sent_at, tagged = {7: 10.0, 8: 14.0}, {8}
+    assert microbench.count_unanswered(sent_at, tagged, rtts, after_burst, now=16.0) == 2
+    assert rtts == [0.001, 6.0, 2.0] and after_burst == [0.001, 2.0]
+    assert microbench.percentile(rtts, 99) > 1.0
 
 
 class _ReachedMakeCommError(Exception):
