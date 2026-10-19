@@ -16,6 +16,7 @@ import torch
 import torch.nn.functional as F
 import yaml
 
+from mstar.api_server.entrypoint import WarmupRequest
 from mstar.api_server.openai import adapters
 from mstar.api_server.openai.protocol import SpeechRequest
 from mstar.conductor.request_info import CurrentForwardConductorMetadata
@@ -130,6 +131,22 @@ def test_registry_and_deployment_config():
     assert deployment["model"] == "fish_s2_pro"
     walks = {walk for group in deployment["node_groups"] for walk in group["graph_walks"]}
     assert walks == set(tiny_model().get_graph_walk_graphs())
+    (warmup,) = [WarmupRequest.from_config(spec) for spec in deployment["warmup_requests"]]
+    assert warmup.output_modalities == ["audio"]
+    tiny_model().process_prompt(warmup.text, ["text"], ["audio"], **warmup.model_kwargs)
+
+
+def test_load_logs_the_weights_license(monkeypatch, caplog, tmp_path):
+    from mstar.model.fish_s2_pro import fish_s2_pro_model as module
+
+    tokenizer = SimpleNamespace(all_special_ids=[], added_tokens_decoder={}, convert_tokens_to_ids=lambda t: [])
+    monkeypatch.setattr(module, "_resolve_snapshot", lambda *a, **k: str(tmp_path))
+    monkeypatch.setattr(module.FishS2ProConfig, "from_pretrained", classmethod(lambda cls, *a, **k: cls()))
+    monkeypatch.setattr(module.AutoTokenizer, "from_pretrained", lambda *a, **k: tokenizer)
+    with caplog.at_level("INFO", logger=module.__name__):
+        FishS2ProModel("fishaudio/s2-pro")
+    assert [r.getMessage() for r in caplog.records] == [module.LICENSE_NOTICE]
+    assert "Fish Audio Research License" in module.LICENSE_NOTICE
 
 
 def _wav_bytes(seconds: float = 1.0, sample_rate: int = 16_000) -> bytes:

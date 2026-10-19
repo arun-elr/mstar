@@ -30,6 +30,7 @@ Request state machine:
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
 from pathlib import Path
 from typing import Any
@@ -116,6 +117,14 @@ def _check_resample_rate(rate: int, target: int) -> None:
         raise ValueError(f"unsupported sample rate {rate} Hz; resample the audio to a standard rate")
 
 
+logger = logging.getLogger(__name__)
+
+LICENSE_NOTICE = (
+    "Fish S2-Pro: the fishaudio/s2-pro weights are under the Fish Audio Research License "
+    "(research and non-commercial use only); read it before deploying"
+)
+
+
 class FishS2ProModel(Model):
     """Fish Audio S2-Pro model contract (plain TTS and voice cloning)."""
 
@@ -129,6 +138,7 @@ class FishS2ProModel(Model):
         # Server-init knob: decode the codec with TF32 off (the reference's fp32).
         self.codec_exact_fp32 = bool(kwargs.get("codec_exact_fp32", True))
         self.local_dir = _resolve_snapshot(model_path_hf, cache_dir, list(METADATA_FILES))
+        logger.info(LICENSE_NOTICE)
         self.config = FishS2ProConfig.from_pretrained(
             self.local_dir,
             codec_overrides={k: kwargs[k] for k in CODEC_KWARGS if k in kwargs},

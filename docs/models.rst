@@ -433,7 +433,10 @@ Fish Audio S2-Pro notes
   ``ref_text``; with the SDK, ``client.tts(text, reference_audio="ref.wav",
   ref_text="...")``. ``voice`` and ``speed`` are ignored.
 - Sampling defaults follow the reference (temperature 0.8, top-p 0.8, top-k 30);
-  ``do_sample: false`` is greedy. ``max_new_tokens`` (default 2048, at most
+  ``do_sample: false`` is greedy. The order differs: M\*'s sampler applies the
+  temperature first and takes top-k and top-p over the tempered probabilities,
+  while the reference takes top-p over the untempered ones, so at the same
+  values M\* keeps a slightly different set of tokens per step. ``max_new_tokens`` (default 2048, at most
   4096 frames of 2048 samples at 44.1 kHz) and ``ignore_eos`` pass through.
 - Streamed audio matches the whole-utterance decode to within one int16 step:
   each codec window carries the decoder's whole receptive field as context, and

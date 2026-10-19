@@ -17,3 +17,11 @@ node_groups:
   - node_names: [Codec]
     ranks: [0]
     graph_walks: [codec_chunk]
+# The first plain request after startup otherwise pays the AR and codec
+# first-call costs (about 4 s TTFA on an H200 against 0.16 s after). A short
+# one before the server binds takes them; a voice clone's RefEncoder still
+# pays its own on the first clone.
+warmup_requests:
+  - text: Hello, this is a short warmup.
+    output_modalities: [audio]
+    model_kwargs: {max_new_tokens: 32}
