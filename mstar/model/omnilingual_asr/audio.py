@@ -57,7 +57,7 @@ def decode_file(path: str) -> tuple[torch.Tensor, int]:
     except Exception as exc:  # noqa: BLE001 (missing, or FFmpeg cannot read it)
         errors.append(f"torchcodec: {exc}")
     # the decoders name the file; the client only needs to know it was theirs
-    detail = "; ".join(errors).replace(str(path), "<upload>")
+    detail = "; ".join(errors).replace(str(path), "<upload>").replace(repr(str(path))[1:-1], "<upload>")
     raise ValueError(f"cannot decode the audio file ({detail}); install soundfile (mstar-ai[audio])")
 
 

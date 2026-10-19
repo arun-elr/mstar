@@ -372,6 +372,26 @@ def test_malformed_wav_headers_are_value_errors_without_the_path(tmp_path, monke
         assert str(tmp_path) not in str(err.value), err.value
 
 
+def test_a_decoder_quoting_the_path_with_repr_does_not_leak_it(tmp_path, monkeypatch):
+    """soundfile formats the path with repr(), so a tab or backslash in the
+    upload name reaches the message escaped, not as the plain path."""
+    def _read(path, **_):
+        raise RuntimeError(f"Error opening {path!r}: Format not recognised.")
+
+    monkeypatch.setitem(sys.modules, "soundfile", types.SimpleNamespace(read=_read))
+    monkeypatch.setitem(sys.modules, "torchcodec", None)
+    monkeypatch.setitem(sys.modules, "torchcodec.decoders", None)
+    for name in ("tab\there.mp3", "back\\slash.mp3", "caf\u00e9\nnew.mp3"):
+        path = tmp_path / name
+        path.write_bytes(b"not audio at all")
+        with pytest.raises(ValueError, match="cannot decode") as err:
+            audio.load_waveform(str(path))
+        message = str(err.value)
+        assert str(tmp_path) not in message, message
+        assert repr(str(tmp_path))[1:-1] not in message, message
+        assert "<upload>" in message
+
+
 # --------------------------------------------------------------------------
 # tokenizer and CTC decoding
 # --------------------------------------------------------------------------
