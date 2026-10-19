@@ -226,6 +226,11 @@ class TurnSegmenter:
         self.speaking, self._silence, self._turn = False, 0, 0
         self.vad.reset()
 
+    def shift(self, n: int) -> None:
+        """Move the stream position by ``n`` samples (the session's timeline
+        correction after a resampler start-over, with no partial frame held)."""
+        self._pos += n
+
     def take_over(self, old: TurnSegmenter) -> None:
         """Go on from ``old`` between turns (a settings change): its stream
         position, its partial frame, not scored yet, and its prefix padding."""

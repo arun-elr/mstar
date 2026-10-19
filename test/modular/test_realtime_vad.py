@@ -400,6 +400,23 @@ def test_clear_at_24khz_keeps_the_timeline(vad_client):
     assert [e["audio_start_ms"] for e in events if e["type"] == "input_audio_buffer.speech_started"] == [10_000]
 
 
+@pytest.mark.parametrize("boundary", ["input_audio_buffer.clear", "input_audio_buffer.commit"])
+def test_many_24khz_restarts_do_not_drift_the_timeline(vad_client, boundary):
+    """Each commit or clear starts the resampler over and rounds its output
+    up by under a sample; the timeline stays on the input clock instead:
+    96 restarts after 2,401 input samples each put speech at 9,604 ms."""
+    client, _ = vad_client
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        _open_with(ws, _AT_24KHZ)
+        for _ in range(96):
+            _send(ws, np.zeros(2401, dtype="<i2"), step=2401)
+            ws.send_text(json.dumps({"type": boundary}))
+        _send(ws, np.concatenate([_speech(10, 24000), _silence(20, 24000)]), step=24000)
+        events = _barrier(ws)
+    starts = [e["audio_start_ms"] for e in events if e["type"] == "input_audio_buffer.speech_started"]
+    assert starts == [96 * 2401 * 1000 // 24000]
+
+
 def test_a_client_commit_that_completes_a_turn_commits_once(vad_client):
     """At 24 kHz the resampler holds the last 1 ms, so the commit's drained
     tail is what completes the silence window: one item, not a second empty one."""

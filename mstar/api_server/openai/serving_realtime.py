@@ -166,16 +166,21 @@ class RealtimeSession:
     turn_detection: realtime_vad.ServerVAD | None = None
     segmenter: realtime_vad.TurnSegmenter | None = None
     stream_samples: int = 0    # SAMPLE_RATE samples written this session: the event timeline
+    # the input clock: stream_samples at the last rate change, and input samples since
+    clock_base: int = 0
+    clock_in: int = 0
 
     @property
     def chunk_samples(self) -> int:
         return int(round(self.chunk_seconds * SAMPLE_RATE))
 
     def set_input_rate(self, rate: int) -> None:
+        self.clock_base, self.clock_in = self.stream_samples, 0
         self.input_rate = rate
         self.resampler = None if rate == SAMPLE_RATE else media_io.StreamResampler(rate, SAMPLE_RATE)
 
     def resample(self, audio: np.ndarray) -> np.ndarray:
+        self.clock_in += int(audio.size)
         out = audio if self.resampler is None else self.resampler.push(audio)
         self.stream_samples += int(out.size)
         return out
@@ -193,6 +198,16 @@ class RealtimeSession:
             self.resampler.reset()
         if self.segmenter is not None:
             self.segmenter.reset(skipped)
+        self.realign()
+
+    def realign(self) -> None:
+        """After the resampler starts over (a commit or a clear), put the
+        timeline back on the input clock: each start-over rounds its output
+        up by less than a sample, which would add up over many of them."""
+        exact = self.clock_base + self.clock_in * SAMPLE_RATE // self.input_rate
+        if self.segmenter is not None:
+            self.segmenter.shift(exact - self.stream_samples)
+        self.stream_samples = exact
 
     def drain_resampler(self) -> np.ndarray:
         """What the resampler still holds, as if silence followed; it starts over."""
@@ -578,9 +593,11 @@ class RealtimeTranscription:
             s = self.session
             tail = s.drain_resampler()
             if s.segmenter is None:
+                s.realign()
                 await self.apply([("audio", tail)])
             else:
                 ops = await asyncio.to_thread(s.segmenter.feed, tail) + s.segmenter.end_turn()
+                s.realign()
                 await self.apply(ops)
                 if ops and ops[-1] == ("commit",):
                     # the drained tail ended a turn: that commit was this one
