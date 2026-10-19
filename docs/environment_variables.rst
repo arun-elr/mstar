@@ -349,8 +349,10 @@ so attaching more files does not multiply them.
      - ``3600``
      - Seconds a request's audio clips may decode to, summed over them (see
        :func:`mstar.model.media_limits.max_audio_seconds`), checked from each
-       header before the model decodes it and again from the decoded clip;
-       over it, the request gets a 400.
+       header before the model decodes it and again from the decoded clip (a
+       file whose header gives no length, such as a FLAC with no sample count,
+       is counted as it decodes, or from its size for a WAV with no data
+       length); over it, the request gets a 400.
 
 Worker scheduling
 -----------------

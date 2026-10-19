@@ -154,14 +154,36 @@ def check_file_counts(counts: dict[str, int], model_limits: dict[str, int]) -> N
             )
 
 
+# libsndfile reports 2**63 - 1 frames for a FLAC whose STREAMINFO has no sample
+# count (a stream written to a pipe); anything this large is "unknown"
+UNKNOWN_FRAMES = 1 << 62
+# frames per read while counting a file whose header gives no length
+_COUNT_BLOCK_FRAMES = 4096
+# bits a sample of each libsndfile subtype takes in the file; the file-size
+# bound below uses the smallest (4, an ADPCM nibble) for any it does not list
+_SUBTYPE_BITS = {
+    "PCM_S8": 8,
+    "PCM_U8": 8,
+    "PCM_16": 16,
+    "PCM_24": 24,
+    "PCM_32": 32,
+    "FLOAT": 32,
+    "DOUBLE": 64,
+    "ULAW": 8,
+    "ALAW": 8,
+}
+_MIN_SAMPLE_BITS = 4
+
+
 def probe_audio_seconds(filepath: str) -> float | None:
-    """The duration an audio file's header declares, or None when neither
+    """The duration an audio file's header declares, or None when it declares
+    none (a sample count of 0 or libsndfile's "unknown" value) or neither
     soundfile nor torchcodec can read it."""
     try:
         import soundfile
 
         info = soundfile.info(filepath)
-        if info.frames and info.samplerate:
+        if 0 < info.frames < UNKNOWN_FRAMES and info.samplerate:
             return info.frames / info.samplerate
     except Exception:  # noqa: BLE001, S110 -- not a libsndfile container: try torchcodec
         pass
@@ -176,12 +198,57 @@ def probe_audio_seconds(filepath: str) -> float | None:
     return None
 
 
+def _count_audio_seconds(filepath: str) -> None:
+    """Charge the request a libsndfile file's length counted as it decodes, for
+    a header that gives none; refuses as soon as the count passes the limit,
+    so the decode stops there.
+
+    Reads fixed blocks and charges the frames counted so far after each. A
+    header-less FLAC cannot seek past its last block, so libsndfile raises on
+    the read that returns it; that block is charged whole, which can overstate
+    the length by under one block (0.26 s at 16 kHz). A file libsndfile reads
+    as empty (a WAV whose data chunk length is 0) is charged from its size at
+    its subtype's sample width (4 bits for one not in the table), an upper
+    bound, since a loader that reads to the end of the file decodes what
+    libsndfile does not count.
+    """
+    try:
+        import soundfile
+    except ImportError:
+        return
+    try:
+        with soundfile.SoundFile(filepath) as sound:
+            channels = max(sound.channels, 1)
+            rate = sound.samplerate
+            bits = _SUBTYPE_BITS.get(sound.subtype, _MIN_SAMPLE_BITS)
+            frames = 0
+            while True:
+                try:
+                    block = sound.read(_COUNT_BLOCK_FRAMES, dtype="int16", always_2d=True)
+                except RuntimeError:  # soundfile.LibsndfileError
+                    # the end of a header-less FLAC (or damage the loader will report)
+                    frames += _COUNT_BLOCK_FRAMES
+                    _charge_request("audio", frames / rate)
+                    return
+                frames += len(block)
+                _charge_request("audio", frames / rate)
+                if len(block) < _COUNT_BLOCK_FRAMES:
+                    break
+            if frames == 0:
+                _charge_request("audio", os.path.getsize(filepath) * 8 / (bits * channels) / rate)
+    except (RuntimeError, OSError):  # soundfile.LibsndfileError, a file it cannot open
+        return  # not a libsndfile container: the loader's decode is charged instead
+
+
 def check_audio_duration(filepath: str) -> None:
     """Charge the request what an audio file's header declares, before the
-    model's loader decodes it."""
+    model's loader decodes it; a file whose header declares nothing is counted
+    as it decodes (:func:`_count_audio_seconds`)."""
     seconds = probe_audio_seconds(filepath)
     if seconds is not None:
         _charge_request("audio", seconds)
+    else:
+        _count_audio_seconds(filepath)
 
 
 def charge_decoded_audio(audio: torch.Tensor, sample_rate: int) -> None:
