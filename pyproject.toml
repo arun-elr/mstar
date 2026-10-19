@@ -357,6 +357,7 @@ all = [
     "misaki>=0.9.4",
     "spacy>=3.8",
     "num2words",
+    "audioseal>=0.2,<0.3",  # see the audioseal extra
     # omnivoice is intentionally omitted for the same reason as flash-attn: it
     # has to come from git, which PyPI will not accept in requires_dist.
     # See docs/installation.rst.
