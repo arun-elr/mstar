@@ -428,8 +428,8 @@ Fish Audio S2-Pro notes
   not redistribute them; read the license before deploying.
 - ``pip install -e '.[fish_s2_pro]'`` then ``mstar serve fish_s2_pro --gpus 0``.
 - Requests: ``/v1/audio/speech`` with ``input``; inline ``[tag]`` prosody
-  control is part of the text. Clone a voice with ``ref_audio`` (data URL, or
-  an http(s) URL when the server allows remote fetch) and its transcript in
+  control is part of the text. Clone a voice with ``ref_audio`` (data URL,
+  base64, or an http(s) URL when the server allows remote fetch) and its transcript in
   ``ref_text``; with the SDK, ``client.tts(text, reference_audio="ref.wav",
   ref_text="...")``. ``voice`` and ``speed`` are ignored.
 - Sampling defaults follow the reference (temperature 0.8, top-p 0.8, top-k 30);

@@ -683,8 +683,8 @@ class FishS2ProAdapter(OpenAIAdapter):
     """Fish Audio S2-Pro: text-to-speech with optional reference-audio voice cloning.
 
     The voice comes from a reference clip: ``ref_audio`` in ``extra_body`` (a
-    data URL or, when the server allows remote fetch, an http(s) URL; paths
-    on the server are refused) with its transcript in ``ref_text``. Without
+    data URL, bare base64, or, when the server allows remote fetch, an http(s)
+    URL; paths on the server are refused) with its transcript in ``ref_text``. Without
     one the model picks a voice. ``voice`` and ``speed`` are not S2-Pro
     controls and are dropped; inline ``[tag]`` prosody control is part of
     the input text. ``temperature`` / ``top_p`` / ``seed`` are the standard
@@ -702,9 +702,7 @@ class FishS2ProAdapter(OpenAIAdapter):
         _apply_sampling(req, mk, temperature_key="temperature", top_p_key="top_p", max_tokens_key=None)
         ref_audio = mk.pop("ref_audio", None)
         if ref_audio:
-            _refuse_server_path(ref_audio, upload_dir)
-            # a URL is fetched only when the server allows it (MSTAR_ALLOW_REMOTE)
-            _mime, path = media_io.resolve_media_ref(ref_audio, upload_dir, allow_remote=False)
+            path = _resolve_ref_audio(ref_audio, upload_dir, decoder="soundfile")
             return SubmitArgs(
                 text=req.input,
                 file_paths={"audio": [path]},

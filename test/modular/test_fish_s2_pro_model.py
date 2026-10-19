@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import math
 import re
+import wave
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -130,25 +132,44 @@ def test_registry_and_deployment_config():
     assert walks == set(tiny_model().get_graph_walk_graphs())
 
 
-def test_adapter_clones_from_a_data_url_and_drops_a_lone_ref_text(tmp_path):
+def _wav_bytes(seconds: float = 1.0, sample_rate: int = 16_000) -> bytes:
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sample_rate)
+        w.writeframes(b"\x00\x00" * int(seconds * sample_rate))
+    return buf.getvalue()
+
+
+def test_adapter_clones_from_a_data_url_or_base64(tmp_path):
+    pytest.importorskip("soundfile")
     adapter = adapters.get_adapter("fish_s2_pro")
     assert isinstance(adapter, adapters.FishS2ProAdapter)
-    wav = "data:audio/wav;base64," + base64.b64encode(b"RIFF0000WAVE").decode()
-    clone = adapter.speech_to_request(
-        SpeechRequest(input="hi", ref_audio=wav, ref_text="ref words", temperature=0.5, top_k=10), tmp_path
-    )
-    assert clone.input_modalities == ["text", "audio"] and clone.output_modalities == ["audio"]
-    assert Path(clone.file_paths["audio"][0]).read_bytes() == b"RIFF0000WAVE"
-    assert clone.model_kwargs["ref_text"] == "ref words"
-    assert clone.model_kwargs["temperature"] == 0.5 and clone.model_kwargs["top_k"] == 10
+    raw = _wav_bytes()
+    for ref in ("data:audio/wav;base64," + base64.b64encode(raw).decode(), base64.b64encode(raw).decode()):
+        clone = adapter.speech_to_request(
+            SpeechRequest(input="hi", ref_audio=ref, ref_text="ref words", temperature=0.5, top_k=10), tmp_path
+        )
+        assert clone.input_modalities == ["text", "audio"] and clone.output_modalities == ["audio"]
+        assert Path(clone.file_paths["audio"][0]).read_bytes() == raw
+        assert clone.model_kwargs["ref_text"] == "ref words"
+        assert clone.model_kwargs["temperature"] == 0.5 and clone.model_kwargs["top_k"] == 10
 
-    plain = adapter.speech_to_request(SpeechRequest(input="hi", ref_text="orphan"), tmp_path)
+
+def test_adapter_drops_a_lone_ref_text(tmp_path):
+    plain = adapters.FishS2ProAdapter().speech_to_request(SpeechRequest(input="hi", ref_text="orphan"), tmp_path)
     assert plain.input_modalities == ["text"] and "ref_text" not in plain.model_kwargs
 
 
-def test_adapter_refuses_server_paths(tmp_path):
-    with pytest.raises(ValueError, match="paths on the server are refused"):
-        adapters.FishS2ProAdapter().speech_to_request(SpeechRequest(input="hi", ref_audio="/etc/passwd"), tmp_path)
+def test_adapter_refuses_server_paths_and_clips_it_cannot_decode(tmp_path):
+    adapter = adapters.FishS2ProAdapter()
+    with pytest.raises(ValueError, match="server file paths are refused"):
+        adapter.speech_to_request(SpeechRequest(input="hi", ref_audio="/etc/passwd"), tmp_path)
+    not_audio = "data:audio/wav;base64," + base64.b64encode(b"RIFF0000WAVE").decode()
+    with pytest.raises(ValueError, match="audio the model can decode"):
+        adapter.speech_to_request(SpeechRequest(input="hi", ref_audio=not_audio), tmp_path)
+    assert not any(tmp_path.iterdir())
 
 
 # ---------------------------------------------------------------------------
