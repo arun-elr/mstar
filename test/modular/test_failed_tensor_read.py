@@ -145,15 +145,15 @@ class _CountingFuture(Future):
     def __init__(self):
         super().__init__()
         self.done_calls = 0
-        self.exception_calls = 0
+        self.result_calls = 0
 
     def done(self):
         self.done_calls += 1
         return super().done()
 
-    def exception(self, timeout=None):
-        self.exception_calls += 1
-        return super().exception(timeout)
+    def result(self, timeout=None):
+        self.result_calls += 1
+        return super().result(timeout)
 
 
 def test_a_finished_read_is_queried_once_while_it_waits_behind_an_earlier_one(tmp_path):
@@ -165,12 +165,41 @@ def test_a_finished_read_is_queried_once_while_it_waits_behind_an_earlier_one(tm
 
     for _ in range(3):
         assert mgr.get_ready_tensors() == {}
-    assert (earlier.done_calls, earlier.exception_calls) == (3, 0)
-    assert (later.done_calls, later.exception_calls) == (1, 1)
+    assert (earlier.done_calls, earlier.result_calls) == (3, 0)
+    assert (later.done_calls, later.result_calls) == (1, 1)
 
     earlier.set_result(None)
     assert mgr.get_ready_tensors() == {7: [first, second]}
-    assert (later.done_calls, later.exception_calls) == (1, 1)
+    assert (later.done_calls, later.result_calls) == (1, 1)
+
+
+class _EventFuture:
+    """Shaped like the SHM arena's ``_CudaEventFuture``: ``done()`` and
+    ``result()`` only."""
+
+    def __init__(self, done):
+        self.finished = done
+
+    def done(self):
+        return self.finished
+
+    def result(self):
+        return None
+
+
+def test_a_future_with_only_done_and_result_is_polled_like_any_other(tmp_path):
+    """The arena attaches such a future to every host-to-device read."""
+    mgr, _ = _shm_manager(tmp_path)
+    running, finished = _EventFuture(False), _EventFuture(True)
+    first, second = _edge(), _edge()
+    mgr.pending = [_read(7, first, running), _read(8, second, finished)]
+
+    assert mgr.get_ready_tensors() == {8: [second]}
+    assert mgr.has_inflight_reads(7) and not mgr.has_inflight_reads(8)
+    running.finished = True
+    assert not mgr.has_inflight_reads(7)
+    assert mgr.get_ready_tensors() == {7: [first]}
+    assert mgr.take_failed_reads() == [] and mgr.pending == []
 
 
 def test_the_worker_fails_a_request_once_when_its_input_read_fails(tmp_path):

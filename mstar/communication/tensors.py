@@ -296,12 +296,23 @@ _TRANSFER_RUNNING = (0, -2)
 _READ_POLL_INTERVAL_S = 1e-4
 
 
-def _may_be_reading(future: Future) -> bool:
+def _read_error(future) -> BaseException | None:
+    """How a finished read failed, or None. Only ``done()`` and ``result()``
+    are used: the SHM arena's ``_CudaEventFuture`` has nothing else."""
+    try:
+        future.result()
+    except Exception as exc:  # noqa: BLE001 — includes a cancelled read
+        return exc
+    return None
+
+
+def _may_be_reading(future) -> bool:
     """A read still running, or one that failed and so may have left
     transfers running until :meth:`get_ready_tensors` takes them over."""
     if not future.done():
         return True
-    return not future.cancelled() and future.exception() is not None
+    error = _read_error(future)
+    return error is not None and not isinstance(error, CancelledError)
 
 
 def _submit_failed(batch_id: int) -> bool:
@@ -1554,9 +1565,7 @@ class TensorCommunicationManager(ABC):
             return True, None
         if not ep.future.done():
             return False, None
-        # exception(), not result(): a re-raise would put this frame on the
-        # stored traceback, and with it the read's buffers
-        error = CancelledError() if ep.future.cancelled() else ep.future.exception()
+        error = _read_error(ep.future)
         if error is None:
             ep.future = None
         return True, error
@@ -1652,7 +1661,7 @@ class TensorCommunicationManager(ABC):
                     still_kept.append(kept)
                     continue
                 future, kept.future = kept.future, None
-                error = CancelledError() if future.cancelled() else future.exception()
+                error = _read_error(future)
                 if not self._take_over(kept, error):
                     continue
             for ptr, batch_id in list(kept.running.items()):
