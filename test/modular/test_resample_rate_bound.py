@@ -256,7 +256,7 @@ def test_transcription_upload_that_fails_to_decode_is_removed(
 ):
     # header readable, body not: soundfile's read raises and the torchcodec
     # fallback raises something other than ValueError
-    def broken(path, sample_rate):
+    def broken(path, sample_rate, max_seconds):
         raise error("corrupt stream")
 
     monkeypatch.setattr(media_io, "decode_audio", broken)
