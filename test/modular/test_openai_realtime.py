@@ -857,6 +857,14 @@ def test_unsupported_rate_and_a_rate_change_mid_item_are_refused(client_and_stub
             "input_audio_format": {"type": "audio/pcm", "rate": 24000}}}))
         assert "before changing the input sample rate" in json.loads(ws.receive_text())["error"]["message"]
         _commit(ws)
+        # half a sample survives the commit, and only clear drops it
+        _append_bytes(ws, b"\x01")
+        _commit(ws)
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "input_audio_format": {"type": "audio/pcm", "rate": 24000}}}))
+        assert "clear the input audio buffer" in json.loads(ws.receive_text())["error"]["message"]
+        ws.send_text(json.dumps({"type": "input_audio_buffer.clear"}))
+        assert json.loads(ws.receive_text())["type"] == "input_audio_buffer.cleared"
         ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
             "input_audio_format": {"type": "audio/pcm", "rate": 24000}}}))
         assert json.loads(ws.receive_text())["session"]["mstar"]["sample_rate"] == 24000

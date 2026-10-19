@@ -504,8 +504,12 @@ class RealtimeTranscription:
         """Apply a session update, all or nothing."""
         s = self.session
         rate = _input_rate(session.get("input_audio_format"), s.input_rate)
-        if rate != s.input_rate and (s.item_samples() or s.odd_byte):
+        if rate != s.input_rate and s.item_samples():
             raise ValueError("commit or clear the input audio buffer before changing the input sample rate")
+        if rate != s.input_rate and s.odd_byte:
+            # a commit keeps the half sample, so only clear helps
+            raise ValueError("half a sample is pending; clear the input audio buffer before changing "
+                             "the input sample rate")
         if session.get("turn_detection") is not None:
             td = session["turn_detection"]
             kind = td.get("type") if isinstance(td, dict) else td
