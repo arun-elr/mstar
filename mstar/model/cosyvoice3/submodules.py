@@ -41,7 +41,7 @@ from torch import nn
 
 from mstar.communication.tensors import NameToTensorList
 from mstar.conductor.request_info import CurrentForwardPassInfo
-from mstar.engine.cuda_graph_config import BatchedCudaGraphConfig, CudaGraphConfig
+from mstar.engine.accelerator_graph_config import AcceleratorGraphConfig, BatchedAcceleratorGraphConfig
 from mstar.engine.engine import ExecutingBatch
 from mstar.engine.resources import (
     AttentionStep,
@@ -462,13 +462,15 @@ class LMSubmodule(ARNodeSubmodule):
         del graph_walk
         return self.MAX_BATCH_SIZE
 
-    def get_cuda_graph_configs(self, device: torch.device, tp_world_size: int = 1) -> list[CudaGraphConfig]:
+    def get_accelerator_graph_configs(
+        self, device: torch.device, tp_world_size: int = 1
+    ) -> list[AcceleratorGraphConfig]:
         del tp_world_size
         dtype = self.model.speech_embedding.weight.dtype
         width = max(self.window, 1)
         tensor_inputs = {HISTORY: torch.full((width,), -1, dtype=torch.long, device=device)}
         return [
-            BatchedCudaGraphConfig(
+            BatchedAcceleratorGraphConfig(
                 capture_graph_walk="decode",
                 single_request_inputs=ARNodeInputs(
                     input_embeds=torch.zeros(1, self.lm.hidden_size, dtype=dtype, device=device),
@@ -481,8 +483,8 @@ class LMSubmodule(ARNodeSubmodule):
             )
         ]
 
-    def can_use_cuda_graphs(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
-        return self.can_batch(batch, model_inputs) and super().can_use_cuda_graphs(batch, model_inputs)
+    def can_use_accelerator_graphs(self, batch: ExecutingBatch, model_inputs: list[NodeInputs]) -> bool:
+        return self.can_batch(batch, model_inputs) and super().can_use_accelerator_graphs(batch, model_inputs)
 
 
 # ===========================================================================
