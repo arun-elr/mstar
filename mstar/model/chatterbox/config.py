@@ -493,7 +493,10 @@ class ChatterboxConfig:
 
     @classmethod
     def chatterbox(cls) -> "ChatterboxConfig":
-        return cls()
+        # A 15-token first chunk carries 0.32 s of audio, and at 4 to 8
+        # streams the next chunk takes longer than that to arrive, so playback
+        # stalls right after it; 35 tokens carry 1.12 s.
+        return cls(stream_first_chunk_tokens=35)
 
     @classmethod
     def multilingual(cls) -> "ChatterboxConfig":
