@@ -284,7 +284,8 @@ def run_arm(arm_name: str, session: int) -> dict:
         log(f"{arm_name} s{session}: healthy after {info['startup_s']} s")
         if job.get("stress") and info["mstar_from_arm_src"]:
             status(phase="stress", arm=arm_name, session=session)
-            stress.run_session(server.url, server.pid, arm_name, session, d, job["stress"], status, log, _publish)
+            stress.run_session(server.url, server.pid, arm_name, session, d, job["stress"], status, log, _publish,
+                               stress.server_namespaces(server))
         for case in model["cases"] if info["mstar_from_arm_src"] and not job.get("stress") else []:
             cd = d / case["id"]
             cd.mkdir(parents=True, exist_ok=True)

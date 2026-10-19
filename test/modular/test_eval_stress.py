@@ -136,7 +136,7 @@ def test_a_stream_of_blank_lines_or_no_headers_is_a_hang_not_progress():
 # ---------------------------------------------------------------- end to end against fake servers
 
 FAKE_GENERATE = r'''
-import argparse, asyncio, base64, json, os
+import argparse, asyncio, base64, hashlib, json, os
 from pathlib import Path
 from aiohttp import web
 
@@ -145,7 +145,13 @@ ANSWERS = {answers!r}
 SHM = Path(os.environ["FAKE_SHM"])
 p = argparse.ArgumentParser()
 p.add_argument("cmd"); p.add_argument("model"); p.add_argument("--port", type=int)
+p.add_argument("--socket-path-prefix")
 a, _ = p.parse_known_args()
+# tensor files are named by the deployment token of the conductor's socket, as mstar's are
+anchor = Path(a.socket_path_prefix) / "conductor.ipc"
+anchor.parent.mkdir(parents=True, exist_ok=True)
+anchor.touch()
+NS = hashlib.sha1(f"ipc://{{os.path.realpath(anchor)}}".encode()).hexdigest()[:12]
 live, aborted, last = {{}}, set(), {{}}
 
 
@@ -169,8 +175,11 @@ async def generate(request):
         os._exit(3)
     reply = ANSWERS[last.get(rid, text) if retried and MODE == "mix" else text]   # mix: the predecessor's reply
     last[rid] = text
-    seg = SHM / f"mstar_{{rid}}_{{len(last)}}_{{id(request)}}"
+    seg = SHM / f"mstar_{{NS}}_worker_0_{{len(last)}}{{id(request)}}"
     seg.touch()
+    if MODE == "neighbour":   # another server on the host: its token and pid, never given back here
+        (SHM / f"mstar_{{'0' * 12}}_worker_0_{{len(last)}}{{id(request)}}").touch()
+        (SHM / f"mstar_kv_{{os.getuid()}}_1_{{len(last)}}{{id(request)}}").touch()
     resp = web.StreamResponse()
     resp.content_type = "application/x-ndjson"
     finished = False
@@ -206,7 +215,8 @@ web.run_app(app, host="127.0.0.1", port=a.port, print=None, handle_signals=True)
 
 def fake_tree(d: Path, mode: str) -> Path:
     """A checkout whose `mstar serve` is a /generate server holding pinned ids; ``mode`` sets how it misbehaves
-    once a client has gone away under an id: good, hang, mix, leak, crash."""
+    once a client has gone away under an id: good, hang, mix, leak, crash; neighbour behaves but leaves files
+    of another deployment in the shared shm dir."""
     (d / "mstar" / "cli").mkdir(parents=True)
     (d / "mstar" / "__init__.py").write_text("")
     (d / "mstar" / "cli" / "__init__.py").write_text("")
@@ -252,9 +262,19 @@ def run_pair(tmp_path: Path, monkeypatch, head_mode: str, runs: int):
     fake_tree(runner.cache / "src" / head.sha, head_mode)
     assert runner.run_one(runner.slots[0], "fake") is None                       # no ABBA rerun for stress
     job = json.loads((run_dir / "jobs" / "fake.json").read_text())
-    assert job["stress"]["max_tokens"] == 16 and job["sessions"] == 1 and job["stress"]["leak_check"]
+    assert job["stress"]["max_tokens"] == 16 and job["sessions"] == 1
     md, code = compare.render(run_dir, man, args.calibration)
     return stress.write(run_dir, ["fake"])[1][0], md.read_text(), code
+
+
+def test_another_servers_files_in_the_shm_dir_are_not_a_leak(tmp_path, monkeypatch):
+    """Files under another deployment token or another pid (another server on the node) stay in the shared dir;
+    head's own tensor files all go, so nothing is flagged."""
+    v, md, code = run_pair(tmp_path, monkeypatch, "neighbour", runs=2)
+    assert code == 0 and not v.flagged and v.head.with_class("leak") == 0, v.head.runs
+    shm = tmp_path / "shm"
+    assert any(n.name.startswith("mstar_000000000000_") for n in shm.iterdir())
+    assert any(n.name.startswith("mstar_kv_") for n in shm.iterdir())
 
 
 def test_identical_servers_are_not_flagged_and_every_pattern_ran(tmp_path, monkeypatch):

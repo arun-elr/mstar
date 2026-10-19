@@ -328,10 +328,8 @@ class Runner:
         gpus = slot.devices or ([slot.gpu] if slot.gpu is not None else [])
         st = stress_config(self.args)
         if st is not None:
-            # /dev/shm is host-wide: with other slots' servers on the host, their files would read as leaks.
-            alone = sum(s.transport.name == slot.transport.name for s in self.slots) == 1
             st = {**st, **{k: v for k, v in m.stress.items() if k != "model_kwargs"},
-                  "model_kwargs": m.stress.get("model_kwargs", {}), "leak_check": alone}
+                  "model_kwargs": m.stress.get("model_kwargs", {})}
         sessions = (2 if name in self.rerun_cases else self.args.sessions) if st is None \
             else -(-st["runs"] // stress.PER_SERVER)
         return {"run_id": self.run_key, "model": m.to_dict(), "out": out, "gpu": slot.gpu, "gpus": gpus,

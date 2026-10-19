@@ -11,10 +11,11 @@ cycles through five patterns (one per client per round, mixed across clients):
 
 A run fails on a hang (no progress for ``hang_s``), an HTTP 5xx, unexpected 4xx, empty reply or in-band error, a
 cross-talk (a reply holding another prompt's answer: each prompt's answer has a signature, such as three
-consecutive integers or two weekday names), a leak (M* tensor files in ``/dev/shm`` still above the post-warm-up
-count ``settle_s`` after the run) or a crash (a process of the server's group exits). Every request under one id
-asks a different prompt, so cross-talk within an id (a retry receiving its predecessor's tail) shows up as well as
-across ids. Runs a crash or a server that did not start left unrun count as failed, so N stays the scheduled one.
+consecutive integers or two weekday names), a leak (the server's own M* tensor files in ``/dev/shm`` still above
+the post-warm-up count ``settle_s`` after the run) or a crash (a process of the server's group exits). Every request
+under one id asks a different prompt, so cross-talk within an id (a retry receiving its predecessor's tail) shows up
+as well as across ids. Runs a crash or a server that did not start left unrun count as failed, so N stays the
+scheduled one.
 
 Verdict per model: a crash or cross-talk on head that base never shows fails outright; otherwise head fails when
 its failed-run count beats base's at one-sided Fisher exact p < ``ALPHA``.
@@ -23,6 +24,7 @@ its failed-run count beats base's at one-sided Fisher exact p < ``ALPHA``.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -336,13 +338,42 @@ async def workload(url: str, cfg: dict, refs: Refs, tag: str, seed: int) -> dict
 
 # ---------------------------------------------------------------- the server side (on the GPU host)
 
-def shm_entries(root: str = "/dev/shm") -> int:
-    """M* per-request tensor files on the host (``mstar_*``). Arena segments (``mstar_arena_*``) are left out: an
-    arena keeps the segments it grew into until shutdown, so their count rises under load without a leak."""
+def server_namespaces(server) -> set[str]:
+    """This server's deployment token in its tensor file names (``mstar_<token>_<entity>_<uuid>``): the SHA-1 of
+    its conductor's IPC endpoint (``tensors._deployment_namespace``), found under its ``--socket-path-prefix``.
+    Empty when there is no such socket (another layout): its tensor files then go uncounted, never misattributed."""
     try:
-        return sum(1 for n in os.listdir(root) if n.startswith("mstar_") and not n.startswith("mstar_arena_"))
+        cmd = server.command()
+        prefix = Path(cmd[cmd.index("--socket-path-prefix") + 1])
+    except (AttributeError, AssertionError, ValueError, IndexError):
+        return set()
+    return {hashlib.sha1(f"ipc://{os.path.realpath(p)}".encode()).hexdigest()[:12]
+            for p in prefix.rglob("conductor.ipc")}
+
+
+def shm_owner(name: str) -> int | None:
+    """The pid in mstar's per-process names (``mstar_arena_<entity>_<pid>_<token>``, ``mstar_kv_<uid>_<pid>_<hash>``);
+    None for a tensor file (``mstar_<deployment>_<entity>_<uuid>``), which goes once its request is done."""
+    if not name.startswith(("mstar_arena_", "mstar_kv_")):
+        return None
+    parts = name.split(".", maxsplit=1)[0].rsplit("_", 2)
+    return int(parts[1]) if len(parts) == 3 and parts[1].isdigit() else -1
+
+
+def shm_entries(root: str, namespaces: set[str], pids: set[int]) -> int:
+    """This server's M* files in ``root``: tensor files under one of its deployment tokens, and per-process ones
+    of its processes. Other servers on the host (other GPU slots, other users' jobs) name theirs with another
+    token or pid. Arena segments (``mstar_arena_*``) are left out: an arena keeps the segments it grew into until
+    shutdown, so their count rises under load without a leak."""
+    try:
+        names = [n for n in os.listdir(root) if n.startswith("mstar_") and not n.startswith("mstar_arena_")]
     except OSError:
         return -1
+    n = 0
+    for name in names:
+        pid = shm_owner(name)
+        n += any(name.startswith(f"mstar_{ns}_") for ns in namespaces) if pid is None else pid in pids
+    return n
 
 
 def group_pids(pgid: int) -> set[int]:
@@ -358,13 +389,13 @@ def alive(pid: int) -> bool:
         return False
 
 
-def settle(baseline: int, settle_s: float, root: str = "/dev/shm") -> int:
-    """The ``mstar_*`` count once it is back at the baseline, or after ``settle_s``."""
+def settle(baseline: int, settle_s: float, root: str, namespaces: set[str], pids: set[int]) -> int:
+    """The server's ``mstar_*`` count once it is back at the baseline, or after ``settle_s``."""
     deadline = time.monotonic() + settle_s
-    n = shm_entries(root)
+    n = shm_entries(root, namespaces, pids)
     while n > baseline and time.monotonic() < deadline:
         time.sleep(1.0)
-        n = shm_entries(root)
+        n = shm_entries(root, namespaces, pids)
     return n
 
 
@@ -384,8 +415,9 @@ def lost_runs(runs: list[int], arm: str, session: int, d: Path, classes: list[st
 
 
 def run_session(url: str, pgid: int, arm: str, session: int, d: Path, cfg: dict, status, log,
-                publish) -> None:
-    """This server session's share of the arm's runs, one record each under ``d/stress/``."""
+                publish, namespaces: set[str] = frozenset()) -> None:
+    """This server session's share of the arm's runs, one record each under ``d/stress/``. ``namespaces``: the
+    server's deployment tokens (``server_namespaces``), so the leak count is its own files only."""
     runs = session_runs(cfg, session)
     sd = d / "stress"
     sd.mkdir(parents=True, exist_ok=True)
@@ -400,7 +432,8 @@ def run_session(url: str, pgid: int, arm: str, session: int, d: Path, cfg: dict,
         return
     (sd / "refs.json").write_text(json.dumps(refs.texts))
     shm = cfg.get("shm_dir", DEFAULTS["shm_dir"])
-    shm0, procs = shm_entries(shm), group_pids(pgid)
+    procs = group_pids(pgid)
+    shm0 = shm_entries(shm, namespaces, procs)
     for i, r in enumerate(runs):
         status(phase="stress", arm=arm, session=session, run=r)
         res = asyncio.run(workload(url, cfg, refs, f"{arm[0]}{r}", seed=cfg.get("seed", 0) + r))
@@ -411,10 +444,9 @@ def run_session(url: str, pgid: int, arm: str, session: int, d: Path, cfg: dict,
             probe_result = asyncio.run(probe(url, cfg, refs))
             if probe_result in FAILED_REQUEST:
                 classes.add(probe_result)
-            if cfg.get("leak_check", True):
-                after = settle(shm0, cfg["settle_s"], shm)
-                if shm0 >= 0 and after > shm0:
-                    classes.add("leak")
+            after = settle(shm0, cfg["settle_s"], shm, namespaces, procs | group_pids(pgid))
+            if shm0 >= 0 and after > shm0:
+                classes.add("leak")
             gone = sorted(p for p in procs if not alive(p))
         if gone:
             classes.add("crash")
