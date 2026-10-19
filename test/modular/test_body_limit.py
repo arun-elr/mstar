@@ -137,6 +137,14 @@ def test_root_path_prefix_is_matched(monkeypatch):
              "headers": [(b"content-length", big)]}
     asyncio.run(mw(scope, receive, send))
     assert sent[0]["status"] == 413
+    # "/v" is not a whole-segment prefix of "/v1/...": the route keeps its own cap
+    seen.clear()
+    rejected = len(sent)
+    for root in ("/v", "/proj/job/"):
+        path = "/v1/audio/transcriptions" if root == "/v" else "/proj/job/v1/audio/transcriptions"
+        scope = {"type": "http", "path": path, "root_path": root, "headers": [(b"content-length", big)]}
+        asyncio.run(mw(scope, receive, send))
+        assert seen.pop("called", False) and len(sent) == rejected, root
 
 
 def test_streamed_chunks_are_forwarded_as_the_app_sends_them():

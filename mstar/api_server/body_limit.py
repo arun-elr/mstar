@@ -65,8 +65,9 @@ class BodyLimitMiddleware:
             return
         path = scope.get("path", "")
         root = scope.get("root_path", "")
-        if root and path.startswith(root):
-            path = path[len(root):]
+        # as Starlette routes: the root path is a prefix only up to a "/"
+        if root and (path == root or path.startswith(root.rstrip("/") + "/")):
+            path = path[len(root.rstrip("/")):]
         limit = self._limit_for(path)
 
         for name, value in scope.get("headers", ()):
