@@ -609,7 +609,10 @@ def test_a_read_that_finishes_early_waits_for_the_ones_started_before_it():
         def done(self):
             return self.finished
 
-        def result(self):
+        def cancelled(self):
+            return False
+
+        def exception(self):
             return None
 
     def _read(future, rid: str, name: str) -> FutureAndPointers:

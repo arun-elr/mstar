@@ -1203,12 +1203,13 @@ class PreprocessWorkerThread:
     def _finish_reading(self, request_id: str, drained: bool) -> None:
         """The API server is done with this rid's outputs. ``drained`` (every
         chunk delivered) means no read can still be in flight, so ACK straight
-        away — the happy path pays nothing. Otherwise delivery was abandoned
-        (TTL, client gone) with reads possibly still running, so gate the ACK on
+        away, unless a failed read's transfers are still running: its error
+        chunks count as delivered. Otherwise delivery was abandoned (TTL,
+        client gone) with reads possibly still running, so gate the ACK on
         them; ACKing there would let the conductor unlink under a read."""
         if request_id not in self._live_requests:
             return
-        if drained:
+        if drained and not self.tensor_manager.has_inflight_reads(request_id):
             self._send_reads_done(request_id)
         else:
             self._begin_drain(request_id)
