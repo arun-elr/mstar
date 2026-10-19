@@ -394,6 +394,9 @@ class VoxCPM2Model(Model):
         text = (prompt or "").replace("\n", " ")
         if not text.strip():
             raise ValueError("VoxCPM2 requires a non-empty text prompt")
+        if not any(ch.isalnum() for ch in text):
+            # emoji or punctuation alone still decode to seconds of audio
+            raise ValueError("VoxCPM2 text has nothing to speak; it needs at least one letter or digit")
         if set(output_modalities) != {"audio"}:
             raise ValueError("VoxCPM2 supports audio output only")
         if "text" not in input_modalities or not set(input_modalities) <= {"text", "audio"}:

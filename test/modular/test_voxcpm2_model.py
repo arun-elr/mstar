@@ -421,6 +421,18 @@ def test_process_prompt_rejects_bad_requests(model, kwargs, inputs, message):
         model.process_prompt("hello", modalities, ["audio"], tensors=tensors, **kwargs)
 
 
+@pytest.mark.parametrize("text", ["\U0001f600\U0001f600", "\U0001f389 \U0001f389", "...", "?!"])
+def test_process_prompt_refuses_a_text_with_nothing_to_speak(model, text):
+    for kwargs in ({}, {"instruct": "a calm voice"}):
+        with pytest.raises(ValueError, match="nothing to speak"):
+            model.process_prompt(text, ["text"], ["audio"], **kwargs)
+
+
+@pytest.mark.parametrize("text", ["\U0001f600 hi", "42", "\u4f60\u597d"])
+def test_process_prompt_speaks_any_letter_or_digit(model, text):
+    model.process_prompt(text, ["text"], ["audio"])
+
+
 def test_process_prompt_rejects_prompts_past_the_context(model):
     long_text = " ".join(["hello"] * 80)  # 80 tokens + 490 patches > 512 positions
     with pytest.raises(ValueError, match="context"):
