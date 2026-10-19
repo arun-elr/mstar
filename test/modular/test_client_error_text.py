@@ -214,6 +214,10 @@ def test_the_rust_frontend_bridge_answers_with_an_error_id(tmp_path, caplog):
     ("io on /dev/shm/mstar_arena_w_41_t.seg2: Bad address", "io on mstar_arena_w_41_t.seg2: Bad address"),
     ("cannot read file:///home/alice/x.png", "cannot read x.png"),
     ("not a file: /home/alice/", "not a file: <path>"),
+    ("Error opening '/tmp/uploads (alice)/7_bad.wav': Format not recognised.",
+     "Error opening '7_bad.wav': Format not recognised."),
+    ('[Errno 2] No such file or directory: "/srv/my uploads/[alice]/x.pt"',
+     '[Errno 2] No such file or directory: "x.pt"'),
     ("fetch https://example.com/a/b.png failed", "fetch https://example.com/a/b.png failed"),
     ("expected 3/4 of shape (2, 3)/2 and/or ./rel/path", "expected 3/4 of shape (2, 3)/2 and/or ./rel/path"),
 ])
@@ -221,3 +225,22 @@ def test_scrub_paths_cuts_absolute_paths_to_base_names(raw, scrubbed):
     from mstar.utils.client_errors import scrub_paths
 
     assert scrub_paths(raw) == scrubbed
+
+
+def test_a_failed_kv_retrieve_reaches_the_client_without_its_path(caplog):
+    from concurrent.futures import Future
+
+    from mstar.engine.resources.kv.manager import CacheStream, KVManager
+
+    snapshot = "/srv/private/alice/kv-worker-12345.pt"
+    future = Future()
+    future.set_exception(FileNotFoundError(2, "No such file or directory", snapshot))
+    manager = SimpleNamespace(_streams={"r1": {"main": CacheStream(read_pending=True, read_future=future)}})
+    with caplog.at_level("ERROR"):
+        reasons = [KVManager._check_ready(manager, "r1", "main") for _ in range(2)]
+    assert [ready for ready, _ in reasons] == [False, False]
+    messages = {reason.message for _, reason in reasons}
+    (message,) = messages
+    _assert_clean(message)
+    assert "/srv" not in message and "alice" not in message
+    assert snapshot in _logged(caplog, _error_id(message)).getMessage()
