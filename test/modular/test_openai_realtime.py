@@ -849,7 +849,7 @@ def test_24khz_input_is_resampled_onto_the_true_timeline(client_and_stub):
 
 
 def test_24khz_chunk_is_decoded_on_the_append_that_completes_it(client_and_stub):
-    """The resampler's 1.5 ms lookahead does not hold a full chunk back until
+    """The resampler's 3 ms lookahead does not hold a full chunk back until
     the client's next append: the partial comes before the next event's reply."""
     client, stub = client_and_stub
     heard = _step_samples(stub)
@@ -865,7 +865,7 @@ def test_24khz_chunk_is_decoded_on_the_append_that_completes_it(client_and_stub)
             events = _recv_until(ws, "transcription_session.updated")
             assert [e["type"] for e in events][0] == "mstar.transcription.partial"
         _commit(ws)
-    assert [len(h) for h in heard] == [7976, 15976, 16000]
+    assert [len(h) for h in heard] == [7952, 15952, 16000]
 
 
 def test_24khz_chunk_boundaries_stay_on_the_item_timeline(client_and_stub):
@@ -882,7 +882,7 @@ def test_24khz_chunk_boundaries_stay_on_the_item_timeline(client_and_stub):
         for n in (12000, 11964, 11964, 11964):
             _append_bytes(ws, _tone(n).tobytes())
         _commit(ws)
-    assert [len(h) for h in heard] == [7976, 16000, 24000, 31928]
+    assert [len(h) for h in heard] == [7952, 16000, 24000, 31928]
 
 
 def test_24khz_coalesced_step_counts_every_chunk_it_heard(client_and_stub):
@@ -896,7 +896,7 @@ def test_24khz_coalesced_step_counts_every_chunk_it_heard(client_and_stub):
         ws.receive_text()
         _append_bytes(ws, _tone(96000).tobytes())
         events = _recv_until(ws, "mstar.transcription.partial")
-    assert events[-1]["chunk_id"] == 2 and events[-1]["audio_seconds"] == pytest.approx(4.0, abs=0.002)
+    assert events[-1]["chunk_id"] == 2 and events[-1]["audio_seconds"] == pytest.approx(4.0, abs=0.004)
 
 
 def test_24khz_item_cap_does_not_depend_on_how_the_audio_was_split(client_and_stub, monkeypatch):

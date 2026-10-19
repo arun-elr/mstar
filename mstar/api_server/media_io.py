@@ -503,16 +503,17 @@ class StreamResampler:
     the same output however it was split. A Kaiser-windowed sinc lowpass at
     the lower Nyquist, applied polyphase: output ``k`` is centered on input
     time ``k * rate_in / rate_out``, so timing is kept exactly. The passband
-    is flat to 0.1 dB up to 0.81 of the lower Nyquist (6.5 kHz at 24 to
-    16 kHz); anything above that Nyquist, which would fold back, is down
-    46 dB or more, and 100 dB from 1.06 of it on. Each output waits for half a kernel of
-    input past its center (36 samples, 1.5 ms, at 24 to 16 kHz); ``flush``
+    is flat to 0.1 dB up to 0.9 of the lower Nyquist and 3 dB down at 0.94
+    (7.2 and 7.5 kHz at 24 to 16 kHz), close to what a 16 kHz recording
+    holds; anything above that Nyquist, which would fold back, is down 46 dB
+    or more, and 100 dB from 1.06 of it on. Each output waits for half a
+    kernel of input past its center (72 samples, 3 ms, at 24 to 16 kHz); ``flush``
     emits the rest as if the input went on as
     silence, ``ceil(n_in * rate_out / rate_in)`` samples in all, and starts
     over. The kernel has ``2 * half_width * max(up, down) + 1`` taps for the
     reduced ratio ``up/down``, so callers bound the rates."""
 
-    def __init__(self, rate_in: int, rate_out: int, half_width: int = 24, beta: float = 10.0, rolloff: float = 0.90):
+    def __init__(self, rate_in: int, rate_out: int, half_width: int = 48, beta: float = 10.0, rolloff: float = 0.95):
         g = math.gcd(rate_in, rate_out)
         self.up, self.down = rate_out // g, rate_in // g
         self.half = half_width * max(self.up, self.down)        # kernel half length, upsampled samples
