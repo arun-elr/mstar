@@ -926,6 +926,8 @@ class APIServer:
         finished = False
         # An error chunk ends the response: whatever follows it for this
         # request (a second error, a late output) is not part of the answer.
+        # The message thread sets req.event in the same request_lock block
+        # that appends an error chunk, so a read that sees one is also done.
         errored = False
         # Woken by the message thread (PendingRequest.notify) when a chunk or
         # the completion lands; the timeout below is only a backstop.
@@ -961,8 +963,6 @@ class APIServer:
                         for _ in new_chunks:
                             profiler.mark("apiserver.chunk_available")
                     yield new_chunks
-                    if errored:
-                        done = True
 
                 if done:
                     logger.info("Async stream results received finish for %s", request_id)

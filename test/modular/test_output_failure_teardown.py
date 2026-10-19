@@ -106,7 +106,9 @@ def _thread(model, tensor_manager):
         tensor_manager=tensor_manager,
         model=model,
     )
+    # as _process_input does
     wt.in_flight_requests.add("r1")
+    wt._live_requests["r1"] = 1
     return wt
 
 

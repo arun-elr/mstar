@@ -895,7 +895,10 @@ class PreprocessWorkerThread:
         )
         # Begin draining our own reads immediately, overlapping with the
         # conductor round-trip (it also sends a DrainRequest).
-        self._begin_drain(request_id)
+        # None live: already removed, or still queued in in_queue,
+        # where the abort above makes the conductor drop it.
+        if request_id in self._live_requests:
+            self._begin_drain(request_id)
 
     def _sequence_unanswered(self, request_id: str, sequence: int) -> bool:
         """True if no chunk has been queued for ``sequence`` yet."""
@@ -1179,20 +1182,7 @@ class PreprocessWorkerThread:
         did_work = False
         while not self.abort_request_queue.empty():
             did_work = True
-            rid = self.abort_request_queue.get()
-            self.communicator.send(
-                "conductor",
-                ConductorMessage(
-                    message_type=ConductorMessageType.ABORT_REQUEST,
-                    body=AbortRequest(request_id=rid),
-                ),
-            )
-            # Begin draining our own reads immediately, overlapping with
-            # the conductor round-trip (it also sends a DrainRequest).
-            # None live: already removed, or still queued in in_queue,
-            # where the abort above makes the conductor drop it.
-            if rid in self._live_requests:
-                self._begin_drain(rid)
+            self._send_abort(self.abort_request_queue.get())
         while not self.reads_done_queue.empty():
             did_work = True
             self._finish_reading(*self.reads_done_queue.get())
