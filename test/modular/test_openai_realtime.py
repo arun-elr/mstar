@@ -844,6 +844,58 @@ def test_24khz_input_is_resampled_onto_the_true_timeline(client_and_stub):
     assert np.abs(heard[-1][50:-50] - tone_16k[50:-50]).max() < 4
 
 
+def test_24khz_item_cap_does_not_depend_on_how_the_audio_was_split(client_and_stub, monkeypatch):
+    """At 24 kHz the cap rounds the whole item once: one second fits however
+    the appends split it, and one sample more is refused."""
+    client, stub = client_and_stub
+    monkeypatch.setattr(serving_realtime, "MAX_ITEM_SECONDS", 1.0)
+    heard = _step_samples(stub)
+    tone = (np.sin(2 * np.pi * 440 * np.arange(24001) / 24000) * 8000).astype("<i2")
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "input_audio_format": {"type": "audio/pcm", "rate": 24000}, "mstar": {"chunk_seconds": 0.5}}}))
+        assert json.loads(ws.receive_text())["session"]["mstar"]["sample_rate"] == 24000
+        for piece in (tone[:1], tone[1:23999], tone[23999:24000], tone[24000:]):
+            _append_bytes(ws, piece.tobytes())
+        ws.send_text(json.dumps({"type": "input_audio_buffer.commit"}))
+        events = _recv_until(ws, "conversation.item.input_audio_transcription.completed")
+    errors = [e for e in events if e["type"] == "error"]
+    assert len(errors) == 1 and "would pass 1 s" in errors[0]["error"]["message"]
+    assert len(heard[-1]) == 16000
+
+
+def test_24khz_resampling_runs_off_the_event_loop(client_and_stub, monkeypatch):
+    """A long 24 kHz append is resampled in a worker thread, so it does not
+    stall the event loop every session shares."""
+    import threading
+
+    from mstar.api_server import media_io
+
+    client, _ = client_and_stub
+    threads = {}
+    push, send = media_io.StreamResampler.push, serving_realtime.RealtimeTranscription.send
+
+    def recording_push(self, x):
+        threads["resample"] = threading.get_ident()
+        return push(self, x)
+
+    async def recording_send(self, event):
+        threads["loop"] = threading.get_ident()
+        await send(self, event)
+
+    monkeypatch.setattr(media_io.StreamResampler, "push", recording_push)
+    monkeypatch.setattr(serving_realtime.RealtimeTranscription, "send", recording_send)
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "input_audio_format": {"type": "audio/pcm", "rate": 24000}}}))
+        ws.receive_text()
+        _append_bytes(ws, np.zeros(2400, dtype="<i2").tobytes())
+        _commit(ws)
+    assert threads["resample"] != threads["loop"]
+
+
 def test_unsupported_rate_and_a_rate_change_mid_item_are_refused(client_and_stub):
     client, stub = client_and_stub
     with client.websocket_connect("/v1/realtime?intent=transcription") as ws:

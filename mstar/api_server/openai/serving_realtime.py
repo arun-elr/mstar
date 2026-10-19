@@ -153,10 +153,6 @@ class RealtimeSession:
     def chunk_samples(self) -> int:
         return int(round(self.chunk_seconds * SAMPLE_RATE))
 
-    def model_samples(self, n: int) -> int:
-        """How many SAMPLE_RATE samples ``n`` input samples become."""
-        return -(-n * SAMPLE_RATE // self.input_rate)
-
     def set_input_rate(self, rate: int) -> None:
         self.input_rate = rate
         self.resampler = None if rate == SAMPLE_RATE else media_io.StreamResampler(rate, SAMPLE_RATE)
@@ -168,8 +164,11 @@ class RealtimeSession:
             self.pending.append(audio)
             self.pending_samples += int(audio.size)
 
-    def item_samples(self) -> int:
-        held = self.resampler.held() if self.resampler is not None else 0
+    def item_samples(self, extra: int = 0) -> int:
+        """SAMPLE_RATE samples in the item once ``extra`` more input samples
+        arrive, rounded once over the whole item (not per append), so the cap
+        does not depend on how the audio was split."""
+        held = self.resampler.held(extra) if self.resampler is not None else extra
         return self.pending_samples + held + sum(int(a.size) for a in self.heard)
 
     def take_chunk(self) -> np.ndarray | None:
@@ -470,14 +469,19 @@ class RealtimeTranscription:
             except Exception:  # noqa: BLE001 — bad base64
                 await self.send(_error("audio is not base64"))
                 return
-            if s.item_samples() + s.model_samples(audio.size) > s.max_item_seconds * SAMPLE_RATE:
+            if s.item_samples(audio.size) > s.max_item_seconds * SAMPLE_RATE:
                 await self.send(_error(
                     f"the item would pass {s.max_item_seconds:g} s of audio; "
                     "commit or clear the input audio buffer first",
                 ))
                 return
             s.odd_byte = odd_byte
-            s.append(audio)
+            if s.resampler is None:
+                s.append(audio)
+            else:
+                # off the event loop: resampling a long append takes long enough
+                # to stall every other session on this server
+                await asyncio.to_thread(s.append, audio)
             if (chunk := s.take_chunk()) is not None:
                 await self.step(chunk)
         elif kind == "input_audio_buffer.commit":

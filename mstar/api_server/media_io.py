@@ -530,9 +530,10 @@ class StreamResampler:
         # output k is final once every input within half a kernel of it is in
         return self._emit(-(-(self._n_in * self.up - self.half) // self.down))
 
-    def held(self) -> int:
-        """Output samples ``flush`` would still emit."""
-        return -(-(self._n_in * self.up) // self.down) - self._k_out
+    def held(self, extra: int = 0) -> int:
+        """Output samples ``flush`` would still emit, after ``extra`` more
+        input samples."""
+        return -(-((self._n_in + extra) * self.up) // self.down) - self._k_out
 
     def flush(self) -> np.ndarray:
         out = self._emit(-(-(self._n_in * self.up) // self.down))
