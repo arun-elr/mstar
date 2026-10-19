@@ -204,17 +204,23 @@ def stream(args) -> dict:
     edges = {n: _chunk_edges(len(files[n])) for n in names}
     streams = {n: WatermarkStream() for n in names}
     parts: dict[str, list[torch.Tensor]] = {n: [] for n in names}
+    # the codec batches at most this many rows, as serving does; a bigger call
+    # would run past every capture, eagerly
+    max_rows = max(CAPTURE_BATCH_SIZES)
     for step in range(max(k % 5 + len(edges[n]) - 1 for k, n in enumerate(names))):
         live = [n for k, n in enumerate(names) if 0 <= step - k % 5 < len(edges[n]) - 1]
-        chunks, finals = [], []
-        for n in live:
-            i = step - names.index(n) % 5
-            a, b = edges[n][i], edges[n][i + 1]
-            chunks.append(torch.from_numpy(files[n][a:b].copy()).to(device))
-            finals.append(i + 1 == len(edges[n]) - 1)
-        kwargs = {"runners": runners} if runners else {}
-        for n, m in zip(live, wmk.apply_pcm16(chunks, [streams[n] for n in live], finals, **kwargs), strict=True):
-            parts[n].append(m.cpu())
+        for lo in range(0, len(live), max_rows):
+            rows = live[lo:lo + max_rows]
+            chunks, finals = [], []
+            for n in rows:
+                i = step - names.index(n) % 5
+                a, b = edges[n][i], edges[n][i + 1]
+                chunks.append(torch.from_numpy(files[n][a:b].copy()).to(device))
+                finals.append(i + 1 == len(edges[n]) - 1)
+            kwargs = {"runners": runners} if runners else {}
+            marked = wmk.apply_pcm16(chunks, [streams[n] for n in rows], finals, **kwargs)
+            for n, m in zip(rows, marked, strict=True):
+                parts[n].append(m.cpu())
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     marked = {}

@@ -604,3 +604,24 @@ def test_detector_finds_the_streamed_mark_and_its_message():
         copy = torchaudio.functional.resample(streamed, 24_000, rate)
         score, message = detector.detect(copy, rate)
         assert score > 0.9 and message == 0xBEEF, rate
+
+
+def test_stream_check_batches_at_most_the_codecs_rows(monkeypatch, tmp_path):
+    """33 streams in step: the check splits each step at the codec's 32 rows, as
+    serving does, so ``--captured`` replays every group instead of running it eagerly."""
+    import numpy as np
+
+    check = pytest.importorskip("benchmark.audio_watermark_check")
+    rows = []
+
+    class _Marker:
+        def apply_pcm16(self, chunks, streams, finals, **kwargs):
+            rows.append(len(chunks))
+            return chunks
+
+    monkeypatch.setattr(check.AudioSealWatermarker, "build", staticmethod(lambda config, device: _Marker()))
+    monkeypatch.setattr(check, "_wavs", lambda d: {f"f{i:02d}": np.zeros(240000, dtype=np.int16) for i in range(33)})
+    monkeypatch.setitem(sys.modules, "soundfile", SimpleNamespace(write=lambda *a, **k: None))
+    args = SimpleNamespace(device="cpu", captured=False, wavs="in", out=str(tmp_path), compare=None)
+    assert check.stream(args)["files"] == 33
+    assert max(rows) == max(check.CAPTURE_BATCH_SIZES) and 1 in rows
