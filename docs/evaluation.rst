@@ -238,9 +238,10 @@ is broken, or base answered no request at some server session and concurrency, w
   below ``min_db`` PSNR against base; VLA actions moved more than ``tol``; duplex take-turn or yield rates dropped
   more than ``tol``; a request-path status code changed; head had more request errors than base; or head answered
   no request at a server session and concurrency where base answered some (request errors per arm are a column of
-  the main table). A PSNR or greedy-text failure on its limit alone (no missing, cut-short, undecodable or reshaped
+  the main table). A greedy-text failure on its limit alone (no missing, cut-short, undecodable or reshaped
   outputs, no extra errors) whose ``quality`` scores all hold reads "changed, quality same" instead and is not
-  flagged;
+  flagged. A PSNR failure stays flagged whatever its CLIP score: a seed the server stops honouring changes the
+  pixels, not their quality;
 * **quality worse**: a ``quality`` score of the case (``mos``: UTMOS22 of the speech; ``speaker_sim``: WavLM
   similarity to the reference clip; ``clip``: CLIP score of the image or video against its prompt; each arm scored
   on its own c=1 outputs after the servers stop) is below base's by more than 1.5 times the row's A/A swing, and at

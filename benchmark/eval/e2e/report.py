@@ -31,7 +31,9 @@ PSNR_FLOOR_DB = 20.0        # nor the PSNR limit below this
 FLOOR_WINDOW = 8            # a floor follows the most recent A/A drifts of its row, so it can shrink again
 OUTLIER_FACTOR = 3.0        # a drift over 3x the median of the row's others is one noisy run until another agrees
 OUTLIER_MIN_PCT = 10.0      # and only a drift over 10% is ever left out
-CHANGE_KINDS = ("psnr", "text_match")   # say "different", not "worse": quality scores that hold clear the row
+# say "different", not "worse": quality scores that hold clear the row. Not PSNR: a seed the server stops honouring
+# gives different pixels of the same quality, and no output says which seed was used
+CHANGE_KINDS = ("text_match",)
 QUALITY_NAME = {"mos": "UTMOS", "speaker_sim": "speaker similarity", "clip": "CLIP score"}
 QUALITY_DIGITS = {"mos": 2, "speaker_sim": 3, "clip": 1}
 
@@ -956,8 +958,8 @@ def render_md(rows: list[Row], run: dict, chart_url: str | None = None) -> str:
                  "against the prompt for images and video. Head fails when it scores below base by more than "
                  f"{CORRECT_FACTOR} times the row's A/A swing, at least "
                  + ", ".join(f"{v} ({QUALITY_NAME[k]})" for k, v in QUALITY.items())
-                 + "; a PSNR or text change with every quality score holding reads \"changed, quality same\" and "
-                 "is not flagged" if scored else ""),
+                 + "; a greedy-text change with every quality score holding reads \"changed, quality same\" and "
+                 "is not flagged (a PSNR drop always is)" if scored else ""),
               f"- Regression: worse than {pct}%, more than {sigma} combined standard deviations of the passes, and "
               f"more than {FLOOR_FACTOR} times the largest drift the same row showed between two processes of "
               f"identical code in its last {FLOOR_WINDOW} A/A runs, a lone outlier run left out (A/A calibration); "

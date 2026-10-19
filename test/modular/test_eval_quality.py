@@ -247,7 +247,9 @@ def test_only_a_limit_failure_can_read_changed():
 
 # ---------------------------------------------------------------- dry run: scored, compared, reported
 
-def test_quality_that_holds_passes_and_a_psnr_drop_reads_changed_quality_same(tmp_path):
+def test_quality_that_holds_passes_and_a_psnr_drop_stays_flagged_with_clip_holding(tmp_path):
+    """A PSNR drop is flagged even when CLIP holds: a seed the server stops honouring gives different pixels of
+    the same quality."""
     judges = FakeJudges()
     rd, _, rows, md = run_matrix(tmp_path, lambda k, s: voice(k), lambda k: picture(k, noise=12.0),
                                       judges=judges)
@@ -260,9 +262,10 @@ def test_quality_that_holds_passes_and_a_psnr_drop_reads_changed_quality_same(tm
     assert [x.kind for x in clone.quality] == ["mos", "speaker_sim"] and not clone.flagged
     facts = json.loads((rd / "results" / "img" / "compare.json").read_text())["t2i"][0]
     assert facts["psnr_min_db"] < 30 and facts["quality"]["clip"]["n"] == 4
-    assert img.correct == "changed" and img.verdict().startswith("changed, quality same") and not img.flagged
-    assert "| Quality, base to head |" in md and "changed, quality same" in md and "UTMOS" in md
-    assert "CLIP score" in md and "rows flagged" not in md
+    assert img.correct == "FAIL" and img.flagged and [x.verdict for x in img.quality] == ["same"]
+    assert img.verdict().startswith("**correctness changed**") and "quality worse" not in img.verdict()
+    assert "| Quality, base to head |" in md and "**correctness changed**" in md and "UTMOS" in md
+    assert "CLIP score" in md and "**1 of 3 rows flagged**" in md
     assert "\u2014" not in md and "\u2013" not in md
     summary = json.loads((rd / "report" / "summary.json").read_text())
     assert {s["model"]: s["quality"][0]["verdict"] for s in summary} == {"tts": "same", "clone": "same",
