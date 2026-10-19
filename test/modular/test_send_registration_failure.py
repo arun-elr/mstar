@@ -315,6 +315,25 @@ def test_a_step_of_only_failed_rids_routes_nothing():
     assert pending.node_batch.request_ids == []
 
 
+@pytest.mark.parametrize("has_event", [True, False])
+def test_a_step_of_only_failed_rids_still_waits_for_its_gpu_work(monkeypatch, has_event):
+    """No output of the step leaves, but a later step reuses its capture slot
+    while its kernels may still run, so postprocess waits for them anyway."""
+    w = _postprocess_worker(refuse=set())
+    w.device = SimpleNamespace(type="cuda")
+    w.scheduler.failed_rids.add(0)
+    pending, outputs = _decode_step([0])
+    waits = []
+    if has_event:
+        pending.node_batch.completion_event = SimpleNamespace(synchronize=lambda: waits.append("event"))
+    monkeypatch.setattr(torch.accelerator, "synchronize", lambda device=None: waits.append("device"))
+
+    Worker._postprocess_batch(w, pending, outputs)
+
+    assert waits == ["event" if has_event else "device"]
+    assert w.log.routed == [] and pending.batch.request_to_worker_graph == {}
+
+
 def test_a_failed_rid_that_took_its_last_stream_chunk_does_not_stop_its_loop():
     """N+1 consumed the failed rid's terminal stream chunk; ending its loop
     would finalize a rid already taken out of the batch, and the raise would

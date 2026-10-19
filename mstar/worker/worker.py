@@ -3479,6 +3479,9 @@ class Worker:
                     if rid in valid_rids
                 ]
                 if not valid_rids:
+                    # no outputs leave, but the step's kernels may still be
+                    # running in the capture slot a later step reuses
+                    self._wait_for_step(batch_N)
                     if self.enable_nvtx:
                         range_pop(synchronize=False)
                     return
