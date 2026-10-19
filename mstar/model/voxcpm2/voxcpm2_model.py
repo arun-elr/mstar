@@ -122,7 +122,7 @@ def stream_window_widths(schedule: tuple[int, ...], chunk: int, context: int) ->
     pops for a stream without a primed lead: the schedule's ramp, then
     ``chunk`` new patches behind a context that grows up to ``context``. No
     window, primed or final, is wider than the widest of these."""
-    widths, delivered = {context + max(chunk, *schedule)}, 0
+    widths, delivered = {context + max((chunk, *schedule))}, 0
     for k in itertools.count():
         new = schedule[k] if k < len(schedule) else chunk
         held = min(delivered, context)
