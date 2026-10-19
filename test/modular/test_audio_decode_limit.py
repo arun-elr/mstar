@@ -202,6 +202,33 @@ def test_torchcodec_counts_decoded_samples_not_play_time(monkeypatch, clip):
         media_io.decode_torchcodec_capped(clip, 16000, max_seconds=10)
 
 
+@pytest.mark.parametrize("play, refused", [(60, False), (MAX_AUDIO_SECONDS, False), (MAX_AUDIO_SECONDS + 1, True)])
+def test_torchcodec_play_time_counts_from_the_first_timestamp(monkeypatch, clip, play, refused):
+    # a stream whose first frame is at 1800 s plays from there; its length is
+    # what is capped, not its timestamps
+    calls = _fake_torchcodec(monkeypatch, 0)
+
+    class Offset(sys.modules["torchcodec.decoders"].AudioDecoder):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            self.metadata.begin_stream_seconds_from_header = 1800.0
+
+        def get_samples_played_in_range(self, start, stop):
+            calls["stops"].append((start, stop))
+            first, last = max(start, 1800.0), min(stop, 1800.0 + play)
+            return types.SimpleNamespace(
+                data=torch.zeros(1, int((last - first) * self.rate)), pts_seconds=first, duration_seconds=last - first,
+            )
+
+    monkeypatch.setattr(sys.modules["torchcodec.decoders"], "AudioDecoder", Offset)
+    if refused:
+        with pytest.raises(AudioTooLongError):
+            media_io.decode_torchcodec_capped(clip, 16000)
+    else:
+        assert media_io.decode_torchcodec_capped(clip, 16000).numel() == play * 16000
+    assert calls["stops"] == [(1800.0, 1800.0 + MAX_AUDIO_SECONDS + 1.0)]
+
+
 # --------------------------------------------------------------------------
 # the data worker's loaders (chat and /generate audio, reference clips)
 # --------------------------------------------------------------------------

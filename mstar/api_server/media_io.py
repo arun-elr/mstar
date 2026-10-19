@@ -408,9 +408,12 @@ def decode_torchcodec_capped(path: str, sample_rate: int, max_seconds: float = M
     from torchcodec.decoders import AudioDecoder
 
     decoder = AudioDecoder(path, sample_rate=sample_rate, num_channels=1)
-    samples = decoder.get_samples_played_in_range(0.0, max_seconds + 1.0)
+    # play time counts from the stream's first timestamp, which need not be 0
+    start = max(0.0, getattr(decoder.metadata, "begin_stream_seconds_from_header", None) or 0.0)
+    samples = decoder.get_samples_played_in_range(start, start + max_seconds + 1.0)
     data = samples.data[0]
-    if samples.pts_seconds + samples.duration_seconds > max_seconds or data.numel() > max_seconds * sample_rate:
+    played = samples.pts_seconds - start + samples.duration_seconds
+    if played > max_seconds or data.numel() > max_seconds * sample_rate:
         raise AudioTooLongError(max_seconds)
     return data
 
