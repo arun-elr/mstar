@@ -8,6 +8,7 @@ forward; these tests drive a real ``Engine`` on CPU and read the flags from
 inside the forward, so they fail on a build whose engine ignores the setting.
 """
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -186,8 +187,8 @@ def test_the_compiled_forward_is_traced_under_the_node_precision(monkeypatch):
     )
     engine = _engine({"a": a, "b": b})
     with monkeypatch.context() as on_gpu:
-        # the engine compiles only on a GPU host; tracing itself stays on CPU
-        on_gpu.setattr(torch.cuda, "is_available", lambda: True)
+        # the engine compiles only on an available accelerator; tracing itself stays on CPU
+        on_gpu.setattr(engine, "_device_capability", SimpleNamespace(is_available=True))
         engine._compile_submodules()
     try:
         for node in ("a", "b", "a", "b"):
