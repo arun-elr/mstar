@@ -326,7 +326,8 @@ so attaching more files does not multiply them.
      - Pixels a request's images may decode to, summed over them (see
        :func:`mstar.model.media_limits.max_image_pixels`), checked from each
        header before decoding; over it, the request gets a 400. PNG, JPEG,
-       WebP and GIF are read; other formats get a 400. A GIF or an animated
+       WebP and GIF are read (FLUX.2 klein, which decodes with Pillow, also
+       reads BMP and TIFF); other formats get a 400. A GIF or an animated
        WebP is read as its first frame.
    * - ``MSTAR_MAX_VIDEO_PIXELS``
      - ``1073741824``
@@ -335,7 +336,8 @@ so attaching more files does not multiply them.
        frames the model's loader decodes, each frame counting as at least
        64x64; over it, the request gets a 400. At 1080p30 the default refuses
        clips over about 17 s on Cosmos3, which decodes every frame, and over
-       about 259 s on Qwen3-Omni, which decodes 2 frames a second.
+       about 259 s on Qwen3-Omni, which decodes 2 frames a second (every
+       frame, as Cosmos3, when the clip's header gives no frame count).
    * - ``MSTAR_MAX_MEDIA_FILES``
      - ``16``
      - Images, audio clips and videos one request may attach, together (see

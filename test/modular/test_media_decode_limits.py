@@ -352,8 +352,58 @@ def test_qwen3_omni_checks_sampled_frames_before_fetch_video(monkeypatch):
     with pytest.raises(ValueError, match="MSTAR_MAX_VIDEO_PIXELS"):
         qwen3_omni_model.Qwen3OmniModel.load_video(None, "clip.mp4", "cpu")
     assert fetched == []
-    assert vision.VIDEO_READER_BACKENDS["torchvision"] is qwen3_omni_model.read_video_whole_budgeted
-    assert qwen3_omni_model.read_video_whole_budgeted.__module__ == "mstar.model.qwen3_omni.video_reader"
+    from mstar.model.qwen3_omni.video_reader import read_video_whole_budgeted as installed
+    assert vision.VIDEO_READER_BACKENDS["torchvision"] is installed
+
+
+def test_qwen3_omni_without_a_header_count_decodes_with_the_counting_reader(tmp_path, monkeypatch):
+    """A clip whose header gives no frame count (an MKV without one) cannot be
+    charged before a sampled reader decodes it, so that reader must not run:
+    fetch_video's fallback, the whole-clip reader, counts every frame."""
+    try:
+        from mstar.model.qwen3_omni import qwen3_omni_model
+    except ImportError as exc:
+        pytest.skip(f"Qwen3-Omni does not import here: {exc}")
+
+    sampled = []
+
+    def decord(ele):
+        sampled.append(ele["video"])  # decodes its sampled frames with no count of its own
+        return torch.zeros(4, 3, 64, 64, dtype=torch.uint8), {}, 2.0
+
+    def fetch_video(ele, **_kwargs):
+        # qwen-omni-utils 0.0.9: the selected reader, else its torchvision reader
+        try:
+            video, _metadata, sample_fps = vision.VIDEO_READER_BACKENDS["decord"](ele)
+        except Exception:  # noqa: BLE001
+            video, _metadata, sample_fps = vision.VIDEO_READER_BACKENDS["torchvision"](ele)
+        return video, sample_fps
+
+    vision = types.ModuleType("qwen_omni_utils.v2_5.vision_process")
+    vision.fetch_video = fetch_video
+    vision.smart_nframes = lambda ele, total_frames, video_fps: 4
+    vision.VIDEO_READER_BACKENDS = {"decord": decord, "torchvision": None}
+    for name in ("qwen_omni_utils", "qwen_omni_utils.v2_5"):
+        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+    monkeypatch.setitem(sys.modules, "qwen_omni_utils.v2_5.vision_process", vision)
+    monkeypatch.setitem(sys.modules, "torchcodec.decoders", None)  # probe with PyAV
+
+    mkv = _mp4(tmp_path / "clip.mkv", frames=10)
+    assert probe_video(mkv) is None
+    load_video = qwen3_omni_model.Qwen3OmniModel.load_video
+    monkeypatch.setenv("MSTAR_MAX_VIDEO_PIXELS", str(64 * 64 * 4))
+    with pytest.raises(ValueError, match="MSTAR_MAX_VIDEO_PIXELS"):
+        load_video(None, mkv, "cpu")
+    monkeypatch.setenv("MSTAR_MAX_VIDEO_PIXELS", str(64 * 64 * 20))
+    assert tuple(load_video(None, mkv, "cpu").data.shape) == (4, 3, 64, 64)
+    assert sampled == []
+
+    # a header with a frame count is charged first, and the sampled reader then runs
+    mp4 = _mp4(tmp_path / "clip.mp4", frames=10)
+    assert probe_video(mp4) is not None
+    load_video(None, mp4, "cpu")
+    assert sampled == [mp4]
+    assert vision.VIDEO_READER_BACKENDS["decord"].__wrapped__ is decord
 
 
 def test_the_whole_clip_reader_counts_frames_as_it_decodes(tmp_path, monkeypatch):
@@ -384,6 +434,38 @@ def test_formats_torchvision_cannot_read_are_a_client_error(tmp_path, no_decode,
     Image.new("RGB", (32, 24)).save(path, format=fmt)
     with pytest.raises(ValueError, match="not in a format"):
         Model.load_image(None, str(path), "cpu")
+
+
+def _flux2():
+    from mstar.model.flux2_klein.flux2_klein_model import Flux2KleinModel
+
+    model = object.__new__(Flux2KleinModel)
+    model._config = types.SimpleNamespace(ref_image_max_area=1024 * 1024, spatial_alignment=16)
+    return model
+
+
+@pytest.mark.parametrize("fmt", ["BMP", "TIFF"])
+def test_flux2_still_reads_the_formats_pillow_decodes(tmp_path, fmt):
+    """FLUX.2 klein decodes reference images with Pillow, so the API's BMP and
+    TIFF uploads keep loading there; only the torchvision loaders refuse them."""
+    from PIL import Image
+
+    path = tmp_path / f"ref.{fmt.lower()}"
+    Image.new("RGB", (64, 64), (200, 20, 30)).save(path, format=fmt)
+    out = _flux2().load_image(str(path), "cpu")
+    assert tuple(out.data.shape) == (3, 64, 64)
+    assert out.data[:, 0, 0].mul(255).round().tolist() == [200, 20, 30]
+
+
+@pytest.mark.parametrize("fmt", ["BMP", "TIFF"])
+def test_flux2_checks_the_header_of_the_formats_pillow_decodes(tmp_path, monkeypatch, fmt):
+    from PIL import Image
+
+    path = tmp_path / f"ref.{fmt.lower()}"
+    Image.new("RGB", (64, 64)).save(path, format=fmt)
+    monkeypatch.setenv("MSTAR_MAX_IMAGE_PIXELS", str(64 * 64 - 1))
+    with pytest.raises(ValueError, match="limit"):
+        _flux2().load_image(str(path), "cpu")
 
 
 def test_animated_webp_is_read_by_pillow_as_its_first_frame(tmp_path, no_decode):

@@ -1,7 +1,54 @@
-"""A bounded replacement for qwen-omni-utils' whole-clip video reader."""
+"""Bounded video readers for qwen-omni-utils' ``fetch_video``."""
+from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import wraps
+
 import torch
 
 from mstar.model.media_limits import VideoBudget
+
+# the readers that decode only the frames fetch_video samples
+SAMPLED_READERS = ("decord", "torchcodec")
+
+_header_charged: ContextVar[bool] = ContextVar("qwen3_omni_video_header_charged", default=False)
+
+
+@contextmanager
+def header_charged(charged: bool):
+    """Within this, the sampled readers may run only if ``charged``: the
+    loader counted the frames they will decode, from the clip's header."""
+    token = _header_charged.set(charged)
+    try:
+        yield
+    finally:
+        _header_charged.reset(token)
+
+
+def _after_header_charge(reader):
+    @wraps(reader)
+    def read(ele: dict):
+        if not _header_charged.get():
+            # fetch_video catches this and decodes with its torchvision reader,
+            # which install_budgeted_readers made read_video_whole_budgeted
+            raise ValueError("no header frame count to check the sampled frames against")
+        return reader(ele)
+
+    read.mstar_after_header_charge = True
+    return read
+
+
+def install_budgeted_readers(backends: dict) -> None:
+    """Bound every reader in qwen-omni-utils' ``VIDEO_READER_BACKENDS``.
+
+    The whole-clip one becomes :func:`read_video_whole_budgeted`. The sampled
+    ones decode their frames with no count of their own, so they run only
+    inside ``header_charged(True)``; a clip whose header gives no frame count
+    (an MKV or WebM without one) goes to the whole-clip reader instead."""
+    backends["torchvision"] = read_video_whole_budgeted
+    for name in SAMPLED_READERS:
+        reader = backends.get(name)
+        if reader is not None and not getattr(reader, "mstar_after_header_charge", False):
+            backends[name] = _after_header_charge(reader)
 
 
 def read_video_whole_budgeted(ele: dict) -> tuple[torch.Tensor, dict, float]:
