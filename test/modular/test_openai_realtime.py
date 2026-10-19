@@ -653,6 +653,36 @@ def test_request_error_raised_locally_does_not_name_the_upload_dir(client_and_st
     assert message.startswith("cannot read <upload>/") and str(stub.upload_dir) not in message
 
 
+@pytest.mark.parametrize("raw, scrubbed", [
+    ("cannot load '/home/alice/My Models/private/config.json'", "cannot load 'config.json'"),
+    ('cannot load "/srv/a b/[c]/x.pt" now', 'cannot load "x.pt" now'),
+    ("cannot load path:/home/alice/private/config.json", "cannot load path:config.json"),
+    ("see https://example.com/a/b and file:/etc/x/y", "see https://example.com/a/b and file:y"),
+])
+def test_scrub_paths_takes_quoted_and_colon_prefixed_paths_whole(raw, scrubbed, tmp_path):
+    assert serving_realtime._scrub_paths(raw, tmp_path) == scrubbed
+
+
+def test_alternating_step_failures_are_each_logged_once_per_item(client_and_stub, caplog):
+    client, stub = client_and_stub
+    details = iter([b"refused: A", b"refused: B"] * 3)
+    submit = stub.submit_request
+
+    def failing(**kw):
+        rid = submit(**kw)
+        stub._chunks[rid] = [_Chunk("error", next(details), {"status": 400})]
+        return rid
+
+    stub.submit_request = failing
+    caplog.set_level("INFO", logger=serving_realtime.__name__)
+    with client.websocket_connect("/v1/realtime") as ws:
+        ws.receive_text()
+        for _ in range(6):
+            ws.send_text(json.dumps({"type": "input_audio_buffer.append", "audio": _pcm(2.0)}))
+            assert json.loads(ws.receive_text())["type"] == "error"
+    assert len(_step_failure_records(caplog)) == 2
+
+
 def test_request_error_from_the_engine_keeps_only_base_names_of_server_paths(client_and_stub):
     client, stub = client_and_stub
     detail = (b"preprocessing failed: ValueError: cannot decode /tmp/mstar_uploads_alice/3f2a.wav "

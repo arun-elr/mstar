@@ -130,9 +130,9 @@ class RealtimeSession:
     raw_hypothesis: str = ""   # the model's raw output for the audio so far
     emitted: str = ""          # clean text already sent as deltas
     item_id: str = field(default_factory=lambda: f"item_{uuid.uuid4().hex[:12]}")
-    # (item, failure) of the last failed step and its error id, so a failure
-    # that repeats every step is logged once per item
-    last_failure: tuple | None = None
+    # error ids of this item's distinct step failures (at most
+    # MAX_FAILURES_PER_ITEM), so a failure that repeats is logged once per item
+    failures: tuple[str, dict] = ("", {})
 
     @property
     def chunk_samples(self) -> int:
@@ -187,19 +187,28 @@ def _excerpt(value) -> str:
     return text if len(text) <= EXCERPT_CHARS else text[: EXCERPT_CHARS - 3] + "..."
 
 
+# distinct step failures remembered per item; past this each new one is
+# logged, so alternating failures cannot grow the session's memory
+MAX_FAILURES_PER_ITEM = 8
+
+
 def _clip(message: str, limit: int = MAX_ERROR_CHARS) -> str:
     return message if len(message) <= limit else message[: limit - 3] + "..."
 
 
-# An absolute path with at least one directory, not inside a URL or a word.
-_ABS_PATH = re.compile(r"(?<![\w.:/<>])/(?:[^\s/'\"]+/)+([^\s/'\"]+)")
+# An absolute path with at least one directory, not inside a word; a URL's
+# "//" never matches, so a path right after a ":" is still one.
+_ABS_PATH = re.compile(r"(?<![\w./<>])/(?:[^\s/'\"]+/)+([^\s/'\"]+)")
+# A quoted one, taken whole: its directories may hold spaces.
+_QUOTED_PATH = re.compile(r"(['\"])/(?:[^'\"\n/]*/)+([^'\"\n/]+)\1")
 
 
 def _scrub_paths(message: str, upload_dir) -> str:
     """``message`` with the upload directory as ``<upload>`` and any other
     absolute path cut to its base name, so a kept error does not show the
     server's layout (#592)."""
-    return _ABS_PATH.sub(r"\1", message.replace(str(upload_dir), "<upload>"))
+    message = _QUOTED_PATH.sub(r"\1\2\1", message.replace(str(upload_dir), "<upload>"))
+    return _ABS_PATH.sub(r"\1", message)
 
 
 class StepError(RuntimeError):
@@ -502,12 +511,15 @@ class RealtimeTranscription:
         client_error = isinstance(exc, (ValueError, TypeError)) or (
             isinstance(exc, StepError) and 400 <= exc.status < 500
         )
-        failure = (s.item_id, type(exc).__name__, detail)
-        if s.last_failure is not None and s.last_failure[0] == failure:
-            error_id = s.last_failure[1]
-        else:
+        if s.failures[0] != s.item_id:
+            s.failures = (s.item_id, {})
+        seen = s.failures[1]
+        failure = (type(exc).__name__, detail)
+        error_id = seen.get(failure)
+        if error_id is None:
             error_id = uuid.uuid4().hex[:12]
-            s.last_failure = (failure, error_id)
+            if len(seen) < MAX_FAILURES_PER_ITEM:
+                seen[failure] = error_id
             logger.log(
                 logging.INFO if client_error else logging.ERROR,
                 "realtime step failed (error id %s, session %s, %s); repeats in this item are not logged",
