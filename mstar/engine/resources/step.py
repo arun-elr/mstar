@@ -168,6 +168,11 @@ class AllocationFailed(AdmitFailedReason):
     pages_short: int
     label: str
     request_id: str
+    # How many of the step's requests, in its order, the free pages held, and
+    # how many the pool would hold with nothing else resident; None when the
+    # resource does not say. The worker sizes the retry from them.
+    rows_fit: int | None = None
+    rows_fit_alone: int | None = None
 
 
 @dataclass

@@ -274,6 +274,9 @@ class MicroScheduler:
         # (node, graph walk) -> most rows a batch may take while its admits are
         # refused with nothing to evict; see `limit_batch`
         self.batch_limits: dict[tuple[str, str], int] = {}
+        # (node, graph walk) -> most rows the KV pool can hold at once even
+        # with nothing else resident; see `cap_batch`
+        self.batch_ceilings: dict[tuple[str, str], int] = {}
         # Rids with a deferred remove; stop initiating new work for them.
         # Shared by reference with Worker._pending_removes.
         self.pending_removes: dict[int, None] = {}
@@ -355,30 +358,59 @@ class MicroScheduler:
         for rid in request_ids:
             self.held_until[rid] = deadline
 
-    def limit_batch(self, node_name: str, graph_walk: str, refused_size: int) -> None:
-        """Keep ``(node_name, graph_walk)``'s batches smaller than one of
-        ``refused_size`` rows that admit refused with nothing to evict, until a
-        step of it admits.
+    def limit_batch(self, node_name: str, graph_walk: str, rows: int) -> None:
+        """Keep ``(node_name, graph_walk)``'s batches to ``rows`` (at least
+        one) after an admit refused with nothing to evict, until a step of it
+        admits. ``rows`` is what the free pages held, so one refusal sizes it.
 
         Holding the blamed rows alone does not shrink the retry: the ready
         queue refills the batch to the engine's cap, so a cap's worth of rows
         that cannot fit together is refused on every pass.
         """
         key = (node_name, graph_walk)
-        limit = max(refused_size - 1, 1)
+        limit = max(rows, 1)
         self.batch_limits[key] = min(limit, self.batch_limits.get(key, limit))
 
-    def clear_batch_limit(self, node_name: str, graph_walk: str) -> None:
-        """A step of ``(node_name, graph_walk)`` admitted: back to its cap.
+    def at_cap(self, node_name: str, graph_walk: str, rows: int) -> bool:
+        """Whether a batch of ``rows`` filled ``(node_name, graph_walk)``'s cap,
+        so ready rows past it could refill a retry to the same size. Below the
+        cap the batch took every ready row, and holding the blamed one is
+        what makes the retry smaller."""
+        cap = self._max_batch_size(node_name, graph_walk)
+        return cap is not None and rows >= cap
+
+    def cap_batch(self, node_name: str, graph_walk: str, rows: int) -> None:
+        """Keep ``(node_name, graph_walk)``'s batches to ``rows`` (at least
+        one), the most its KV pool holds even with nothing else resident.
+
+        Unlike `limit_batch`, a step that admits at this size does not lift it:
+        the next full batch could never fit either, so it would be refused,
+        and with a victim to evict, evict one for nothing, on every other
+        step. Lifted by a step that admits fewer rows than the cap, where the
+        queue no longer fills it and the next batch may be of smaller rows.
+        """
+        key = (node_name, graph_walk)
+        cap = max(rows, 1)
+        self.batch_ceilings[key] = min(cap, self.batch_ceilings.get(key, cap))
+
+    def clear_batch_limit(self, node_name: str, graph_walk: str, rows: int) -> None:
+        """A step of ``rows`` rows of ``(node_name, graph_walk)`` admitted:
+        lift its `limit_batch` limit, and its `cap_batch` cap if the step was
+        smaller than both.
 
         A step of a real walk lifts its combined walk's limit too: a mixed
         batch refused at two rows leaves a limit of one, which no mixed step
         can meet, so no step under the combined label would ever lift it.
         """
-        self.batch_limits.pop((node_name, graph_walk), None)
+        keys = [(node_name, graph_walk)]
         combined = self.combined_walk_of.get((node_name, graph_walk))
         if combined is not None:
-            self.batch_limits.pop((node_name, combined), None)
+            keys.append((node_name, combined))
+        for key in keys:
+            limit = self.batch_limits.pop(key, None)
+            ceiling = self.batch_ceilings.get(key)
+            if ceiling is not None and rows < min(ceiling, limit or ceiling):
+                del self.batch_ceilings[key]
 
     def tp_rids(self, message: ScheduleTPNode) -> list[int]:
         """``ScheduleTPNode`` crosses the wire, so its rids are strings; these
@@ -1103,7 +1135,7 @@ class MicroScheduler:
             caps = {walk: self._engine_cap(key[0], walk) for walk in walks}
             caps[key[1]] = self._engine_cap(*key)
             self._walk_caps_of_key[key] = caps
-        if not self.batch_limits:
+        if not self.batch_limits and not self.batch_ceilings:
             return caps
         return {walk: self._limited(key[0], walk, cap) for walk, cap in caps.items()}
 
@@ -1138,11 +1170,13 @@ class MicroScheduler:
         return self._max_bs[key]
 
     def _limited(self, node_name: str, graph_walk: str, cap: int | None) -> int | None:
-        """``cap`` lowered by any limit from a refused admit (see `limit_batch`)."""
-        limit = self.batch_limits.get((node_name, graph_walk))
-        if limit is None:
-            return cap
-        return limit if cap is None else min(cap, limit)
+        """``cap`` lowered by any limit or cap from a refused admit (see
+        `limit_batch` and `cap_batch`)."""
+        key = (node_name, graph_walk)
+        for limit in (self.batch_limits.get(key), self.batch_ceilings.get(key)):
+            if limit is not None:
+                cap = limit if cap is None else min(cap, limit)
+        return cap
 
     def _assemble_batch(
         self,
