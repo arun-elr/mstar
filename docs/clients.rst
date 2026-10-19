@@ -330,6 +330,25 @@ Per-model notes:
   in ``transcription_session.update``; a smaller ``chunk_seconds`` is raised to 0.5. An item holds
   at most 300 s of audio (``max_item_seconds`` in the session, lower if the model hears
   less): commit before then, since an append past it is refused with an ``error``.
+- **Realtime turn detection** — by default the client ends each utterance with
+  ``input_audio_buffer.commit``. With ``"turn_detection": {"type": "server_vad"}`` the
+  server does it, as OpenAI's server VAD does: ``threshold`` (default 0.5),
+  ``prefix_padding_ms`` (300) and ``silence_duration_ms`` (500). Silero VAD scores each
+  32 ms frame; a turn starts on a frame at or above ``threshold`` with up to
+  ``prefix_padding_ms`` of the audio before it, and ends once ``silence_duration_ms`` of
+  whole silent frames (below ``threshold`` minus 0.15) have passed. The server then sends
+  ``input_audio_buffer.speech_started`` (``audio_start_ms``),
+  ``input_audio_buffer.speech_stopped`` (``audio_end_ms``) and ``committed``, and the
+  transcription completes. Times are milliseconds of audio since the session started,
+  cleared audio included. A commit takes exactly the turn's audio; what follows, even
+  in the same append, goes to the next turn. A turn that reaches the item cap is
+  committed there and speech goes on in a new turn. ``create_response`` and
+  ``interrupt_response`` are accepted and echoed but do nothing in a transcription
+  session; ``idle_timeout_ms`` and other types are refused. With 24 kHz input each
+  decision waits 1 ms more for the resampler. Install ``mstar[vad]`` (Silero VAD, MIT,
+  bundled 2 MB weights, CPU only) or point ``MSTAR_SILERO_VAD_PATH`` at the TorchScript
+  file; weights are never downloaded. The Dynamo bridge has no turn detection yet and
+  refuses it.
 - **Kokoro** — ``voice`` is one of the 54 bundled voices (default ``af_heart``) or a
   blend such as ``af_bella+af_sky`` or ``af_bella(2)+af_sky(1)``; ``speed`` scales the
   speaking rate (0.25-4.0). ``lang_code`` and ``phonemes`` go through ``extra_body``.
