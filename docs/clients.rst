@@ -335,14 +335,17 @@ Per-model notes:
   server does it, as OpenAI's server VAD does: ``threshold`` (default 0.5),
   ``prefix_padding_ms`` (300) and ``silence_duration_ms`` (500). Silero VAD scores each
   32 ms frame; a turn starts on a frame at or above ``threshold`` with up to
-  ``prefix_padding_ms`` of the audio before it, and ends once ``silence_duration_ms`` of
-  whole silent frames (below ``threshold`` minus 0.15) have passed. The server then sends
+  ``prefix_padding_ms`` of the audio before it, and ends ``silence_duration_ms`` (in whole
+  frames) after a frame below ``threshold`` minus 0.15, unless a frame at or above
+  ``threshold`` comes first, as in Silero's own ``VADIterator``. The server then sends
   ``input_audio_buffer.speech_started`` (``audio_start_ms``),
   ``input_audio_buffer.speech_stopped`` (``audio_end_ms``) and ``committed``, and the
   transcription completes. Times are milliseconds of audio since the session started,
   cleared audio included. A commit takes exactly the turn's audio; what follows, even
-  in the same append, goes to the next turn. A turn that reaches the item cap is
-  committed there and speech goes on in a new turn. ``create_response`` and
+  in the same append, goes to the next turn. A turn never passes the item cap: it is
+  committed before the frame that would pass it, and speech goes on in a new turn that
+  starts with that frame. A client ``commit`` ends an open turn; between turns it
+  drops what the VAD has not put in a turn yet. ``create_response`` and
   ``interrupt_response`` are accepted and echoed but do nothing in a transcription
   session; ``idle_timeout_ms`` and other types are refused. With 24 kHz input each
   decision waits 1 ms more for the resampler. Install ``mstar[vad]`` (Silero VAD, MIT,

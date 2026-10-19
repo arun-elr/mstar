@@ -276,6 +276,164 @@ def test_clear_drops_the_open_turn_and_keeps_the_timeline(vad_client):
     assert [t["start"] for t in turns] == [(5 * FRAME + 200) * 1000 // 16000 + 3 * 32]
 
 
+class _Scripted:
+    """Speech probabilities from a list, one per frame (the last one repeats)."""
+
+    def __init__(self, probs):
+        self.probs, self.i = list(probs), 0
+
+    def __call__(self, frame):
+        p = self.probs[min(self.i, len(self.probs) - 1)]
+        self.i += 1
+        return p
+
+    def reset(self):
+        pass
+
+
+def _segment(probs, cfg=realtime_vad.ServerVAD(), max_turn=300 * 16000):
+    """Feed one frame per probability; return (ops, the stream fed)."""
+    stream = np.arange(len(probs) * FRAME, dtype=np.float32)   # every sample distinct
+    seg = realtime_vad.TurnSegmenter(_Scripted(probs), cfg, max_turn)
+    return seg.feed(stream), stream
+
+
+def _items(ops) -> list[np.ndarray]:
+    items, cur = [], []
+    for op in ops:
+        if op[0] == "audio":
+            cur.append(op[1])
+        elif op[0] == "commit":
+            items.append(np.concatenate(cur))
+            cur = []
+    return items
+
+
+@pytest.mark.parametrize("prefix_ms", [0, 300])
+def test_item_cap_is_never_passed_and_speech_across_it_is_kept(prefix_ms):
+    """A 3 s cap is not a whole number of 32 ms frames, and the prefix is not
+    either: no item passes the cap, and speech going on across a cap split,
+    even at a probability between the two thresholds, starts the next turn
+    right there, so every sample from the first start on is in one item."""
+    probs = [0.0] * 20 + [0.9] * 90 + [0.4] * 20 + [0.9] * 200 + [0.0] * 20
+    ops, stream = _segment(probs, realtime_vad.ServerVAD(prefix_padding_ms=prefix_ms), max_turn=3 * 16000)
+    items = _items(ops)
+    assert len(items) >= 3 and max(i.size for i in items) <= 3 * 16000
+    first = 20 * FRAME - prefix_ms * 16
+    joined = np.concatenate(items)
+    assert np.array_equal(joined, stream[first:first + joined.size])
+    starts = [op[1] for op in ops if op[0] == "speech_started"]
+    stops = [op[1] for op in ops if op[0] == "speech_stopped"]
+    assert starts[1:] == stops[:-1]
+
+
+def test_borderline_frames_do_not_hold_a_started_silence_open():
+    """Silence starts below threshold - 0.15 and only a frame at or above the
+    threshold ends it: frames alternating 0.1 and 0.4 end the turn one window
+    after the first 0.1, and a 0.6 frame starts the count over."""
+    ops, _ = _segment([0.9] * 10 + [0.1, 0.4] * 30, realtime_vad.ServerVAD(prefix_padding_ms=0))
+    assert [op for op in ops if op[0] == "speech_stopped"] == [("speech_stopped", (10 + 16) * 32)]
+    probs = [0.9] * 10 + [0.1, 0.4] * 4 + [0.6] + [0.1, 0.4] * 30
+    ops, _ = _segment(probs, realtime_vad.ServerVAD(prefix_padding_ms=0))
+    assert [op for op in ops if op[0] == "speech_stopped"] == [("speech_stopped", (10 + 8 + 1 + 16) * 32)]
+
+
+_AT_24KHZ = {"input_audio_format": {"type": "audio/pcm", "rate": 24000},
+             "turn_detection": {"type": "server_vad", "prefix_padding_ms": 0}, "mstar": {"chunk_seconds": 300}}
+
+
+def _open_with(ws, session):
+    ws.receive_text()
+    ws.send_text(json.dumps({"type": "transcription_session.update", "session": session}))
+    updated = json.loads(ws.receive_text())
+    assert updated["type"] == "transcription_session.updated", updated
+
+
+def test_settings_change_keeps_audio_not_scored_yet(vad_client):
+    """A partial frame waiting for its VAD decision survives a turn_detection
+    change (into the new segmenter, or into the item when it goes to null)."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    stream = np.concatenate([_speech(3), _silence(16)])
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        _open(ws, prefix_padding_ms=0)
+        _send(ws, stream[:511], step=511)
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "turn_detection": {"type": "server_vad", "prefix_padding_ms": 0, "threshold": 0.6}}}))
+        assert json.loads(ws.receive_text())["session"]["turn_detection"]["threshold"] == 0.6
+        _send(ws, stream[511:], step=stream.size)
+        events = _barrier(ws)
+        turns = _turns(events)
+        assert [(t["start"], t["end"]) for t in turns] == [(0, 19 * 32)]
+        _send(ws, stream[:300], step=300)
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {"turn_detection": None}}))
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "input_audio_buffer.commit"}))
+        _barrier(ws)
+    _assert_items_are_the_stream(turns, heard[:1], stream)
+    assert np.array_equal(heard[1], stream[:300].astype(np.int32))
+
+
+def test_one_long_append_is_one_engine_step(vad_client):
+    """64 s of speech in one append decodes in one step, as without turn
+    detection, not one step per 2 s chunk over a growing item."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        _open_with(ws, {"turn_detection": {"type": "server_vad"}, "mstar": {"chunk_seconds": 2.0}})
+        _send(ws, _speech(2000), step=2000 * FRAME)
+        _barrier(ws)
+    assert [h.size for h in heard] == [2000 * FRAME // 32000 * 32000]
+
+
+def test_clear_at_24khz_keeps_the_timeline(vad_client):
+    """What the resampler held at a clear still counts on the timeline: 100
+    clears of 100 ms each put the next speech at exactly 10 s."""
+    client, _ = vad_client
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        _open_with(ws, _AT_24KHZ)
+        for _ in range(100):
+            _send(ws, np.zeros(2400, dtype="<i2"), step=2400)
+            ws.send_text(json.dumps({"type": "input_audio_buffer.clear"}))
+        _send(ws, np.concatenate([_speech(10, 24000), _silence(20, 24000)]), step=24000)
+        events = _barrier(ws)
+    assert [e["audio_start_ms"] for e in events if e["type"] == "input_audio_buffer.speech_started"] == [10_000]
+
+
+def test_a_client_commit_that_completes_a_turn_commits_once(vad_client):
+    """At 24 kHz the resampler holds the last 1 ms, so the commit's drained
+    tail is what completes the silence window: one item, not a second empty one."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        _open_with(ws, _AT_24KHZ)
+        _send(ws, np.concatenate([_speech(1, 24000), _silence(16, 24000)]), step=24000)
+        events = _barrier(ws)
+        assert not [e for e in events if e["type"] == "input_audio_buffer.committed"]
+        ws.send_text(json.dumps({"type": "input_audio_buffer.commit"}))
+        events = _barrier(ws)
+    assert [e["type"] for e in events].count("input_audio_buffer.committed") == 1
+    assert [e["type"] for e in events].count("conversation.item.input_audio_transcription.completed") == 1
+    assert [h.size for h in heard] == [17 * FRAME]
+
+
+def test_a_client_commit_between_turns_keeps_earlier_audio_out_of_the_next_turn(vad_client):
+    """Audio the VAD had not put in a turn when the client committed (a
+    partial frame, the prefix padding) does not leak into the next turn."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    stream = np.concatenate([_speech(1)[:511], _speech(3), _silence(16)])
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        _open(ws)
+        _send(ws, stream[:511], step=511)
+        ws.send_text(json.dumps({"type": "input_audio_buffer.commit"}))
+        _send(ws, stream[511:], step=stream.size)
+        events = _barrier(ws)
+    starts = [e["audio_start_ms"] for e in events if e["type"] == "input_audio_buffer.speech_started"]
+    assert starts == [511 * 1000 // 16000]
+    assert heard[-1].size == stream.size - 511
+
+
 def test_session_echoes_server_vad_and_validates_it(vad_client):
     client, _ = vad_client
     with client.websocket_connect("/v1/realtime?intent=transcription") as ws:

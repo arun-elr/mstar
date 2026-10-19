@@ -30,8 +30,9 @@ logger = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16000
 FRAME = 512              # samples per decision: Silero's window at 16 kHz, 32 ms
-# A frame inside a turn counts as silence below threshold - HYSTERESIS, as in
-# Silero's own segmentation, so a turn does not flicker on a borderline frame.
+# Silence inside a turn starts below threshold - HYSTERESIS and ends at
+# threshold, as in Silero's VADIterator, so a borderline frame neither ends a
+# turn nor holds it open.
 HYSTERESIS = 0.15
 
 
@@ -120,10 +121,12 @@ class TurnSegmenter:
     Times are milliseconds from the start of the session's audio. A turn
     starts on a frame at or above ``threshold`` and takes up to
     ``prefix_padding_ms`` of the audio before it; it ends once
-    ``silence_duration_ms`` of whole silent frames have passed (they belong
-    to the turn), or when it reaches ``max_turn_samples``. Audio between
-    turns, beyond the prefix, is in no turn. A partial frame waits for the
-    next ``feed``.
+    ``silence_duration_ms`` of whole frames have passed since a frame below
+    ``threshold - HYSTERESIS`` with none at or above ``threshold`` (they
+    belong to the turn). A turn holds at most ``max_turn_samples``: it is
+    committed before the frame that would pass that, and in mid-speech the
+    next turn starts with that frame. Audio between turns, beyond the
+    prefix, is in no turn. A partial frame waits for the next ``feed``.
     """
 
     def __init__(self, vad: SpeechProbability, cfg: ServerVAD, max_turn_samples: int, pos: int = 0):
@@ -152,22 +155,42 @@ class TurnSegmenter:
 
     def _frame(self, frame: np.ndarray, start: int, ops: list) -> None:
         p = self.vad(frame)
+        if self.speaking and self._turn + FRAME > self.max_turn:
+            # the item cap: the turn ends before this frame; in mid-speech the
+            # next turn starts with it, whatever its probability
+            mid_speech = not self._silence
+            self._stop(start, ops)
+            if mid_speech:
+                self._open(start, ops)
         if not self.speaking:
-            if p >= self.cfg.threshold:
-                self.speaking = True
-                self._turn, self._silence = self._prefix.size + FRAME, 0
-                ops.append(("speech_started", samples_to_ms(start - self._prefix.size)))
-                ops.append(("audio", np.concatenate([self._prefix, frame])))
-                self._prefix = np.zeros(0, dtype=np.float32)
-            elif self._prefix_cap:
-                self._prefix = np.concatenate([self._prefix, frame])[-self._prefix_cap:]
-            return
+            if p < self.cfg.threshold:
+                if self._prefix_cap:
+                    self._prefix = np.concatenate([self._prefix, frame])[-self._prefix_cap:]
+                return
+            self._open(start, ops)
         ops.append(("audio", frame))
         self._turn += FRAME
-        self._silence = self._silence + FRAME if p < self._neg else 0
+        # as in Silero's VADIterator: a frame below threshold - HYSTERESIS
+        # starts the silence, one at or above threshold ends it, and one in
+        # between leaves it running
+        if p >= self.cfg.threshold:
+            self._silence = 0
+        elif p < self._neg or self._silence:
+            self._silence += FRAME
         # at least one silent frame, so silence_duration_ms 0 does not end a turn mid-speech
-        if (self._silence and self._silence >= self._silence_cap) or self._turn >= self.max_turn:
+        if self._silence and self._silence >= self._silence_cap:
             self._stop(start + FRAME, ops)
+
+    def _open(self, start: int, ops: list) -> None:
+        """Start a turn at stream index ``start``, with the prefix padding
+        (cut so the turn's first frame still fits the cap)."""
+        keep = min(self._prefix.size, max(self.max_turn - FRAME, 0))
+        prefix = self._prefix[self._prefix.size - keep:]
+        self.speaking, self._turn, self._silence = True, prefix.size, 0
+        self._prefix = np.zeros(0, dtype=np.float32)
+        ops.append(("speech_started", samples_to_ms(start - prefix.size)))
+        if prefix.size:
+            ops.append(("audio", prefix))
 
     def _stop(self, end: int, ops: list) -> None:
         ops.append(("speech_stopped", samples_to_ms(end)))
@@ -176,21 +199,39 @@ class TurnSegmenter:
 
     def end_turn(self) -> list[tuple]:
         """A client commit: an open turn takes the partial frame and stops
-        there. Between turns, nothing changes."""
+        there. Between turns the partial frame and the prefix padding are
+        dropped, so audio from before the commit never reaches the next turn."""
         ops: list[tuple] = []
+        rest, self._rest = self._rest, np.zeros(0, dtype=np.float32)
         if self.speaking:
-            if self._rest.size:
-                ops.append(("audio", self._rest))
-            self._pos += self._rest.size
-            self._rest = np.zeros(0, dtype=np.float32)
+            if rest.size and self._turn + rest.size > self.max_turn:
+                self._stop(self._pos, ops)
+                self._open(self._pos, ops)
+            if rest.size:
+                ops.append(("audio", rest))
+            self._pos += rest.size
             self._stop(self._pos, ops)
             ops.pop()   # the client's commit is the commit
+        else:
+            self._pos += rest.size
+            self._prefix = np.zeros(0, dtype=np.float32)
         return ops
 
-    def reset(self) -> None:
-        """A clear: drop buffered audio, keep the timeline."""
-        self._pos += self._rest.size
+    def reset(self, skipped: int = 0) -> None:
+        """A clear: drop buffered audio, keep the timeline (``skipped`` more
+        samples were dropped before they reached the segmenter)."""
+        self._pos += self._rest.size + skipped
         self._rest = np.zeros(0, dtype=np.float32)
         self._prefix = np.zeros(0, dtype=np.float32)
         self.speaking, self._silence, self._turn = False, 0, 0
         self.vad.reset()
+
+    def take_over(self, old: TurnSegmenter) -> None:
+        """Go on from ``old`` between turns (a settings change): its stream
+        position, its partial frame, not scored yet, and its prefix padding."""
+        self._pos, self._rest = old._pos, old._rest
+        self._prefix = old._prefix[old._prefix.size - min(old._prefix.size, self._prefix_cap):]
+
+    def unscored(self) -> np.ndarray:
+        """The partial frame, not scored yet."""
+        return self._rest

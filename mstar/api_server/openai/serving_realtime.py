@@ -180,6 +180,20 @@ class RealtimeSession:
         self.stream_samples += int(out.size)
         return out
 
+    def segment(self, audio: np.ndarray) -> list[tuple]:
+        """Resample and segment ``audio``: the segmenter's operations."""
+        return self.segmenter.feed(self.resample(audio))
+
+    def reset_stream(self) -> None:
+        """A clear: drop what the resampler and the segmenter hold, keeping
+        the timeline (the dropped audio still counts)."""
+        skipped = self.resampler.held() if self.resampler is not None else 0
+        self.stream_samples += skipped
+        if self.resampler is not None:
+            self.resampler.reset()
+        if self.segmenter is not None:
+            self.segmenter.reset(skipped)
+
     def drain_resampler(self) -> np.ndarray:
         """What the resampler still holds, as if silence followed; it starts over."""
         out = np.zeros(0, dtype=np.float32) if self.resampler is None else self.resampler.flush()
@@ -559,34 +573,37 @@ class RealtimeTranscription:
                 await self.apply([("audio", audio)])
             else:
                 # off the event loop: one large append is thousands of VAD frames
-                await self.apply(await asyncio.to_thread(s.segmenter.feed, s.resample(audio)))
+                await self.apply(await asyncio.to_thread(s.segment, audio))
         elif kind == "input_audio_buffer.commit":
             s = self.session
             tail = s.drain_resampler()
             if s.segmenter is None:
                 await self.apply([("audio", tail)])
             else:
-                await self.apply(await asyncio.to_thread(s.segmenter.feed, tail) + s.segmenter.end_turn())
+                ops = await asyncio.to_thread(s.segmenter.feed, tail) + s.segmenter.end_turn()
+                await self.apply(ops)
+                if ops and ops[-1] == ("commit",):
+                    # the drained tail ended a turn: that commit was this one
+                    return
             await self.commit()
         elif kind == "input_audio_buffer.clear":
             s = self.session
             s.clear()
             s.odd_byte = b""
-            if s.resampler is not None:
-                s.resampler.reset()
-            if s.segmenter is not None:
-                s.segmenter.reset()
+            s.reset_stream()
             await self.send(_event("input_audio_buffer.cleared"))
         else:
             await self.send(_error(f"unknown event {_excerpt(kind)}"))
 
     async def apply(self, ops: list[tuple]) -> None:
-        """Carry out segmenter operations in order (see ``TurnSegmenter``)."""
+        """Carry out segmenter operations in order (see ``TurnSegmenter``).
+        Audio steps once, after the last operation, so one long append is one
+        step, as without turn detection; a turn's commit decodes the rest."""
         s = self.session
-        for op in ops:
+        for i, op in enumerate(ops):
             if op[0] == "audio":
                 s.add(op[1])
-                if (chunk := s.take_chunk()) is not None:
+                if i == len(ops) - 1 and (chunk := s.take_chunk()) is not None:
                     await self.step(chunk)
             elif op[0] == "commit":
                 await self.commit()
@@ -651,9 +668,15 @@ class RealtimeTranscription:
         if rate != s.input_rate:
             s.set_input_rate(rate)
         if td != s.turn_detection:
-            s.turn_detection = td
+            old, s.turn_detection = s.segmenter, td
             s.segmenter = None if td is None else realtime_vad.TurnSegmenter(
                 vad(), td, int(s.max_item_seconds * SAMPLE_RATE), pos=s.stream_samples)
+            if old is not None:
+                # audio the old segmenter had not scored yet is not dropped
+                if s.segmenter is not None:
+                    s.segmenter.take_over(old)
+                else:
+                    s.add(old.unscored())
 
     def current_text(self) -> str:
         return self.adapter.parse_transcript(self.session.raw_hypothesis, self.session.request).text
