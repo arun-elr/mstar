@@ -79,6 +79,11 @@ jobs:
         env:
           HF_HUB_OFFLINE: "1"
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          # One thread per worker: workers with 4 OpenMP threads each
+          # oversubscribe the 4 cores, and on a busy host the conv-heavy
+          # decode tests stall.
+          OMP_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
         run: |
           python -m pytest -q -ra --strict-markers --durations=20 -p xdist \
             --junitxml=${{ matrix.id }}.xml ${{ matrix.args }}
