@@ -139,7 +139,11 @@ async def create_speech(api, model_name, adapter, req, raw_request=None):  # noq
             # error, not as an empty WAV.
             first_iter = api.iter_result_chunks(pending[0])
             try:
-                first = await anext(first_iter, None)
+                first = await _first_unless_gone(first_iter, raw_request)
+                if first is _GONE:
+                    # the first piece released itself as its iterator closed
+                    release_unread(api, pending, 1)
+                    return Response(status_code=499)
                 if _is_error(first):
                     # Read it to the end so the finished request isn't aborted.
                     await _drain(first_iter)
@@ -191,6 +195,26 @@ async def create_speech(api, model_name, adapter, req, raw_request=None):  # noq
             media_io.schedule_upload_cleanup(args.file_paths, api.upload_dir)
     audio_bytes, mime = media_io.pcm16_to_container(b"".join(pcm_parts), sample_rate, fmt)
     return Response(content=audio_bytes, media_type=mime)
+
+
+_GONE = object()
+
+
+async def _first_unless_gone(first_iter, raw_request):
+    """The first chunk, or ``_GONE`` with ``first_iter`` closed if the client
+    left before it came. No response has started yet, so nothing else would
+    notice the disconnect and the pieces would run until a result or the
+    timeout."""
+    first = asyncio.ensure_future(anext(first_iter, None))
+    if raw_request is None:
+        return await first
+    while not (await asyncio.wait({first}, timeout=0.05))[0]:
+        if await raw_request.is_disconnected():
+            first.cancel()
+            await asyncio.gather(first, return_exceptions=True)
+            await first_iter.aclose()
+            return _GONE
+    return first.result()
 
 
 class _ClosingStreamingResponse(StreamingResponse):
