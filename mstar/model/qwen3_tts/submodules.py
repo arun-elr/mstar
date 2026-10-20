@@ -974,7 +974,7 @@ class CodecSubmodule(ARNodeSubmodule):
         self.decoder = decoder
         self.config = config
         # Opt-in (``audio_watermark`` in model_kwargs): marks each request's
-        # trimmed PCM in ``postprocess_batch_tail``; None leaves it untouched.
+        # trimmed PCM in ``batch_postprocess``; None leaves it untouched.
         self.watermarker = watermarker
         # Base streams may lead with a full reference tail: capture those windows too.
         leads = (0, config.codec.left_context_frames) if config.supports_reference_audio else (0,)
