@@ -30,8 +30,8 @@ from mstar.api_server.openai.protocol import SpeechRequest
 from mstar.model.base import TensorAndMetadata
 from mstar.model.chatterbox.chatterbox_model import voice_key_for
 from mstar.model.cosyvoice3.components.dit import _SinusEmbedding, chunk_attention_mask
-from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, FlowRow, PreLookaheadLayer, ReferenceVoice
-from mstar.model.cosyvoice3.components.hift import CausalHiFTGenerator, StreamState, stream_vocode
+from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, CosyVoice3FlowRow, PreLookaheadLayer, ReferenceVoice
+from mstar.model.cosyvoice3.components.hift import CausalHiFTGenerator, HiftStreamState, stream_vocode
 from mstar.model.cosyvoice3.components.lm import CosyVoice3LM
 from mstar.model.cosyvoice3.components.sampling import hashed_uniform, ras_sample
 from mstar.model.cosyvoice3.config import (
@@ -1043,11 +1043,14 @@ def test_lm_steps_and_flow_solve_issue_no_host_sync_on_cuda():
     voice = _voice(cfg, 10)
     voice = ReferenceVoice(voice.prompt_tokens.to(dev), voice.prompt_feat.to(dev), voice.embedding.to(dev))
     tokens = torch.randint(3, 40, (60,), device=dev)
-    rows = [FlowRow(voice, tokens, 50, final=False, streaming=True), FlowRow(voice, tokens[:31], 31, True, False)]
+    rows = [
+        CosyVoice3FlowRow(voice, tokens, 50, final=False, streaming=True),
+        CosyVoice3FlowRow(voice, tokens[:31], 31, True, False),
+    ]
     hift = _random_hift(cfg).float().to(dev)
     hift.keep_f0_predictor_in_float64()
     mel = torch.randn(80, 60, device=dev)
-    stream = StreamState(mel=mel.new_zeros(80, 0))
+    stream = HiftStreamState(mel=mel.new_zeros(80, 0))
     mode = torch.cuda.get_sync_debug_mode()
     torch.cuda.set_sync_debug_mode("error")
     try:
@@ -1122,11 +1125,11 @@ def test_chunked_flow_solves_equal_one_whole_streaming_solve():
     flow = _random_flow(cfg)
     voice = _voice(cfg, prompt_tokens=10)
     tokens = torch.randint(0, 40, (97,), generator=torch.Generator().manual_seed(1))
-    whole = flow.solve_rows([FlowRow(voice, tokens, 97, final=True, streaming=True)], 4)[0]
-    offline = flow.solve_rows([FlowRow(voice, tokens, 97, final=True, streaming=False)], 4)[0]
+    whole = flow.solve_rows([CosyVoice3FlowRow(voice, tokens, 97, final=True, streaming=True)], 4)[0]
+    offline = flow.solve_rows([CosyVoice3FlowRow(voice, tokens, 97, final=True, streaming=False)], 4)[0]
     assert whole.shape == (80, 194) and not torch.allclose(whole, offline)
     for settle in (15, 40, 65, 90):
-        part = flow.solve_rows([FlowRow(voice, tokens, settle, final=False, streaming=True)], 4)[0]
+        part = flow.solve_rows([CosyVoice3FlowRow(voice, tokens, settle, final=False, streaming=True)], 4)[0]
         torch.testing.assert_close(part, whole[:, : 2 * settle], rtol=0, atol=1e-10)
 
 
@@ -1134,9 +1137,9 @@ def test_flow_batches_rows_of_different_lengths_like_single_rows():
     cfg = _tiny_config()
     flow = _random_flow(cfg)
     rows = [
-        FlowRow(_voice(cfg, 10, seed=1), torch.randint(0, 40, (60,)), 40, final=False, streaming=True),
-        FlowRow(_voice(cfg, 23, seed=2), torch.randint(0, 40, (31,)), 31, final=True, streaming=True),
-        FlowRow(_voice(cfg, 5, seed=3), torch.randint(0, 40, (12,)), 12, final=True, streaming=False),
+        CosyVoice3FlowRow(_voice(cfg, 10, seed=1), torch.randint(0, 40, (60,)), 40, final=False, streaming=True),
+        CosyVoice3FlowRow(_voice(cfg, 23, seed=2), torch.randint(0, 40, (31,)), 31, final=True, streaming=True),
+        CosyVoice3FlowRow(_voice(cfg, 5, seed=3), torch.randint(0, 40, (12,)), 12, final=True, streaming=False),
     ]
     together = flow.solve_rows(rows, 3)
     for row, mel in zip(rows, together, strict=True):
@@ -1228,7 +1231,7 @@ def test_flow_estimator_is_bfloat16_unless_the_deployment_asks_for_float32(tmp_p
     sinus = _SinusEmbedding.forward
     monkeypatch.setattr(_SinusEmbedding, "forward", lambda self, t: seen.append(t.clone()) or sinus(self, t))
     tokens = torch.randint(0, 40, (12,), generator=torch.Generator().manual_seed(0))
-    (mel,) = flow.solve_rows([FlowRow(_voice(model.config, 5), tokens, 12, final=True, streaming=True)], 3)
+    (mel,) = flow.solve_rows([CosyVoice3FlowRow(_voice(model.config, 5), tokens, 12, final=True, streaming=True)], 3)
     grid = flow.decoder.time_grid(3, torch.device("cpu"), torch.float32, meanflow=False)[:-1]
     assert [t.dtype for t in seen] == [torch.float32] * 3
     assert torch.equal(torch.stack([t[0] for t in seen]), grid)
@@ -1275,7 +1278,7 @@ def test_hift_stream_stitches_to_the_whole_decode(chunk, context):
     mel = torch.randn(80, total, dtype=torch.float64, generator=torch.Generator().manual_seed(chunk))
     with torch.no_grad():
         whole, _ = hift.vocode(mel[None], finalize=True)
-        state, pieces, pos = StreamState(mel=mel.new_zeros(80, 0)), [], 0
+        state, pieces, pos = HiftStreamState(mel=mel.new_zeros(80, 0)), [], 0
         while pos < total:
             nxt = min(pos + chunk, total)
             pieces.append(stream_vocode(hift, state, mel[:, pos:nxt], nxt == total, context))
@@ -1348,7 +1351,7 @@ def test_streamed_audio_equals_the_whole_streaming_decode(model, num_tokens, pro
     with torch.no_grad():
         chunks = _stream_token2wav(cfg, flow_node, hift_node, policy, tokens)
         kept = filter_tokens(torch.tensor(tokens), cfg)
-        mel = flow.solve_rows([FlowRow(voice, kept, kept.numel(), final=True, streaming=True)], 3)[0]
+        mel = flow.solve_rows([CosyVoice3FlowRow(voice, kept, kept.numel(), final=True, streaming=True)], 3)[0]
         whole, _ = hift.vocode(mel[None], finalize=True)
     whole = (whole[0].clamp(-1, 1) * 32767).to(torch.int16)
     streamed = torch.cat(chunks)
@@ -1370,7 +1373,8 @@ def test_offline_deployment_decodes_once_with_full_attention(model):
     policy = model.get_partition_topology().connections[0].chunk_policy_factory()
     with torch.no_grad():
         chunks = _stream_token2wav(cfg, flow_node, hift_node, policy, tokens)
-        mel = flow.solve_rows([FlowRow(voice, torch.tensor(tokens[:-1]), 60, final=True, streaming=False)], 3)[0]
+        row = CosyVoice3FlowRow(voice, torch.tensor(tokens[:-1]), 60, final=True, streaming=False)
+        mel = flow.solve_rows([row], 3)[0]
         whole, _ = hift.vocode(mel[None], finalize=True)
     assert [c.numel() for c in chunks if c.numel()] == [60 * 960]
     whole = (whole[0].clamp(-1, 1) * 32767).to(torch.int16)

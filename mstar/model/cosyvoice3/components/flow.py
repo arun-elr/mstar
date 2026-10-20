@@ -68,7 +68,7 @@ class ReferenceVoice:
 
 
 @dataclass
-class FlowRow:
+class CosyVoice3FlowRow:
     """One request's share of a batched solve: its tokens so far, how many to
     settle, whether the stream has ended (the look-ahead is zero padding
     instead of real tokens) and whether it attends block-causally."""
@@ -139,7 +139,7 @@ class CosyVoice3Flow(nn.Module):
         return self.spk_embed_affine_layer(F.normalize(embedding, dim=1))
 
     @torch.no_grad()
-    def solve_rows(self, rows: Sequence[FlowRow], n_timesteps: int | None = None) -> list[torch.Tensor]:
+    def solve_rows(self, rows: Sequence[CosyVoice3FlowRow], n_timesteps: int | None = None) -> list[torch.Tensor]:
         """Each row's generated mel ``[80, 2 * settle]`` (frames from the first
         generated token on), from one right-padded batched solve.
 

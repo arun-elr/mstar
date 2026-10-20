@@ -54,8 +54,8 @@ from mstar.engine.resources import (
 from mstar.model.chatterbox.components.audio import kaldi_fbank_80
 from mstar.model.chatterbox.components.audio_frontend import resample
 from mstar.model.chatterbox.submodules import VoiceCache
-from mstar.model.cosyvoice3.components.flow import FlowRow, ReferenceVoice
-from mstar.model.cosyvoice3.components.hift import StreamState, stream_vocode
+from mstar.model.cosyvoice3.components.flow import CosyVoice3FlowRow, ReferenceVoice
+from mstar.model.cosyvoice3.components.hift import HiftStreamState, stream_vocode
 from mstar.model.cosyvoice3.components.sampling import ras_sample
 from mstar.model.cosyvoice3.config import (
     LM_ATTN,
@@ -577,7 +577,7 @@ class FlowSubmodule(NodeSubmodule):
             hop += -(-prompt_tokens // self.chunk_tokens) * self.chunk_tokens - prompt_tokens
         return hop
 
-    def plan(self, state, voice: ReferenceVoice, tokens: torch.Tensor, final: bool) -> FlowRow | None:
+    def plan(self, state, voice: ReferenceVoice, tokens: torch.Tensor, final: bool) -> CosyVoice3FlowRow | None:
         """The row this request needs solved now, or None (nothing settles yet).
 
         A stream settles every hop whose end and three look-ahead tokens have
@@ -588,7 +588,7 @@ class FlowSubmodule(NodeSubmodule):
         if final:
             if n == 0 or n <= offset:
                 return None
-            return FlowRow(voice=voice, tokens=tokens, settle=n, final=True, streaming=streaming)
+            return CosyVoice3FlowRow(voice=voice, tokens=tokens, settle=n, final=True, streaming=streaming)
         if not streaming:
             return None
         target, hops = offset, int(state.get("hops", 0))
@@ -597,7 +597,7 @@ class FlowSubmodule(NodeSubmodule):
         state.add("hops", hops)
         if target == offset:
             return None
-        return FlowRow(voice=voice, tokens=tokens, settle=target, final=False, streaming=True)
+        return CosyVoice3FlowRow(voice=voice, tokens=tokens, settle=target, final=False, streaming=True)
 
     def prepare_inputs(self, graph_walk, fwd_info, inputs: NameToTensorList, **kwargs) -> NodeInputs:
         del graph_walk
@@ -630,7 +630,7 @@ class FlowSubmodule(NodeSubmodule):
         )
 
     def _run(self, rids, tokens_list, voices, finals, n_timesteps) -> list[NameToTensorList]:
-        rows: list[tuple[int, FlowRow]] = []
+        rows: list[tuple[int, CosyVoice3FlowRow]] = []
         for i, (rid, tokens, voice, final) in enumerate(zip(rids, tokens_list, voices, finals, strict=True)):
             state = self.request_state(rid)
             row = None if state.get("done") else self.plan(state, voice, tokens, final)
@@ -713,7 +713,7 @@ class HiFTSubmodule(NodeSubmodule):
         state = self.request_state(rid)
         stream = state.get("stream")
         if stream is None:
-            stream = StreamState(mel=mel.new_zeros(mel.shape[0], 0))
+            stream = HiftStreamState(mel=mel.new_zeros(mel.shape[0], 0))
             state.add("stream", stream)
         if mel.shape[-1] == 0 and not final:
             wav = mel.new_zeros(0)

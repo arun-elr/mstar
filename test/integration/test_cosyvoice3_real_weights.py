@@ -18,7 +18,7 @@ import torch
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 from mstar.model.chatterbox.loader import resolve_snapshot  # noqa: E402
-from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, FlowRow  # noqa: E402
+from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, CosyVoice3FlowRow  # noqa: E402
 from mstar.model.cosyvoice3.components.hift import CausalHiFTGenerator  # noqa: E402
 from mstar.model.cosyvoice3.config import END_OF_PROMPT, END_OF_PROMPT_ID, SYSTEM_PROMPT  # noqa: E402
 from mstar.model.cosyvoice3.cosyvoice3_model import CosyVoice3Model  # noqa: E402
@@ -78,7 +78,7 @@ def test_token2wav_geometry_with_real_weights(model):
     voice = model._reference_encoder("cpu").voice(_clip(2.0))
     tokens = voice.prompt_tokens[:30].clone()
     with torch.no_grad():
-        mel = flow.solve_rows([FlowRow(voice, tokens, 30, final=True, streaming=True)], n_timesteps=2)[0]
+        mel = flow.solve_rows([CosyVoice3FlowRow(voice, tokens, 30, final=True, streaming=True)], n_timesteps=2)[0]
         wav, _ = hift.vocode(mel[None].float(), finalize=True)
     assert mel.shape == (80, 60) and torch.isfinite(mel).all()
     assert wav.shape == (1, 60 * 480) and wav.abs().max() > 1e-3
