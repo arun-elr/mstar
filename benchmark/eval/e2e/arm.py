@@ -593,7 +593,7 @@ def run() -> None:
             info = run_arm(arm_name, s)
             if info.get("healthy") and not info.get("mstar_from_arm_src"):
                 return done("error", reason=f"the {arm_name} server did not import mstar from its own checkout")
-    if any(c.get("quality") for c in model["cases"]):
+    if any(c.get("quality") for c in model["cases"]) and not job.get("stress"):   # stress runs no cases
         score_quality()
     status(phase="compare")
     if not job.get("stress"):

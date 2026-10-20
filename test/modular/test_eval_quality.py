@@ -341,3 +341,22 @@ def test_the_arm_scores_quality_in_its_own_process_after_the_sessions(tmp_path, 
     arm.score_quality()      # no saved outputs yet: the judges never load
     assert "quality: scored 0 case directories" in (out / "quality.log").read_text()
     assert json.loads((out / "status.json").read_text())["phase"] == "quality"
+
+
+@pytest.mark.parametrize("stress", [False, True])
+def test_quality_is_scored_after_the_sessions_unless_stress_replaced_the_cases(tmp_path, monkeypatch, stress):
+    case = mf.parse(copy.deepcopy(MANIFEST)).models["tts"].cases[0].to_dict()
+    assert case["quality"]
+    job = {"model": {"name": "tts", "cases": [case]}, "arms": {"base": {"src": "b"}, "head": {"src": "h"}},
+           "order": ["base", "head"], "sessions": 1, **({"stress": {"max_tokens": 16}} if stress else {})}
+    calls = []
+    monkeypatch.setattr(arm, "job", job)
+    monkeypatch.setattr(arm, "out", tmp_path)
+    monkeypatch.setattr(arm, "build_rust", lambda a: None)
+    monkeypatch.setattr(arm, "requirements_problem", lambda a: "")
+    monkeypatch.setattr(arm, "run_arm", lambda name, s: {"healthy": True, "mstar_from_arm_src": True})
+    monkeypatch.setattr(arm, "score_quality", lambda: calls.append("quality"))
+    monkeypatch.setattr(checks, "compare_model", lambda *a: calls.append("compare"))
+    arm.run()
+    assert calls == ([] if stress else ["quality", "compare"])
+    assert json.loads((tmp_path / "done.json").read_text())["status"] == "done"
