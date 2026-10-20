@@ -769,6 +769,7 @@ models:
         data: tts
         args: [--voice, vivian, --language, English, --seed, "0"]
         check: {kind: wer, max_increase: 2.0}
+        quality: [mos]
         perf: {latency: e2e_s_p50, throughput: audio_s_per_s, extra: [ttfa_ms_p50, rtf_mean]}
       - id: cancel
         modality: speech stream dropped mid-transfer
@@ -827,6 +828,7 @@ models:
         data: tts
         args: [--voice, tara, --seed, "0"]
         check: {kind: wer, max_increase: 2.0}
+        quality: [mos]
         perf: {latency: e2e_s_p50, throughput: audio_s_per_s, extra: [ttfa_ms_p50, rtf_mean]}
       - id: cancel
         modality: speech stream dropped mid-transfer
@@ -893,6 +895,7 @@ models:
         n: 8
         args: [--max-tokens, "64", --audio-out]
         check: {kind: audio_len, pct: 25}
+        quality: [mos]
         perf: {latency: lat_p50_s, throughput: req_per_s, extra: [ttft_p50_s]}
       - id: cancel
         modality: chat stream (text and speech) dropped mid-transfer
