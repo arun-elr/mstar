@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import shutil
 import threading
 import uuid
 from abc import ABC, abstractmethod
@@ -639,18 +638,26 @@ class ShmKVTransferEngine(KVTransferEngine):
                 self._remove_request_locked(request_id)
 
 
-def make_deployment_kv_shm_dir(
-    socket_path_prefix: str,
-    dist_init_method: str,
-    owner_pid: int | None = None,
-) -> str:
-    """Create a private SHM directory for one local deployment.
+def make_deployment_kv_shm_dir(namespace: str) -> str:
+    """Create, or join, the private SHM directory of one local deployment.
 
-    The conductor PID plus its unique distributed-init endpoint separates
-    concurrent servers, even when both use the default worker ids and request
-    ids. On startup, directories owned by this uid whose conductor no longer
-    exists are swept so killed deployments do not leak tmpfs indefinitely.
+    The directory is ``mstar_<namespace>_kv`` under the deployment namespace
+    of the tensor transport, so the namespace lock marks it live and the
+    dead-namespace sweep removes it once no process of the deployment is
+    left; a conductor pid cannot, since it is invisible from another PID
+    namespace sharing the tmpfs. For that reason the pid-named directories
+    of older builds (``mstar_kv_<uid>_<pid>_<digest>``) are not swept here:
+    from another PID namespace a live one looks dead.
     """
+    from mstar.communication.tensors import (
+        _hold_namespace_lock,
+        _sweep_dead_namespaces,
+    )
+
+    if not namespace:
+        # Every worker's control channel is IPC or TCP, which always
+        # derives one; refuse rather than share an unswept directory.
+        raise ValueError("shared-memory KV transfer needs a deployment namespace")
     base = os.getenv("MSTAR_KV_SHM_DIR")
     if base is None:
         base = (
@@ -660,32 +667,9 @@ def make_deployment_kv_shm_dir(
         )
     os.makedirs(base, exist_ok=True)
 
-    uid = os.getuid() if hasattr(os, "getuid") else 0
-    owner_pid = os.getppid() if owner_pid is None else owner_pid
-    digest = hashlib.sha256(
-        f"{socket_path_prefix}\0{dist_init_method}".encode()
-    ).hexdigest()[:16]
-    prefix = f"mstar_kv_{uid}_"
-    path = os.path.join(base, f"{prefix}{owner_pid}_{digest}")
-
-    for entry in os.scandir(base):
-        if (
-            not entry.name.startswith(prefix)
-            or not entry.is_dir(follow_symlinks=False)
-            or entry.path == path
-        ):
-            continue
-        suffix = entry.name[len(prefix):]
-        pid_text, separator, _ = suffix.partition("_")
-        if not separator or not pid_text.isdigit():
-            continue
-        try:
-            os.kill(int(pid_text), 0)
-        except ProcessLookupError:
-            shutil.rmtree(entry.path, ignore_errors=True)
-        except PermissionError:
-            continue
-
+    _hold_namespace_lock(base, namespace)
+    _sweep_dead_namespaces(base, namespace)
+    path = os.path.join(base, f"mstar_{namespace}_kv")
     os.makedirs(path, mode=0o700, exist_ok=True)
     os.chmod(path, 0o700)
     return path
