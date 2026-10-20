@@ -117,6 +117,16 @@ def test_chat_stream_deltas_hold_split_characters(batched):
     assert events[-1]["choices"][0]["finish_reason"] == "stop"
 
 
+@pytest.mark.parametrize("batched", [False, True], ids=["one-per-batch", "one-batch"])
+def test_chat_stream_sends_no_empty_deltas(batched):
+    # the first piece completes no character, and an end token decodes to nothing
+    chunks = [_chunk(p) for p in PIECES] + [_chunk(b"")]
+    content, events = _stream_chat([chunks] if batched else [[c] for c in chunks])
+    assert content == TEXT
+    deltas = [e["choices"][0]["delta"] for e in events]
+    assert deltas == [{"role": "assistant", "content": "中"}, {"content": "文 "}, {"content": "😀"}, {}]
+
+
 def test_chat_stream_keeps_text_whole_across_an_audio_chunk():
     chunks = [_chunk(PIECES[0]), _chunk(b"\x00\x00", "audio"), *[_chunk(p) for p in PIECES[1:]]]
     content, _ = _stream_chat([[c] for c in chunks])
@@ -126,7 +136,7 @@ def test_chat_stream_keeps_text_whole_across_an_audio_chunk():
 def test_chat_stream_flushes_an_unfinished_character_before_stop():
     content, events = _stream_chat([[_chunk(p) for p in TRUNCATED]])
     assert content == "中文 \ufffd"
-    assert events[-2]["choices"][0]["delta"] == {"content": "\ufffd"}
+    assert events[-1]["choices"][0]["delta"] == {"content": "\ufffd"}
     assert events[-1]["choices"][0]["finish_reason"] == "stop"
 
 
@@ -266,6 +276,13 @@ def test_dynamo_chat_deltas_hold_split_characters(tmp_path):
     content, out = _dynamo_chat([_chunk(p) for p in PIECES], tmp_path)
     assert content == TEXT
     assert all("\ufffd" not in (o["choices"][0]["delta"].get("content") or "") for o in out)
+    assert out[-1]["choices"][0]["finish_reason"] == "stop"
+
+
+def test_dynamo_chat_sends_no_empty_deltas(tmp_path):
+    content, out = _dynamo_chat([_chunk(p) for p in PIECES] + [_chunk(b"")], tmp_path)
+    assert content == TEXT
+    assert [o["choices"][0]["delta"]["content"] for o in out[:-1]] == ["中", "文 ", "😀"]
     assert out[-1]["choices"][0]["finish_reason"] == "stop"
 
 
