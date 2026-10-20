@@ -562,9 +562,9 @@ class TalkerSubmodule(ARNodeSubmodule):
             "cfg": torch.zeros(rows, dtype=torch.float32, device=device),
         }
 
-    def get_piecewise_cuda_graph_configs(
+    def get_piecewise_accelerator_graph_configs(
         self, device: torch.device, autocast_dtype: torch.dtype, tp_world_size: int = 1, **kwargs: Any
-    ) -> dict[str, PiecewiseCudaGraphConfig]:
+    ) -> dict[str, PiecewiseAcceleratorGraphConfig]:
         """The prefill's per-row tail (CFM solve and stop head on each row's
         last position), at the decode's batch buckets; the LM prefill before
         it stays eager. Not compiled, so a replay runs the eager kernels."""
@@ -680,9 +680,9 @@ class VAEDecoderSubmodule(ARNodeSubmodule):
         cfg, dtype = self.config, next(self.vae.parameters()).dtype
         return {"latents": torch.zeros(shape.bs, cfg.feat_dim, width * cfg.patch_size, dtype=dtype, device=device)}
 
-    def get_piecewise_cuda_graph_configs(
+    def get_piecewise_accelerator_graph_configs(
         self, device: torch.device, autocast_dtype: torch.dtype, tp_world_size: int = 1, **kwargs: Any
-    ) -> dict[str, PiecewiseCudaGraphConfig]:
+    ) -> dict[str, PiecewiseAcceleratorGraphConfig]:
         """One region per window width the stream schedule pops. The decoder
         is causal, so the padding never changes a window's frames."""
         del autocast_dtype, tp_world_size, kwargs
