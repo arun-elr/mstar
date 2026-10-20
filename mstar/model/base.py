@@ -84,9 +84,11 @@ class ContextUse(NamedTuple):
 
     ``prompt`` is what the prefill takes; ``generated`` is the most the output
     can take after it. Together they must fit the cache's ``max_seq_len``.
+    ``kwarg`` is the request kwarg that caps ``generated``, named in the refusal.
     """
     prompt: int
     generated: int
+    kwarg: str | None = "max_output_tokens"
 
 
 def resolve_max_output_tokens(model: "Model", model_kwargs: dict) -> int:
@@ -785,9 +787,17 @@ class Model(ABC):
         """
         pass
 
-    # The paged KV cache a prompt of plain token ids fills: each ``text_inputs``
-    # id takes one position, and decode at most the request's output cap.
+    # The paged KV cache a prompt of plain token ids fills, and the Loop walk
+    # that decodes into it: each ``text_inputs`` id takes one position, and
+    # decode at most ``max_decoded_tokens`` for that walk.
     PROMPT_KV_CACHE: str | None = None
+    PROMPT_DECODE_WALK = "decode"
+
+    def max_decoded_tokens(self, cap: int, walk: str) -> int:
+        """Most tokens one request decodes in the Loop graph walk ``walk``: its
+        output ``cap``, or the Loop's ``max_iters`` if lower, since the Loop
+        ends there whatever the cap."""
+        return min(cap, self.get_graph_walk_graphs()[walk].max_iters)
 
     def context_use(
         self,
@@ -809,7 +819,9 @@ class Model(ABC):
             return {}
         return {self.PROMPT_KV_CACHE: ContextUse(
             sum(t.numel() for t in tensors.get("text_inputs", [])),
-            resolve_max_output_tokens(self, model_kwargs),
+            self.max_decoded_tokens(
+                resolve_max_output_tokens(self, model_kwargs), self.PROMPT_DECODE_WALK,
+            ),
         )}
 
     def max_input_files(self) -> dict[str, int]:

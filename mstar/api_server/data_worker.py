@@ -733,14 +733,20 @@ class PreprocessWorkerThread:
             }
         for key, use in uses.items():
             context = self._context_lengths[key]
-            limit = max(context - use.generated, 0)
-            if use.prompt > limit:
-                cache = f" in its {key!r} cache" if len(uses) > 1 else ""
+            limit = context - use.generated
+            if use.prompt <= limit:
+                continue
+            cache = f" in its {key!r} cache" if len(uses) > 1 else ""
+            if limit <= 0 and use.kwarg is not None:
                 raise ValueError(
-                    f"The prompt is {use.prompt} tokens{cache}; the model takes at most "
-                    f"{limit} (its {context}-token context less the {use.generated} "
-                    "tokens its output can take)"
+                    f"{use.kwarg} lets the output take {use.generated} positions{cache}, "
+                    f"which leaves none of the model's {context}-position context for the prompt"
                 )
+            raise ValueError(
+                f"The prompt takes {use.prompt} positions{cache}; the model takes at most "
+                f"{limit} (its {context}-position context less the {use.generated} "
+                "its output can take)"
+            )
 
     @staticmethod
     def _start_profile(input: PreprocessInput) -> DataWorkerProfile:

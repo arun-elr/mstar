@@ -569,7 +569,8 @@ class Qwen3_5DenseModel(Model):
         if grids:
             merge = self.vision_config.spatial_merge_size
             prompt += sum(vision_position_advance(grid, merge) + 2 for grid in grids)
-        return {KV_CACHE: ContextUse(prompt, resolve_max_output_tokens(self, model_kwargs))}
+        generated = self.max_decoded_tokens(resolve_max_output_tokens(self, model_kwargs), "decode")
+        return {KV_CACHE: ContextUse(prompt, generated)}
 
 
     def postprocess(

@@ -929,7 +929,10 @@ class Qwen3TTSModel(Model):
             # a clone's RefEncoder always sends the x-vector
             speaker_embed="audio" in input_modalities,
         )
-        return {TALKER_KV: ContextUse(prompt, resolve_max_output_tokens(self, model_kwargs))}
+        generated = self.max_decoded_tokens(
+            resolve_max_output_tokens(self, model_kwargs), "talker_decode",
+        )
+        return {TALKER_KV: ContextUse(prompt, generated)}
 
     @staticmethod
     def _check_chatml(assistant_ids: torch.Tensor) -> None:

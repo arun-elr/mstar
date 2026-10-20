@@ -151,11 +151,12 @@ class _Bagel(BagelModel):
         self.config = SimpleNamespace(
             think_mode=think_mode, num_hidden_layers=2, num_key_value_heads=1,
             hidden_size=16, num_attention_heads=2, max_position_embeddings=32768,
-            rope_theta=10000.0, vocab_size=128,
+            rope_theta=10000.0, vocab_size=128, num_timesteps=50,
             vit_config=SimpleNamespace(num_attention_heads=1, hidden_size=16, patch_size=14),
             vit_max_num_patch_per_side=70,
         )
         self._has_cfg_parallel = False
+        self._image_gen_remote_handoff = False
         self.tokenizer = _StubTokenizer()
         self.boi_token_id = _StubTokenizer.SPECIALS["<|vision_start|>"]
         self.eoi_token_id = _StubTokenizer.SPECIALS["<|vision_end|>"]
@@ -230,7 +231,7 @@ def _post(form):
 
 
 def _refusal(length: int, limit: int) -> str:
-    return f"The prompt is {length} tokens; the model takes at most {limit} "
+    return f"The prompt takes {length} positions; the model takes at most {limit} "
 
 
 def test_generate_one_past_the_context_is_a_400(served):
@@ -297,24 +298,122 @@ def test_a_larger_output_cap_lowers_the_limit(tmp_path, monkeypatch):
             "model_kwargs": json.dumps({"max_output_tokens": 8190}),
         })
         assert r.status_code == 400, r.text
-        assert "the model takes at most 2 (its 8192-token context less the 8190 tokens" in r.json()["detail"]
+        assert "the model takes at most 2 (its 8192-position context less the 8190 its" in r.json()["detail"]
         assert server.socket.sent_of(ConductorMessageType.NEW_REQUEST) == []
+    finally:
+        server.close()
+
+
+def _submit(server, text: str, out: list[str], model_kwargs: dict):
+    """Submit a request; return its refusal, or None once it reaches the conductor."""
+    server.api.submit_request(
+        text=text, input_modalities=["text"], output_modalities=out,
+        model_kwargs=model_kwargs, streaming=False,
+    )
+    deadline = time.monotonic() + 10
+    while True:
+        (pending,) = server.api.pending_requests.values()
+        if pending.error is not None:
+            assert server.socket.sent_of(ConductorMessageType.NEW_REQUEST) == []
+            return str(pending.error)
+        if server.socket.sent_of(ConductorMessageType.NEW_REQUEST):
+            return None
+        assert time.monotonic() < deadline, "the request was neither refused nor forwarded"
+        time.sleep(0.005)
+
+
+# A cap past the decode Loop's max_iters: decode stops at the Loop, so the
+# output counted is the Loop's bound, and a short prompt is served as before.
+# Every cache here holds 32,768 positions.
+LOOP_CASES = {
+    "qwen3_omni": (_omni, ["text"], {"max_output_tokens": 65536}),
+    "qwen3_omni_talker": (_omni, ["text", "audio"], {"talker_max_output_tokens": 65536}),
+    "bagel": (_Bagel, ["text"], {"max_output_tokens": 32768}),
+    "qwen3_tts": (_qwen3_tts, ["audio"], {"max_output_tokens": 32768}),
+}
+
+
+@pytest.mark.parametrize("name", sorted(LOOP_CASES))
+def test_a_cap_past_the_decode_loop_is_served(name, tmp_path, monkeypatch):
+    factory, out, model_kwargs = LOOP_CASES[name]
+    server = _Server(model=factory(), model_name=name)
+    server.api.upload_dir = tmp_path
+    monkeypatch.setattr(entrypoint, "api_server", server.api)
+    try:
+        assert _submit(server, "describe a cat", out, model_kwargs) is None
+    finally:
+        server.close()
+
+
+@pytest.mark.parametrize(("name", "walk"), [
+    ("qwen3_omni", "thinker_decode"),
+    ("qwen3_omni_talker", "talker_decode"),
+    ("bagel", "decode"),
+    ("qwen3_tts", "talker_decode"),
+])
+def test_the_output_counted_is_the_decode_loops_bound(name, walk):
+    factory, out, model_kwargs = LOOP_CASES[name]
+    model = factory()
+    result = model.process_prompt("describe a cat", ["text"], out)
+    tensors, kwargs = (result, {}) if isinstance(result, dict) else result
+    uses = model.context_use(dict(tensors), ["text"], out, {**kwargs, **model_kwargs})
+    key = "talker_kv" if name == "qwen3_omni_talker" else next(iter(uses))
+    assert uses[key].generated == model.get_graph_walk_graphs()[walk].max_iters < 32768
+
+
+def test_bagel_think_mode_image_output_counts_the_decode_loops_thinking():
+    model = _Bagel(think_mode=True)
+    tensors = model.process_prompt("a cat", ["text"], ["image"])
+    use = model.context_use(tensors, ["text"], ["image"], {"max_output_tokens": 32768})
+    # the thinking stops at the decode Loop's 2,048, the latents sit one past it
+    assert use["kv"].generated == 2048 + 1
+
+
+@pytest.mark.parametrize(("cap", "out"), [
+    ("abc", ["text", "audio"]), (-1, ["text", "audio"]), (0, ["text", "audio"]),
+    (True, ["text", "audio"]), (1.5, ["text", "audio"]),
+    # the conductor reads the Talker cap for text output too
+    ("abc", ["text"]),
+])
+def test_a_talker_cap_that_is_not_a_positive_integer_is_a_400(cap, out, tmp_path, monkeypatch):
+    server, _ = _server("qwen3_omni", tmp_path, monkeypatch)
+    try:
+        error = _submit(server, "describe a cat", out, {"talker_max_output_tokens": cap})
+        assert error is not None
+        assert f"talker_max_output_tokens must be an integer >= 1; got {cap!r}" in error
+    finally:
+        server.close()
+
+
+def test_a_cap_past_the_context_names_the_kwarg(tmp_path, monkeypatch):
+    """A cap that alone fills the context leaves no room for any prompt; the
+    refusal says which kwarg to lower."""
+    server, _ = _server("qwen3_5", tmp_path, monkeypatch)
+    try:
+        error = _submit(server, "a " * 10, ["text"], {"max_output_tokens": 9000})
+        assert error is not None
+        assert "max_output_tokens lets the output take 9000 positions" in error
+        assert "8192-position context" in error
     finally:
         server.close()
 
 
 def test_qwen3_omni_audio_output_counts_the_talkers_cache(tmp_path, monkeypatch):
     """With audio output the Talker's cache is checked too, against its own
-    output cap, and the refusal names that cache."""
+    output cap, and the refusal names that cache. A one-token Thinker cap
+    leaves the Thinker room, so only the Talker is past its limit."""
     server, _ = _server("qwen3_omni", tmp_path, monkeypatch)
+    model, out = server.api.model, ["text", "audio"]
+    kwargs = {"max_output_tokens": 1, "talker_max_output_tokens": 1000}
+    one = _use(model, "a ", out)["talker_kv"]
+    limit = _paged_kv_configs(model, None)["talker_kv"].max_seq_len - 1000
     try:
-        r = _post({
-            "text": "a " * 1000, "output_modalities": "text,audio", "streaming": "false",
-            "model_kwargs": json.dumps({"talker_max_output_tokens": 32000}),
-        })
-        assert r.status_code == 400, r.text
-        assert "tokens in its 'talker_kv' cache; the model takes at most 768 " in r.json()["detail"]
-        assert server.socket.sent_of(ConductorMessageType.NEW_REQUEST) == []
+        error = _submit(server, "a " * (limit - one.prompt + 2), out, kwargs)
+        assert error is not None
+        assert (
+            f"The prompt takes {limit + 1} positions in its 'talker_kv' cache; "
+            f"the model takes at most {limit} "
+        ) in error
     finally:
         server.close()
 
@@ -375,8 +474,8 @@ def test_bagel_counts_each_image_walk_one_position(out, walks):
     use = model.context_use(tensors, mods, out, {})
 
     text = sum(t.numel() for t in tensors["text_inputs"])
-    generated = 2048 if out == ["text"] else 1
-    assert use == {"kv": ContextUse(text + len(image_walks) * IMAGE_ADVANCE, generated)}
+    generated = ContextUse(0, 2048) if out == ["text"] else ContextUse(0, 1, kwarg=None)
+    assert use == {"kv": generated._replace(prompt=text + len(image_walks) * IMAGE_ADVANCE)}
 
 
 def test_bagel_think_mode_image_output_counts_its_thinking():
@@ -441,7 +540,7 @@ def test_qwen3_omni_counts_match_the_thinker_prefill():
         kept += int(((text_kept & ~mm) | mm).sum())
 
     assert use["thinker_kv"] == ContextUse(cursor[0], 2048)
-    assert use["talker_kv"] == ContextUse(kept + 6, 2048)
+    assert use["talker_kv"] == ContextUse(kept + 6, 2048, kwarg="talker_max_output_tokens")
 
 
 @pytest.mark.parametrize(

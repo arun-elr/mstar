@@ -130,7 +130,7 @@ def _post(form):
 
 
 def _refusal(tokens: int) -> str:
-    return f"The prompt is {tokens} tokens; the model takes at most {LIMIT}"
+    return f"The prompt takes {tokens} positions; the model takes at most {LIMIT}"
 
 
 @pytest.mark.parametrize("tokens", [LIMIT + 1, 200_005 + WRAP], ids=["one-over", "served-case"])
@@ -164,6 +164,32 @@ def test_a_prompt_at_the_limit_is_admitted(server):
         time.sleep(0.005)
     (key,) = server.api.pending_requests
     assert server.api.pending_requests[key].error is None
+
+
+@pytest.mark.parametrize("tokens", [CONFIG.max_position_embeddings - 4096 + 1, LIMIT])
+def test_a_cap_past_the_decode_loop_keeps_the_limit(server, tokens):
+    """Decode stops at the Loop's 2,048 iterations, so a 4,096 cap leaves the
+    limit where no cap does."""
+    server.api.submit_request(
+        text=_words(tokens), input_modalities=["text"], output_modalities=["audio"],
+        model_kwargs={"max_output_tokens": 4096}, streaming=False,
+    )
+    deadline = time.monotonic() + 10
+    while not server.new_requests():
+        (pending,) = server.api.pending_requests.values()
+        assert pending.error is None, pending.error
+        assert time.monotonic() < deadline, "the prompt never reached the conductor"
+        time.sleep(0.005)
+
+
+def test_a_cap_past_the_decode_loop_refuses_one_past_the_limit(server):
+    r = _post({
+        "text": _words(LIMIT + 1), "output_modalities": "audio", "streaming": "false",
+        "model_kwargs": json.dumps({"max_output_tokens": 4096}),
+    })
+
+    assert r.status_code == 400, r.text
+    assert server.new_requests() == []
 
 
 def test_rust_frontend_submit_past_the_context_is_a_400(server):

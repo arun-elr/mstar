@@ -736,12 +736,12 @@ class BagelModel(Model):
         walks_per_image = 1 if target_output == "text" else 2
         prompt = sum(t.numel() for t in tensors.get("text_inputs", []))
         prompt += len(tensors.get("image_inputs", [])) * walks_per_image * IMAGE_ADVANCE
+        decoded = self.max_decoded_tokens(resolve_max_output_tokens(self, model_kwargs), DECODE)
         if target_output == "text":
-            generated = resolve_max_output_tokens(self, model_kwargs)
-        else:
-            think_mode = model_kwargs.get("think_mode", self.config.think_mode)
-            generated = (resolve_max_output_tokens(self, model_kwargs) if think_mode else 0) + 1
-        return {"kv": ContextUse(prompt, generated)}
+            return {"kv": ContextUse(prompt, decoded)}
+        if model_kwargs.get("think_mode", self.config.think_mode):
+            return {"kv": ContextUse(prompt, decoded + 1)}
+        return {"kv": ContextUse(prompt, 1, kwarg=None)}
 
     def _prefix_layout(
         self, parts: list[PromptPart], segments: list[torch.Tensor],

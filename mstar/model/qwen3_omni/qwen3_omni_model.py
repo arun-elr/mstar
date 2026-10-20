@@ -292,7 +292,10 @@ class Qwen3OmniModel(Model):
         }
 
     def _get_max_talker_output_tokens(self, **model_kwargs):
-        return model_kwargs.get("talker_max_output_tokens", MAX_OUTPUT_TOKENS)
+        cap = model_kwargs.get("talker_max_output_tokens", MAX_OUTPUT_TOKENS)
+        if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
+            raise ValueError(f"talker_max_output_tokens must be an integer >= 1; got {cap!r}")
+        return cap
 
     # -----------------------------------------------------------------------
     # Model ABC: graph walk definitions
@@ -1266,6 +1269,7 @@ class Qwen3OmniModel(Model):
         prefilled with the Thinker states it keeps (text past the system and
         earlier assistant turns, every attachment token with its sentinels),
         then its last prefill, and decodes up to ``talker_max_output_tokens``.
+        Each decode stops at its Loop's bound if that is lower.
         """
         from transformers.models.qwen3_omni_moe.processing_qwen3_omni_moe import (
             _get_feat_extract_output_lengths,
@@ -1273,6 +1277,8 @@ class Qwen3OmniModel(Model):
 
         from mstar.model.qwen3_omni.submodules import TalkerSubmodule, talker_text_mask
 
+        # every request: the conductor reads the Talker cap even for text output
+        talker_cap = self._get_max_talker_output_tokens(**model_kwargs)
         merge = self.config.vision.spatial_merge_size
         per_second = self.config.thinker.position_id_per_seconds
         texts = tensors.get("text_inputs", [])
@@ -1299,11 +1305,14 @@ class Qwen3OmniModel(Model):
             )
             thinker = int(float(positions.max()) + 2)
             talker += positions.shape[1] + 2
-        uses = {THINKER_KV: ContextUse(thinker, resolve_max_output_tokens(self, model_kwargs))}
+        uses = {THINKER_KV: ContextUse(thinker, self.max_decoded_tokens(
+            resolve_max_output_tokens(self, model_kwargs), "thinker_decode",
+        ))}
         if "audio" in output_modalities:
             uses[TALKER_KV] = ContextUse(
                 talker + TalkerSubmodule.TALKER_LAST_PREFILL_TOKENS_PER_REQ,
-                self._get_max_talker_output_tokens(**model_kwargs),
+                self.max_decoded_tokens(talker_cap, "talker_decode"),
+                kwarg="talker_max_output_tokens",
             )
         return uses
 
