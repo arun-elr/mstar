@@ -111,6 +111,9 @@ def test_a_request_bigger_than_the_pool_is_refused_for_good():
     assert not outcome.ok
     assert isinstance(outcome.reason, AdmitRuntimeError) and outcome.reason.terminal
     assert outcome.reason.request_ids == frozenset({"huge"})
+    # the client reads this text, and the engine's handle is not an id it sent
+    assert "huge" not in outcome.reason.message
+    assert "needs 8 pages" in outcome.reason.message
 
 
 def test_a_request_that_fits_the_pool_but_not_the_free_pages_is_retried():

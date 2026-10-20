@@ -1863,11 +1863,13 @@ class KVManager(AttentionResource):
         capacity = self.config.max_num_pages - 1
         own = len(held.get(error.request_id, ())) + extra.get(error.request_id, 0)
         if own > capacity:
+            # the client reads this text, and the rid is the worker's handle,
+            # not an id it sent
             return AdmitRuntimeError(
                 message=(
-                    f"Request {error.request_id} needs {own} pages of {self.name} "
-                    f"for this step, more than the {capacity} the pool holds; "
-                    "raise max_num_pages or shorten the request."
+                    f"The request needs {own} pages of {self.name} for this "
+                    f"step, more than the {capacity} the pool holds; raise "
+                    "max_num_pages or shorten the request."
                 ),
                 request_ids=frozenset({error.request_id}),
             )
