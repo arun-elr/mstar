@@ -1504,6 +1504,8 @@ def test_qwen3_tts_codec_without_watermark_emits_the_same_bytes_through_the_engi
     """Watermark off, the engine's postprocess (batch tail included) emits byte
     for byte what per-request ``postprocess`` alone does, which is all the
     engine ran before the tail existed: two batched streams, ramp to final."""
+    if importlib.util.find_spec("qwen_tts") is None:
+        pytest.skip("qwen-tts optional dependency is not installed")
     from mstar.engine.engine import Engine
     from mstar.model.qwen3_tts.qwen3_tts_model import _load_qwen3_tts_codec_classes
 
