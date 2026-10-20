@@ -266,11 +266,11 @@ mod tests {
         p.add_new_tokens(1, &[("tok".to_string(), 1)]);
         p.add_new_tokens(1, &[("tok".to_string(), 2)]);
         p.add_new_tokens(2, &[("audio".to_string(), 4)]);
-        let (_, n, _) = p.take_for_send(Some(2));
+        let (_, n, _, _) = p.take_for_send(Some(2));
         assert_eq!(n, vec![("audio".to_string(), 4)]);
-        let (_, n, _) = p.take_for_send(None);
+        let (_, n, _, _) = p.take_for_send(None);
         assert!(n.is_empty());
-        let (_, n, _) = p.take_for_send(Some(1));
+        let (_, n, _, _) = p.take_for_send(Some(1));
         assert_eq!(n, vec![("tok".to_string(), 3)]);
         assert!(p.new_tokens.is_empty());
     }
@@ -349,7 +349,7 @@ mod tests {
         p.add_stream_items(1, 11, 1);
         p.add_stream_items(1, 10, 3);
         p.add_stream_items(2, 10, 1);
-        let (_, _, _, items) = p.take_for_send();
+        let (_, _, _, items) = p.take_for_send(None);
         assert_eq!(items, vec![(1, vec![(10, 5), (11, 1)]), (2, vec![(10, 1)])]);
         assert!(p.stream_items.is_empty());
     }
