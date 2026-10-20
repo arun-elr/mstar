@@ -53,10 +53,13 @@ def _generate_stream(monkeypatch, request_id="r1"):
     """The streaming ``/generate`` response, built by the real route."""
     from mstar.api_server import entrypoint
 
+    async def form():
+        return {"text": "hi", "streaming": "true"}
+
     server = make_test_api_server(preprocess_worker=_PreprocessWorker())
     monkeypatch.setattr(entrypoint, "api_server", server)
     response = asyncio.run(entrypoint.generate(
-        request=SimpleNamespace(headers={}), text="hi", files=None,
+        request=SimpleNamespace(headers={}, form=form), text="hi", files=None,
         input_modalities=None, output_modalities="text", streaming=True,
         model_kwargs=None, request_id=request_id,
     ))
