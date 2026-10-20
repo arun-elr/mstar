@@ -672,6 +672,7 @@ models:
         data: clone
         args: [--clone, --seed, "0"]
         check: {kind: wer, max_increase: 2.0}
+        quality: [mos, speaker_sim]
         perf: {latency: e2e_s_p50, throughput: audio_s_per_s, extra: [ttfa_ms_p50, rtf_mean, sim_mean]}
 
   voxcpm2:               # #496: tokenizer-free latent patches; 48 kHz streamed audio
@@ -688,6 +689,7 @@ models:
         data: tts
         args: [--seed, "0"]
         check: {kind: wer, max_increase: 2.0}
+        quality: [mos]
         perf: {latency: e2e_s_p50, throughput: audio_s_per_s, extra: [ttfa_ms_p50, rtf_mean]}
       - id: clone
         modality: tts (voice clone)
@@ -695,6 +697,7 @@ models:
         data: clone
         args: [--clone, --seed, "0"]
         check: {kind: wer, max_increase: 2.0}
+        quality: [mos, speaker_sim]
         perf: {latency: e2e_s_p50, throughput: audio_s_per_s, extra: [ttfa_ms_p50, sim_mean]}
       - id: design
         modality: tts (voice design)
@@ -702,6 +705,7 @@ models:
         data: tts
         args: [--instructions, "A calm, warm female voice speaking at a moderate pace", --seed, "0"]
         check: {kind: wer, max_increase: 2.0}
+        quality: [mos]
         perf: {latency: e2e_s_p50, throughput: audio_s_per_s, extra: [ttfa_ms_p50]}
 
   omnilingual_asr_ctc_300m:   # #515: CTC (non-autoregressive) ASR, no decode loop
