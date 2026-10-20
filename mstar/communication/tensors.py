@@ -1541,8 +1541,7 @@ class TensorCommunicationManager(ABC):
         is read as a whole, so an edge joined from several producers splits
         its read time between them by bytes (by tensors if it moved none)."""
         src = ep.read_src
-        # Counted once: a later future that raises leaves this entry pending
-        # for the next poll.
+        # Cleared, so this read is never counted twice.
         ep.read_src = None
         dst = self._transfer_dst or ep.graph_edges[0].next_node
         seconds = ep.rx_time or 0.0
