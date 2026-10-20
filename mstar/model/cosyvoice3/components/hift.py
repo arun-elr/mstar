@@ -351,7 +351,7 @@ class CausalHiFTGenerator(nn.Module):
 
 
 @dataclass
-class StreamState:
+class HiftStreamState:
     """One request's streaming vocoder state: the mel frames still needed (from
     global frame ``mel_start``), the phase carried to ``carry_frame`` and how
     many samples went out."""
@@ -370,7 +370,7 @@ class StreamState:
 
 def stream_vocode(
     hift: CausalHiFTGenerator,
-    state: StreamState,
+    state: HiftStreamState,
     new_mel: torch.Tensor,
     final: bool,
     context_frames: int,
