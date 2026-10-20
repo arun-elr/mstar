@@ -90,6 +90,46 @@ def test_a_capture_wider_than_the_pool_runs_on_the_sink_page():
     assert kv._arena.num_free == free, "capture must leave every page free"
 
 
+def test_the_captured_attention_wrapper_holds_every_page_the_capture_names(monkeypatch):
+    """A 48-page pool of 128-token pages and the one-row 8,192-token prefill
+    bucket: a 6,006-token prompt replays it with 47 pages, and its capture
+    names 64 sink pages, more than the 49 slots a pool-sized buffer holds."""
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from mstar.engine.resources.attn.flashinfer import FlashInferManager
+    from mstar.engine.resources.attn.wrappers import FlashInferPrefillWrapper
+
+    native = Mock(return_value=SimpleNamespace(plan=Mock()))
+    monkeypatch.setitem(sys.modules, "flashinfer", SimpleNamespace(BatchPrefillWithPagedKVCacheWrapper=native))
+    cfg = PagedKVConfig(
+        num_layers=1, num_kv_heads=1, head_dim=64, max_seq_len=8192, max_num_pages=48, page_size=128,
+        num_qo_heads=1,
+    )
+    kv = KVManager(
+        cfg=cfg, name="kv", joint_comm_group=None, transfer_engine_info=None,
+        device=torch.device("cpu"), dtype=torch.float32,
+    )
+    bucket = BucketKey(graph_walk="prefill_text", bs=1, num_tokens=8192)
+    kv._cg_max_seq_len = bucket.num_tokens
+    kv.ingest_capture_row(-1)
+    step = KVStep(segments=(Segment(-1, "main", 8192),))
+    ctx = StepContext(
+        request_ids=(-1,), graph_walk=bucket.graph_walk, slot=0, capture=True,
+        slot_lease=SlotLease(slot=0, bucket=bucket), force_prefill=True,
+    )
+    assert kv.admit(step, ctx).ok
+    named = len(kv.plan(step, ctx)["main"].cpu_indptrs.paged_kv_indices)
+
+    attn = FlashInferManager(kv_cache="kv", device=torch.device("cpu"), dtype=torch.bfloat16, kv_config=cfg)
+    attn._workspaces = SimpleNamespace(get=lambda label, slot=None: torch.empty(8, dtype=torch.uint8))
+    wrapper = attn._cg_wrapper(ctx.slot_lease, "main", num_rows=1, force_prefill=True)
+
+    assert isinstance(wrapper, FlashInferPrefillWrapper)
+    assert named == 64
+    assert wrapper._paged_kv_indices_buf.numel() >= named, "the capture's copy into the buffer would overrun it"
+
+
 def test_a_served_step_that_pads_into_that_bucket_still_takes_real_pages():
     """24 tokens, 6 of the 7 pages: the captured bucket is the one it replays."""
     kv = _manager()

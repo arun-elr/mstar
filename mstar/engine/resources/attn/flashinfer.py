@@ -96,10 +96,15 @@ class FlashInferManager(AttentionManager):
         bucket = lease.bucket
         buffer = self._workspaces.get(label, lease.slot)
         # per row, not per pool: rows that matched one cached prefix all name
-        # its pages, so a step can name more page ids than the pool holds
+        # its pages, so a step can name more page ids than the pool holds. And
+        # at least the bucket's own tokens: a capture's rows name a SINK_PAGE
+        # per page of span, whatever the pool's size
         kv_kwargs = {
             **self._wrapper_kv_kwargs,
-            "max_num_pages": num_rows * self._kv_config.max_num_pages,
+            "max_num_pages": max(
+                num_rows * self._kv_config.max_num_pages,
+                -(-bucket.num_tokens // self._kv_config.page_size) + num_rows,
+            ),
         }
         split = self._splits.get(bucket.graph_walk)
         if split is not None:
