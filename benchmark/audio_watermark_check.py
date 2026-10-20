@@ -131,10 +131,11 @@ class _NoResources:
 def captured_runners(wmk: AudioSealWatermarker, batch_sizes=CAPTURE_BATCH_SIZES) -> dict:
     """The engine's captures of the codec's watermark lengths, as Qwen3-TTS's
     ``get_piecewise_accelerator_graph_configs`` declares them (CUDA only)."""
+    from mstar.engine.accelerator_graph_backend import get_accelerator_graph_backend
     from mstar.engine.accelerator_graph_runner import PiecewiseAcceleratorGraphRunner
 
     configs = wmk.piecewise_configs([f * FRAME for f in {*SCHEDULE, CHUNK}], batch_sizes)
-    pool = torch.cuda.graphs.graph_pool_handle()
+    pool = get_accelerator_graph_backend(wmk.device).graph_pool_handle()
     runners = {}
     for label, config in configs.items():
         runner = PiecewiseAcceleratorGraphRunner(

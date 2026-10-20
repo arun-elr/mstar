@@ -406,6 +406,7 @@ def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
     shape, which cuDNN may run with another TF32 algorithm: within 2 steps of
     PCM16 on Hopper, up to 14 on an A100, so other GPUs get 1e-3 of full scale.
     Detection is unchanged either way."""
+    from mstar.engine.accelerator_graph_backend import get_accelerator_graph_backend
     from mstar.engine.accelerator_graph_runner import PiecewiseAcceleratorGraphRunner
     from mstar.platforms import current_platform
 
@@ -422,7 +423,7 @@ def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
     wmk = AudioSealWatermarker(_random_generator().cuda(), AudioWatermarkConfig(enabled=True, message=0xBEEF),
                                import_audioseal()[1])
     configs = wmk.piecewise_configs([frame, 3 * frame], [1, 2, 4])
-    pool = torch.cuda.graphs.graph_pool_handle()
+    pool = get_accelerator_graph_backend(wmk.device).graph_pool_handle()
     runners = {}
     for label, config in configs.items():
         runner = PiecewiseAcceleratorGraphRunner(
