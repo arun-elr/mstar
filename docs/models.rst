@@ -367,6 +367,9 @@ CosyVoice3 notes
   characters) of English, or 80 characters of text with Chinese, each piece
   cloning the same voice. In one request the LM ends long text early or
   garbles its end. ``sentence_chunking: false`` sends the text whole.
+- Japanese written in kana alone, with spaces between words, is read poorly,
+  as it is by the official model: in tests both garbled common words such as
+  ゆっくり and ありがとうございました on every seed.
 - The flow's DiT estimator runs in bfloat16 by default; the Euler state, the
   rest of the flow and the HiFT vocoder stay float32 (HiFT's F0 predictor
   float64).
