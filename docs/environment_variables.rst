@@ -281,8 +281,9 @@ Read by ``mstar-serve`` / ``mstar.api_server.entrypoint``.
      - Pipecat Smart Turn v3 ONNX file for ``/v1/realtime`` ``semantic_vad``,
        read by ``realtime_vad.smart_turn_weights``. Unset, the
        ``pipecat-ai/smart-turn-v3`` ``smart-turn-v3.2-cpu.onnx`` file in the
-       local Hugging Face cache is used if present; with neither,
-       ``semantic_vad`` sessions run as ``server_vad``. Never downloaded.
+       local Hugging Face cache is used if present; with neither, or with a
+       file whose inputs or outputs differ, ``semantic_vad`` sessions run as
+       ``server_vad``. Never downloaded.
 
 Serving (Rust frontend)
 -----------------------

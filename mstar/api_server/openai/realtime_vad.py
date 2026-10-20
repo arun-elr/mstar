@@ -113,14 +113,27 @@ class SmartTurn:
         so.inter_op_num_threads = so.intra_op_num_threads = 1
         self._session = ort.InferenceSession(str(path), sess_options=so, providers=["CPUExecutionProvider"])
         self._features = WhisperFeatureExtractor(chunk_length=SMART_TURN_SECONDS)
+        # another ONNX file loads fine and then fails on a session's first pause
+        inputs = {i.name: i.type for i in self._session.get_inputs()}
+        if inputs != _SMART_TURN_INPUTS:
+            raise ValueError(f"its inputs are {inputs}, not {_SMART_TURN_INPUTS}")
+        shapes = [np.shape(o) for o in self._run(np.zeros(0, dtype=np.float32))]
+        if shapes[:1] != [(1, 1)]:
+            raise ValueError(f"its outputs have shapes {shapes}, not [(1, 1)]")
 
-    def __call__(self, audio: np.ndarray) -> float:
+    def _run(self, audio: np.ndarray) -> list:
         n = SMART_TURN_SECONDS * SAMPLE_RATE
         audio = np.asarray(audio, dtype=np.float32)[-n:]
         audio = np.pad(audio, (n - audio.size, 0))   # the reference pads at the front
         features = self._features(audio, sampling_rate=SAMPLE_RATE, return_tensors="np", padding="max_length",
                                   max_length=n, truncation=True, do_normalize=True).input_features
-        return float(self._session.run(None, {"input_features": features.astype(np.float32)})[0][0][0])
+        return self._session.run(None, {"input_features": features.astype(np.float32)})
+
+    def __call__(self, audio: np.ndarray) -> float:
+        return float(self._run(audio)[0][0][0])
+
+
+_SMART_TURN_INPUTS = {"input_features": "tensor(float)"}
 
 
 def smart_turn_weights() -> Path | None:
@@ -151,7 +164,7 @@ def smart_turn() -> Callable[[np.ndarray], float] | None:
         return SmartTurn(path)
     except Exception as exc:  # noqa: BLE001 — missing onnxruntime/transformers or a bad file
         logger.warning("semantic_vad will run as server_vad: cannot load Smart Turn from %s (%s: %s); "
-                       "install mstar[vad]", path, type(exc).__name__, exc)
+                       "it needs mstar[vad] and the %s file", path, type(exc).__name__, exc, SMART_TURN_FILE)
         return None
 
 

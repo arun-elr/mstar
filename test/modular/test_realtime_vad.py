@@ -855,3 +855,72 @@ def test_missing_smart_turn_is_a_warning_and_no_model(monkeypatch, tmp_path, cap
     finally:
         realtime_vad.smart_turn.cache_clear()
     assert "semantic_vad will run as server_vad" in caplog.text
+
+
+def _fake_smart_turn_runtime(monkeypatch, tmp_path, session):
+    weights = tmp_path / "smart-turn-v3.2-cpu.onnx"
+    weights.write_bytes(b"onnx")
+    monkeypatch.setenv("MSTAR_SMART_TURN_PATH", str(weights))
+    ort = type(sys)("onnxruntime")
+    ort.SessionOptions = type("SessionOptions", (), {})
+    ort.InferenceSession = lambda *a, **k: session
+    monkeypatch.setitem(sys.modules, "onnxruntime", ort)
+    realtime_vad.smart_turn.cache_clear()
+
+
+@pytest.fixture
+def _uncached_smart_turn():
+    yield
+    realtime_vad.smart_turn.cache_clear()
+
+
+_needs_transformers = pytest.mark.skipif(importlib.util.find_spec("transformers") is None,
+                                         reason="needs transformers (Whisper's feature extractor)")
+
+
+@_needs_transformers
+@pytest.mark.parametrize("session,needle", [
+    (_FakeSession(_SILERO_IN), "its inputs are"),     # MSTAR_SMART_TURN_PATH pointed at Silero
+    (_FakeSession([("input_features", _I)], out_shapes=((1, 1),)), "its inputs are"),
+    (_FakeSession([("input_features", _F)], out_shapes=((1,),)), "its outputs have shapes"),
+    (_FakeSession([("input_features", _F)], out_shapes=()), "its outputs have shapes"),
+])
+def test_a_smart_turn_file_with_other_inputs_or_outputs_is_no_model(
+        monkeypatch, tmp_path, caplog, _uncached_smart_turn, session, needle):
+    _fake_smart_turn_runtime(monkeypatch, tmp_path, session)
+    with caplog.at_level("WARNING", logger=realtime_vad.__name__):
+        assert realtime_vad.smart_turn() is None
+    assert "semantic_vad will run as server_vad" in caplog.text and needle in caplog.text
+
+
+@_needs_transformers
+def test_the_smart_turn_signature_is_accepted(monkeypatch, tmp_path, _uncached_smart_turn):
+    _fake_smart_turn_runtime(monkeypatch, tmp_path, _FakeSession([("input_features", _F)], out_shapes=((1, 1),)))
+    model = realtime_vad.smart_turn()
+    assert model is not None and model(np.zeros(16000, dtype=np.float32)) == 0.0
+
+
+@_needs_transformers
+def test_semantic_vad_with_a_wrong_smart_turn_file_runs_as_server_vad(
+        vad_client, monkeypatch, tmp_path, _uncached_smart_turn):
+    """A wrong file is no model: the session echoes server_vad and turns end
+    at its window, instead of the first pause raising and closing the socket."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    _fake_smart_turn_runtime(monkeypatch, tmp_path, _FakeSession(_SILERO_IN))
+    stream = np.concatenate([_speech(10), _silence(20)])
+    session, events = _run_semantic(client, stream, "high")
+    assert session["turn_detection"]["type"] == "server_vad"
+    turns = _turns(events)
+    assert [(t["start"], t["end"]) for t in turns] == [(0, (10 + 16) * 32)]
+    _assert_items_are_the_stream(turns, heard, stream)
+
+
+@pytest.mark.skipif(any(importlib.util.find_spec(m) is None for m in ("onnx", "onnxruntime", "transformers")),
+                    reason="needs onnx, onnxruntime and transformers")
+def test_a_real_onnx_file_with_silero_inputs_is_not_smart_turn(monkeypatch, tmp_path, _uncached_smart_turn):
+    path = tmp_path / "silero_shaped.onnx"
+    _tiny_onnx(path, [("input", "float"), ("state", "float"), ("sr", "int64")])
+    monkeypatch.setenv("MSTAR_SMART_TURN_PATH", str(path))
+    realtime_vad.smart_turn.cache_clear()
+    assert realtime_vad.smart_turn() is None

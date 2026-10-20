@@ -371,8 +371,8 @@ Per-model notes:
   thread) runs off the event loop. It needs ``onnxruntime`` and ``transformers``
   (``mstar[vad]``) and its weights at ``MSTAR_SMART_TURN_PATH`` or in the local Hugging
   Face cache (``hf download pipecat-ai/smart-turn-v3 smart-turn-v3.2-cpu.onnx``). Without
-  them the server warns at startup and runs ``semantic_vad`` sessions as ``server_vad``,
-  which the session echoes. See OpenAI's `realtime VAD guide
+  them, or with an ONNX file whose inputs or outputs differ, the server warns at startup
+  and runs ``semantic_vad`` sessions as ``server_vad``, which the session echoes. See OpenAI's `realtime VAD guide
   <https://platform.openai.com/docs/guides/realtime-vad>`_.
 - **Kokoro** — ``voice`` is one of the 54 bundled voices (default ``af_heart``) or a
   blend such as ``af_bella+af_sky`` or ``af_bella(2)+af_sky(1)``; ``speed`` scales the
