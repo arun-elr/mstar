@@ -335,9 +335,13 @@ Per-model notes:
   server does it, as OpenAI's server VAD does: ``threshold`` (default 0.5),
   ``prefix_padding_ms`` (300) and ``silence_duration_ms`` (500). Silero VAD scores each
   32 ms frame; a turn starts on a frame at or above ``threshold`` with up to
-  ``prefix_padding_ms`` of the audio before it, and ends ``silence_duration_ms`` (in whole
-  frames) after a frame below ``threshold`` minus 0.15, unless a frame at or above
-  ``threshold`` comes first, as in Silero's own ``VADIterator``. The server then sends
+  ``prefix_padding_ms`` of the audio before it. Silence starts on a frame below
+  ``threshold`` minus 0.15, and a frame at or above ``threshold`` cancels it; the turn
+  ends on whichever frame completes ``silence_duration_ms`` of whole frames counted from
+  that first silent frame, borderline frames included. The hysteresis is that of
+  Silero's own ``VADIterator``, but ``VADIterator`` counts from the frame after the first
+  silent one and ends only on a frame below ``threshold`` minus 0.15, so with a nonzero
+  ``silence_duration_ms`` it ends a turn one frame or more later. The server then sends
   ``input_audio_buffer.speech_started`` (``audio_start_ms``),
   ``input_audio_buffer.speech_stopped`` (``audio_end_ms``) and ``committed``, and the
   transcription completes. Times are milliseconds of audio since the session started,
@@ -350,7 +354,9 @@ Per-model notes:
   session; ``idle_timeout_ms`` and other types are refused. With 24 kHz input each
   decision waits 3 ms more for the resampler. Install ``mstar[vad]`` (Silero VAD, MIT,
   bundled 2 MB ONNX weights, run by onnxruntime on one CPU thread) or point
-  ``MSTAR_SILERO_VAD_PATH`` at the ONNX file; weights are never downloaded. The Dynamo bridge has no turn detection yet and
+  ``MSTAR_SILERO_VAD_PATH`` at the ONNX file (``silero_vad.onnx``; the package's other
+  exports take other inputs, and with one of them ``server_vad`` is refused); weights are
+  never downloaded. The Dynamo bridge has no turn detection yet and
   refuses it.
 - **Kokoro** — ``voice`` is one of the 54 bundled voices (default ``af_heart``) or a
   blend such as ``af_bella+af_sky`` or ``af_bella(2)+af_sky(1)``; ``speed`` scales the

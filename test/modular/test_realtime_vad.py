@@ -332,8 +332,9 @@ def test_item_cap_is_never_passed_and_speech_across_it_is_kept(prefix_ms):
 
 def test_borderline_frames_do_not_hold_a_started_silence_open():
     """Silence starts below threshold - 0.15 and only a frame at or above the
-    threshold ends it: frames alternating 0.1 and 0.4 end the turn one window
-    after the first 0.1, and a 0.6 frame starts the count over."""
+    threshold cancels it: frames alternating 0.1 and 0.4 end the turn on the
+    frame that completes the window from the first 0.1, a 0.4 one here, and
+    a 0.6 frame starts the count over."""
     ops, _ = _segment([0.9] * 10 + [0.1, 0.4] * 30, realtime_vad.ServerVAD(prefix_padding_ms=0))
     assert [op for op in ops if op[0] == "speech_stopped"] == [("speech_stopped", (10 + 16) * 32)]
     probs = [0.9] * 10 + [0.1, 0.4] * 4 + [0.6] + [0.1, 0.4] * 30
@@ -375,6 +376,30 @@ def test_settings_change_keeps_audio_not_scored_yet(vad_client):
         _barrier(ws)
     _assert_items_are_the_stream(turns, heard[:1], stream)
     assert np.array_equal(heard[1], stream[:300].astype(np.int32))
+
+
+@pytest.mark.parametrize("sr", [16000, 24000])
+def test_settings_change_between_turns_is_accepted_at_both_rates(vad_client, sr):
+    """Between turns no audio is in an item, so a turn_detection change goes
+    through at 24 kHz as at 16 kHz: what the resampler holds back for its
+    lookahead is audio after the turn, and goes on to the new segmenter."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    utterance = np.concatenate([_speech(3, sr), _silence(17, sr)])
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        _open_with(ws, {**_AT_24KHZ, "input_audio_format": {"type": "audio/pcm", "rate": sr}})
+        _send(ws, utterance, step=utterance.size)
+        events = _barrier(ws)
+        assert len(_turns(events)) == 1
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "turn_detection": {"type": "server_vad", "prefix_padding_ms": 0, "threshold": 0.6}}}))
+        updated = json.loads(ws.receive_text())
+        assert updated["type"] == "transcription_session.updated", updated
+        _send(ws, utterance, step=utterance.size)
+        events += _barrier(ws)
+    turns = _turns(events)
+    assert [(t["start"], t["end"]) for t in turns] == [(0, 19 * 32), (20 * 32, 39 * 32)]
+    _assert_items_are_the_stream(turns, heard, np.concatenate([utterance, utterance]), sr=sr)
 
 
 def test_one_long_append_is_one_engine_step(vad_client):
@@ -493,6 +518,127 @@ def test_missing_onnxruntime_disables_server_vad_with_a_warning(monkeypatch, tmp
     finally:
         realtime_vad.silero_factory.cache_clear()
     assert "needs onnxruntime" in caplog.text
+
+
+class _Arg:
+    def __init__(self, name, type_):
+        self.name, self.type = name, type_
+
+
+_F, _I = "tensor(float)", "tensor(int64)"
+_SILERO_IN = [("input", _F), ("state", _F), ("sr", _I)]
+
+
+class _FakeSession:
+    """An onnxruntime session with given inputs; ``run`` answers like Silero,
+    or with the given output shapes, and refuses inputs it does not have."""
+
+    def __init__(self, inputs, out_shapes=((1, 1), (2, 1, 128))):
+        self.inputs, self.out_shapes = [_Arg(*a) for a in inputs], out_shapes
+
+    def get_inputs(self):
+        return self.inputs
+
+    def run(self, _, feed):
+        if set(feed) != {a.name for a in self.inputs}:
+            raise ValueError(f"invalid input names {sorted(feed)}")
+        return [np.zeros(s, dtype=np.float32) for s in self.out_shapes]
+
+
+def _fake_onnxruntime(monkeypatch, tmp_path, session):
+    weights = tmp_path / "silero_vad.onnx"
+    weights.write_bytes(b"onnx")
+    monkeypatch.setenv("MSTAR_SILERO_VAD_PATH", str(weights))
+    ort = type(sys)("onnxruntime")
+    ort.SessionOptions = type("SessionOptions", (), {})
+    ort.ExecutionMode = type("ExecutionMode", (), {"ORT_SEQUENTIAL": 0})
+    ort.InferenceSession = lambda *a, **k: session
+    monkeypatch.setitem(sys.modules, "onnxruntime", ort)
+    realtime_vad.silero_factory.cache_clear()
+
+
+@pytest.fixture
+def _uncached_silero():
+    yield
+    realtime_vad.silero_factory.cache_clear()
+
+
+@pytest.mark.parametrize("session,needle", [
+    # the silero-vad package's silero_vad_half.onnx and silero_vad_openvino_16k.onnx
+    (_FakeSession([("input", _F), ("state", _F)]), "its inputs are"),
+    # its silero_vad_16k_sequence.onnx
+    (_FakeSession([("input", _F), ("h", _F), ("c", _F)]), "its inputs are"),
+    (_FakeSession([("input", _F), ("state", _F), ("sr", _F)]), "its inputs are"),
+    (_FakeSession(_SILERO_IN, out_shapes=((1,), (2, 1, 128))), "its outputs have shapes"),
+    (_FakeSession(_SILERO_IN, out_shapes=((1, 1),)), "its outputs have shapes"),
+])
+def test_a_model_with_other_inputs_or_outputs_disables_server_vad(
+        monkeypatch, tmp_path, caplog, _uncached_silero, session, needle):
+    _fake_onnxruntime(monkeypatch, tmp_path, session)
+    assert realtime_vad.silero_factory() is None
+    assert "is not the Silero VAD export" in caplog.text and needle in caplog.text
+
+
+def test_the_silero_inputs_in_any_order_are_accepted(monkeypatch, tmp_path, _uncached_silero):
+    """silero_vad_op18_ifless.onnx lists sr before state; inputs go by name."""
+    _fake_onnxruntime(monkeypatch, tmp_path, _FakeSession([("input", _F), ("sr", _I), ("state", _F)]))
+    make = realtime_vad.silero_factory()
+    assert make is not None and make()(np.zeros(FRAME, dtype=np.float32)) == 0.0
+
+
+def test_server_vad_with_a_wrong_model_is_refused_and_the_session_goes_on(
+        client_and_stub, monkeypatch, tmp_path, _uncached_silero):  # noqa: F811
+    """A wrong model is refused at the session update with an error event,
+    instead of being accepted and closing the socket on the first append."""
+    client, stub = client_and_stub
+    heard = _step_samples(stub)
+    _fake_onnxruntime(monkeypatch, tmp_path, _FakeSession([("input", _F), ("state", _F)]))
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update",
+                                 "session": {"turn_detection": {"type": "server_vad"}}}))
+        err = json.loads(ws.receive_text())
+        assert err["type"] == "error" and "server_vad is unavailable" in err["error"]["message"]
+        _send(ws, _speech(10), step=FRAME * 10)
+        ws.send_text(json.dumps({"type": "input_audio_buffer.commit"}))
+        events = _barrier(ws)
+    assert "conversation.item.input_audio_transcription.completed" in [e["type"] for e in events]
+    assert [h.size for h in heard] == [10 * FRAME]
+
+
+def _tiny_onnx(path, inputs):
+    """A model with the given (name, element type) inputs and Silero's
+    outputs: the mean of ``input`` and ``state`` unchanged."""
+    from onnx import TensorProto, helper, save
+
+    types = {"float": TensorProto.FLOAT, "int64": TensorProto.INT64}
+    shapes = {"input": [1, None], "state": [2, None, 128], "sr": []}
+    graph = helper.make_graph(
+        [helper.make_node("ReduceMean", ["input"], ["output"], axes=[1], keepdims=1),
+         helper.make_node("Identity", ["state"], ["stateN"])],
+        "tiny",
+        [helper.make_tensor_value_info(n, types[t], shapes[n]) for n, t in inputs],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 1]),
+         helper.make_tensor_value_info("stateN", TensorProto.FLOAT, [2, None, 128])])
+    # an IR version every onnxruntime release since 1.10 reads; onnx's default runs ahead of it
+    save(helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)], ir_version=8), str(path))
+
+
+@pytest.mark.skipif(importlib.util.find_spec("onnx") is None or importlib.util.find_spec("onnxruntime") is None,
+                    reason="needs onnx and onnxruntime")
+def test_a_real_onnx_file_without_sr_is_refused(monkeypatch, tmp_path, _uncached_silero):
+    """Through onnxruntime itself: the same graph is accepted with Silero's
+    three inputs and refused without ``sr``, as silero_vad_half.onnx is."""
+    good, bad = tmp_path / "good.onnx", tmp_path / "bad.onnx"
+    _tiny_onnx(good, [("input", "float"), ("state", "float"), ("sr", "int64")])
+    _tiny_onnx(bad, [("input", "float"), ("state", "float")])
+    monkeypatch.setenv("MSTAR_SILERO_VAD_PATH", str(good))
+    realtime_vad.silero_factory.cache_clear()
+    make = realtime_vad.silero_factory()
+    assert make is not None and make()(np.zeros(FRAME, dtype=np.float32)) == 0.0
+    monkeypatch.setenv("MSTAR_SILERO_VAD_PATH", str(bad))
+    realtime_vad.silero_factory.cache_clear()
+    assert realtime_vad.silero_factory() is None
 
 
 @pytest.mark.skipif(not _REAL_SILERO, reason="no Silero VAD weights or onnxruntime")

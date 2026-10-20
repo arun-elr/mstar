@@ -29,9 +29,12 @@ logger = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16000
 FRAME = 512              # samples per decision: Silero's window at 16 kHz, 32 ms
-# Silence inside a turn starts below threshold - HYSTERESIS and ends at
-# threshold, as in Silero's VADIterator, so a borderline frame neither ends a
-# turn nor holds it open.
+# Silence inside a turn starts on a frame below threshold - HYSTERESIS and a
+# frame at or above threshold cancels it; a borderline frame in between does
+# neither (the same hysteresis as Silero's VADIterator). The turn ends on
+# whichever frame completes the silence window, borderline frames included,
+# counting the first silent frame; VADIterator ends only on a frame below
+# threshold - HYSTERESIS and counts from the frame after the first silent one.
 HYSTERESIS = 0.15
 
 
@@ -81,11 +84,33 @@ class SileroVAD:
         return float(prob[0, 0])
 
     def reset(self) -> None:
-        self._state = np.zeros((2, 1, 128), dtype=np.float32)
+        self._state = np.zeros(_STATE, dtype=np.float32)
         self._context = np.zeros(self.CONTEXT, dtype=np.float32)
 
 
 _SR = np.array(SAMPLE_RATE, dtype=np.int64)
+_STATE = (2, 1, 128)
+# what SileroVAD feeds the model
+_INPUTS = {"input": "tensor(float)", "state": "tensor(float)", "sr": "tensor(int64)"}
+
+
+def _mismatch(session) -> str | None:
+    """Why ``session`` cannot score frames the way SileroVAD runs it, or None.
+    The silero-vad package ships other exports next to the right one (half
+    precision, OpenVINO, sequence) that take other inputs; without this check
+    they load fine and then fail on a session's first append."""
+    inputs = {i.name: i.type for i in session.get_inputs()}
+    if inputs != _INPUTS:
+        return f"its inputs are {inputs}, not {_INPUTS}"
+    x = np.zeros((1, SileroVAD.CONTEXT + FRAME), dtype=np.float32)
+    try:
+        out = session.run(None, {"input": x, "state": np.zeros(_STATE, dtype=np.float32), "sr": _SR})
+    except Exception as exc:  # noqa: BLE001 — any failure here would come back on the first append
+        return f"it cannot score a silent frame: {exc}"
+    shapes = [np.shape(o) for o in out]
+    if shapes != [(1, 1), _STATE]:
+        return f"its outputs have shapes {shapes}, not [(1, 1), {_STATE}]"
+    return None
 
 
 def silero_weights() -> Path | None:
@@ -122,6 +147,10 @@ def silero_factory() -> Callable[[], SpeechProbability] | None:
         logger.exception("server_vad is unavailable: cannot load Silero VAD from %s (needs onnxruntime, "
                          "mstar[vad])", path)
         return None
+    if (why := _mismatch(session)) is not None:
+        logger.warning("server_vad is unavailable: %s is not the Silero VAD export this server runs "
+                       "(silero_vad.onnx): %s", path, why)
+        return None
     return lambda: SileroVAD(session)
 
 
@@ -133,9 +162,10 @@ class TurnSegmenter:
     the open turn, ``("speech_stopped", audio_end_ms)``, ``("commit",)``.
     Times are milliseconds from the start of the session's audio. A turn
     starts on a frame at or above ``threshold`` and takes up to
-    ``prefix_padding_ms`` of the audio before it; it ends once
-    ``silence_duration_ms`` of whole frames have passed since a frame below
-    ``threshold - HYSTERESIS`` with none at or above ``threshold`` (they
+    ``prefix_padding_ms`` of the audio before it; it ends after the frame
+    that brings ``silence_duration_ms`` of whole frames, counted from a frame
+    below ``threshold - HYSTERESIS`` (included) with none at or above
+    ``threshold`` since, whatever that last frame's probability (the frames
     belong to the turn). A turn holds at most ``max_turn_samples``: it is
     committed before the frame that would pass that, and in mid-speech the
     next turn starts with that frame. Audio between turns, beyond the
@@ -183,9 +213,9 @@ class TurnSegmenter:
             self._open(start, ops)
         ops.append(("audio", frame))
         self._turn += FRAME
-        # as in Silero's VADIterator: a frame below threshold - HYSTERESIS
-        # starts the silence, one at or above threshold ends it, and one in
-        # between leaves it running
+        # the hysteresis of Silero's VADIterator: a frame below threshold -
+        # HYSTERESIS starts the silence, one at or above threshold cancels it,
+        # and one in between leaves it running
         if p >= self.cfg.threshold:
             self._silence = 0
         elif p < self._neg or self._silence:
