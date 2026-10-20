@@ -1656,6 +1656,11 @@ class TensorCommunicationManager(ABC):
         """
         self.cleanup_request(request_id, force=True)
 
+    #: True when no other launch can write a file under this manager's names
+    #: (see ``SharedMemoryCommunicationManager``); irrelevant to transports
+    #: that write no files.
+    names_unique_per_launch = False
+
     def unlink_owned_files(self) -> None:  # noqa: B027
         """Unlink the shared-memory files this process wrote for its peers and
         still owns. A no-op here: only the SHM file transport (and the arena's
@@ -1892,13 +1897,24 @@ def _default_shm_dir() -> str:
 
 
 DEPLOYMENT_TOKEN_ENV = "MSTAR_DEPLOYMENT_TOKEN"
+#: The token the last API server in this environment minted.
+_MINTED_TOKEN_ENV = "MSTAR_DEPLOYMENT_TOKEN_MINTED"
 
 
 def ensure_deployment_token() -> str:
-    """Mint this launch's token unless one is set. Called by the API server,
-    which every other process of the deployment descends from (``spawn``
-    children inherit the environment)."""
-    return os.environ.setdefault(DEPLOYMENT_TOKEN_ENV, secrets.token_hex(8))
+    """Mint this launch's token unless a launcher set one. Called by the API
+    server, which every other process of the deployment descends from
+    (``spawn`` children inherit the environment).
+
+    A token an API server minted is never kept by the next launch that finds
+    it, a server built again in this process or started by one that holds
+    it: on the same endpoint that launch would write the names a stopping
+    worker of the old one may still unlink."""
+    token = os.environ.get(DEPLOYMENT_TOKEN_ENV)
+    if not token or token == os.environ.get(_MINTED_TOKEN_ENV):
+        token = secrets.token_hex(8)
+        os.environ[DEPLOYMENT_TOKEN_ENV] = os.environ[_MINTED_TOKEN_ENV] = token
+    return token
 
 
 def _deployment_namespace(communicator) -> str:
@@ -2054,6 +2070,10 @@ class SharedMemoryCommunicationManager(TensorCommunicationManager):
         # uuid → file path for sender-side cleanup
         self._shm_files: dict[int, str] = {}
         self._shm_namespace = _deployment_namespace(communicator)
+        # The launch token is in the namespace, so a later launch on the same
+        # endpoint (uuid counters back at 1) never writes these names.
+        self.names_unique_per_launch = bool(
+            self._shm_namespace and os.environ.get(DEPLOYMENT_TOKEN_ENV))
         if self._shm_namespace:
             # A lock guards only the files in its own directory.
             dirs = [d for d in dict.fromkeys(
@@ -2297,14 +2317,18 @@ class SharedMemoryCommunicationManager(TensorCommunicationManager):
         for its TENSOR_RECEIVED or REMOVE_REQUEST, for a process that is
         stopping. A second call finds nothing left."""
         files = self._shm_files
-        while files:
-            _, path = files.popitem()
+        # Untracked only once unlinked, so a stop between the two leaves the
+        # entry for a retry; a fresh iterator each time, as the orphan
+        # watchdog's thread can run this at the same time.
+        while (item := next(iter(files.items()), None)) is not None:
+            uuid, path = item
             try:
                 os.unlink(path)
             except OSError:
                 # Already gone (FileNotFoundError) or not removable: either
                 # way, keep going so the rest are still reclaimed.
                 pass
+            files.pop(uuid, None)
 
 
 # ---------------------------------------------------------------------------
