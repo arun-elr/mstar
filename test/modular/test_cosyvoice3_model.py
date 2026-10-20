@@ -440,6 +440,24 @@ def test_adapter_splits_long_text_like_the_reference_frontend():
     assert adapter.split_speech_text("Hello there. How are you today?") == ["Hello there. How are you today?"]
 
 
+@pytest.mark.parametrize("text, max_chars", [
+    # max_chars: 80 tokens at the text's characters per token in the CosyVoice3 tokenizer
+    ("오늘은 날씨가 정말 좋습니다. 공원에 같이 산책하러 갑시다. " * 20, int(80 * 1.41)),
+    ("きょうはとてもいいてんきです。こうえんにいきましょう。" * 15, int(80 * 1.50)),
+    ("Сегодня очень хорошая погода, давайте пойдём гулять в парк. " * 12, int(80 * 2.71)),
+])
+def test_adapter_sizes_pieces_of_other_scripts_by_their_tokens(text, max_chars):
+    """Hangul, kana and Cyrillic run far fewer characters per token than
+    English: the CosyVoice3 tokenizer gives 217 to 265 tokens for a 320-character
+    Korean piece, against about 80 per piece in the reference. Pieces are sized
+    from the script, and every character is kept in order."""
+    adapter = adapters.CosyVoice3Adapter()
+    pieces = adapter.split_speech_text(text)
+    assert len(pieces) > 1
+    assert all(len(p) <= max_chars for p in pieces), [len(p) for p in pieces]
+    assert "".join(pieces).replace(" ", "") == text.replace(" ", "")
+
+
 def test_long_speech_input_is_planned_as_reference_pieces():
     """``/v1/audio/speech`` plans a CosyVoice3 input through the adapter's
     splitter by default; ``sentence_chunking: false`` keeps it whole."""

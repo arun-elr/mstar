@@ -763,7 +763,18 @@ class CosyVoice3Adapter(OpenAIAdapter):
     def split_speech_text(self, text: str) -> list[str]:
         if re.search(r"[\u4e00-\u9fff]", text):  # the reference's ``contains_chinese``
             return split_sentences(text, max_chars=80, min_chars=20)
-        return split_sentences(text, max_chars=self.speech_chunk_max_chars, min_chars=20 * self._CHARS_PER_TOKEN)
+        # The reference counts real tokens here; characters per token differ
+        # by script (Hangul or kana about 1.5, Cyrillic about 2.7, English about 4.7).
+        chars_per_token = len(text) / max(1.0, self._estimated_tokens(text))
+        max_chars = min(self.speech_chunk_max_chars, max(80, int(80 * chars_per_token)))
+        return split_sentences(text, max_chars=max_chars, min_chars=int(20 * chars_per_token))
+
+    @classmethod
+    def _estimated_tokens(cls, text: str) -> float:
+        """An upper estimate of the Qwen2 BPE token count of ``text``."""
+        return sum(
+            1 / cls._CHARS_PER_TOKEN if ord(ch) < 0x80 else 0.5 if ord(ch) < 0x800 else 1.0 for ch in text
+        )
 
     def speech_to_request(self, req: SpeechRequest, upload_dir: Path) -> SubmitArgs:
         mk = _passthrough(req)
