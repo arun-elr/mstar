@@ -919,7 +919,6 @@ class MicroScheduler:
         waiting = {
             rid for rid in batch.request_to_worker_graph
             if rid in self.pending_removes or self.held_until.get(rid, 0.0) > now
-            or self._gated(batch, rid)
         }
         # Parked by walk, likewise without a check and outside the step's worth.
         if batch.request_walks and (only_walk or skip_walk) is not None:
@@ -954,7 +953,7 @@ class MicroScheduler:
                 break
             if rid in waiting:
                 continue
-            if not self._check_ready(
+            if self._gated(batch, rid) or not self._check_ready(
                 batch.node_name, rid,
                 request_state.get_fwd_info(rid, node_partition),
             ):
