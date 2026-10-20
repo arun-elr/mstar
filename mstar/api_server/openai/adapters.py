@@ -750,8 +750,9 @@ class CosyVoice3Adapter(OpenAIAdapter):
     (``text_normalize``) does: pieces of about 80 tokens, or 80 characters
     for text with Chinese, cut at sentence ends, with a short tail merged
     into the piece before it. In one request the LM ends long text early or
-    garbles its end. Characters stand in for tokens: English runs about
-    ``_CHARS_PER_TOKEN`` characters per token of the model's Qwen2 BPE.
+    garbles its end. Without Chinese, an estimate of the Qwen2 BPE token
+    count stands in for the reference's real one, so Hangul, kana and
+    Cyrillic pieces stay near 80 tokens as English ones do.
     """
 
     supports_speech = True
