@@ -902,6 +902,27 @@ class _WaveSoundfile(types.ModuleType):
         data, rate = self._open(path)
         return (data if always_2d or data.shape[1] > 1 else data[:, 0]), rate
 
+    def SoundFile(self, path):
+        return _WaveSoundFile(*self._open(path))
+
+
+class _WaveSoundFile:
+    """A ``_WaveSoundfile`` file opened for block reads."""
+
+    def __init__(self, data, rate):
+        self._data, self.samplerate, self._pos = data, rate, 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self, frames=-1, dtype="float32", always_2d=False):
+        end = len(self._data) if frames < 0 else min(self._pos + frames, len(self._data))
+        block, self._pos = self._data[self._pos : end], end
+        return block if always_2d or block.shape[1] > 1 else block[:, 0]
+
 
 @pytest.fixture
 def windowing_route(route, monkeypatch):
@@ -1003,7 +1024,7 @@ def test_a_windowed_upload_that_fails_to_decode_is_removed(windowing_route, monk
     # the header is readable, the body is not: the decode raises something other than ValueError
     from mstar.api_server import media_io
 
-    def broken(path, sample_rate):
+    def broken(path, sample_rate, max_seconds=None):
         raise error("corrupt stream")
 
     monkeypatch.setattr(media_io, "decode_audio", broken)
