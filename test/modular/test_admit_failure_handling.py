@@ -556,6 +556,31 @@ def test_a_step_of_one_walk_lifts_its_combined_walks_limit():
     assert mixed.graph_walk == MIXED, "the combined walk stayed limited to one row"
 
 
+def test_a_mixed_step_lifts_the_limits_of_the_walks_it_ran():
+    """A nine-row decode refused to two while prefills wait, then a mixed step
+    of twelve, sized by the combined walk's own cap, admits. It ran decode
+    rows, so the next pure-decode step is not held to two rows."""
+    sched = _combined_scheduler(_SchedEngine(max_bs=16))
+    sched.limit_batch(SCHED_NODE, SCHED_WALK, 2)
+
+    mixed = _next_batch(sched, _Manager(
+        [f"p{i}" for i in range(6)] + [f"d{i}" for i in range(6)],
+        walks={f"p{i}": "prefill" for i in range(6)},
+    ))
+    assert mixed.graph_walk == MIXED and len(mixed.request_to_worker_graph) == 12
+
+    sched.clear_batch_limit(
+        SCHED_NODE, mixed.graph_walk, len(mixed.request_to_worker_graph),
+        walks=mixed.rids_by_walk(),
+    )
+
+    decode = _next_batch(sched, _Manager([f"e{i}" for i in range(12)]))
+    assert decode.graph_walk == SCHED_WALK
+    assert len(decode.request_to_worker_graph) == 12, (
+        "the decode limit outlived a mixed step that admitted decode rows"
+    )
+
+
 # --- the unbatchable path admits everything before it runs anything --------
 
 
