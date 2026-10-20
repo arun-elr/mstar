@@ -36,11 +36,11 @@ from mstar.api_server.auth import (
 )
 from mstar.api_server.body_limit import BodyLimitMiddleware
 from mstar.api_server.data_worker import PreprocessWorker
-from mstar.api_server.metrics import INSTALL_HINT, MISSING_DEPENDENCY, ServingMetrics
 from mstar.api_server.request_types import APIServerMessage, PreprocessInput, ResultChunk
 from mstar.communication.communicator import CommProtocol, make_communicator
 from mstar.model.multimodal import PromptPart
 from mstar.model.registry import model_init_kwargs
+from mstar.observability.metrics import INSTALL_HINT, MISSING_DEPENDENCY, ServingMetrics
 from mstar.profile.display import pretty_print_profile
 from mstar.profile.format import OutputInfo, RequestProfile, RequestTiming
 from mstar.utils import profiler

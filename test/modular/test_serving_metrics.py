@@ -22,13 +22,13 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from mstar.api_server import entrypoint
-from mstar.api_server import metrics as metrics_module
 from mstar.api_server.request_types import (
     APIServerMessage,
     RequestComplete,
     RequestFailed,
     ResultChunk,
 )
+from mstar.observability import metrics as metrics_module
 
 TEXT = dict(input_modalities=["text"], output_modalities=["text"])
 
