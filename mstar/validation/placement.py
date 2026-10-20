@@ -74,10 +74,12 @@ def check_worker_graphs(
     model: Model,
     worker_graphs: Sequence[WorkerGraph],
     sharding_config: ShardingConfig,
-    specs: Sequence[NodeResourceSpec],
+    specs: Sequence[NodeResourceSpec] | None,
 ) -> list[str]:
     """Problems with the worker graphs ``model.get_worker_graphs`` built, and
-    with the parallel groups the conductor would hand each worker."""
+    with the parallel groups the conductor would hand each worker. With no
+    ``specs`` (the model could not declare them) only the checks on resource
+    placement are skipped."""
     walk_to_wgs: dict[str, list[WorkerGraph]] = {}
     for wg in worker_graphs:
         for walk in sorted(wg.graph_walks):
@@ -87,7 +89,7 @@ def check_worker_graphs(
         *_stream_driven_walks(model, walk_to_wgs),
         *_loop_successors(walk_to_wgs),
         *_sharding_groups(worker_graphs, sharding_config),
-        *_worker_parallelism(worker_graphs, specs),
+        *_worker_parallelism(worker_graphs, specs or ()),
     ]
 
 
