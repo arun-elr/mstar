@@ -767,15 +767,15 @@ class FlowSubmodule(NodeSubmodule):
             "streaming": torch.zeros(shape.bs, dtype=torch.bool, device=device),
         }
 
-    def get_piecewise_cuda_graph_configs(
+    def get_piecewise_accelerator_graph_configs(
         self, device: torch.device, autocast_dtype: torch.dtype, tp_world_size: int = 1, **kwargs: Any
-    ) -> dict[str, PiecewiseCudaGraphConfig]:
+    ) -> dict[str, PiecewiseAcceleratorGraphConfig]:
         """One region per frame bucket. The flow holds no engine resources, so
         the regions declare no step. The largest bucket comes first: regions
         capture in this order into one shared pool, and a smaller capture
         reuses the blocks a larger one freed, where the reverse grows the pool."""
         del autocast_dtype, tp_world_size, kwargs
-        regions: dict[str, PiecewiseCudaGraphConfig] = {}
+        regions: dict[str, PiecewiseAcceleratorGraphConfig] = {}
         for frames in sorted(self.config.flow_capture_frame_buckets, reverse=True):
             sizes = self.capture_batch_sizes(frames)
             if not sizes:

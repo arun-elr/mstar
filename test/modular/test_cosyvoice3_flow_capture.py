@@ -1,7 +1,7 @@
 """The CosyVoice3 flow solve as piecewise CUDA graphs per frame bucket.
 
 CPU tests use tiny random float64 weights and drive the real
-``PiecewiseCudaGraphRunner`` (bucket and batch resolution, static-buffer
+``PiecewiseAcceleratorGraphRunner`` (bucket and batch resolution, static-buffer
 copies, padding rows, output copies), with ``capture_into_graph`` replaced by
 one that "replays" by running the region eagerly. The CUDA test captures for
 real and checks that a replay equals the eager solve of the same padded inputs.
@@ -9,13 +9,15 @@ real and checks that a replay equals the eager solve of the same padded inputs.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 import torch
 
-from mstar.engine import cuda_graph_runner as cgr
-from mstar.engine.cuda_graph_runner import PiecewiseCudaGraphRunner
+from mstar.engine import accelerator_graph_runner as cgr
+from mstar.engine.accelerator_graph_backend import get_accelerator_graph_backend
+from mstar.engine.accelerator_graph_runner import PiecewiseAcceleratorGraphRunner
 from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, FlowRow, ReferenceVoice
 from mstar.model.cosyvoice3.config import CosyVoice3Config, DiTConfig, FlowConfig
 from mstar.model.cosyvoice3.submodules import MEL, FlowSubmodule, flow_region
@@ -83,17 +85,26 @@ class _EagerReplay:
         self.replay = run
 
 
-def _runners(node: FlowSubmodule, monkeypatch, device=torch.device("cpu")) -> dict[str, PiecewiseCudaGraphRunner]:
-    monkeypatch.setattr(cgr, "capture_into_graph", lambda run, pool, dev, dtype: (_EagerReplay(run), run()))
+def _runners(
+    node: FlowSubmodule, monkeypatch, device=torch.device("cpu"),
+) -> dict[str, PiecewiseAcceleratorGraphRunner]:
+    monkeypatch.setattr(
+        cgr, "capture_into_graph",
+        lambda run, pool, dev, dtype, keep_graph=False, node_name=None: (_EagerReplay(run), run()),
+    )
     monkeypatch.setattr(torch.cuda, "synchronize", lambda *args, **kwargs: None)
+    # the capture's memory accounting has no CPU backend
+    for name in ("memory_allocated", "max_memory_allocated", "reset_peak_memory_stats", "empty_cache"):
+        monkeypatch.setattr(torch.accelerator, name, lambda *args, **kwargs: 0)
     runners = {}
-    for label, config in node.get_piecewise_cuda_graph_configs(device, torch.float32).items():
-        runner = PiecewiseCudaGraphRunner(
+    for label, config in node.get_piecewise_accelerator_graph_configs(device, torch.float32).items():
+        runner = PiecewiseAcceleratorGraphRunner(
             label=label, config=config, resources={}, step_runner=mock.Mock(), device=device,
             autocast_dtype=None, num_slots=1,
         )
+        runner._graph_backend = SimpleNamespace(synchronize=lambda: None)
         for shape in runner.prepare_for_capture():
-            runner._capture_one(shape, 0)
+            runner._capture_one(shape, 0, forwards=1)
         runners[label] = runner
     return runners
 
@@ -158,9 +169,11 @@ def test_a_bucket_shorter_than_a_row_is_refused():
 
 
 def test_regions_capture_batch_sizes_within_the_frame_budget():
+    # the engine looks up only this name; a misnamed override inherits the base's {}
+    assert "get_piecewise_accelerator_graph_configs" in FlowSubmodule.__dict__
     cfg = _config(flow_capture_frame_buckets=(64, 96, 128, 512))
     node = FlowSubmodule(_flow(cfg), None, cfg)
-    regions = node.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32)
+    regions = node.get_piecewise_accelerator_graph_configs(torch.device("cpu"), torch.float32)
     # 512 frames fit no batch size within 256 frames, so it is not a region
     assert {label: r.capture_batch_sizes for label, r in regions.items()} == {
         flow_region(64): [1, 2, 4],
@@ -188,7 +201,7 @@ def test_a_bucket_past_the_flow_noise_is_not_a_region():
     cfg = _config(flow_capture_frame_buckets=(64, 96))
     cfg.flow.noise_frames = 80
     node = FlowSubmodule(_flow(cfg), None, cfg)
-    assert list(node.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32)) == [flow_region(64)]
+    assert list(node.get_piecewise_accelerator_graph_configs(torch.device("cpu"), torch.float32)) == [flow_region(64)]
 
 
 @pytest.mark.parametrize(
@@ -285,10 +298,10 @@ def test_captured_solve_equals_the_eager_solve_of_the_same_padded_inputs(estimat
     if estimator_dtype != torch.float32:
         flow.set_estimator_dtype(estimator_dtype)
     node = FlowSubmodule(flow, None, cfg)
-    pool = torch.cuda.graph_pool_handle()
+    pool = get_accelerator_graph_backend(device).graph_pool_handle()
     runners = {}
-    for label, config in node.get_piecewise_cuda_graph_configs(device, torch.float32).items():
-        runner = PiecewiseCudaGraphRunner(
+    for label, config in node.get_piecewise_accelerator_graph_configs(device, torch.float32).items():
+        runner = PiecewiseAcceleratorGraphRunner(
             label=label, config=config, resources={}, step_runner=mock.Mock(), device=device,
             autocast_dtype=None, num_slots=1, memory_pool=pool,
         )
