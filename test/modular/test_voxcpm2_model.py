@@ -25,7 +25,7 @@ import yaml
 
 from mstar.api_server.openai import adapters
 from mstar.api_server.openai.protocol import SpeechRequest
-from mstar.engine.cuda_graph_config import PiecewiseBatchedConfig, PiecewiseCallInputs, PiecewiseCaptureShape
+from mstar.engine.accelerator_graph_config import PiecewiseBatchedConfig, PiecewiseCallInputs, PiecewiseCaptureShape
 from mstar.model.registry import HF_MODELS, get_model_class
 from mstar.model.submodule_base import InputMetadata
 from mstar.model.voxcpm2.components.audio_vae import AudioVAE, CausalResidualUnit, decoder_receptive_field_frames
@@ -844,7 +844,7 @@ def test_prefill_tail_region_replays_the_eager_tail(model):
     """Three prefills padded to the 4-row bucket give the eager prefill's
     patches, and the decode steps after them carry on the same."""
     talker, plan, reset = _talker(model)
-    ((label, region),) = talker.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.bfloat16).items()
+    ((label, region),) = talker.get_piecewise_accelerator_graph_configs(torch.device("cpu"), torch.bfloat16).items()
     assert label == PREFILL_TAIL and region.seq_len == 1
     assert region.capture_batch_sizes == talker.DECODE_CAPTURE_BATCH_SIZES
     runner = _ReplayRunner(region)
@@ -1219,7 +1219,7 @@ def test_vae_windows_replay_at_their_bucket_and_equal_a_whole_decode(model):
     config = model.config
     widths = stream_window_widths(model.stream_schedule, model.stream_chunk_patches, model.stream_left_context)
     vae_node = VAEDecoderSubmodule(_random_vae(config).double(), config, window_buckets=widths)
-    regions = vae_node.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32)
+    regions = vae_node.get_piecewise_accelerator_graph_configs(torch.device("cpu"), torch.float32)
     assert list(regions) == [VAE_WINDOW.format(width) for width in widths]
     runners = {label: _ReplayRunner(region) for label, region in regions.items()}
     patches = torch.randn(45, 4, 8, dtype=torch.float64)
@@ -1233,6 +1233,28 @@ def test_vae_windows_replay_at_their_bucket_and_equal_a_whole_decode(model):
     assert all(runner.calls for runner in runners.values())
 
 
+def test_graph_hooks_are_the_names_the_engine_calls(model):
+    """The engine looks up only the accelerator graph hook names, so each
+    node defines its own override (a misnamed one inherits the base default,
+    which captures nothing) and declares its regions when called as the engine
+    calls it."""
+    config = model.config
+    widths = stream_window_widths(model.stream_schedule, model.stream_chunk_patches, model.stream_left_context)
+    talker, _, _ = _talker(model)
+    vae_node = VAEDecoderSubmodule(_random_vae(config), config, window_buckets=widths)
+    for hook in (
+        "get_accelerator_graph_configs",
+        "can_use_accelerator_graphs",
+        "get_piecewise_accelerator_graph_configs",
+    ):
+        assert hook in TalkerSubmodule.__dict__, hook
+    assert "get_piecewise_accelerator_graph_configs" in VAEDecoderSubmodule.__dict__
+    device = torch.device("cpu")
+    assert list(talker.get_piecewise_accelerator_graph_configs(device, torch.float32, 1)) == [PREFILL_TAIL]
+    regions = vae_node.get_piecewise_accelerator_graph_configs(device, torch.float32, 1)
+    assert list(regions) == [VAE_WINDOW.format(width) for width in widths]
+
+
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="captures CUDA graphs")
 def test_captured_regions_replay_the_eager_result_on_cuda(model):
     """The engine's piecewise runner captures both regions; a replay at a
@@ -1241,13 +1263,13 @@ def test_captured_regions_replay_the_eager_result_on_cuda(model):
     rounding of the eager result at the real shape."""
     from unittest import mock
 
-    from mstar.engine.cuda_graph_runner import PiecewiseCudaGraphRunner
+    from mstar.engine.accelerator_graph_runner import PiecewiseAcceleratorGraphRunner
 
     device, config = torch.device("cuda", torch.cuda.current_device()), model.config
     gen = torch.Generator(device=device).manual_seed(0)
 
     def capture(label, region):
-        runner = PiecewiseCudaGraphRunner(
+        runner = PiecewiseAcceleratorGraphRunner(
             label=label,
             config=region,
             resources={},
@@ -1262,7 +1284,7 @@ def test_captured_regions_replay_the_eager_result_on_cuda(model):
 
     with torch.inference_mode():
         talker = TalkerSubmodule(_random_generator(config).to(device), config, 4)
-        ((label, region),) = talker.get_piecewise_cuda_graph_configs(device, torch.float32).items()
+        ((label, region),) = talker.get_piecewise_accelerator_graph_configs(device, torch.float32).items()
         runner = capture(label, region)
         for rows in (1, 3):
             inputs = {
@@ -1284,7 +1306,7 @@ def test_captured_regions_replay_the_eager_result_on_cuda(model):
         vae_node = VAEDecoderSubmodule(_random_vae(config).to(device), config, window_buckets=widths)
         runners = {
             label: capture(label, region)
-            for label, region in vae_node.get_piecewise_cuda_graph_configs(device, torch.float32).items()
+            for label, region in vae_node.get_piecewise_accelerator_graph_configs(device, torch.float32).items()
         }
         for width in widths:
             latents = torch.randn(2, config.feat_dim, width * config.patch_size, generator=gen, device=device)
@@ -1301,7 +1323,9 @@ def test_vae_window_wider_than_every_bucket_or_batch_decodes_eagerly(model):
     vae_node = VAEDecoderSubmodule(_random_vae(config).double(), config, window_buckets=(1, 3))
     runners = {
         label: _ReplayRunner(region)
-        for label, region in vae_node.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32).items()
+        for label, region in vae_node.get_piecewise_accelerator_graph_configs(
+            torch.device("cpu"), torch.float32
+        ).items()
     }
     rows = max(VAEDecoderSubmodule.CAPTURE_BATCH_SIZES)
     latents = torch.randn(rows + 1, 8, 4 * 5, dtype=torch.float64)
