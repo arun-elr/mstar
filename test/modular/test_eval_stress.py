@@ -232,7 +232,8 @@ def fake_tree(d: Path, mode: str) -> Path:
 
 def stress_args(tmp_path: Path, runs: int) -> Namespace:
     return Namespace(python=sys.executable, host_python=sys.executable, host_dir="mstar-eval",
-                     data_dir=str(tmp_path / "data"), sessions=1, repeats=None, no_rerun=False,
+                     work_dir=str(tmp_path / "work"), data_dir=str(tmp_path / "data"), sessions=1, repeats=None,
+                     no_rerun=False,
                      calibration=str(tmp_path / "cal.json"), stress=True, stress_runs=runs, stress_seconds=0.5,
                      stress_clients=4, stress_patterns=",".join(stress.PATTERNS), stress_hang_s=1.0, hosts=None,
                      host_provider=None, base="main", head="x", models="fake", rp=False)
