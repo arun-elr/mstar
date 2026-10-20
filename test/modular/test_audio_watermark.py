@@ -308,13 +308,13 @@ def test_the_stream_equals_audioseals_streaming_layers_bit_for_bit():
 
 
 class _ReplayingRunner:
-    """``PiecewiseCudaGraphRunner.run``'s contract without CUDA: the real
+    """``PiecewiseAcceleratorGraphRunner.run``'s contract without CUDA: the real
     inputs go into the head of buffers padded to the capture batch (the tail
     zeroed), the captured callable runs on the whole buffers, and the real
     rows come back."""
 
     def __init__(self, config, batch_sizes):
-        from mstar.engine.cuda_graph_config import PiecewiseCallInputs, PiecewiseCaptureShape
+        from mstar.engine.accelerator_graph_config import PiecewiseCallInputs, PiecewiseCaptureShape
 
         self.config, self.batch_sizes, self.calls = config, batch_sizes, []
         self._shape, self._call = PiecewiseCaptureShape, PiecewiseCallInputs
@@ -323,7 +323,7 @@ class _ReplayingRunner:
         return batch_size <= max(self.batch_sizes)
 
     def run(self, static_inputs, real_bs):
-        from mstar.engine.cuda_graph_runner import PiecewiseOutput
+        from mstar.engine.accelerator_graph_runner import PiecewiseOutput
 
         bs = min(b for b in self.batch_sizes if b >= real_bs)
         buffers = self.config.make_static_inputs(self._shape(bs=bs, seq_lens=[self.config.seq_len] * bs,
@@ -406,13 +406,13 @@ def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
     shape, which cuDNN may run with another TF32 algorithm: within 2 steps of
     PCM16 on Hopper, up to 14 on an A100, so other GPUs get 1e-3 of full scale.
     Detection is unchanged either way."""
-    from mstar.engine.cuda_graph_runner import PiecewiseCudaGraphRunner
+    from mstar.engine.accelerator_graph_runner import PiecewiseAcceleratorGraphRunner
     from mstar.platforms import current_platform
 
     padded_bound = 2 if current_platform.has_cuda_capability(9, 0) else 33
 
     class NoResources:
-        def build_cuda_graph_buffers(self, *args, **kwargs):
+        def build_accelerator_graph_buffers(self, *args, **kwargs):
             pass
 
         def ingest_capture_row(self, rid):
@@ -425,7 +425,7 @@ def test_engine_captures_replay_the_eager_watermark_bit_for_bit():
     pool = torch.cuda.graphs.graph_pool_handle()
     runners = {}
     for label, config in configs.items():
-        runner = PiecewiseCudaGraphRunner(
+        runner = PiecewiseAcceleratorGraphRunner(
             label=label, config=config, resources={}, step_runner=NoResources(), device=wmk.device,
             autocast_dtype=None, num_slots=1, memory_pool=pool,
         )

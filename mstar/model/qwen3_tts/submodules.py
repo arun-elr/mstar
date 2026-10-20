@@ -1211,7 +1211,7 @@ class CodecSubmodule(ARNodeSubmodule):
         piecewise_runners: Mapping[str, Any] | None = None,
     ) -> None:
         """Watermark the step's trimmed chunks, one AudioSeal call per chunk
-        length, each a replay of its capture (``get_piecewise_cuda_graph_configs``)
+        length, each a replay of its capture (``get_piecewise_accelerator_graph_configs``)
         where there is one. Each request's stream state lives in its request
         state, so it goes when the request does."""
         if self.watermarker is None:
@@ -1236,9 +1236,9 @@ class CodecSubmodule(ARNodeSubmodule):
         for request_id, chunk in zip(rids, marked, strict=True):
             outputs.get(request_id)["audio_chunk"][0] = chunk
 
-    def get_piecewise_cuda_graph_configs(
+    def get_piecewise_accelerator_graph_configs(
         self, device: torch.device, autocast_dtype: torch.dtype, tp_world_size: int = 1,
-    ) -> dict[str, PiecewiseCudaGraphConfig]:
+    ) -> dict[str, PiecewiseAcceleratorGraphConfig]:
         """With the watermark on, its generator call per chunk length of the
         schedule (a shorter final chunk pads into the next) and batch bucket.
         Only lengths of whole watermark frames; other chunks run eagerly."""

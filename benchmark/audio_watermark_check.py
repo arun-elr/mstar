@@ -121,7 +121,7 @@ def exactness(args) -> dict:
 class _NoResources:
     """The engine step runner a node without resources sees at capture."""
 
-    def build_cuda_graph_buffers(self, *args, **kwargs) -> None:
+    def build_accelerator_graph_buffers(self, *args, **kwargs) -> None:
         pass
 
     def ingest_capture_row(self, rid) -> None:
@@ -130,14 +130,14 @@ class _NoResources:
 
 def captured_runners(wmk: AudioSealWatermarker, batch_sizes=CAPTURE_BATCH_SIZES) -> dict:
     """The engine's captures of the codec's watermark lengths, as Qwen3-TTS's
-    ``get_piecewise_cuda_graph_configs`` declares them (CUDA only)."""
-    from mstar.engine.cuda_graph_runner import PiecewiseCudaGraphRunner
+    ``get_piecewise_accelerator_graph_configs`` declares them (CUDA only)."""
+    from mstar.engine.accelerator_graph_runner import PiecewiseAcceleratorGraphRunner
 
     configs = wmk.piecewise_configs([f * FRAME for f in {*SCHEDULE, CHUNK}], batch_sizes)
     pool = torch.cuda.graphs.graph_pool_handle()
     runners = {}
     for label, config in configs.items():
-        runner = PiecewiseCudaGraphRunner(
+        runner = PiecewiseAcceleratorGraphRunner(
             label=label, config=config, resources={}, step_runner=_NoResources(), device=wmk.device,
             autocast_dtype=None, num_slots=1, memory_pool=pool,
         )

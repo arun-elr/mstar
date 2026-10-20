@@ -568,10 +568,10 @@ class AudioSealWatermarker:
 
     def piecewise_configs(self, lengths: Sequence[int], batch_sizes: Sequence[int]) -> dict[str, Any]:
         """One ``PiecewiseBatchedConfig`` per chunk length (samples, whole
-        frames), for ``NodeSubmodule.get_piecewise_cuda_graph_configs``: the
+        frames), for ``NodeSubmodule.get_piecewise_accelerator_graph_configs``: the
         engine captures ``_mark_pcm16`` per (batch, length) bucket, with the
         PCM rows and the streams' caches as static inputs."""
-        from mstar.engine.cuda_graph_config import PiecewiseBatchedConfig
+        from mstar.engine.accelerator_graph_config import PiecewiseBatchedConfig
 
         lengths = sorted(set(lengths))
         if not lengths or any(length <= 0 or length % self.hop for length in lengths):

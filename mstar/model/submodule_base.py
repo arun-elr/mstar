@@ -917,7 +917,7 @@ class NodeSubmodule(torch.nn.Module, ABC):
         self, outputs: BatchedModelOutput,
         request_infos: dict[int, CurrentForwardPassInfo],
         inputs: list[NodeInputs],
-        piecewise_runners: Mapping[str, PiecewiseCudaGraphRunner] | None = None,
+        piecewise_runners: Mapping[str, PiecewiseAcceleratorGraphRunner] | None = None,
     ) -> None:
         """Once per step, for work that batches across the step's requests
         (e.g. watermarking the audio chunks ``postprocess`` trimmed). Works on
@@ -929,7 +929,7 @@ class NodeSubmodule(torch.nn.Module, ABC):
         called when overridden.
 
         ``piecewise_runners`` are this node's captured regions
-        (``get_piecewise_cuda_graph_configs``), as ``engine_inputs`` hands
+        (``get_piecewise_accelerator_graph_configs``), as ``engine_inputs`` hands
         them to the forward, so this work can replay a capture too."""
 
     def check_stop(

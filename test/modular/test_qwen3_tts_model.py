@@ -1602,13 +1602,15 @@ def test_qwen3_tts_codec_declares_a_watermark_capture_per_schedule_length():
     are not whole 320-sample watermark frames (the tiny codec's) stay eager."""
     from test_audio_watermark import _watermarker
 
+    # The engine looks up only this name; a misnamed override inherits the base's {}.
+    assert "get_piecewise_accelerator_graph_configs" in CodecSubmodule.__dict__
     config = _tiny_model_config()
-    assert CodecSubmodule(_FakeCodecDecoder(4), config).get_piecewise_cuda_graph_configs(
+    assert CodecSubmodule(_FakeCodecDecoder(4), config).get_piecewise_accelerator_graph_configs(
         torch.device("cpu"), torch.float32) == {}
     submodule = CodecSubmodule(_FakeCodecDecoder(4), config, watermarker=_watermarker())
-    assert submodule.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32) == {}
+    assert submodule.get_piecewise_accelerator_graph_configs(torch.device("cpu"), torch.float32) == {}
     submodule.total_upsample = 1920   # the real 12 Hz codec's samples per frame
-    configs = submodule.get_piecewise_cuda_graph_configs(torch.device("cpu"), torch.float32)
+    configs = submodule.get_piecewise_accelerator_graph_configs(torch.device("cpu"), torch.float32, 1)
     frames = sorted({*config.codec.chunk_schedule, config.codec.chunk_frames})
     assert sorted(configs) == sorted(f"watermark_{f * 1920}" for f in frames)
     assert all(c.capture_batch_sizes == CodecSubmodule.CAPTURE_BATCH_SIZES for c in configs.values())
