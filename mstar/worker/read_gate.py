@@ -72,6 +72,13 @@ class FollowerReadGate:
         self._counts: dict[int, dict[str, dict[str, int]]] = defaultdict(dict)
         # rid -> follower worker -> stream edge -> items it holds in order
         self._items: dict[int, dict[str, dict[str, int]]] = defaultdict(dict)
+        # rids with a numbered edge some follower was behind on when last checked
+        self._unsettled: set[int] = set()
+
+    def may_wait(self, rid: int) -> bool:
+        """Cheap first check: False means no row of ``rid`` can wait on an
+        external input (streams are checked by the caller)."""
+        return bool(self._external.get(rid)) or rid in self._unsettled
 
     def external(self, rid: int, uuids: Iterable[int]) -> None:
         """``uuids`` hold an external input on rank 0 (landed as a read, or
@@ -115,7 +122,11 @@ class FollowerReadGate:
         behind on one that is."""
         external = self._external.get(rid)
         consumed = self._consumed.get(rid, {})
-        if external or any(self._behind(rid, followers, e, n) for e, n in consumed.items()):
+        if any(self._behind(rid, followers, e, n) for e, n in consumed.items()):
+            self._unsettled.add(rid)
+        else:
+            self._unsettled.discard(rid)
+        if external or rid in self._unsettled:
             numbered = self._numbered[rid]
             for edge, uuids in row_edges():
                 if not uuids:
@@ -129,6 +140,7 @@ class FollowerReadGate:
                     key = numbered[uuids] = (edge, n)
                     external.difference_update(uuids)
                 if self._behind(rid, followers, *key):
+                    self._unsettled.add(rid)
                     return True
         if stream_ends:
             items = self._items.get(rid, {})
@@ -144,3 +156,4 @@ class FollowerReadGate:
         self._consumed.pop(rid, None)
         self._counts.pop(rid, None)
         self._items.pop(rid, None)
+        self._unsettled.discard(rid)

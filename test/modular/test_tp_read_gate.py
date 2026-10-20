@@ -21,6 +21,7 @@ from test_failed_tensor_read import _read, _shm_manager
 from test_micro_scheduler import NODE, WALK, _Engine, _Manager
 
 import mstar.communication.wire_types  # noqa: F401  (registers the tags)
+from mstar.communication.tensors import StoredOutputs
 from mstar.communication.wire import decode, encode
 from mstar.engine.resources.step import StepContext
 from mstar.graph.base import GraphEdge, NodeAndGraphWalk, TensorPointerInfo
@@ -301,7 +302,9 @@ def test_a_colocated_encoders_outputs_are_awaited():
         "w0", ["r0", "r1"], SimpleNamespace(has_inflight_reads=lambda r: False),
         consumes={"r0": [("vision_embeds", [21])], "r1": [("vision_embeds", [22])]},
     )
-    leader._count_local_outputs(["r0", "r1"], [21, 22])
+    leader._count_local_outputs(
+        StoredOutputs([21, 22], ["r0", "r1"], [0, 0], [1, 1]), ["vision_embeds"],
+    )
     leader._record_follower_reads(SimpleNamespace(
         request_id="r1", follower="w1", counts={"vision_embeds": 1}, stream_items={},
     ))
@@ -410,3 +413,41 @@ def test_rows_are_numbered_in_the_order_rank_0_consumes_them():
     assert not gate.missing(1, ["w1", "w2"], lambda: 1 / 0, {})
     gate.forget(1)
     assert not gate.missing(1, ["w1"], lambda: [(GRID, (11,))], {})
+
+
+def test_a_decode_row_with_nothing_awaited_is_let_through_first():
+    """The common row, a decode step taking only its own token, returns before
+    any sharding lookup or index build."""
+    leader, leader_mgr = _rank(
+        "w0", ["r0"], SimpleNamespace(has_inflight_reads=lambda r: False),
+        consumes={"r0": [("text_inputs", [99])]},
+    )
+    leader._graph_runtime.get_sharding_config = lambda r: 1 / 0
+    assert _rows(leader.scheduler.get_next_batch(leader_mgr)) == ["r0"]
+
+
+def test_a_colocated_output_the_lockstep_node_does_not_take_is_not_marked():
+    leader, _ = _rank("w0", ["r0"], SimpleNamespace(has_inflight_reads=lambda r: False))
+    leader._lockstep_inputs = frozenset({"vision_embeds"})
+    leader._count_local_outputs(
+        StoredOutputs([21, 22], ["r0", "r0"], [0, 1], [1, 1]), ["vision_embeds", "debug_map"],
+    )
+    assert leader._read_gate._external["r0"] == {21}
+
+
+def test_a_removed_requests_late_report_is_dropped_not_parked(tmp_path):
+    """A report can reach rank 0 after its REMOVE; parked, it would be replayed
+    into a later request that reuses the id and open that request's gate early."""
+    leader, leader_mgr, follower, _follower_mgr, reads = _pair(tmp_path)
+    leader._unprocessed_messages["r9"] = [SimpleNamespace(
+        message_type=WorkerMessageType.READS_LANDED, body=SimpleNamespace(request_id="r9"),
+    )]
+    leader._forget_follower_reports("r9")
+    assert leader._unprocessed_messages["r9"] == []
+    reads["r0"].set_result(None)
+    follower._check_ready_tensors()
+    (late,) = _taken(follower, "w0", WorkerMessageType.READS_LANDED)
+    late.body.request_id = "r9"
+    leader._process_message_list([late])
+    assert leader._unprocessed_messages["r9"] == []
+
