@@ -13,8 +13,8 @@ onnxruntime on one CPU thread, about 0.15 ms per 32 ms frame. Its weights are
 read from disk only: ``MSTAR_SILERO_VAD_PATH``, else the copy bundled with
 the ``silero-vad`` package (``pip install 'mstar[vad]'``). ``semantic_vad`` adds
 Pipecat's Smart Turn v3 (BSD-2), an 8 MB ONNX model that judges from the audio
-whether a pause ends the turn; without it (or onnxruntime) it runs as
-``server_vad``.
+whether a pause ends the turn; without it (or onnxruntime), or with a file
+that is not that model, ``semantic_vad`` is refused with an error event.
 """
 
 from __future__ import annotations
@@ -116,10 +116,10 @@ class SmartTurn:
         # another ONNX file loads fine and then fails on a session's first pause
         inputs = {i.name: i.type for i in self._session.get_inputs()}
         if inputs != _SMART_TURN_INPUTS:
-            raise ValueError(f"its inputs are {inputs}, not {_SMART_TURN_INPUTS}")
+            raise _NotSmartTurnError(f"its inputs are {inputs}, not {_SMART_TURN_INPUTS}")
         shapes = [np.shape(o) for o in self._run(np.zeros(0, dtype=np.float32))]
         if shapes[:1] != [(1, 1)]:
-            raise ValueError(f"its outputs have shapes {shapes}, not [(1, 1)]")
+            raise _NotSmartTurnError(f"its outputs have shapes {shapes}, not [(1, 1)]")
 
     def _run(self, audio: np.ndarray) -> list:
         n = SMART_TURN_SECONDS * SAMPLE_RATE
@@ -134,6 +134,10 @@ class SmartTurn:
 
 
 _SMART_TURN_INPUTS = {"input_features": "tensor(float)"}
+
+
+class _NotSmartTurnError(ValueError):
+    """The file loads, but its inputs or outputs are not Smart Turn v3's."""
 
 
 def smart_turn_weights() -> Path | None:
@@ -151,20 +155,37 @@ def smart_turn_weights() -> Path | None:
         return None
 
 
+_smart_turn_problem = "no Smart Turn model is loaded"
+
+
+def smart_turn_problem() -> str:
+    """Why ``smart_turn()`` gave None, in words safe to send a client (no paths)."""
+    return _smart_turn_problem
+
+
 @functools.lru_cache(maxsize=1)
 def smart_turn() -> Callable[[np.ndarray], float] | None:
-    """The shared end-of-turn model, or None (with one warning): semantic_vad
-    then runs as server_vad."""
+    """The shared end-of-turn model, or None (with one warning, and the
+    reason in ``smart_turn_problem``): semantic_vad is then refused."""
+    global _smart_turn_problem
+    _smart_turn_problem = "no Smart Turn model is loaded"
     path = smart_turn_weights()
-    if path is None:
-        logger.warning("semantic_vad will run as server_vad: no Smart Turn weights (set MSTAR_SMART_TURN_PATH "
-                       "or hf download %s %s)", SMART_TURN_REPO, SMART_TURN_FILE)
+    if path is None or not path.is_file():
+        logger.warning("semantic_vad is unavailable: no Smart Turn weights%s (set MSTAR_SMART_TURN_PATH "
+                       "or hf download %s %s)", f" at {path}" if path else "", SMART_TURN_REPO, SMART_TURN_FILE)
+        _smart_turn_problem = "no Smart Turn weights on this server"
         return None
     try:
         return SmartTurn(path)
     except Exception as exc:  # noqa: BLE001 — missing onnxruntime/transformers or a bad file
-        logger.warning("semantic_vad will run as server_vad: cannot load Smart Turn from %s (%s: %s); "
+        logger.warning("semantic_vad is unavailable: cannot load Smart Turn from %s (%s: %s); "
                        "it needs mstar[vad] and the %s file", path, type(exc).__name__, exc, SMART_TURN_FILE)
+        if isinstance(exc, ImportError):
+            _smart_turn_problem = "onnxruntime or transformers is not installed"
+        elif isinstance(exc, _NotSmartTurnError):
+            _smart_turn_problem = "the Smart Turn file is not the expected model"
+        else:
+            _smart_turn_problem = "the Smart Turn model did not load"
         return None
 
 

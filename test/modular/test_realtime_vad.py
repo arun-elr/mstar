@@ -784,18 +784,36 @@ def test_semantic_history_holds_only_its_window_and_is_dropped_at_the_turn_end()
     assert not seg._recent
 
 
-def test_semantic_vad_without_the_model_runs_as_server_vad(vad_client, monkeypatch):
+def _semantic_vad_is_refused_and_server_vad_still_works(vad_client, reason, hidden):
+    """semantic_vad is refused with an error event naming ``reason`` (and not
+    the server path ``hidden``); the session goes on, and server_vad chosen
+    next segments as usual."""
     client, stub = vad_client
     heard = _step_samples(stub)
-    monkeypatch.setattr(realtime_vad, "smart_turn", lambda: None)
     stream = np.concatenate([_speech(10), _silence(20)])
-    session, events = _run_semantic(client, stream, "high")
-    assert session["turn_detection"] == {
-        "type": "server_vad", "threshold": 0.5, "prefix_padding_ms": 300, "silence_duration_ms": 500,
-        "create_response": True, "interrupt_response": True}
+    with client.websocket_connect("/v1/realtime?intent=transcription") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "turn_detection": {"type": "semantic_vad", "eagerness": "high"}, "mstar": {"chunk_seconds": 300}}}))
+        err = json.loads(ws.receive_text())
+        assert err["type"] == "error", err
+        message = err["error"]["message"]
+        assert "semantic_vad is unavailable" in message and reason in message and hidden not in message
+        ws.send_text(json.dumps({"type": "transcription_session.update", "session": {
+            "turn_detection": {"type": "server_vad"}, "mstar": {"chunk_seconds": 300}}}))
+        updated = json.loads(ws.receive_text())
+        assert updated["session"]["turn_detection"]["type"] == "server_vad", updated
+        _send(ws, stream, step=1600)
+        events = _barrier(ws)
     turns = _turns(events)
     assert [(t["start"], t["end"]) for t in turns] == [(0, (10 + 16) * 32)]
     _assert_items_are_the_stream(turns, heard, stream)
+
+
+def test_semantic_vad_without_smart_turn_weights_is_refused(vad_client, monkeypatch, tmp_path, _uncached_smart_turn):
+    monkeypatch.setenv("MSTAR_SMART_TURN_PATH", str(tmp_path / "missing.onnx"))
+    realtime_vad.smart_turn.cache_clear()
+    _semantic_vad_is_refused_and_server_vad_still_works(vad_client, "no Smart Turn weights", str(tmp_path))
 
 
 def test_semantic_vad_settings_are_validated(vad_client, monkeypatch):
@@ -852,9 +870,20 @@ def test_missing_smart_turn_is_a_warning_and_no_model(monkeypatch, tmp_path, cap
     try:
         with caplog.at_level("WARNING", logger=realtime_vad.__name__):
             assert realtime_vad.smart_turn() is None
+        assert realtime_vad.smart_turn_problem() == "no Smart Turn weights on this server"
     finally:
         realtime_vad.smart_turn.cache_clear()
-    assert "semantic_vad will run as server_vad" in caplog.text
+    assert "semantic_vad is unavailable" in caplog.text
+
+
+def test_smart_turn_without_onnxruntime_names_the_package(monkeypatch, tmp_path, _uncached_smart_turn):
+    weights = tmp_path / "smart-turn-v3.2-cpu.onnx"
+    weights.write_bytes(b"onnx")
+    monkeypatch.setenv("MSTAR_SMART_TURN_PATH", str(weights))
+    monkeypatch.setitem(sys.modules, "onnxruntime", None)
+    realtime_vad.smart_turn.cache_clear()
+    assert realtime_vad.smart_turn() is None
+    assert realtime_vad.smart_turn_problem() == "onnxruntime or transformers is not installed"
 
 
 def _fake_smart_turn_runtime(monkeypatch, tmp_path, session):
@@ -890,7 +919,8 @@ def test_a_smart_turn_file_with_other_inputs_or_outputs_is_no_model(
     _fake_smart_turn_runtime(monkeypatch, tmp_path, session)
     with caplog.at_level("WARNING", logger=realtime_vad.__name__):
         assert realtime_vad.smart_turn() is None
-    assert "semantic_vad will run as server_vad" in caplog.text and needle in caplog.text
+    assert "semantic_vad is unavailable" in caplog.text and needle in caplog.text
+    assert realtime_vad.smart_turn_problem() == "the Smart Turn file is not the expected model"
 
 
 @_needs_transformers
@@ -901,19 +931,12 @@ def test_the_smart_turn_signature_is_accepted(monkeypatch, tmp_path, _uncached_s
 
 
 @_needs_transformers
-def test_semantic_vad_with_a_wrong_smart_turn_file_runs_as_server_vad(
-        vad_client, monkeypatch, tmp_path, _uncached_smart_turn):
-    """A wrong file is no model: the session echoes server_vad and turns end
-    at its window, instead of the first pause raising and closing the socket."""
-    client, stub = vad_client
-    heard = _step_samples(stub)
+def test_semantic_vad_with_a_wrong_smart_turn_file_is_refused(vad_client, monkeypatch, tmp_path, _uncached_smart_turn):
+    """Refused at the session update, instead of the first pause raising and
+    closing the socket."""
     _fake_smart_turn_runtime(monkeypatch, tmp_path, _FakeSession(_SILERO_IN))
-    stream = np.concatenate([_speech(10), _silence(20)])
-    session, events = _run_semantic(client, stream, "high")
-    assert session["turn_detection"]["type"] == "server_vad"
-    turns = _turns(events)
-    assert [(t["start"], t["end"]) for t in turns] == [(0, (10 + 16) * 32)]
-    _assert_items_are_the_stream(turns, heard, stream)
+    _semantic_vad_is_refused_and_server_vad_still_works(
+        vad_client, "the Smart Turn file is not the expected model", str(tmp_path))
 
 
 @pytest.mark.skipif(any(importlib.util.find_spec(m) is None for m in ("onnx", "onnxruntime", "transformers")),

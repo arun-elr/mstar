@@ -673,9 +673,6 @@ class RealtimeTranscription:
                              "the input sample rate")
         td = _turn_detection(session["turn_detection"]) if "turn_detection" in session else s.turn_detection
         vad = end_of_turn = None
-        if isinstance(td, realtime_vad.SemanticVAD) and (end_of_turn := realtime_vad.smart_turn()) is None:
-            # no end-of-turn model: run as server_vad, and the echo says so
-            td = realtime_vad.ServerVAD(create_response=td.create_response, interrupt_response=td.interrupt_response)
         if td != s.turn_detection:
             # with server_vad on, the resampler's lookahead is in no item between turns
             in_item = (s.pending_samples or s.heard or s.segmenter.speaking) if s.segmenter is not None \
@@ -686,6 +683,10 @@ class RealtimeTranscription:
                 raise ValueError("server_vad is unavailable here (Silero VAD is missing or not the expected "
                                  "model; see the server log); "
                                  "set turn_detection to null and commit with input_audio_buffer.commit")
+            if isinstance(td, realtime_vad.SemanticVAD) and (end_of_turn := realtime_vad.smart_turn()) is None:
+                raise ValueError(f"semantic_vad is unavailable here ({realtime_vad.smart_turn_problem()}; see the "
+                                 "server log); use server_vad, or set turn_detection to null and commit with "
+                                 "input_audio_buffer.commit")
         knobs = _object(session.get("mstar"), "mstar")
         chunk_seconds = _number(knobs, "chunk_seconds", s.chunk_seconds, MIN_CHUNK_SECONDS, s.max_item_seconds,
                                 clamp_low=True)
