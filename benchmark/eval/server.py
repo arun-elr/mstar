@@ -45,7 +45,8 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
-def python_tree(python: str, env: dict[str, str] | None = None) -> dict[str, Any]:
+def python_tree(python: str, env: dict[str, str] | None = None,
+                cwd: str | Path | None = None) -> dict[str, Any]:
     """The checkout and package versions ``python`` imports M* from, without importing it.
 
     With ``--serve-python`` the server runs another venv, often another checkout, so the
@@ -54,7 +55,7 @@ def python_tree(python: str, env: dict[str, str] | None = None) -> dict[str, Any
     """
     try:
         out = subprocess.run([python, "-c", _TREE_PROBE], capture_output=True, text=True,
-                             env=env, timeout=60, check=True)
+                             env=env, cwd=cwd, timeout=60, check=True)
         probe = json.loads(out.stdout.strip().splitlines()[-1])
     except (OSError, subprocess.SubprocessError, ValueError, IndexError):
         return {}
@@ -150,7 +151,8 @@ class ManagedServer:
                 # Tools the server finds on PATH (FlashInfer's JIT needs ninja) come from its own
                 # venv, as when that venv is activated; the abspath keeps a venv's bin/python
                 # symlink unresolved.
-                bin_dir = os.path.dirname(os.path.abspath(python))
+                # A relative path runs from the server's cwd, as Popen resolves it there.
+                bin_dir = os.path.dirname(os.path.abspath(os.path.join(self.cwd or "", python)))
                 env["PATH"] = os.pathsep.join([bin_dir, env["PATH"]]) if env.get("PATH") else bin_dir
         return env
 
@@ -233,7 +235,7 @@ class ManagedServer:
 
     def info(self) -> dict[str, Any]:
         if self._tree is None:
-            self._tree = python_tree(self.python, self.environment()) if self._command is None else {}
+            self._tree = python_tree(self.python, self.environment(), self.cwd) if self._command is None else {}
         return {
             "managed": True,
             "model": self.model,
