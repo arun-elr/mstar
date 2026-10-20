@@ -1309,7 +1309,9 @@ class APIServer:
             if finished:
                 self.pending_requests.pop(key)
                 self._retire(key)
-        if not finished:
+        if finished:
+            self._record_end(req, "abort")
+        else:
             self.abort_submission(key)
 
     # ----------------------------------------------------------

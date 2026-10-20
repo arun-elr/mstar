@@ -24,6 +24,7 @@ from api_server_helpers import make_test_api_server  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from starlette.requests import ClientDisconnect  # noqa: E402
+from test_serving_metrics import _count, _labels, _wait, served  # noqa: E402, F401
 
 from mstar.api_server.request_types import ResultChunk  # noqa: E402
 
@@ -102,6 +103,29 @@ def test_a_generate_stream_that_was_read_is_not_aborted_on_close(monkeypatch):
     asyncio.run(response(_ASGI_2_4, _disconnected, send))
     assert b"".join(m.get("body", b"") for m in sent)
     assert server.preprocess_worker.aborted == []
+
+
+def test_a_finished_stream_released_before_its_body_counts_once_as_an_abort(served):  # noqa: F811
+    from mstar.api_server import entrypoint
+    from mstar.observability.metrics import OUTCOMES
+
+    async def form():
+        return {"text": "hi", "streaming": "true"}
+
+    response = asyncio.run(entrypoint.generate(
+        request=SimpleNamespace(headers={}, form=form), text="hi", files=None,
+        input_modalities=None, output_modalities="text", streaming=True,
+        model_kwargs=None, request_id="r1",
+    ))
+    key = served.key()
+    served.answer(key)
+    _wait(served.server.pending_requests[key].event.is_set)
+    with pytest.raises(ClientDisconnect):
+        asyncio.run(response(_ASGI_2_4, _disconnected, _client_gone))
+
+    samples = served.scrape()
+    assert {o: _count(samples, o) for o in OUTCOMES if _count(samples, o)} == {"abort": 1}
+    assert samples[("mstar_requests_in_flight", _labels())] == 0
 
 
 def test_a_release_targets_its_own_submission_not_a_later_one(monkeypatch):
