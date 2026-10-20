@@ -282,7 +282,11 @@ def test_generate_streams_one_error_line(monkeypatch):
     async def run():
         transport = httpx.ASGITransport(app=entrypoint.app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            return await client.post("/generate", data={"text": "first", "request_id": "X"})
+            # FastAPI 0.147+ reads an omitted bool form field as False, so
+            # send streaming the way mstar.client does.
+            return await client.post(
+                "/generate", data={"text": "first", "request_id": "X", "streaming": "true"},
+            )
 
     response = asyncio.run(run())
     failer.join()
