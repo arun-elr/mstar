@@ -569,7 +569,7 @@ models:
     case_timeout_s: 900
     family: TTS
     tags: [multi-gpu, split, tts, speech-out, ar]
-    requires: [qwen_tts]
+    requires: ["mstar.model.qwen3_tts.qwen3_tts_model:_load_qwen3_tts_codec_classes"]
     est_min: 10
     cases:
       - id: tts
@@ -727,7 +727,7 @@ models:
     health: true
     family: TTS
     tags: [w2w, transport, shm, split, tts, speech-out, ar]
-    requires: [qwen_tts]
+    requires: ["mstar.model.qwen3_tts.qwen3_tts_model:_load_qwen3_tts_codec_classes"]
     est_min: 12
     cases: &qwen3tts_split_w2w
       - id: tts
@@ -759,7 +759,7 @@ models:
     health: true
     family: TTS
     tags: [w2w, transport, split, tts, speech-out, ar]
-    requires: [qwen_tts, mooncake.engine]
+    requires: ["mstar.model.qwen3_tts.qwen3_tts_model:_load_qwen3_tts_codec_classes", mooncake.engine]
     est_min: 12
     cases: *qwen3tts_split_w2w
 
@@ -773,7 +773,7 @@ models:
     health: true
     family: TTS
     tags: [rdma, split, tts, speech-out, ar]
-    requires: [qwen_tts, mooncake.engine, rdma_nic]
+    requires: ["mstar.model.qwen3_tts.qwen3_tts_model:_load_qwen3_tts_codec_classes", mooncake.engine, rdma_nic]
     est_min: 12
     cases: *qwen3tts_split_w2w
 

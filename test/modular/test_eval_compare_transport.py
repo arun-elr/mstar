@@ -313,6 +313,10 @@ def test_rdma_nic_requirement_skips_a_host_without_a_device(tmp_path, monkeypatc
     (tmp_path / "ib" / "mlx5_0").mkdir(parents=True)
     monkeypatch.setattr(arm, "RDMA_SYSFS", tmp_path / "ib")
     assert arm.requirements_problem({}) == ""
+    (tmp_path / "loader.py").write_text("def bad():\n    raise ImportError('x')\n")
+    monkeypatch.setattr(arm, "job", {"python": sys.executable, "model": {"requires": ["loader:bad", "rdma_nic"]}})
+    monkeypatch.setattr(arm, "RDMA_SYSFS", tmp_path / "none")
+    assert arm.requirements_problem({"src": str(tmp_path)}) == "loader:bad: ImportError; rdma_nic: no RDMA device"
 
 
 def write_health(md: Path, arm_name: str, findings: list[str], alive: bool = True) -> None:
