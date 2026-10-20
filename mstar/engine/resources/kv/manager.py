@@ -1831,9 +1831,10 @@ class KVManager(AttentionResource):
         self, step: KVStep, ctx: StepContext, error: AdmitFailedReason,
     ) -> AdmitFailedReason:
         """``error`` with the step's ``rows_fit`` and ``rows_fit_alone`` filled
-        in, or a terminal refusal when the request it names needs more pages
-        than the whole pool has: no eviction can make that fit, so retrying it
-        only spins until the client gives up. Caller holds ``_lock``.
+        in, or a terminal refusal naming a request of the step that needs more
+        pages than the whole pool has, the one ``error`` names first: no
+        eviction can make that fit, so retrying it only spins until the client
+        gives up. Caller holds ``_lock``.
 
         A request's footprint is every distinct page it would hold after the
         step: the ones its streams hold already, counted once where labels or
@@ -1861,19 +1862,23 @@ class KVManager(AttentionResource):
         for (rid, _), more in needed.items():
             extra[rid] = extra.get(rid, 0) + max(more, 0)
         capacity = self.config.max_num_pages - 1
-        own = len(held.get(error.request_id, ())) + extra.get(error.request_id, 0)
-        if own > capacity:
-            # the client reads this text, and the rid is the worker's handle,
-            # not an id it sent
-            return AdmitRuntimeError(
-                message=(
-                    f"The request needs {own} pages of {self.name} for this "
-                    f"step, more than the {capacity} the pool holds; raise "
-                    "max_num_pages or shorten the request."
-                ),
-                request_ids=frozenset({error.request_id}),
-            )
         rows = list(held)
+        # every row, not only the named one: a row refused ahead of one that
+        # fills the pool names itself, and the eviction then takes the filler,
+        # the only row holding pages
+        for rid in sorted(rows, key=lambda rid: rid != error.request_id):
+            own = len(held[rid]) + extra.get(rid, 0)
+            if own > capacity:
+                # the client reads this text, and the rid is the worker's
+                # handle, not an id it sent
+                return AdmitRuntimeError(
+                    message=(
+                        f"The request needs {own} pages of {self.name} for this "
+                        f"step, more than the {capacity} the pool holds; raise "
+                        "max_num_pages or shorten the request."
+                    ),
+                    request_ids=frozenset({rid}),
+                )
         if error.request_id in rows:
             error.rows_fit = rows.index(error.request_id)
         resident: set[int] = set()
