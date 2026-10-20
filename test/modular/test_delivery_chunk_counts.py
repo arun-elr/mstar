@@ -8,14 +8,6 @@ reports emitting (``WorkerGraphsDone.output_signal_names``, one name per
 chunk, from every rank), and the API server compares that with what it has
 received.
 
-It used to compare each output's last loop snapshot instead. Those snapshots
-order chunks by ``wg_fwd_pass_idx``, which counts the runs of ONE worker graph,
-and every walk has its own: a walk that runs twice before another emits the
-same name (Qwen3-Omni's "text, image, text" prompt runs ``prefill_text``
-twice) outranks every later chunk, and with one prefill and a single decode
-step the two snapshots compare equal. Either way the request looked delivered
-before its last chunks arrived, which were then dropped.
-
 These drive the real Python graph runtime, the conductor's report handling and
 the API server's bookkeeping; ``test/rust/test_delivery_chunk_counts_rust.py``
 runs the same request on the Rust runtime.
