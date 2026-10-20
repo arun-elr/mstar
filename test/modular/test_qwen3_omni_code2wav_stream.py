@@ -507,7 +507,7 @@ def test_default_config_ramps_12_13_then_25():
     assert windows[2:] == _windows(LeftContextChunkPolicy(chunk=25, left_context=25), 120)[1:]
 
     submodule = Code2WavSubmodule(_LookaheadDecoder(), Qwen3OmniModelConfig())
-    capture = submodule.get_cuda_graph_configs("cpu")[0].single_request_inputs.tensor_inputs["codec_tokens"]
+    capture = submodule.get_accelerator_graph_configs("cpu")[0].single_request_inputs.tensor_inputs["codec_tokens"]
     assert submodule.full_seqlen == cfg.codec_max_window == 50 and capture.shape == (16, 50)
 
 
