@@ -10,16 +10,20 @@ gives up.
 from __future__ import annotations
 
 import sys
+from types import SimpleNamespace
 
 sys.path.insert(0, ".")
 
 import pytest
 import torch
+from test_admit_failure_handling import _NO_LIMITS, SCHED_NODE, SCHED_WALK, _EvictingWorker
 
 from mstar.engine.resources.kv import manager as manager_mod
 from mstar.engine.resources.kv.config import KVStep, PagedKVConfig
 from mstar.engine.resources.kv.manager import KVManager
 from mstar.engine.resources.step import AdmitRuntimeError, AllocationFailed, Segment, StepContext
+from mstar.worker.micro_scheduler import ScheduledBatch
+from mstar.worker.worker import Worker
 
 PAGE_SIZE = 16
 
@@ -136,6 +140,74 @@ def test_a_growing_request_counts_the_pages_it_holds():
     outcome = _admit(mgr, {"long": 1})
 
     assert isinstance(outcome.reason, AdmitRuntimeError)
+
+
+class _FailingWorker(_EvictingWorker):
+    """The real admit-failure handlers and victim search, failures recorded."""
+
+    _handle_admit_failure = Worker._handle_admit_failure
+    _handle_unservable = Worker._handle_unservable
+
+    def __init__(self, holders):
+        super().__init__(holders)
+        self.held: list[str] = []
+        self.failed: dict[str, str] = {}
+        self.scheduler = SimpleNamespace(hold_requests=self.held.extend, **_NO_LIMITS)
+
+    def _fail_requests(self, errors):
+        self.failed.update(errors)
+
+
+_POOL_FILLER_ERROR = (
+    "Error in worker: The request needs 64 pages of kv for this step, more than "
+    "the 63 the pool holds; raise max_num_pages or shorten the request."
+)
+
+
+def _refuse_after_a_pool_filling_prefill(spans: dict[str, int]) -> _FailingWorker:
+    """64 pages, 63 usable: ``long``'s prefill takes all 63, then a step of
+    ``spans`` is admitted and its refusal handled as the worker does."""
+    mgr = _manager(64)
+    assert _admit(mgr, {"long": 63 * PAGE_SIZE}, commit=True).ok
+    assert mgr._arena.num_free == 0
+
+    outcome = _admit(mgr, spans)
+    assert not outcome.ok
+
+    worker = _FailingWorker(holders=["long"])
+    batch = ScheduledBatch(
+        node_name=SCHED_NODE, graph_walk=SCHED_WALK,
+        request_to_worker_graph=dict.fromkeys(spans, "wg"),
+    )
+    worker._handle_admit_failure(batch, SimpleNamespace(
+        node_name=SCHED_NODE, admit_error=outcome.reason,
+        failed_resource="kv", request_ids=list(spans),
+    ))
+    return worker
+
+
+def test_a_prefill_that_fills_the_pool_fails_at_its_first_decode():
+    """The first decode needs a 64th page. The request was its own only
+    victim: offloaded, reloaded and refused again every 54 ms until the
+    client gave up at 180 s."""
+    worker = _refuse_after_a_pool_filling_prefill({"long": 1})
+
+    assert worker.offloaded == [] and worker.held == [], "the request was offloaded to retry"
+    assert worker._graph_runtime.pushed_back == []
+    assert worker.failed == {"long": _POOL_FILLER_ERROR}
+
+
+@pytest.mark.parametrize("prompt_first", [True, False], ids=["prompt-first", "decode-first"])
+def test_a_pool_filler_fails_in_a_mixed_step_whichever_row_is_refused(prompt_first):
+    """The first decode shares a step with a new prompt. Listed first, the
+    prompt is the row refused, and the pool filler, the only row holding
+    pages, was offloaded to make room for it."""
+    rows = [("short", 2 * PAGE_SIZE), ("long", 1)]
+    worker = _refuse_after_a_pool_filling_prefill(dict(rows if prompt_first else rows[::-1]))
+
+    assert worker.offloaded == [], "the pool filler was offloaded to retry"
+    assert worker.failed == {"long": _POOL_FILLER_ERROR}
+    assert worker._graph_runtime.pushed_back == ["short"]
 
 
 def test_pages_two_labels_share_are_counted_once():
