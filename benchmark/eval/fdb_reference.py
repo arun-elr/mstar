@@ -15,12 +15,12 @@ with every result as the dataset revision instead of checking it:
   not create an OpenAI client);
 * ``get_transcript/asr.py``: Parakeet TDT 0.6B v2 word timestamps, run unmodified on a
   preloaded local checkpoint;
-* the semantic A/F/U judge's frozen prompt, schema and control cases from sglang-omni
-  (Apache-2.0), so its quality and coverage numbers are comparable with that runbook;
+* the semantic A/F/U judge's frozen prompt, schema and control cases from sgl-project/sglang-omni
+  (Apache-2.0), so its quality and coverage numbers are comparable with the reference runner;
 * the four v1.5 subsets from the official Google Drive (``gdown``), hashed and recorded.
 
-The pins match sglang-omni PR #2668 (``benchmarks/duplex/fdb_v15``), which reports the
-same metrics, so numbers from either runner use one definition.
+The pins match the reference runner (``benchmarks/duplex/fdb_v15`` at ``SEMANTIC_REVISION``),
+which reports the same metrics, so numbers from either runner use one definition.
 """
 
 from __future__ import annotations
@@ -303,7 +303,8 @@ class ParakeetASR:
         import nemo.collections.asr as nemo_asr
 
         model = nemo_asr.models.ASRModel.restore_from(restore_path=nemo_path, map_location=torch.device(device))
-        # NeMo's CUDA-graph greedy decoder truncates Parakeet transcripts on some GPUs; sglang-omni turns it off too.
+        # NeMo's CUDA-graph greedy decoder truncates Parakeet transcripts on some GPUs; the reference runner
+        # turns it off too.
         decoding = dict(model.cfg.decoding)
         decoding["greedy"] = {**decoding["greedy"], "use_cuda_graph_decoder": False}
         model.change_decoding_strategy(decoding)
@@ -363,7 +364,7 @@ def download_dataset(zips: Path | None = None) -> tuple[Path, str]:
 
 def select(root: Path, per_category: int | None) -> list[tuple[str, str]]:
     """First ``per_category`` samples of each category in numeric id order (None: all), so a
-    smaller selection is a prefix of a larger one, as in sglang-omni's runbook."""
+    smaller selection is a prefix of a larger one, as in the reference runner."""
     out = []
     for cat in CATEGORIES:
         ids = sorted((p.name for p in (root / cat).iterdir() if p.is_dir() and p.name.isdigit()), key=int)

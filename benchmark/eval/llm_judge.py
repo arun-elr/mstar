@@ -2,9 +2,9 @@
 
 A judge is any OpenAI-compatible chat-completions endpoint, named on the command line:
 
-* local open-weights: ``--judge qwen=http://127.0.0.1:30000/v1`` (vLLM, SGLang or M\\*
-  serving, for example ``Qwen/Qwen3.8-27B``). The model sent is the endpoint's only
-  ``/v1/models`` entry (or ``URL#served-name``), and every response must report it.
+* local open-weights: ``--judge qwen=http://127.0.0.1:30000/v1`` (any
+  OpenAI-compatible server, M\\* included, serving for example ``Qwen/Qwen3.8-27B``). The model
+  sent is the endpoint's only ``/v1/models`` entry (or ``URL#served-name``), and every response must report it.
   ``--judge-revision qwen=<commit>`` records the checkpoint revision.
 * API: ``--judge gpt4o=openai`` is ``gpt-4o-2024-08-06`` (the paper's judge) with the key
   in ``OPENAI_API_KEY`` (``OPENAI_BASE_URL`` overrides the endpoint). Without a key the
@@ -15,10 +15,10 @@ Behavior labels follow the official ``eval_behavior`` loop: the exact prompt, se
 on an exception (transport, unparseable reply) the next seed, at most three attempts. A
 reply from another model, a label outside the four ``C_*`` tags, or (local judges) a
 non-``stop`` finish is not a valid label; there is no fallback judge. Local judges decode
-as sglang-omni's custom judge does (non-thinking, temperature 0, top_p 1, 512 tokens).
+as the reference judge does (non-thinking, temperature 0, top_p 1, 512 tokens).
 
 The semantic judge grades each pair on ``interaction_handling``, ``relevance`` and
-``grounding`` (accept, fail or unresolved) with sglang-omni's frozen prompt and schema,
+``grounding`` (accept, fail or unresolved) with the reference judge's frozen prompt and schema,
 batches of 8 pairs, thinking on, temperature 0, seed 1. A verdict without an exact
 substring quote of the source it names becomes ``unresolved``, never a pass. Before
 grading, the six frozen control cases must reproduce all 18 expected statuses; otherwise

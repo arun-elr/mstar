@@ -66,7 +66,7 @@ def test_kappa_and_confusion_matrix_on_four_labels():
     cm = stats.confusion_matrix(a, b, list(llm_judge.C_LABELS))
     assert cm["matrix"] == [[3, 1, 0, 0], [0, 4, 0, 0], [0, 0, 0, 0], [0, 1, 0, 1]]
     assert sum(map(sum, cm["matrix"])) == 10
-    # sglang-omni's reported pair (84.9%, kappa 0.72) implies chance agreement of about 0.46.
+    # The reference runner's reported pair (84.9%, kappa 0.72) implies chance agreement of about 0.46.
     assert (0.849 - 0.72) / (1 - 0.72) == pytest.approx(0.46, abs=0.01)
 
 

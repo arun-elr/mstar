@@ -2,8 +2,8 @@
 
 Opt-in: the benchmark's code and data are CC BY-NC 4.0 (non-commercial), so both are
 downloaded at run time from the official sources (``data fdb-v15``) and never vendored;
-see ``benchmark/eval/fdb_reference.py``. Metric definitions follow sglang-omni PR #2668
-(``benchmarks/duplex/fdb_v15``) so the numbers are comparable:
+see ``benchmark/eval/fdb_reference.py``. Metric definitions follow the reference runner
+(``benchmarks/duplex/fdb_v15``, pinned there) so the numbers are comparable:
 
 * Each item is a pair: ``input.wav`` (the user's query plus a later overlapping event:
   an interruption, a backchannel, speech to someone else, or background speech) and
@@ -60,7 +60,7 @@ from benchmark.eval.suites.duplex import SessionError, _special, generate_sessio
 GROUPS = ("all", *CATEGORIES)
 VARIANTS = (("overlap", "input", "output"), ("clean", "clean_input", "clean_output"))
 SEMANTIC_AXES = (*AXES, "joint")
-# Model speech ending this close to T counts as still playing at the cutoff (sglang-omni's EOF tolerance).
+# Model speech ending this close to T counts as still playing at the cutoff (the reference runner's EOF tolerance).
 EOF_TOLERANCE_S = 0.05
 # Output after T below this peak (-40 dBFS) is the codec's idle floor, not more reply.
 SILENCE_PEAK = 0.01
@@ -148,7 +148,7 @@ def native_text(tokens: list[str], frame_s: float, t_s: float) -> str:
 
 
 def semantic_packet(row: dict[str, Any], opaque_id: str) -> dict[str, Any]:
-    """One pair as the semantic judge sees it, in sglang-omni's field order (model identity withheld)."""
+    """One pair as the semantic judge sees it, in the reference judge's field order (model identity withheld)."""
     asr, ov = row["asr"], row["overlap"]
     return {
         "sample_id": opaque_id,
@@ -194,7 +194,7 @@ class Judging:
         names = [j.name for j in self.judges]
         if semantic_name not in (None, "none") and semantic_name not in names:
             raise SystemExit(f"--semantic-judge {semantic_name!r} is not one of --judge {names}")
-        if semantic_name is None:  # default: the first local judge, as sglang-omni runs it on Qwen only
+        if semantic_name is None:  # default: the first local judge, as the reference runner runs it on Qwen only
             semantic_name = next((j.name for j in self.available if j.kind == "local"), "none")
         self.semantic = next((j for j in self.available if j.name == semantic_name), None)
         self.concurrency = concurrency
@@ -332,8 +332,8 @@ class FDBSuite(Suite):
                        help="transcripts for the judges (none: timing only)")
         g.add_argument("--judge", action="append", default=[], metavar="NAME=openai|URL",
                        help="an LLM judge: NAME=openai (gpt-4o-2024-08-06, needs OPENAI_API_KEY; skipped "
-                            "without it) or NAME=URL of an OpenAI-compatible endpoint (local, e.g. vLLM "
-                            "serving Qwen/Qwen3.8-27B). Repeat for agreement")
+                            "without it) or NAME=URL of an OpenAI-compatible endpoint (local, e.g. a "
+                            "server for Qwen/Qwen3.8-27B). Repeat for agreement")
         g.add_argument("--judge-revision", action="append", default=[], metavar="NAME=REV",
                        help="checkpoint revision of a local judge, for the results file")
         g.add_argument("--semantic-judge", default=None,

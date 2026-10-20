@@ -1,6 +1,6 @@
 """Tables, charts and the judge agreement report for ``fdb`` results.
 
-The tables are the two of sglang-omni's ``RESULTS.md`` (a row per category and ``all``):
+The tables are the two of the reference runner's ``RESULTS.md`` (a row per category and ``all``):
 pairs, timed overlap sessions, pooled stop and response latency, label shares and judged
 pairs, one table per judge; then the semantic quality and coverage table. Cells are mean
 +- sample std over repeats; counts show one value or a ``low-high`` range.
@@ -23,7 +23,7 @@ from benchmark.eval.schema import RunResult
 from benchmark.eval.suites.duplex_fdb import GROUPS, SEMANTIC_AXES, valid_label_pairs
 
 SHORT = {"C_RESPOND": "RESPOND", "C_RESUME": "RESUME", "C_UNCERTAIN_HANDLING": "UNCERTAIN", "C_UNKNOWN": "UNKNOWN"}
-# The label that should be high in each category (sglang-omni's reading guide).
+# The label that should be high in each category (the reference runner's reading guide).
 DESIRED = {"user_interruption": "RESPOND", "user_backchannel": "RESUME", "talking_to_other": "RESUME",
            "background_speech": "RESUME"}
 

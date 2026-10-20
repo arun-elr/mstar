@@ -165,8 +165,8 @@ Full-Duplex-Bench v1.5
    ``3e799c45`` into the Hugging Face cache, checking each file's SHA-256. Using the
    suite means accepting those terms.
 
-The ``fdb`` suite follows sglang-omni's runbook (PR #2668, ``benchmarks/duplex/fdb_v15``)
-metric for metric, so its numbers can be compared with that runbook's. v1.5 has 498
+The ``fdb`` suite follows the reference runner (``benchmarks/duplex/fdb_v15``, pinned in
+``benchmark/eval/fdb_reference.py``) metric for metric, so its numbers can be compared with that runner's. v1.5 has 498
 pairs in four categories: ``user_interruption`` (200), ``user_backchannel`` (98),
 ``talking_to_other`` (100) and ``background_speech`` (100). A pair is the user's query
 with a later overlapping event (``input.wav``) and the query alone
@@ -174,10 +174,10 @@ with a later overlapping event (``input.wav``) and the query alone
 
     python -m benchmark.eval data fdb-v15 --out ~/eval-data/fdb --per-category 12   # or all
 
-    # a local judge on the same GPU, started first so it gets a fixed share of memory
-    vllm serve Qwen/Qwen3.8-27B --revision 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0 \
-        --served-model-name qwen3.8-27b --port 30000 --reasoning-parser qwen3 \
-        --gpu-memory-utilization 0.42 --max-model-len 65536
+    # a local judge on the same GPU, started first so it gets a fixed share of memory:
+    # any OpenAI-compatible server for Qwen/Qwen3.8-27B at revision 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0,
+    # served as qwen3.8-27b on port 30000 with a qwen3 reasoning parser, 42% of GPU memory
+    # and a 65536-token context
 
     python -m benchmark.eval run fdb --serve nemotron_duplex \
         --data ~/eval-data/fdb/manifest-12.jsonl --concurrency 16 --repeats 3 --out results/fdb \
@@ -192,8 +192,8 @@ What is measured (each number is per category and for ``all``, mean +- std over 
 * **Observation window.** The model's output over ``[0, T]``, T the input length, as
   16 kHz mono with exactly the input's sample count. A frame-synchronous model emits
   one output frame per input frame, so this is the audio a client would hear with no
-  transport delay; sglang-omni streams in real time and plays what arrives, so its
-  window also contains the server's processing and transport delay.
+  transport delay; a client that streams in real time and plays what arrives (as the
+  reference runner does) also gets the server's processing and transport delay in its window.
   ``wall_ms_per_frame`` and ``on_time_rate`` show whether the server kept up live.
 * **Stop and response latency.** The official ``get_timing.py`` on Silero VAD speech
   spans (``silero-vad`` package, user spans merged across 0.6 s gaps, model spans
@@ -211,9 +211,9 @@ What is measured (each number is per category and for ``all``, mean +- std over 
   or silent). The share that should be high is ``C_RESPOND`` on ``user_interruption``
   and ``C_RESUME`` on the other three. Shares are over valid labels; ``judged_pairs``
   says how many there were.
-* **Semantic quality** (non-official, one local judge, as in sglang-omni). Each pair is
+* **Semantic quality** (non-official, one local judge, as in the reference runner). Each pair is
   graded ``accept``, ``fail`` or ``unresolved`` on ``interaction_handling``,
-  ``relevance`` and ``grounding`` with sglang-omni's frozen prompt and schema (fetched
+  ``relevance`` and ``grounding`` with the reference judge's frozen prompt and schema (fetched
   at a pinned commit); ``joint`` fails if any axis fails and accepts only if all three
   accept. A verdict without an exact quote of its source becomes ``unresolved``.
   ``quality = A/(A+F)`` and ``coverage = (A+F)/N``, N every selected pair: read them
@@ -227,13 +227,13 @@ Judges and agreement
 
 A judge is any OpenAI-compatible chat endpoint, named with ``--judge NAME=...``:
 
-* **local**: ``NAME=http://host:port/v1`` (vLLM, SGLang, or M\* if it serves the model).
+* **local**: ``NAME=http://host:port/v1`` (any OpenAI-compatible server, M\* included if it serves the model).
   The model sent is the endpoint's ``/v1/models`` entry (``URL#name`` picks one) and
-  every reply must report it. Behavior labels decode as sglang-omni's custom judge:
+  every reply must report it. Behavior labels decode as the reference judge does:
   non-thinking, temperature 0, top_p 1, 512 tokens, retry seeds 1 to 3. The semantic
   judge runs thinking mode, temperature 0, seed 1, in batches of 8 pairs; serve with a
   reasoning parser (``--reasoning-parser qwen3``) so the JSON answer arrives in
-  ``content``. ``Qwen/Qwen3.8-27B`` is sglang-omni's choice.
+  ``content``. ``Qwen/Qwen3.8-27B`` is the reference runner's choice.
 * **API**: ``NAME=openai`` is ``gpt-4o-2024-08-06``, the paper's judge, with the
   official decoding. It reads ``OPENAI_API_KEY`` (and ``OPENAI_BASE_URL``) from the
   environment and is skipped, with the reason in the results file and the report,
@@ -243,7 +243,7 @@ Labels from different judges are kept apart (``<category>.<judge>.<label>``); co
 runs only under the same judge. With two or more judges, every repeat also records
 ``agreement.<a>.<b>.agreement`` and ``.kappa`` (Cohen's) over the pairs both labeled
 validly, and ``agreement`` pools them over repeats into a confusion matrix with
-per-category agreement and each judge's label shares. sglang-omni measured Qwen
+per-category agreement and each judge's label shares. The reference runner measured Qwen
 against gpt-4o on Nemotron VoiceChat (the model behind ``nemotron_duplex``): 84.9%
 agreement, kappa 0.72, with Qwen giving far fewer ``C_UNKNOWN`` labels, so a local
 judge's numbers are for comparing like with like, and the API judge's for comparing
