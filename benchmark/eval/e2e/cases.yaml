@@ -564,6 +564,7 @@ models:
         n: 8
         args: [--max-tokens, "64", --audio-out]
         check: {kind: audio_len, pct: 25}
+        quality: [mos]
         perf: {latency: lat_p50_s, throughput: req_per_s, extra: [ttft_p50_s]}
 
   cosmos3_nano_sp2:      # DiT Ulysses SP 2 on ranks 0, 1; VAE and audio decoder on 0
@@ -583,6 +584,7 @@ models:
         conc: [1]
         args: [--size, 640x640]
         check: {kind: psnr, min_db: 25}
+        quality: [clip]
         perf: {latency: lat_p50_s, throughput: req_per_s}
 
   qwen3tts_1p7b_split:   # Talker on rank 0, codec on rank 1, both on GPU 0 (the config's rank_devices)
@@ -602,6 +604,7 @@ models:
         data: tts
         args: [--voice, vivian, --language, English, --seed, "0"]
         check: {kind: wer, max_increase: 2.0}
+        quality: [mos]
         perf: {latency: e2e_s_p50, throughput: audio_s_per_s, extra: [ttfa_ms_p50, rtf_mean]}
 
   orpheus_pd_disaggregated:   # LLM prefill on rank 0, decode on rank 1; SNAC on 0
@@ -620,6 +623,7 @@ models:
         data: tts
         args: [--voice, tara, --seed, "0"]
         check: {kind: wer, max_increase: 2.0}
+        quality: [mos]
         perf: {latency: e2e_s_p50, throughput: audio_s_per_s, extra: [ttfa_ms_p50, rtf_mean]}
 
   qwen3omni_pd_disaggregated:   # encoders, Code2Wav and Thinker prefill on rank 0; decode on 1; Talker on 2
@@ -646,6 +650,7 @@ models:
         n: 8
         args: [--max-tokens, "64", --audio-out]
         check: {kind: audio_len, pct: 25}
+        quality: [mos]
         perf: {latency: lat_p50_s, throughput: req_per_s, extra: [ttft_p50_s]}
 
   # ---------------- newer models (optional until their PRs are on main) ----------------
