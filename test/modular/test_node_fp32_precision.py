@@ -203,7 +203,7 @@ def test_capture_runs_under_the_node_precision(monkeypatch):
     (full-forward and piecewise) happen under the node's setting."""
     captured: list[tuple[str, tuple[str, bool]]] = []
 
-    def record(self):
+    def record(self, buckets=None):
         captured.append((self._submodule_name, _flags()))
 
     class _Region:
@@ -216,7 +216,7 @@ def test_capture_runs_under_the_node_precision(monkeypatch):
         def prepare_for_capture(self):
             pass
 
-        def warmup_and_capture(self):
+        def warmup_and_capture(self, buckets=None):
             captured.append((f"{self.node}/region", _flags()))
 
     monkeypatch.setattr(engine_module.AcceleratorGraphRunner, "warmup_and_capture", record)
@@ -230,6 +230,38 @@ def test_capture_runs_under_the_node_precision(monkeypatch):
         ("a", ("highest", False)), ("a/region", ("highest", False)),
         ("b", ("high", True)), ("b/region", ("high", True)),
     ]
+
+
+def test_capture_sizing_runs_under_the_node_precision(monkeypatch):
+    """Sizing a bucket runs its forward and a trial capture, so it compiles and
+    picks kernels under the node's setting, as the capture itself does."""
+    sized: list[tuple[str, tuple[str, bool]]] = []
+
+    class _Sizer:
+        def __init__(self, label):
+            self.label = label
+
+        def size_captures(self):
+            sized.append((self.label, _flags()))
+            return {}
+
+        def size_lent_captures(self, wanted):
+            sized.append((self.label, _flags()))
+            return {}
+
+    engine = _engine({"a": _Recorder(matmul="highest", cudnn=False), "b": _Recorder()})
+    monkeypatch.setattr(engine, "_device", torch.device("cuda"))
+    monkeypatch.setattr(engine, "_gpu_memory_fraction", None)
+    monkeypatch.setattr(torch.cuda, "empty_cache", lambda: None)
+    monkeypatch.setattr(torch.cuda, "mem_get_info", lambda device=None: (1 << 30, 1 << 31))
+    engine._plan_captures(
+        {node: _Sizer(node) for node in ("a", "b")},
+        {node: {"blocks": _Sizer(f"{node}/region")} for node in ("a", "b")},
+    )
+    assert sized == [
+        ("a", ("highest", False)), ("a/region", ("highest", False)),
+        ("b", ("high", True)), ("b/region", ("high", True)),
+    ] * 2
 
 
 @pytest.mark.parametrize("bad", [
