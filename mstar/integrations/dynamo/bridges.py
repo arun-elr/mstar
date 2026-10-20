@@ -226,7 +226,9 @@ class RequestBridge:
         try:
             async for chunk in _stream_chunks(self.server, rid, context):
                 if chunk.modality == "text":
-                    yield envelope({"role": "assistant", "content": text.feed(chunk.data)})
+                    # a token that completes no character (or an end token) sends no delta
+                    if content := text.feed(chunk.data):
+                        yield envelope({"role": "assistant", "content": content})
                 elif chunk.modality == "error":
                     raise RuntimeError(chunk.data.decode("utf-8", "replace"))
                 else:

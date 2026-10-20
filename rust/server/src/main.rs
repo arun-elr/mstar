@@ -558,22 +558,21 @@ fn chat_sse_payloads(
         let errored = errored.clone();
         let role_sent = role_sent.clone();
         let text = text.clone();
-        base.map(move |item| match item {
-            Out::Chunk(c) => {
-                let mut delta = chat_delta(&c, &mut text.lock().unwrap());
+        base.filter_map(move |item| futures::future::ready(match item {
+            Out::Chunk(c) => chat_delta(&c, &mut text.lock().unwrap()).map(|mut delta| {
                 if !role_sent.swap(true, std::sync::atomic::Ordering::SeqCst) {
                     delta["role"] = json!("assistant");
                 }
                 chunk_json(&id, created, &model, delta, None)
-            }
+            }),
             // Terminal mid-stream failure: an OpenAI error event, and suppress
             // the normal stop/[DONE] tail (mstar's generator exception drops the
             // connection; the explicit error event is strictly more informative).
             Out::Error { status, message } => {
                 errored.store(true, std::sync::atomic::Ordering::SeqCst);
-                sse_error_json(status, &message)
+                Some(sse_error_json(status, &message))
             }
-        })
+        }))
     };
     let tail = futures::stream::once(async move {
         let mut out = Vec::new();
@@ -598,15 +597,22 @@ fn chat_sse_payloads(
 }
 
 /// One streaming chunk -> its OpenAI delta object. Text goes through the
-/// stream's decoder, so a delta never ends mid-character.
-fn chat_delta(c: &ResultChunk, text: &mut Utf8Stream) -> Value {
-    match c.modality.as_str() {
-        "text" => json!({"content": text.feed(&c.data)}),
+/// stream's decoder, so a delta never ends mid-character; a token that
+/// completes no character (or an end token) sends no delta.
+fn chat_delta(c: &ResultChunk, text: &mut Utf8Stream) -> Option<Value> {
+    Some(match c.modality.as_str() {
+        "text" => {
+            let content = text.feed(&c.data);
+            if content.is_empty() {
+                return None;
+            }
+            json!({"content": content})
+        }
         // Streaming audio deltas are base64 16-bit PCM at the model rate.
         "audio" => json!({"audio": {"id": rid("audio"), "data": media::b64(&c.data)}}),
         "image" => json!({"content": media::png_to_data_url(&c.data)}),
         _ => json!({}),
-    }
+    })
 }
 
 fn chunk_json(id: &str, created: i64, model: &str, delta: Value, finish: Option<&str>) -> String {
@@ -1765,6 +1771,18 @@ mod tests {
         assert_eq!(content, "中文 😀");
         assert!(events.iter().all(|e| !e.to_string().contains('\u{FFFD}')));
         assert_eq!(events.last().unwrap()["choices"][0]["finish_reason"], "stop");
+    }
+
+    #[test]
+    fn chat_stream_sends_no_empty_deltas() {
+        // the first piece completes no character, and an end token decodes to nothing
+        let mut chunks = split_text_chunks();
+        chunks.push(ResultChunk { modality: "text".to_string(), data: Vec::new(), metadata: Value::Null });
+        let (content, events) = streamed_content(chunks.into_iter().map(Out::Chunk).collect());
+        assert_eq!(content, "中文 😀");
+        let deltas: Vec<&Value> = events.iter().map(|e| &e["choices"][0]["delta"]).collect();
+        assert_eq!(deltas.len(), 4, "3 text deltas (the role on the first), stop: {deltas:?}");
+        assert!(deltas.iter().all(|d| d.get("content").map_or(true, |c| c != "")), "{deltas:?}");
     }
 
     #[test]
