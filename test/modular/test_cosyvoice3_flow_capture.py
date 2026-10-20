@@ -18,7 +18,7 @@ import torch
 from mstar.engine import accelerator_graph_runner as cgr
 from mstar.engine.accelerator_graph_backend import get_accelerator_graph_backend
 from mstar.engine.accelerator_graph_runner import PiecewiseAcceleratorGraphRunner
-from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, FlowRow, ReferenceVoice
+from mstar.model.cosyvoice3.components.flow import CosyVoice3Flow, CosyVoice3FlowRow, ReferenceVoice
 from mstar.model.cosyvoice3.config import CosyVoice3Config, DiTConfig, FlowConfig
 from mstar.model.cosyvoice3.submodules import MEL, FlowSubmodule, flow_region
 
@@ -142,9 +142,9 @@ def test_a_solve_padded_past_its_rows_gives_every_row_its_own_frames():
     cfg = _config()
     flow = _flow(cfg)
     rows = [
-        FlowRow(_voice(cfg, 10, seed=1), _tokens(60, 1), 40, final=False, streaming=True),
-        FlowRow(_voice(cfg, 23, seed=2), _tokens(31, 2), 31, final=True, streaming=True),
-        FlowRow(_voice(cfg, 5, seed=3), _tokens(12, 3), 12, final=True, streaming=False),
+        CosyVoice3FlowRow(_voice(cfg, 10, seed=1), _tokens(60, 1), 40, final=False, streaming=True),
+        CosyVoice3FlowRow(_voice(cfg, 23, seed=2), _tokens(31, 2), 31, final=True, streaming=True),
+        CosyVoice3FlowRow(_voice(cfg, 5, seed=3), _tokens(12, 3), 12, final=True, streaming=False),
     ]
     alone = [flow.solve_rows([row], 3)[0] for row in rows]
     longest = max(flow.valid_frames(row) for row in rows)
@@ -159,7 +159,7 @@ def test_a_solve_padded_past_its_rows_gives_every_row_its_own_frames():
 def test_a_bucket_shorter_than_a_row_is_refused():
     cfg = _config()
     flow = _flow(cfg)
-    row = FlowRow(_voice(cfg, 10), _tokens(20, 0), 20, final=True, streaming=True)
+    row = CosyVoice3FlowRow(_voice(cfg, 10), _tokens(20, 0), 20, final=True, streaming=True)
     with pytest.raises(ValueError, match="cannot hold a row of 60 frames"):
         flow.prepare_solve([row], frames=59)
 
@@ -309,11 +309,11 @@ def test_captured_solve_equals_the_eager_solve_of_the_same_padded_inputs(estimat
         runners[label] = runner
 
     rows = [
-        FlowRow(_voice(cfg, 10, seed=1, dtype=torch.float32), _tokens(60, 1).to(device), 40, final=False,
+        CosyVoice3FlowRow(_voice(cfg, 10, seed=1, dtype=torch.float32), _tokens(60, 1).to(device), 40, final=False,
                 streaming=True),
-        FlowRow(_voice(cfg, 7, seed=2, dtype=torch.float32), _tokens(31, 2).to(device), 31, final=True,
+        CosyVoice3FlowRow(_voice(cfg, 7, seed=2, dtype=torch.float32), _tokens(31, 2).to(device), 31, final=True,
                 streaming=True),
-        FlowRow(_voice(cfg, 5, seed=3, dtype=torch.float32), _tokens(12, 3).to(device), 12, final=True,
+        CosyVoice3FlowRow(_voice(cfg, 5, seed=3, dtype=torch.float32), _tokens(12, 3).to(device), 12, final=True,
                 streaming=False),
     ]
     # 100 frames (bucket 128, batch 1); 76 and 34 (bucket 96, batch 2); all
