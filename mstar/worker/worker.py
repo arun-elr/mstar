@@ -2531,16 +2531,17 @@ class Worker:
         else:
             # Nothing could be evicted, so the batch has to get smaller or it will
             # refuse identically for ever. Hold the one request the admit named,
-            # not the whole batch, so the retry is immediate. A batch at its cap
-            # also gets a limit, or other ready rows refill it to the same size:
-            # the rows the free pages held, or half when the resource does not
-            # say. Below the cap a limit only leaves running rows out of the
-            # step, where the next eviction picks them first. Symmetric without
-            # coordinating: both ranks refuse the same batch for the same request.
+            # not the whole batch, so the retry is immediate. When other rows
+            # wait to run, the batch also gets a limit, or they refill it to the
+            # same size: the rows the free pages held, or half when the resource
+            # does not say. With none waiting a limit only leaves running rows
+            # out of the step, where the next eviction picks them first.
+            # Symmetric without coordinating: both ranks refuse the same batch
+            # for the same request.
             blamed = getattr(reason, "request_id", None)
             shed = [blamed] if blamed in batch_ids else list(batch_ids)
             self.scheduler.hold_requests(shed)
-            if self.scheduler.at_cap(batch.node_name, batch.graph_walk, len(batch_ids)):
+            if self.scheduler.could_refill(batch.node_name, batch.graph_walk, batch_ids):
                 if too_big:
                     self.scheduler.cap_batch(batch.node_name, batch.graph_walk, alone)
                 fit = getattr(reason, "rows_fit", None)

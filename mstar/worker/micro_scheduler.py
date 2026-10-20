@@ -380,13 +380,27 @@ class MicroScheduler:
         limit = max(rows, 1)
         self.batch_limits[key] = min(limit, self.batch_limits.get(key, limit))
 
-    def at_cap(self, node_name: str, graph_walk: str, rows: int) -> bool:
-        """Whether a batch of ``rows`` filled ``(node_name, graph_walk)``'s cap,
-        so ready rows past it could refill a retry to the same size. Below the
-        cap the batch took every ready row, and holding the blamed one is
-        what makes the retry smaller."""
-        cap = self._max_batch_size(node_name, graph_walk)
-        return cap is not None and rows >= cap
+    def could_refill(self, node_name: str, graph_walk: str, batch_rids: set[int]) -> bool:
+        """Whether rows of ``(node_name, graph_walk)``'s scheduling key other
+        than ``batch_rids`` wait to run, so they could refill a retry of that
+        batch to its size. When none do, the batch took every row it could,
+        and holding the blamed one is what makes the retry smaller.
+
+        Asked of the graph, not the engine: an engine readiness check would
+        start reloading an offloaded row. Offloaded rows are left out; they
+        come back only once their pages fit. Refusal path only.
+        """
+        key = self._key(node_name, graph_walk)
+        if self._live_backlog(key) - batch_rids:
+            return True
+        exclude = self.pending_removes | set(self.held_until) | self.failed_rids | batch_rids
+        engine = self.engine_manager.get_engine(node_name)
+        return any(
+            not engine.is_offloaded(spec.node_name, rid)
+            for spec in self._ready_specs(exclude, key, None)
+            if spec.node_name == node_name
+            for rid in spec.rids
+        )
 
     def cap_batch(self, node_name: str, graph_walk: str, rows: int) -> None:
         """Keep ``(node_name, graph_walk)``'s batches to ``rows`` (at least

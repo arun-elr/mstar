@@ -197,7 +197,7 @@ def test_a_refused_new_iteration_does_not_push_back_a_row_whose_loop_stopped(new
 
 # the scheduler's batch-size calls, for stubs whose tests are about the holds
 _NO_LIMITS = dict(
-    at_cap=lambda *args: False, cap_batch=lambda *args: None, limit_batch=lambda *args: None,
+    could_refill=lambda *args: False, cap_batch=lambda *args: None, limit_batch=lambda *args: None,
 )
 
 
@@ -322,6 +322,18 @@ def test_a_hold_on_another_walk_is_logged_inside_the_interval(monkeypatch, caplo
 # --- a refused batch with nothing to evict is retried smaller ---------------
 
 
+class _SchedEngine(_Engine):
+    """The scheduler's engine fake, with the offload state the refill check reads."""
+
+    def __init__(self, *args, offloaded=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.offloaded = set(offloaded)
+
+    def is_offloaded(self, node_name, rid):
+        del node_name
+        return rid in self.offloaded
+
+
 def _sized_refusal(rid, rows_fit=None, rows_fit_alone=None) -> AllocationFailed:
     error = _alloc_failed(rid)
     error.rows_fit, error.rows_fit_alone = rows_fit, rows_fit_alone
@@ -334,7 +346,7 @@ def _refusing_loop(fits: int, ready: int, cap: int, passes: int, sized: bool = T
     with nothing to evict. ``sized`` refusals say how many rows fit, as the
     paged KV cache's do. Returns the scheduler, the batch sizes refused, and
     the first batch admitted (None if none was)."""
-    sched = _scheduler(_Engine(max_bs=cap))
+    sched = _scheduler(_SchedEngine(max_bs=cap))
     manager = _Manager([f"r{i}" for i in range(ready)])
     worker = _HoldingWorker()
     worker.scheduler = sched
@@ -393,7 +405,7 @@ def test_an_admitted_step_lifts_the_limit():
 
 
 def test_the_limit_never_drops_below_one_row():
-    sched = _scheduler(_Engine(max_bs=4))
+    sched = _scheduler(_SchedEngine(max_bs=4))
     sched.limit_batch(SCHED_NODE, SCHED_WALK, 0)
     sched.cap_batch(SCHED_NODE, SCHED_WALK, 0)
 
@@ -406,7 +418,7 @@ def test_a_refused_batch_below_its_cap_is_not_limited():
     batch, so holding the blamed one is what makes the retry smaller. A limit
     of eight on top kept a running row out of the steps after the hold, and
     a row outside the batch is the one the next eviction takes first."""
-    sched = _scheduler(_Engine(max_bs=32))
+    sched = _scheduler(_SchedEngine(max_bs=32))
     manager = _Manager([f"d{i}" for i in range(9)])
     worker = _HoldingWorker()
     worker.scheduler = sched
@@ -423,6 +435,32 @@ def test_a_refused_batch_below_its_cap_is_not_limited():
 
     retry = _next_batch(sched, manager)
     assert len(retry.request_to_worker_graph) == 9, "a running row was kept out of the step"
+
+
+def test_a_mixed_step_held_under_its_cap_by_row_caps_is_limited():
+    """The combined cap is eight, but prefill's cap and each walk's row cap
+    are one, so with three ready rows of each walk every step is a mixed
+    step of two. Its refusal left no limit while the batch was under the
+    combined cap, and the waiting rows refilled every retry to two."""
+    sched = _combined_scheduler(_SchedEngine(
+        max_bs={"prefill": 1, SCHED_WALK: 8, MIXED: 8}, row_caps={"prefill": 1, SCHED_WALK: 1},
+    ))
+    manager = _Manager(
+        ["p0", "p1", "p2", "d0", "d1", "d2"], walks={f"p{i}": "prefill" for i in range(3)},
+    )
+    worker = _HoldingWorker()
+    worker.scheduler = sched
+    worker._graph_runtime = manager.runtime
+    batch = _next_batch(sched, manager)
+    rids = list(batch.request_to_worker_graph)
+    assert batch.graph_walk == MIXED and len(rids) == 2
+
+    worker._handle_allocation_failure(batch, SimpleNamespace(
+        node_name=SCHED_NODE, failed_resource="kv",
+        admit_error=_sized_refusal(rids[1], rows_fit=1, rows_fit_alone=2),
+    ))
+
+    assert len(_next_batch(sched, manager).request_to_worker_graph) == 1
 
 
 class _EvictingWorker(_HoldingWorker):
@@ -452,7 +490,7 @@ def test_a_batch_the_pool_cannot_hold_alone_is_capped_not_evicted_for():
     into the pages it freed. Nothing outside the batch is evicted now, and
     the walk stays capped at fifteen after a step of fifteen admits."""
     usable, row = 191, 12
-    sched = _scheduler(_Engine(max_bs=16))
+    sched = _scheduler(_SchedEngine(max_bs=16))
     manager = _Manager([f"p{i}" for i in range(48)])
     worker = _EvictingWorker(holders=[f"d{i}" for i in range(4)])
     worker.scheduler = sched
@@ -506,7 +544,7 @@ def test_a_step_of_one_walk_lifts_its_combined_walks_limit():
     """A mixed batch limited to one row: every step under it holds one walk
     and carries that walk's label. The first of them to admit has to lift
     the limit, or the walks never batch together again."""
-    sched = _combined_scheduler(_Engine(max_bs=8))
+    sched = _combined_scheduler(_SchedEngine(max_bs=8))
     sched.limit_batch(SCHED_NODE, MIXED, 1)
 
     limited = _next_batch(sched, _Manager(["p0", "d0"], walks={"p0": "prefill"}))
