@@ -270,6 +270,23 @@ def test_edge_windowed_schedule_covers_every_requested_frame(tmp_path, num_frame
     assert 1 + (p["total_latent_units"] - 1) * tf >= num_frames
 
 
+def test_edge_resumed_session_re_pins_the_chained_overlap(tmp_path) -> None:
+    """A resumed session conditions window 0 on the stored tail, as many latent
+    frames as the chained overlap (at least 2): 8 under Edge's 61/32 default,
+    2 with 29/8, and the schedule grows by them."""
+    model = _model(tmp_path, enable_windowed_video=True)
+    resume = {"stream_video": True, "session_id": "s", "resume_session": True}
+    p = model._resolve_gen_params({"num_frames": 61, **resume}, ["text"], ["video"])
+    assert (p["resume_latent_units"], p["overlap_latent_units"]) == (8, 8)
+    assert p["total_latent_units"] == 16 + 8
+    p = model._resolve_gen_params(
+        {"num_frames": 61, "window_frames": 29, "overlap_frames": 8, **resume}, ["text"], ["video"])
+    # 16 + 2, padded to whole windows (8 latent frames, stride 6)
+    assert (p["resume_latent_units"], p["total_latent_units"]) == (2, 20)
+    p = model._resolve_gen_params({"num_frames": 61, "stream_video": True, "session_id": "s"}, ["text"], ["video"])
+    assert p["resume_latent_units"] == 0
+
+
 def test_kv_windows_flagged_experimental_at_startup(tmp_path, caplog) -> None:
     with caplog.at_level(logging.WARNING, logger="mstar.model.cosmos3.cosmos3_model"):
         _model(tmp_path / "plain")
