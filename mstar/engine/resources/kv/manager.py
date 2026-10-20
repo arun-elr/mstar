@@ -1834,24 +1834,33 @@ class KVManager(AttentionResource):
         than the whole pool has: no eviction can make that fit, so retrying it
         only spins until the client gives up. Caller holds ``_lock``.
 
-        A request's footprint is every page it would hold after the step,
-        including the ones it holds already; the pool is every page but the
-        sink, cached prefixes included, since those can be evicted.
+        A request's footprint is every distinct page it would hold after the
+        step: the ones its streams hold already, counted once where labels or
+        requests share them, plus the ones each stream still needs. The pool
+        is every page but the sink, cached prefixes included, since those can
+        be evicted.
         """
         if not isinstance(error, AllocationFailed):
             return error
         page_size = self.config.page_size
-        footprint: dict[str, int] = {}
+        held: dict[str, set[int]] = {}
+        needed: dict[tuple[str, str], int] = {}
         for segment in step.segments:
-            if ctx.is_padding_row(segment.request_id):
+            rid = segment.request_id
+            if ctx.is_padding_row(rid):
                 continue
-            stream = self._streams.get(segment.request_id, {}).get(segment.label)
-            held = 0 if stream is None else len(stream.page_indices)
+            stream = self._streams.get(rid, {}).get(segment.label)
+            pages = () if stream is None else stream.page_indices
             stored = 0 if stream is None else stream.stored_len
-            pages = max(held, -(-(stored + segment.span) // page_size))
-            footprint[segment.request_id] = footprint.get(segment.request_id, 0) + pages
+            held.setdefault(rid, set()).update(pages)
+            key = (rid, segment.label)
+            more = -(-(stored + segment.span) // page_size) - len(pages)
+            needed[key] = max(needed.get(key, 0), more)
+        extra: dict[str, int] = {}
+        for (rid, _), more in needed.items():
+            extra[rid] = extra.get(rid, 0) + max(more, 0)
         capacity = self.config.max_num_pages - 1
-        own = footprint.get(error.request_id, 0)
+        own = len(held.get(error.request_id, ())) + extra.get(error.request_id, 0)
         if own > capacity:
             return AdmitRuntimeError(
                 message=(
@@ -1861,13 +1870,15 @@ class KVManager(AttentionResource):
                 ),
                 request_ids=frozenset({error.request_id}),
             )
-        rows = list(footprint)
+        rows = list(held)
         if error.request_id in rows:
             error.rows_fit = rows.index(error.request_id)
-        total = alone = 0
+        resident: set[int] = set()
+        new = alone = 0
         for rid in rows:
-            total += footprint[rid]
-            if total > capacity:
+            resident |= held[rid]
+            new += extra.get(rid, 0)
+            if len(resident) + new > capacity:
                 break
             alone += 1
         error.rows_fit_alone = alone

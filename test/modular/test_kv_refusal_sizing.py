@@ -133,3 +133,24 @@ def test_a_growing_request_counts_the_pages_it_holds():
     outcome = _admit(mgr, {"long": 1})
 
     assert isinstance(outcome.reason, AdmitRuntimeError)
+
+
+def test_pages_two_labels_share_are_counted_once():
+    """Seven usable pages. Two labels of one request share three pages and
+    each needs one more: five pages, not eight, so with another request
+    holding three the step is retried, not failed for good."""
+    mgr = _manager(8)
+    assert _admit(mgr, {"other": 3 * PAGE_SIZE}, commit=True).ok
+    assert _admit(mgr, {"r": 3 * PAGE_SIZE}, commit=True).ok
+    a = mgr._streams["r"]["main"]
+    b = mgr._ensure_label("r", "fork")
+    b.page_indices = list(a.page_indices)
+    b.stored_len = a.stored_len
+    mgr._arena.retain(b.page_indices)
+    step = KVStep(segments=(Segment("r", "main", PAGE_SIZE), Segment("r", "fork", PAGE_SIZE)))
+
+    outcome = mgr.admit(step, _ctx("r"))
+    mgr.rollback_admit(step, _ctx("r"))
+
+    assert isinstance(outcome.reason, AllocationFailed), outcome.reason
+    assert (outcome.reason.rows_fit, outcome.reason.rows_fit_alone) == (0, 1)
