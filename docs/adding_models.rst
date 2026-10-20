@@ -217,6 +217,16 @@ The following methods have defaults and are optional to override:
 ``get_request_resource_configs`` (described below), ``get_sampling_config``,
 ``get_max_output_tokens``, ``get_autocast_dtype``, ``load_image``, ``load_audio``,
 ``load_video``, and the partition methods described at the end of this page.
+
+The data worker refuses, with a 400 before admission, a request that cannot fit a
+paged KV cache's ``max_seq_len``, but only for a model that says how far its prompt and
+output reach. A model whose prompt is plain token ids in ``text_inputs`` sets
+``PROMPT_KV_CACHE`` to the cache's resource key. A model with attachments, conditioning
+or a second cache overrides ``context_use`` and returns a
+``ContextUse(prompt, generated)`` per cache, counting positions as its prefill
+advances them (Qwen3.5, BAGEL, Qwen3-Omni and Qwen3-TTS do). A model that declares
+neither is not checked.
+
 ``Model.nodes`` is a read-only property. It returns the sorted set of node names that
 appear in any graph walk.
 
