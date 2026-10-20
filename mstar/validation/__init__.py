@@ -37,6 +37,17 @@ def _unreadable(step: str, e: Exception) -> str:
     return f"{step} could not read the config: {type(e).__name__}: {e}"
 
 
+def _checked(step: str, check, *args) -> list[str]:
+    """``check(*args)``'s problems; a model hook it calls may read checkpoint
+    files (FLUX.2 klein's walk graphs), and that failure is one more problem."""
+    try:
+        return check(*args)
+    except (ValueError, OSError) as e:
+        return [f"{step} failed: {type(e).__name__}: {e}"]
+    except _UNREADABLE as e:
+        return [_unreadable(step, e)]
+
+
 class Deployment(NamedTuple):
     worker_graphs: list[WorkerGraph]
     sharding_config: ShardingConfig
@@ -63,6 +74,8 @@ def validate_deployment(
             model.validate_config_yaml(config, config_path)
         except ValueError as e:
             problems.append(str(e))
+        except OSError as e:
+            problems.append(f"validate_config_yaml failed: {type(e).__name__}: {e}")
         except _UNREADABLE as e:
             problems.append(_unreadable("validate_config_yaml", e))
 
@@ -78,6 +91,8 @@ def validate_deployment(
             problems += e.problems
         except ValueError as e:
             problems.append(str(e))
+        except OSError as e:
+            problems.append(f"reading node_groups and sharding_config failed: {type(e).__name__}: {e}")
         except _UNREADABLE as e:
             problems.append(_unreadable("reading node_groups and sharding_config", e))
         else:
@@ -85,19 +100,24 @@ def validate_deployment(
     # After get_worker_graphs: a model may declare resources by placement
     # (BAGEL's disaggregated prefill), and workers get the model as it is now.
     # a model may read checkpoint files here (LTX-2.5): its failure joins the
-    # problems found so far, and the checks that need the specs are skipped
+    # problems found so far, and only the checks that need the specs are skipped
+    specs = None
     try:
         specs = model.get_node_resources()
     except (ValueError, OSError) as e:
-        problems.append(f"declaring the node resources failed: {type(e).__name__}: {e}")
+        problems.append(
+            f"declaring the node resources failed: {type(e).__name__}: {e}; "
+            "the `resources:` checks, which need the declarations, were skipped"
+        )
     except _UNREADABLE as e:
         problems.append(_unreadable("get_node_resources", e))
-    else:
-        problems += check_resources(model, specs, config)
-        if deployment is not None:
-            problems += check_worker_graphs(
-                model, deployment.worker_graphs, deployment.sharding_config, specs,
-            )
+    if specs is not None:
+        problems += _checked("checking the node resources", check_resources, model, specs, config)
+    if deployment is not None:
+        problems += _checked(
+            "checking the worker graphs", check_worker_graphs,
+            model, deployment.worker_graphs, deployment.sharding_config, specs,
+        )
 
     if problems:
         raise DeploymentError(config_path, problems)

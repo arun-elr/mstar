@@ -200,8 +200,37 @@ def test_a_model_that_cannot_declare_its_resources_is_reported_with_the_rest(tmp
     assert problems == [
         "the config must define `max_seq_len`",
         "declaring the node resources failed: FileNotFoundError: [Errno 2] No such file or directory: "
-        "'ckpt/vae/config.json'",
+        "'ckpt/vae/config.json'; the `resources:` checks, which need the declarations, were skipped",
     ], problems
+
+
+def test_a_checkpoint_read_failing_after_the_declarations_is_reported_with_the_rest(tmp_path):
+    """FLUX.2 klein with a gated repo: the resource checks call model hooks
+    (``kv_labels``, ``get_graph_walk_graphs``) that read the checkpoint."""
+    class _GatedCheckpoint(_Model):
+        def kv_labels(self):
+            raise OSError("401 Client Error: access to model ckpt is restricted")
+
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text(yaml.safe_dump({"node_groups": [{"node_names": ["llm"], "ranks": [0]}]}))
+    assert _problems(_GatedCheckpoint(), str(cfg)) == [
+        "the config must define `max_seq_len`",
+        "checking the node resources failed: OSError: 401 Client Error: access to model ckpt is restricted",
+    ]
+
+
+def test_worker_graph_checks_still_run_when_the_declarations_fail(tmp_path):
+    """Only the checks that need the specs are skipped."""
+    class _MissingCheckpoint(_Model):
+        def get_node_resources(self):
+            raise FileNotFoundError(2, "No such file or directory", "ckpt/vae/config.json")
+
+    model = _MissingCheckpoint(lambda: {"w": _loop_feeding_post(accumulate=False)})
+    problems = _problems(model, _cfg(tmp_path, [{"node_names": ["step", "post"], "ranks": [0]}]))
+    assert len(problems) == 2, problems
+    assert problems[0].startswith("declaring the node resources failed: FileNotFoundError")
+    assert problems[0].endswith("the `resources:` checks, which need the declarations, were skipped")
+    assert "node 'step' of Loop 'loop' sends 'y' to 'post'" in problems[1]
 
 
 def test_unreadable_sharding_config_is_reported_with_the_rest(tmp_path):
@@ -409,7 +438,8 @@ def test_prefix_stream_naming_an_unknown_walk_is_refused_in_the_conductor(tmp_pa
 def test_prefix_stream_laying_out_over_an_unknown_walk_is_refused_in_the_conductor(tmp_path, monkeypatch):
     label = KVLabel(keys=PrefixKeys("text_inputs", ("prefill", "prefill_imag")))
     model = _Model(specs=[_Spec("kv", {"llm"})], kv_labels={"kv": {"main": label}})
-    with pytest.raises(DeploymentError, match=r"_Model declares 'kv'/'main' over \['prefill_imag'\], which it never runs"):
+    unknown = r"_Model declares 'kv'/'main' over \['prefill_imag'\], which it never runs"
+    with pytest.raises(DeploymentError, match=unknown):
         _start_conductor(model, _cfg(tmp_path), tmp_path, monkeypatch)
 
 
