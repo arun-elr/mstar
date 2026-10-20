@@ -202,6 +202,39 @@ def test_load_audio_refuses_a_rate_whose_resampling_kernel_is_unbounded(tmp_path
         assert model.load_audio(str(path), "cpu").metadata["sample_rate"] == model.config.codec.sample_rate
 
 
+def _headerless_flac(path: Path, seconds: float, channels: int = 1, rate: int = 44_100):
+    """A real FLAC whose STREAMINFO carries no sample count (written to a pipe),
+    for which libsndfile reports 2**63 - 1 frames."""
+    sf = pytest.importorskip("soundfile")
+    wave_ = (torch.sin(torch.arange(int(seconds * rate)) / 20) * 8000).to(torch.int16)
+    samples = torch.stack([wave_, wave_ // 2], dim=1)[:, :channels].numpy()
+    sf.write(str(path), samples, rate, format="FLAC", subtype="PCM_16")
+    data = bytearray(path.read_bytes())
+    # STREAMINFO starts at byte 8; its 36-bit sample count ends at byte 25 (the
+    # low nibble of byte 21 holds its top bits), and 26..41 is the MD5
+    data[21] &= 0xF0
+    data[22:42] = bytes(20)
+    path.write_bytes(bytes(data))
+    assert sf.info(str(path)).frames == 2**63 - 1
+    return str(path), torch.from_numpy(samples).float() / 32768
+
+
+@pytest.mark.parametrize("channels", [1, 2])
+def test_load_audio_decodes_a_clip_without_a_sample_count(tmp_path, channels):
+    path, samples = _headerless_flac(tmp_path / "piped.flac", 5, channels)
+    audio = tiny_model().load_audio(path, "cpu").data
+    # libsndfile cannot decode the last frame of such a FLAC (4096 samples from its own encoder)
+    assert 5 * 44_100 - 4096 <= audio.numel() <= 5 * 44_100
+    torch.testing.assert_close(audio, samples[: audio.numel()].mean(dim=1), atol=1e-6, rtol=0)
+
+
+@pytest.mark.parametrize("seconds, shown", [(45, r"30\.\d\d"), (0.3, r"0\.\d\d")])
+def test_load_audio_refuses_a_clip_without_a_sample_count_at_its_decoded_length(tmp_path, seconds, shown):
+    path, _ = _headerless_flac(tmp_path / "piped.flac", seconds)
+    with pytest.raises(ValueError, match=rf"reference clip is {shown} s; it must be between 0.5 and 30 s"):
+        tiny_model().load_audio(path, "cpu")
+
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------

@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import math
 from pathlib import Path
 from typing import Any
 
@@ -102,19 +101,6 @@ def clip_digest(clip: torch.Tensor) -> str:
     """Content key of a reference clip, under which its codes are memoised."""
     samples = clip.detach().to(device="cpu", dtype=torch.float32).contiguous()
     return hashlib.blake2b(samples.numpy().tobytes(), digest_size=16).hexdigest()
-
-
-# torchaudio's resampling kernel holds about (rate / g) * (target / g) taps for
-# g = gcd(rate, target): a coprime rate like 44101 Hz makes it gigabytes. Every
-# real rate, pull-down rates included, stays far below this.
-_MAX_SAMPLE_RATE = 768_000
-_MAX_RESAMPLE_KERNEL = 1 << 24
-
-
-def _check_resample_rate(rate: int, target: int) -> None:
-    g = math.gcd(rate, target) if rate > 0 else 1
-    if not 1 <= rate <= _MAX_SAMPLE_RATE or (rate // g) * (target // g) > _MAX_RESAMPLE_KERNEL:
-        raise ValueError(f"unsupported sample rate {rate} Hz; resample the audio to a standard rate")
 
 
 logger = logging.getLogger(__name__)
@@ -290,13 +276,24 @@ class FishS2ProModel(Model):
         import soundfile
         import torchaudio.functional as audio_functional
 
+        from mstar.api_server.media_io import check_resample_rate, read_soundfile_capped
+        from mstar.model.media_limits import read_sound_file, sound_file_seconds
+
         # Bound the clip before decoding it: a small compressed file can hold hours of audio.
         info = soundfile.info(filepath)
         target = self.config.codec.sample_rate
-        _check_resample_rate(info.samplerate, target)
-        self._check_reference_duration(info.frames / info.samplerate)
-        waveform, sample_rate = soundfile.read(filepath, dtype="float32", always_2d=True)
-        audio = torch.from_numpy(waveform).mean(dim=1)
+        check_resample_rate(info.samplerate, target)
+        seconds = sound_file_seconds(info.frames, info.samplerate)
+        if seconds is not None:
+            self._check_reference_duration(seconds)
+            # the header can understate the length, so the decode stops at the bound too
+            waveform, sample_rate = read_soundfile_capped(filepath, self.config.reference_max_seconds)
+            audio = torch.from_numpy(waveform)
+        else:
+            # no sample count in the header (a FLAC written to a pipe): count it as it decodes
+            waveform, sample_rate = read_sound_file(filepath, self.config.reference_max_seconds)
+            self._check_reference_duration(len(waveform) / sample_rate)
+            audio = torch.from_numpy(waveform).mean(dim=1)
         if sample_rate != target:
             audio = audio_functional.resample(audio, sample_rate, target)
         return TensorAndMetadata(data=audio.to(device), metadata={"sample_rate": target, "num_channels": 1})
