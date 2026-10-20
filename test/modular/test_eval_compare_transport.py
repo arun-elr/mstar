@@ -6,6 +6,7 @@ or transfer-failure lines in the log), judged head against base."""
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import signal
@@ -250,6 +251,8 @@ def test_streams_that_end_before_the_cut_leave_the_cancel_case_incomplete(tmp_pa
 # ---------------------------------------------------------------- worker health
 
 def test_health_findings_name_exited_processes_leftover_shm_and_crash_lines(tmp_path, monkeypatch):
+    # an APIServer built earlier in this process leaves its launch token in os.environ
+    monkeypatch.delenv("MSTAR_DEPLOYMENT_TOKEN", raising=False)
     shm = tmp_path / "shm"
     shm.mkdir()
     monkeypatch.setattr(arm, "SHM", shm)
@@ -265,7 +268,7 @@ def test_health_findings_name_exited_processes_leftover_shm_and_crash_lines(tmp_
         sock = tmp_path / "scratch" / "sock"
         sock.mkdir(parents=True)
         (sock / "conductor.ipc").touch()
-        ns = arm.hashlib.sha1(f"ipc://{os.path.realpath(sock / 'conductor.ipc')}".encode()).hexdigest()[:12]
+        ns = hashlib.sha1(f"ipc://{os.path.realpath(sock / 'conductor.ipc')}".encode()).hexdigest()[:12]
         server = Namespace(pid=p.pid, command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
         log = tmp_path / "server.log"
         log.write_text("INFO started\nERROR Segmentation fault (old, before the case)\n")
@@ -276,6 +279,7 @@ def test_health_findings_name_exited_processes_leftover_shm_and_crash_lines(tmp_
         (shm / f"mstar_{ns}_worker_0_7").touch()                             # its tensor file left behind
         (shm / "mstar_0123456789ab_worker_0_9").touch()                      # another deployment's tensor file
         (shm / f"mstar_arena_worker_1_{os.getpid()}_bb").touch()             # a live process of another server
+        (shm / f"mstar_{ns}_arena_worker_0_ab12cd34.seg1").touch()          # a segment its arena grew into
         (shm / "nccl-123").touch()                                           # not mstar's
         (shm / f"mstar_arena_worker_0_{child}_cc").touch()                   # orphaned by the worker below
         gone = shm / f"mstar_{ns}_worker_0_8"                                 # given back during the wait
@@ -305,6 +309,27 @@ def test_the_deployment_token_matches_the_one_mstar_names_tensor_files_with(tmp_
     comm._endpoint = lambda entity: BaseCommunicator._endpoint(comm, entity)
     server = Namespace(command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
     assert arm._namespaces(server) == {tensors._deployment_namespace(comm)}
+
+
+def test_the_namespace_follows_the_launch_token_the_server_spawned_its_workers_with(tmp_path, monkeypatch):
+    """With a launch token in the SHM namespace (#552) the API server mints MSTAR_DEPLOYMENT_TOKEN after it starts,
+    so only the processes it spawns carry it, and the namespace is the SHA-1 of the token and the endpoint. A build
+    that does not name files with it may still inherit one, so the endpoint-only namespace stays too."""
+    monkeypatch.delenv("MSTAR_DEPLOYMENT_TOKEN", raising=False)
+    sock = tmp_path / "sock"
+    sock.mkdir()
+    (sock / "conductor.ipc").touch()
+    endpoint = f"ipc://{os.path.realpath(sock / 'conductor.ipc')}"
+    token = "0123456789abcdef"
+    worker = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True,
+                              env={**os.environ, "MSTAR_DEPLOYMENT_TOKEN": token})
+    try:
+        server = Namespace(pid=worker.pid, command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
+        assert arm._namespaces(server) == {hashlib.sha1(k.encode()).hexdigest()[:12]
+                                           for k in (endpoint, f"{token}\0{endpoint}")}
+    finally:
+        worker.kill()
+        worker.wait()
 
 
 def test_rdma_nic_requirement_skips_a_host_without_a_device(tmp_path, monkeypatch):

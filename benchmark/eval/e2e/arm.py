@@ -22,7 +22,6 @@ sessions alternate the arm order (ABBA with two sessions). Layout under ``job["o
 from __future__ import annotations
 
 import fcntl
-import hashlib
 import json
 import os
 import re
@@ -144,16 +143,8 @@ def _group_pids(sid: int, min_age_s: float = 0.0) -> set[int]:
 
 
 def _namespaces(server: ManagedServer) -> set[str]:
-    """This server's deployment token in its tensor file names (``mstar_<token>_<entity>_<uuid>``): the SHA-1 of
-    its conductor's IPC endpoint (``tensors._deployment_namespace``), found under its ``--socket-path-prefix``.
-    Empty when there is no such socket (another layout): its tensor files then go unchecked, never misattributed."""
-    try:
-        cmd = server.command()
-        prefix = Path(cmd[cmd.index("--socket-path-prefix") + 1])
-    except (AttributeError, AssertionError, ValueError, IndexError):
-        return set()
-    return {hashlib.sha1(f"ipc://{os.path.realpath(p)}".encode()).hexdigest()[:12]
-            for p in prefix.rglob("conductor.ipc")}
+    """This server's deployment namespace in its tensor file names (``stress.server_namespaces``)."""
+    return stress.server_namespaces(server)
 
 
 def _shm_owner(name: str) -> int | None:
@@ -188,7 +179,7 @@ def _new_shm(before: set[str], ours: set[int], namespaces: set[str]) -> set[str]
     for n in _shm_names() - before:
         pid = _shm_owner(n)
         if pid is None:
-            if any(n.startswith(f"mstar_{ns}_") for ns in namespaces):
+            if stress.namespace_file(n, namespaces):
                 out.add(n)
         elif pid in ours and not _alive(pid):
             out.add(n)

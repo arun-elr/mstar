@@ -339,16 +339,40 @@ async def workload(url: str, cfg: dict, refs: Refs, tag: str, seed: int) -> dict
 # ---------------------------------------------------------------- the server side (on the GPU host)
 
 def server_namespaces(server) -> set[str]:
-    """This server's deployment token in its tensor file names (``mstar_<token>_<entity>_<uuid>``): the SHA-1 of
-    its conductor's IPC endpoint (``tensors._deployment_namespace``), found under its ``--socket-path-prefix``.
-    Empty when there is no such socket (another layout): its tensor files then go uncounted, never misattributed."""
+    """This server's deployment namespace in its tensor file names (``mstar_<ns>_<entity>_<uuid>``): the SHA-1 of
+    its launch token (``launch_token``) and its conductor's IPC endpoint (``tensors._deployment_namespace``), found
+    under its ``--socket-path-prefix``. With a token, the endpoint-only SHA-1 is kept beside it: a build without the
+    token in its names inherits one from a harness environment that carries it. Empty when there is no such socket
+    (another layout): its tensor files then go uncounted, never misattributed."""
     try:
         cmd = server.command()
         prefix = Path(cmd[cmd.index("--socket-path-prefix") + 1])
     except (AttributeError, AssertionError, ValueError, IndexError):
         return set()
-    return {hashlib.sha1(f"ipc://{os.path.realpath(p)}".encode()).hexdigest()[:12]
-            for p in prefix.rglob("conductor.ipc")}
+    token = launch_token(server.pid) if getattr(server, "pid", None) else None
+    keys = [f"ipc://{os.path.realpath(p)}" for p in prefix.rglob("conductor.ipc")]
+    keys += [f"{token}\0{k}" for k in keys] if token else []
+    return {hashlib.sha1(k.encode()).hexdigest()[:12] for k in keys}
+
+
+def launch_token(pgid: int) -> str | None:
+    """``MSTAR_DEPLOYMENT_TOKEN`` from the environment of a process in the server's group: the API server mints it
+    after it starts, so only the processes it spawns carry it. None for a build that sets no token."""
+    for pid in sorted(group_pids(pgid)):
+        try:
+            env = Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        for kv in env:
+            if kv.startswith(b"MSTAR_DEPLOYMENT_TOKEN="):
+                return kv.split(b"=", 1)[1].decode()
+    return None
+
+
+def namespace_file(name: str, namespaces: set[str]) -> bool:
+    """A tensor file under one of ``namespaces``. Arena segments named under it (``mstar_<ns>_arena_*``) are not:
+    an arena keeps the segments it grew into until shutdown."""
+    return any(name.startswith(f"mstar_{ns}_") and not name.startswith(f"mstar_{ns}_arena_") for ns in namespaces)
 
 
 def shm_owner(name: str) -> int | None:
@@ -363,8 +387,8 @@ def shm_owner(name: str) -> int | None:
 def shm_entries(root: str, namespaces: set[str], pids: set[int]) -> int:
     """This server's M* files in ``root``: tensor files under one of its deployment tokens, and per-process ones
     of its processes. Other servers on the host (other GPU slots, other users' jobs) name theirs with another
-    token or pid. Arena segments (``mstar_arena_*``) are left out: an arena keeps the segments it grew into until
-    shutdown, so their count rises under load without a leak."""
+    token or pid. Arena segments (``mstar_arena_*``, ``mstar_<ns>_arena_*``) are left out: an arena keeps the
+    segments it grew into until shutdown, so their count rises under load without a leak."""
     try:
         names = [n for n in os.listdir(root) if n.startswith("mstar_") and not n.startswith("mstar_arena_")]
     except OSError:
@@ -372,7 +396,7 @@ def shm_entries(root: str, namespaces: set[str], pids: set[int]) -> int:
     n = 0
     for name in names:
         pid = shm_owner(name)
-        n += any(name.startswith(f"mstar_{ns}_") for ns in namespaces) if pid is None else pid in pids
+        n += namespace_file(name, namespaces) if pid is None else pid in pids
     return n
 
 
