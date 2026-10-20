@@ -408,17 +408,25 @@ def decode_torchcodec_capped(path: str, sample_rate: int, max_seconds: float = M
     ``sample_rate``, so what is counted is decoded output, not the rate or
     duration the container declares.
     """
+    return torchcodec_samples_capped(path, max_seconds, sample_rate=sample_rate, num_channels=1).data[0]
+
+
+def torchcodec_samples_capped(path: str, max_seconds: float = MAX_AUDIO_SECONDS, **decoder_args):
+    """``AudioDecoder(path, **decoder_args)``'s samples from the stream's first
+    frame, as ``get_all_samples()`` returns them, decoding just past
+    ``max_seconds`` of play time; refused with :class:`AudioTooLongError` when
+    the audio plays longer or holds more samples than that."""
     from torchcodec.decoders import AudioDecoder
 
-    decoder = AudioDecoder(path, sample_rate=sample_rate, num_channels=1)
+    decoder = AudioDecoder(path, **decoder_args)
     # play time counts from the stream's first timestamp, which need not be 0
     start = max(0.0, getattr(decoder.metadata, "begin_stream_seconds_from_header", None) or 0.0)
     samples = decoder.get_samples_played_in_range(start, start + max_seconds + 1.0)
-    data = samples.data[0]
+    rate = decoder_args.get("sample_rate") or samples.sample_rate
     played = samples.pts_seconds - start + samples.duration_seconds
-    if played > max_seconds or data.numel() > max_seconds * sample_rate:
+    if played > max_seconds or samples.data.shape[-1] > max_seconds * rate:
         raise AudioTooLongError(max_seconds)
-    return data
+    return samples
 
 
 def decode_audio(path: str, sample_rate: int = 16000, max_seconds: float = MAX_AUDIO_SECONDS):

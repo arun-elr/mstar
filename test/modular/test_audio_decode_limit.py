@@ -104,6 +104,7 @@ def _fake_torchcodec(monkeypatch, seconds, header_seconds=None):
         def _samples(self, play):
             return types.SimpleNamespace(
                 data=torch.zeros(1, int(play * self.rate)), pts_seconds=0.0, duration_seconds=play,
+                sample_rate=self.rate,
             )
 
         def get_all_samples(self):
@@ -287,6 +288,47 @@ def test_qwen3_tts_reference_decode_stops_at_its_bound(monkeypatch, clip):
     with pytest.raises(AudioTooLongError, match="30 s"):
         Qwen3TTSModel.load_audio(model, clip, "cpu")
     assert sf.frames_read <= 30 * 24000 + 1
+
+
+def test_omnilingual_asr_decode_stops_at_its_clip_bound(monkeypatch, clip):
+    from mstar.model.omnilingual_asr import audio
+    from mstar.model.omnilingual_asr.config import MAX_AUDIO_SECONDS as CLIP_SECONDS
+
+    # the header says 10 s; the samples run on for an hour
+    sf = _use_soundfile(monkeypatch, _FakeSoundfile(3600, header_seconds=10))
+    calls = _fake_torchcodec(monkeypatch, 3600)
+    with pytest.raises(AudioTooLongError, match="40 s"):
+        audio.decode_file(clip)
+    assert sf.frames_read <= CLIP_SECONDS * 16000 + 1
+    assert calls["all"] == 0 and not calls["stops"]
+    # a container soundfile cannot read goes to torchcodec, capped the same way
+    _use_soundfile(monkeypatch, _NoSoundfile())
+    calls = _fake_torchcodec(monkeypatch, 3600)
+    with pytest.raises(AudioTooLongError, match="40 s"):
+        audio.decode_file(clip)
+    assert calls["all"] == 0 and calls["stops"] == [CLIP_SECONDS + 1.0]
+
+
+def test_omnilingual_asr_decode_keeps_a_clip_under_its_bound(monkeypatch, clip):
+    from mstar.model.omnilingual_asr import audio
+
+    _use_soundfile(monkeypatch, _FakeSoundfile(30))
+    decoded, rate = audio.decode_file(clip)
+    assert rate == 16000 and decoded.shape[0] == 30 * 16000
+    _use_soundfile(monkeypatch, _NoSoundfile())
+    _fake_torchcodec(monkeypatch, 30)
+    decoded, rate = audio.decode_file(clip)
+    assert rate == 16000 and decoded.shape == (30 * 16000,)
+
+
+def test_omnilingual_asr_refuses_a_rate_past_the_range_before_reading(monkeypatch, clip):
+    from mstar.model.omnilingual_asr import audio
+
+    sf = _use_soundfile(monkeypatch, _FakeSoundfile(1, rate=media_io.MAX_SAMPLE_RATE + 1))
+    calls = _fake_torchcodec(monkeypatch, 1)
+    with pytest.raises(media_io.AudioRefusedError):
+        audio.decode_file(clip)
+    assert sf.frames_read == 0 and calls["all"] == 0 and not calls["stops"]
 
 
 # --------------------------------------------------------------------------

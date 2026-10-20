@@ -377,7 +377,7 @@ def test_a_decoder_quoting_the_path_with_repr_does_not_leak_it(tmp_path, monkeyp
     def _read(path, **_):
         raise RuntimeError(f"Error opening {path!r}: Format not recognised.")
 
-    monkeypatch.setitem(sys.modules, "soundfile", types.SimpleNamespace(read=_read))
+    monkeypatch.setitem(sys.modules, "soundfile", types.SimpleNamespace(read=_read, SoundFile=_read))
     monkeypatch.setitem(sys.modules, "torchcodec", None)
     monkeypatch.setitem(sys.modules, "torchcodec.decoders", None)
     for name in ("tab\there.mp3", "back\\slash.mp3", "caf\u00e9\nnew.mp3"):
