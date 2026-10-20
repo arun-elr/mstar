@@ -23,6 +23,7 @@ from mstar.model.audio_watermark import (
     AudioSealWatermarker,
     AudioWatermarkConfig,
     WatermarkStream,
+    _watermark_precision,
     import_audioseal,
 )
 from mstar.model.submodule_base import NodeSubmodule
@@ -289,6 +290,24 @@ def test_watermark_runs_fp32_matmuls_and_tf32_cudnn_and_restores_the_flags(monke
     wmk.apply([torch.zeros(320)], [WatermarkStream()])
     assert seen == [(False, True)]
     assert torch.backends.cuda.matmul.allow_tf32 and not torch.backends.cudnn.allow_tf32
+
+
+def test_precision_getters_answer_while_the_watermark_runs(monkeypatch):
+    """Flipping ``cuda.matmul.allow_tf32`` alone made
+    ``get_float32_matmul_precision()`` raise (a mix of the legacy and new
+    APIs) for every thread until the window closed."""
+    monkeypatch.setattr(torch.backends.cudnn, "allow_tf32", False)
+    previous = torch.get_float32_matmul_precision()
+    torch.set_float32_matmul_precision("high")
+    try:
+        with _watermark_precision():
+            assert torch.get_float32_matmul_precision() == "highest"
+            assert not torch.backends.cuda.matmul.allow_tf32
+            assert torch.backends.cudnn.allow_tf32
+        assert torch.get_float32_matmul_precision() == "high"
+        assert torch.backends.cuda.matmul.allow_tf32 and not torch.backends.cudnn.allow_tf32
+    finally:
+        torch.set_float32_matmul_precision(previous)
 
 
 def test_message_embedding_is_built_once_and_matches_the_processor(monkeypatch):

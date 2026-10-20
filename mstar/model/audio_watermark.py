@@ -143,14 +143,20 @@ def _watermark_precision():
     """fp32 matmuls (the engine turns TF32 matmuls on process-wide) and TF32
     cuDNN. With cuDNN TF32 off, cuDNN on H100 picks a conv about 18x slower
     at batch 1 and 2; with it on, a chunk and the whole utterance, which
-    convolve over different lengths, round apart by a few int16 steps."""
-    matmul, cudnn = torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32
-    torch.backends.cuda.matmul.allow_tf32 = False
+    convolve over different lengths, round apart by a few int16 steps.
+
+    The matmul precision goes through ``set_float32_matmul_precision``, as
+    the engine sets it: flipping ``cuda.matmul.allow_tf32`` alone leaves the
+    CPU matmul setting behind, and ``get_float32_matmul_precision()`` raises
+    on that mix from any thread while the window is open."""
+    matmul, cudnn = torch.get_float32_matmul_precision(), torch.backends.cudnn.allow_tf32
+    torch.set_float32_matmul_precision("highest")
     torch.backends.cudnn.allow_tf32 = True
     try:
         yield
     finally:
-        torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32 = matmul, cudnn
+        torch.set_float32_matmul_precision(matmul)
+        torch.backends.cudnn.allow_tf32 = cudnn
 
 
 @dataclass
