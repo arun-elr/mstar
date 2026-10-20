@@ -11,11 +11,13 @@ A judge is any OpenAI-compatible chat-completions endpoint, named on the command
   judge is skipped and the results file says so. Keys are read from the environment
   only, and never written to results or logs.
 
-Behavior labels follow the official ``eval_behavior`` loop: the exact prompt, seed 1, and
-on an exception (transport, unparseable reply) the next seed, at most three attempts. A
-reply from another model, a label outside the four ``C_*`` tags, or (local judges) a
-non-``stop`` finish is not a valid label; there is no fallback judge. Local judges decode
-as the reference judge does (non-thinking, temperature 0, top_p 1, 512 tokens).
+Behavior labels use the official ``eval_behavior`` prompt and seed 1. An unparseable reply
+moves to the next seed, at most three attempts (the reference runner's cap; the official
+loop has none). A transport error is retried on the same seed, and once those retries are
+exhausted the pair is labeled failed on that seed. A reply from another model, a label
+outside the four ``C_*`` tags, or (local judges) a non-``stop`` finish is not a valid label;
+there is no fallback judge. Local judges decode as the reference judge does (non-thinking,
+temperature 0, top_p 1, 512 tokens).
 
 The semantic judge grades each pair on ``interaction_handling``, ``relevance`` and
 ``grounding`` (accept, fail or unresolved) with the reference judge's frozen prompt and schema,

@@ -351,15 +351,24 @@ def download_dataset(zips: Path | None = None) -> tuple[Path, str]:
         if not z.is_file() or z.stat().st_size == 0:
             import gdown
 
-            gdown.download(id=drive_id, output=str(z), quiet=True)
+            try:
+                gdown.download(id=drive_id, output=str(z), quiet=True)
+            except Exception as exc:  # noqa: BLE001 - gdown raises requests, OS and its own errors
+                raise SystemExit(f"{z} is missing and its download from Google Drive failed "
+                                 f"({type(exc).__name__}); put the official zips there") from None
+            if not z.is_file() or z.stat().st_size == 0:
+                raise SystemExit(f"{z} is missing and its download from Google Drive failed; "
+                                 "put the official zips there")
     sums = "".join(f"{sha256_file(zips / f'{c}.zip')}  ./{c}.zip\n" for c in sorted(DATASET_DRIVE_IDS))
-    data = root / "data"
+    revision = "sha256:" + hashlib.sha256(sums.encode()).hexdigest()
+    # Keyed by the revision, so changed archives are extracted afresh instead of reusing older audio.
+    data = root / "data" / revision.removeprefix("sha256:")[:16]
     for cat in CATEGORIES:
         if not (data / cat).is_dir():
             with zipfile.ZipFile(zips / f"{cat}.zip") as zf:
                 zf.extractall(data)
     shutil.rmtree(data / "__MACOSX", ignore_errors=True)
-    return data, "sha256:" + hashlib.sha256(sums.encode()).hexdigest()
+    return data, revision
 
 
 def select(root: Path, per_category: int | None) -> list[tuple[str, str]]:
@@ -385,8 +394,11 @@ def build_manifest(out: Path, per_category: int | None, zips: Path | None = None
         src = root / cat / sid
         dst = out / "audio" / cat / sid
         dst.mkdir(parents=True, exist_ok=True)
+        marker = dst / ".revision"
+        reuse = marker.is_file() and marker.read_text().strip() == revision
+        marker.unlink(missing_ok=True)
         for name in ("input.wav", "clean_input.wav"):
-            if (dst / name).exists():
+            if reuse and (dst / name).exists():
                 continue
             with wave.open(str(src / name), "rb") as w:
                 native = (w.getframerate(), w.getnchannels(), w.getsampwidth()) == (RATE, 1, 2)
@@ -395,6 +407,7 @@ def build_manifest(out: Path, per_category: int | None, zips: Path | None = None
             else:
                 x, rate = read_wav(src / name)
                 write_wav(dst / name, resample(x, rate, RATE), RATE)
+        marker.write_text(revision + "\n")
         meta = json.loads((src / "metadata.json").read_text(encoding="utf-8"))
         items.append(Item(id=f"{cat}-{sid}", audio_path=str(dst / "input.wav"), lang="en", extra={
             "category": cat, "sample_id": f"{cat}/{sid}", "clean_audio": "clean_input.wav",

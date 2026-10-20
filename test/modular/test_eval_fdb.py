@@ -7,7 +7,6 @@ nothing is downloaded and no GPU is needed."""
 from __future__ import annotations
 
 import base64
-import importlib.util
 import json
 import sys
 import threading
@@ -302,6 +301,90 @@ def test_retry_failed_matches_a_remote_judge_against_its_saved_identity(tmp_path
     assert "sk-test" not in json.dumps(again.to_dict())
 
 
+def test_rejudge_keeps_the_stored_labels_of_a_judge_skipped_now(monkeypatch, capsys):
+    from benchmark.eval.suites.duplex_fdb import Judging, rejudge
+
+    monkeypatch.setattr(fdb_reference, "load_behavior", _behavior)
+    monkeypatch.setattr(llm_judge, "resolve", lambda j: j)
+
+    def post(url, body, headers, timeout):
+        model = llm_judge.OPENAI_MODEL if "openai" in url else "m"
+        return {"model": model,
+                "choices": [{"message": {"content": '{"behaviour": ["C_RESUME"]}'}, "finish_reason": "stop"}]}
+
+    def judging():
+        q = llm_judge.Judge("qwen", "local", "http://127.0.0.1:1/v1", "m", post=post)
+        (g,) = llm_judge.parse_judges(["gpt4o=openai"])
+        g.post = post
+        return Judging([q, g], "none")
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-secret-value")
+    t = {k: {"text": k, "chunks": []} for k in ("input", "clean_input", "output", "clean_output")}
+    rows = [{"id": f"a{i}", "ok": True, "category": "user_backchannel", "asr": t,
+             "overlap": {"timing": {"stop_intervals": [], "response_intervals": []}}} for i in range(3)]
+    first = rejudge(RunResult("fdb", "x", {"suite": {}}, {}, [duplex_fdb_repeat(rows)]).finalize(), judging())
+    stored = json.loads(json.dumps(first.config["suite"]["judges"][1]))
+    assert stored["name"] == "gpt4o" and stored["skipped"] is None
+
+    monkeypatch.delenv("OPENAI_API_KEY")
+    again = rejudge(first, judging())
+    assert [r["labels"]["gpt4o"]["status"] for r in again.repeats[0].requests] == ["valid"] * 3
+    assert again.config["suite"]["judges"][1] == stored
+    assert again.repeats[0].metrics["agreement.qwen.gpt4o.agreement"] == 1.0
+    assert again.config["rejudged"][-1]["judges"] == ["qwen"]
+    assert "judge 'gpt4o' skipped; its stored labels are kept" in capsys.readouterr().err
+    retried = rejudge(again, judging(), retry_failed=True)
+    assert retried.config["suite"]["judges"][1] == stored
+    assert retried.repeats[0].metrics["agreement.qwen.gpt4o.agreement"] == 1.0
+
+
+def _fdb_zips(zdir, level):
+    """The four category zips, one pair each, whose audio is a constant ``level``."""
+    import zipfile
+
+    zdir.mkdir(parents=True, exist_ok=True)
+    wav = zdir / "a.wav"
+    write_wav(wav, np.full(1600, level, dtype=np.float32), 16000)
+    for cat in fdb_reference.CATEGORIES:
+        with zipfile.ZipFile(zdir / f"{cat}.zip", "w") as zf:
+            for name in ("input.wav", "clean_input.wav"):
+                zf.write(wav, f"{cat}/1/{name}")
+            meta = {"context_text": "c", fdb_reference.EVENT_TEXT_KEYS[cat]: "e", "timestamps": [0.0, 0.1]}
+            zf.writestr(f"{cat}/1/metadata.json", json.dumps(meta))
+
+
+def test_fdb_manifest_audio_follows_the_archives_its_revision_names(tmp_path, monkeypatch):
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    out = tmp_path / "out"
+    _fdb_zips(tmp_path / "z1", 0.25)
+    _fdb_zips(tmp_path / "z2", -0.5)
+    revisions, levels = [], []
+    for zdir in ("z1", "z2", "z1"):
+        manifest = fdb_reference.build_manifest(out, None, tmp_path / zdir)
+        items = [json.loads(line) for line in manifest.read_text().splitlines()]
+        revisions.append({i["extra"]["dataset_revision"] for i in items})
+        x, _ = read_wav(manifest.parent / items[0]["audio_path"])
+        levels.append(round(float(x.mean()), 2))
+    assert levels == [0.25, -0.5, 0.25]
+    assert all(len(r) == 1 for r in revisions) and revisions[0] == revisions[2] != revisions[1]
+
+
+def test_fdb_data_refuses_bad_counts_and_reports_a_failed_download(tmp_path, monkeypatch):
+    from benchmark.eval.cli import main
+
+    for bad in ("-1", "0", "abc"):
+        with pytest.raises(SystemExit, match="positive count"):
+            main(["data", "fdb-v15", "--out", str(tmp_path / "o"), "--per-category", bad])
+
+    def offline(**kw):
+        raise ConnectionError("drive.google.com unreachable")
+
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.setitem(sys.modules, "gdown", types.SimpleNamespace(download=offline))
+    with pytest.raises(SystemExit, match=r"download from Google Drive failed \(ConnectionError\)"):
+        main(["data", "fdb-v15", "--out", str(tmp_path / "o"), "--per-category", "1"])
+
+
 def test_api_judge_is_skipped_without_a_key_and_keys_never_reach_results(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     (j,) = llm_judge.parse_judges(["gpt4o=openai"])
@@ -516,7 +599,8 @@ def _dataset(tmp_path, failing_clean=None):
     return save_manifest(items, tmp_path / "manifest.jsonl")
 
 
-def test_fdb_suite_end_to_end_with_two_judges_agreement_and_rejudge(tmp_path, fake_server, monkeypatch, capsys):
+def _run_fdb_with_two_judges(tmp_path, fake_server, monkeypatch):
+    """`run fdb` on the fake dataset with judges qwen, other and a skipped gpt4o; returns the out dir."""
     from benchmark.eval.cli import main
 
     assets = llm_judge.SemanticAssets(
@@ -533,6 +617,24 @@ def test_fdb_suite_end_to_end_with_two_judges_agreement_and_rejudge(tmp_path, fa
     main(["run", "fdb", "--url", fake_server, "--data", str(manifest), "--repeats", "2", "--warmup", "0",
           "--concurrency", "2", "--label", "fake", "--out", str(out),
           "--judge", f"qwen={fake_server}/a/v1", "--judge", f"other={fake_server}/b/v1", "--judge", "gpt4o=openai"])
+    return out
+
+
+def test_fdb_report_and_agreement_charts(tmp_path, fake_server, monkeypatch):
+    from benchmark.eval.cli import main
+
+    pytest.importorskip("matplotlib")
+    out = _run_fdb_with_two_judges(tmp_path, fake_server, monkeypatch)
+    main(["report", str(out), "--md", str(tmp_path / "t.md"), "--chart", str(tmp_path / "c.png")])
+    assert (tmp_path / "c.png").stat().st_size > 10_000
+    main(["agreement", str(out), "--md", str(tmp_path / "a.md"), "--chart", str(tmp_path / "cm.png")])
+    assert (tmp_path / "cm.png").stat().st_size > 1_000
+
+
+def test_fdb_suite_end_to_end_with_two_judges_agreement_and_rejudge(tmp_path, fake_server, monkeypatch, capsys):
+    from benchmark.eval.cli import main
+
+    out = _run_fdb_with_two_judges(tmp_path, fake_server, monkeypatch)
     r = RunResult.load(out / "fdb-fake-c2.json")
     s = r.summary
     assert s["errors"]["mean"] == 0 and s["all.pairs"]["mean"] == 3 and s["all.timed_overlap_sessions"]["mean"] == 3
@@ -554,18 +656,17 @@ def test_fdb_suite_end_to_end_with_two_judges_agreement_and_rejudge(tmp_path, fa
     assert row["overlap"]["native_text"] == "agent" + " x" * 19
     assert set(row["asr"]) == {"input", "clean_input", "output", "clean_output"}
 
-    charts = importlib.util.find_spec("matplotlib") is not None
-    chart = ["--chart", str(tmp_path / "c.png")] if charts else []
-    main(["report", str(out), "--md", str(tmp_path / "t.md"), *chart])
+    main(["report", str(out), "--md", str(tmp_path / "t.md")])
     table = (tmp_path / "t.md").read_text()
     assert "| user_interruption | 2 | 2 |" in table and "Judge `gpt4o` skipped: OPENAI_API_KEY is not set." in table
-    assert not charts or (tmp_path / "c.png").stat().st_size > 10_000
 
-    chart = ["--chart", str(tmp_path / "cm.png")] if charts else []
-    main(["agreement", str(out), "--md", str(tmp_path / "a.md"), *chart])
+    main(["agreement", str(out), "--md", str(tmp_path / "a.md")])
     text = (tmp_path / "a.md").read_text()
     assert "over 6 pairs both labeled validly" in text and "Label agreement: 33.3%" in text
-    assert "| user_interruption | 4 | 0.0% |" in text and (not charts or (tmp_path / "cm.png").exists())
+    assert "| user_interruption | 4 | 0.0% |" in text
+    for bad in ("qwen", "qwen,other,late", "qwen,"):
+        with pytest.raises(SystemExit, match="two judge names"):
+            main(["agreement", str(out), "--judges", bad])
 
     # A third judge later, from the stored transcripts: no server, no GPU.
     main(["rejudge", str(out / "fdb-fake-c2.json"), "--judge", f"late={fake_server}/b/v1",

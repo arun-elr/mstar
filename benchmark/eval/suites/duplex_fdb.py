@@ -269,8 +269,12 @@ def rejudge(result, judging: Judging, retry_failed: bool = False):
     if result.suite != "fdb":
         raise SystemExit(f"rejudge reads fdb results, not {result.suite!r}")
     suite_cfg = result.config.setdefault("suite", {})
-    new = {j["name"]: j for j in judging.identity()["judges"]} if judging.behavior else {}
     old = suite_cfg.get("judges") or []
+    new = {j["name"]: j for j in judging.identity()["judges"]} if judging.behavior else {}
+    # A judge skipped now (no key) keeps the labels and identity it stored; only a judge that runs replaces them.
+    for name in [n for n, j in new.items() if j.get("skipped") and n in {o["name"] for o in old}]:
+        print(f"[fdb] judge {name!r} skipped; its stored labels are kept", file=sys.stderr)
+        del new[name]
     if retry_failed:
         from benchmark.eval.schema import scrub
 

@@ -131,7 +131,8 @@ def _add_data(sub) -> None:
     fdb.add_argument("--out", required=True)
     fdb.add_argument("--per-category", default="all",
                      help="first N pairs of each category in numeric id order, or 'all' (498 pairs)")
-    fdb.add_argument("--zips", default=None, help="directory with the four official zips (skips the download)")
+    fdb.add_argument("--zips", default=None,
+                     help="directory with the four official zips; a missing one is downloaded into it")
 
 
 def _judge_args(p) -> None:
@@ -307,7 +308,11 @@ def cmd_data(args) -> None:
     elif args.kind == "fdb-v15":
         from benchmark.eval.fdb_reference import build_manifest
 
-        per = None if args.per_category == "all" else int(args.per_category)
+        per = None
+        if args.per_category != "all":
+            per = int(args.per_category) if args.per_category.isdigit() else 0
+            if per <= 0:
+                raise SystemExit(f"--per-category takes a positive count or 'all', not {args.per_category!r}")
         path = build_manifest(out, per, Path(args.zips).expanduser() if args.zips else None)
     else:
         from benchmark.eval.suites.duplex import compose_items
@@ -348,7 +353,12 @@ def cmd_agreement(args) -> None:
     results = [r for r in load_results(args.results) if r.suite == "fdb"]
     if not results:
         raise SystemExit("no fdb results files")
-    a, b = args.judges.split(",") if args.judges else (None, None)
+    a, b = None, None
+    if args.judges:
+        names = args.judges.split(",")
+        if len(names) != 2 or not all(names):
+            raise SystemExit(f"--judges takes two judge names as A,B, not {args.judges!r}")
+        a, b = names
     ag = fdb_report.agreement(results, a, b)
     text = fdb_report.render_agreement(ag)
     if args.md:
