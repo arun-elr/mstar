@@ -693,6 +693,10 @@ VoxCPM2 notes
   ``max_text_tokens`` (1,365 by default) gets a 400: English speech runs at up
   to about 2.9 patches per token, so longer text may not fit in the
   4,096-patch (655 s) audio budget.
+- One request with long text can end early: on some seeds the stop head fires
+  mid-text, as it does in the official ``voxcpm`` package (a 983-character
+  Russian text stopped about three quarters of the way in on 5 of 10 seeds
+  there). Split long text into several requests.
 
 Nemotron VoiceChat (``nemotron_duplex``) notes
 ----------------------------------------------
