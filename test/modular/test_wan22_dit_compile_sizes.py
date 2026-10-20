@@ -219,3 +219,21 @@ def test_a_side_past_the_mp4_encoder_is_rejected_before_generating(size) -> None
 def test_the_largest_side_the_mp4_encoder_takes_passes() -> None:
     _model()._validate_generation_size({"height": 32, "width": 16384, "num_frames": 1})
     _model()._validate_generation_size({"height": 16384, "width": 32, "num_frames": 1})
+
+
+def test_the_config_examples_uncomment_into_one_model_kwargs_block() -> None:
+    """configs/wan22.yaml documents its knobs as a commented ``model_kwargs``
+    example; with two such blocks, uncommenting both keeps only the second."""
+    from pathlib import Path
+
+    import yaml
+
+    out, inside = [], False
+    for line in (Path(__file__).resolve().parents[2] / "configs" / "wan22.yaml").read_text().splitlines():
+        inside = line == "# model_kwargs:" or (inside and line.startswith("#   "))
+        out.append(line[2:] if inside else line)
+    text = "\n".join(out)
+    assert text.count("\nmodel_kwargs:") == 1
+    kwargs = yaml.safe_load(text)["model_kwargs"]
+    assert set(kwargs) == {"vae_decode_fast_sizes", "vae_decode_fast", "compile_dit_sizes", "max_video_pixels"}
+    _model(**kwargs)

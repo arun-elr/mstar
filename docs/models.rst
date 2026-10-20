@@ -794,8 +794,13 @@ the limit.
 input shape, so only the ``"WxHxF"`` shapes in ``compile_dit_sizes`` (default
 ``1280x704x81``) use the compiled transformer; each compiles on first use, once
 with CFG and once without, so at most two compiles per listed shape. Any other
-size or frame count runs the same transformer eager, with no compile. List more
-shapes under the yaml's ``model_kwargs``.
+size or frame count runs the same transformer eager, with no compile, which is
+slower per request once warm: on an H200, about 49% more at 640x352x17 and 55%
+more at 832x480x33 than the same shape compiled. List the shapes a deployment
+serves under the yaml's ``model_kwargs``; each one listed costs its compiles on
+first use. The first DiT call after startup is traced twice (a guard on the
+rotary table), so a server compiles at most two graphs per listed shape plus
+one.
 
 **UniPC runs inline, inside the DiT node.** Unlike cosmos3, the scheduler is not
 a separate stage: the solver state (the order-2 history buffer and the
