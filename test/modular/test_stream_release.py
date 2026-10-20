@@ -1,12 +1,13 @@
 """A streaming response whose body Starlette never started still releases
 what the body would have released.
 
-Starlette sends the headers before it iterates the body. When that send fails
-(the client already left) or, below ASGI 2.4, the client's disconnect comes
-first, the body is never started, so its ``finally`` never runs: the engine
-request ran to the end with nobody reading it, its ``request_id`` was refused
-with a 409 until then, and its pending entry and read-ahead pieces or uploads
-stayed for the life of the process."""
+Starlette sends the headers before it iterates the body. When that send raises
+(uvicorn 0.28.0 does once the client has left), or a server cancels the response
+before its first step, the body is never started, so its ``finally`` never runs:
+the engine request ran to the end with nobody reading it, its ``request_id`` was
+refused with a 409 until then, and its pending entry and read-ahead pieces or
+uploads stayed for the life of the process. Current uvicorn always starts the
+body, so these tests drive the response with the ASGI calls directly."""
 
 import asyncio
 import sys
@@ -75,8 +76,9 @@ def test_generate_aborts_its_request_when_the_headers_cannot_be_sent(monkeypatch
 
 
 def test_generate_aborts_its_request_when_the_disconnect_wins_the_race(monkeypatch):
-    """Below ASGI 2.4 Starlette cancels the body task once it hears the
-    disconnect, here while the headers are still being sent."""
+    """A server whose ``send`` blocks while the client leaves, so Starlette
+    (below ASGI 2.4) cancels the response before the body starts. uvicorn's
+    ``send`` never blocks like this; the case guards other ASGI servers."""
     server, response, key = _generate_stream(monkeypatch)
 
     async def stuck(message):
@@ -120,7 +122,8 @@ def test_a_release_targets_its_own_submission_not_a_later_one(monkeypatch):
 
 
 class _HeadersFail:
-    """ASGI 2.4, and the client is gone before the headers are sent."""
+    """ASGI 2.4 with a ``send`` that raises once the client is gone, as
+    uvicorn 0.28.0 does, before the headers are sent."""
 
     def __init__(self, app):
         self.app = app
