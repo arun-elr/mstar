@@ -55,7 +55,14 @@ from mstar.engine.resources import (
 )
 from mstar.graph.base import GraphEdge, GraphNode, Loop, Sequential, TensorPointerInfo
 from mstar.graph.special_destinations import EMIT_TO_CLIENT, EMPTY_DESTINATION
-from mstar.model.base import MAX_OUTPUT_TOKENS, ForwardPassArgs, Model, TensorAndMetadata
+from mstar.model.base import (
+    MAX_OUTPUT_TOKENS,
+    ContextUse,
+    ForwardPassArgs,
+    Model,
+    TensorAndMetadata,
+    resolve_max_output_tokens,
+)
 from mstar.model.media_limits import VideoBudget, probe_video
 from mstar.model.multimodal import (
     TEXT,
@@ -68,6 +75,7 @@ from mstar.model.multimodal import (
     prefill_plan,
     split_around_spans,
 )
+from mstar.model.qwen3_omni.components.rope import get_rope_index_vision
 from mstar.model.qwen3_omni.components.talker import Qwen3OmniCodePredictor
 from mstar.model.qwen3_omni.config import (
     CODE_PRED_SAMPLER,
@@ -1241,6 +1249,63 @@ class Qwen3OmniModel(Model):
             result["pixel_values_videos"].append(vid_out["pixel_values_videos"])
 
         return result
+
+    def context_use(
+        self,
+        tensors: NameToTensorList,
+        input_modalities: list[str],
+        output_modalities: list[str],
+        model_kwargs: dict,
+    ) -> dict[str, ContextUse]:
+        """The Thinker's positions, and with audio output the Talker's.
+
+        The Thinker prefills the plan in order (`_build_thinker_prefill_schedule`):
+        a text id takes one position, an audio clip its encoder's tokens and two
+        sentinels, an image or video what `ThinkerSubmodule.prepare_inputs`
+        advances for its grid from the position it starts at. The Talker is
+        prefilled with the Thinker states it keeps (text past the system and
+        earlier assistant turns, every attachment token with its sentinels),
+        then its last prefill, and decodes up to ``talker_max_output_tokens``.
+        """
+        from transformers.models.qwen3_omni_moe.processing_qwen3_omni_moe import (
+            _get_feat_extract_output_lengths,
+        )
+
+        from mstar.model.qwen3_omni.submodules import TalkerSubmodule, talker_text_mask
+
+        merge = self.config.vision.spatial_merge_size
+        per_second = self.config.thinker.position_id_per_seconds
+        texts = tensors.get("text_inputs", [])
+        thinker = talker = 0
+        for step in prefill_plan(parts_from_modalities(input_modalities)):
+            if step.modality == TEXT:
+                ids = texts[step.index]
+                thinker += ids.numel()
+                talker += int(talker_text_mask(ids, self.config).sum())
+                continue
+            if step.modality == "audio":
+                tokens = int(_get_feat_extract_output_lengths(tensors["audio_seqlens"][step.index]))
+                thinker += tokens + 2
+                talker += tokens + 2
+                continue
+            if step.modality == "image":
+                grid, seconds_per_grid = tensors["image_grid_thw"][step.index], None
+            else:
+                grid = tensors["video_grid_thw"][step.index]
+                seconds_per_grid = tensors["video_second_per_grid"][step.index].item()
+            positions = get_rope_index_vision(
+                grid, thinker + 1, position_id_per_seconds=per_second,
+                spatial_merge_size=merge, seconds_per_grid=seconds_per_grid,
+            )
+            thinker = int(float(positions.max()) + 2)
+            talker += positions.shape[1] + 2
+        uses = {THINKER_KV: ContextUse(thinker, resolve_max_output_tokens(self, model_kwargs))}
+        if "audio" in output_modalities:
+            uses[TALKER_KV] = ContextUse(
+                talker + TalkerSubmodule.TALKER_LAST_PREFILL_TOKENS_PER_REQ,
+                self._get_max_talker_output_tokens(**model_kwargs),
+            )
+        return uses
 
     # -----------------------------------------------------------------------
     # Model ABC: postprocess

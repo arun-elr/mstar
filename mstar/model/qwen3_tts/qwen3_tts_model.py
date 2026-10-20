@@ -68,7 +68,14 @@ from mstar.graph.base import (
 )
 from mstar.graph.special_destinations import EMIT_TO_CLIENT, EMPTY_DESTINATION
 from mstar.model.audio_watermark import AudioSealWatermarker, AudioWatermarkConfig, import_audioseal
-from mstar.model.base import ForwardPassArgs, Model, ProcessPromptOutput, TensorAndMetadata
+from mstar.model.base import (
+    ContextUse,
+    ForwardPassArgs,
+    Model,
+    ProcessPromptOutput,
+    TensorAndMetadata,
+    resolve_max_output_tokens,
+)
 from mstar.model.qwen3_tts.config import (
     CHATML_ASSISTANT_PREFIX_TOKEN_IDS,
     CHATML_ASSISTANT_SUFFIX_TOKEN_IDS,
@@ -86,6 +93,34 @@ from mstar.model.qwen3_tts.config import (
 from mstar.model.submodule_base import NodeSubmodule
 from mstar.streaming.chunk_policy import ScheduledLeftContextChunkPolicy
 from mstar.streaming.topology import Connection, PartitionTopology, StreamingGraphEdge
+
+
+def talker_prefill_len(
+    layout: list[int], speaker_id: int, language_id: int, speaker_embed: bool,
+    prefix_len: int = len(CHATML_ASSISTANT_PREFIX_TOKEN_IDS),
+) -> int:
+    """How many positions `TalkerSubmodule._build_prefill` lays out.
+
+    ``layout`` is ``process_prompt``'s ``[instruct_len, text_len, stream_text,
+    ref_text_len, ref_frames]``; ``speaker_embed`` says a reference x-vector
+    arrives, which fills the speaker slot when no built-in speaker does.
+    """
+    instruct_len, text_len, stream_text = (int(v) for v in layout[:3])
+    ref_text_len, ref_frames = (int(layout[3]), int(layout[4])) if len(layout) >= 5 else (0, 0)
+    # think tags (plus the language), the speaker slot, codec PAD; codec BOS pairs with what follows
+    tags = (3 if language_id < 0 else 4) + int(speaker_id >= 0 or speaker_embed) + 1
+    length = instruct_len + prefix_len + tags
+    if ref_frames > 0:
+        # codec BOS and the reference frames; non-streaming puts the
+        # transcript, the text and TTS EOS ahead of them
+        length += 1 + ref_frames
+        if not stream_text:
+            length += (ref_text_len - prefix_len - 2) + text_len + 1
+    elif stream_text:
+        length += 1
+    else:
+        length += text_len + 2
+    return length
 
 
 def clip_digest(clip: torch.Tensor) -> str:
@@ -877,6 +912,24 @@ class Qwen3TTSModel(Model):
         return ProcessPromptOutput(
             {"text_inputs": [torch.cat([instruct_ids, assistant_ids, ref_ids])]}, metadata
         )
+
+    def context_use(
+        self,
+        tensors: NameToTensorList,
+        input_modalities: list[str],
+        output_modalities: list[str],
+        model_kwargs: dict,
+    ) -> dict[str, ContextUse]:
+        """The Talker's prefill as `talker_prefill_len` counts it, then one
+        position per decoded frame. Streamed text rides on the frames."""
+        prompt = talker_prefill_len(
+            model_kwargs[PROMPT_LAYOUT_KEY],
+            int(model_kwargs[SPEAKER_ID_KEY]),
+            int(model_kwargs[LANGUAGE_ID_KEY]),
+            # a clone's RefEncoder always sends the x-vector
+            speaker_embed="audio" in input_modalities,
+        )
+        return {TALKER_KV: ContextUse(prompt, resolve_max_output_tokens(self, model_kwargs))}
 
     @staticmethod
     def _check_chatml(assistant_ids: torch.Tensor) -> None:

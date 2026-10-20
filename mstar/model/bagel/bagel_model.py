@@ -84,7 +84,16 @@ from mstar.model.bagel.submodules import (
     vit_patches,
     vit_preprocess,
 )
-from mstar.model.base import DECODE, ForwardPassArgs, Model, PrefixStream, ProcessPromptOutput, Span
+from mstar.model.base import (
+    DECODE,
+    ContextUse,
+    ForwardPassArgs,
+    Model,
+    PrefixStream,
+    ProcessPromptOutput,
+    Span,
+    resolve_max_output_tokens,
+)
 from mstar.model.loader import iter_safetensors_file, load_hf_weights
 from mstar.model.loader.base import LLAMA_STACKED_PARAMS, StackedParamRule
 from mstar.model.multimodal import (
@@ -707,6 +716,32 @@ class BagelModel(Model):
         if layout is None:
             return result
         return ProcessPromptOutput(result, {"prefix_layout": {"kv": {"main": layout}}})
+
+    def context_use(
+        self,
+        tensors: NameToTensorList,
+        input_modalities: list[str],
+        output_modalities: list[str],
+        model_kwargs: dict,
+    ) -> dict[str, ContextUse]:
+        """The main stream's positions; the guidance streams hold a subset of it.
+
+        A text id takes one, and each image walk ``IMAGE_ADVANCE``: an
+        understanding prompt runs the ViT walk per image, generation the VAE
+        walk too (`_build_prefill_schedule`). Text output adds its decoded
+        tokens; image output its think tokens, if any, and the one position
+        the latents sit at.
+        """
+        target_output = output_modalities[0] if output_modalities else "text"
+        walks_per_image = 1 if target_output == "text" else 2
+        prompt = sum(t.numel() for t in tensors.get("text_inputs", []))
+        prompt += len(tensors.get("image_inputs", [])) * walks_per_image * IMAGE_ADVANCE
+        if target_output == "text":
+            generated = resolve_max_output_tokens(self, model_kwargs)
+        else:
+            think_mode = model_kwargs.get("think_mode", self.config.think_mode)
+            generated = (resolve_max_output_tokens(self, model_kwargs) if think_mode else 0) + 1
+        return {"kv": ContextUse(prompt, generated)}
 
     def _prefix_layout(
         self, parts: list[PromptPart], segments: list[torch.Tensor],

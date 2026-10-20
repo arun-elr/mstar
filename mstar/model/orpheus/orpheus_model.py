@@ -68,6 +68,8 @@ def _resolve_local_hf_snapshot(repo_id: str, cache_dir: str | None = None) -> st
 class OrpheusModel(Model):
     """Orpheus TTS model: Llama 3.2 3B + SNAC 24kHz decoder."""
 
+    PROMPT_KV_CACHE = KV_CACHE
+
     def __init__(
         self,
         model_path_hf: str,
@@ -315,18 +317,6 @@ class OrpheusModel(Model):
         start_token = torch.tensor([self.config.start_token_id], dtype=torch.long)
         end_tokens = torch.tensor(self.config.end_token_ids, dtype=torch.long)
         all_input_ids = torch.cat([start_token, prompt_tokens.input_ids[0], end_tokens])
-
-        # The decode loop writes up to get_max_output_tokens() more positions
-        # after the prompt, and all of them must fit the context.
-        context = self.config.max_position_embeddings
-        limit = context - self.get_max_output_tokens()
-        if all_input_ids.numel() > limit:
-            raise ValueError(
-                f"The prompt is {all_input_ids.numel()} tokens; Orpheus takes at most "
-                f"{limit} (its {context}-token context less the "
-                f"{self.get_max_output_tokens()} audio tokens it can generate)"
-            )
-
         return {"text_inputs": [all_input_ids]}
 
     # -------------------------------------------------------------------

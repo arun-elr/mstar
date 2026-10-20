@@ -38,10 +38,12 @@ from mstar.graph.base import (
 )
 from mstar.graph.special_destinations import EMIT_TO_CLIENT
 from mstar.model.base import (
+    ContextUse,
     ForwardPassArgs,
     Model,
     ProcessPromptOutput,
     TensorAndMetadata,
+    resolve_max_output_tokens,
 )
 from mstar.model.multimodal import (
     TEXT,
@@ -55,6 +57,7 @@ from mstar.model.multimodal import (
     split_around_spans,
 )
 from mstar.model.qwen3_5.components.language_model import Qwen3_5ForCausalLM
+from mstar.model.qwen3_5.components.rope import vision_position_advance
 from mstar.model.qwen3_5.config import (
     ATTN,
     GDN_STATE,
@@ -551,6 +554,22 @@ class Qwen3_5DenseModel(Model):
             result["video_inputs"] = []
         # always set, so a `video_groups` the client sent never reaches the schedule
         return ProcessPromptOutput(result, {"video_groups": groups})
+
+    def context_use(
+        self,
+        tensors: NameToTensorList,
+        input_modalities: list[str],
+        output_modalities: list[str],
+        model_kwargs: dict,
+    ) -> dict[str, ContextUse]:
+        """A text id takes one position; an image its grid's MRoPE span and
+        its two sentinels, as `LLMSubmodule`'s vision prefill advances them."""
+        prompt = sum(t.numel() for t in tensors.get("text_inputs", []))
+        grids = tensors.get("image_grid_thw", [])
+        if grids:
+            merge = self.vision_config.spatial_merge_size
+            prompt += sum(vision_position_advance(grid, merge) + 2 for grid in grids)
+        return {KV_CACHE: ContextUse(prompt, resolve_max_output_tokens(self, model_kwargs))}
 
 
     def postprocess(

@@ -79,6 +79,36 @@ class Span(NamedTuple):
     params: tuple = ()
 
 
+class ContextUse(NamedTuple):
+    """How far one request moves one KV cache's position counter.
+
+    ``prompt`` is what the prefill takes; ``generated`` is the most the output
+    can take after it. Together they must fit the cache's ``max_seq_len``.
+    """
+    prompt: int
+    generated: int
+
+
+def resolve_max_output_tokens(model: "Model", model_kwargs: dict) -> int:
+    """The request's output cap: an int >= 1 within the model's published
+    limit, else ``ValueError`` (a 400). The conductor caps decode with it, and
+    the data worker counts it against the context."""
+    requested = model_kwargs.get("max_output_tokens")
+    if requested is not None and (
+        isinstance(requested, bool) or not isinstance(requested, int) or requested < 1
+    ):
+        raise ValueError(f"max_output_tokens must be an integer >= 1; got {requested!r}")
+    limit = model.get_max_output_tokens_limit()
+    if requested is not None and limit is not None and requested > limit:
+        raise ValueError(
+            f"max_output_tokens is {requested}; this model produces at most {limit}"
+        )
+    cap = model.get_max_output_tokens(**model_kwargs)
+    if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
+        raise ValueError(f"max_output_tokens must be an integer >= 1; got {cap!r}")
+    return cap
+
+
 def video_metadata_dict(metadata_obj) -> dict:
     # torchcodec>=0.9 reports pixel_aspect_ratio as a Fraction, which the wire codec rejects.
     return {k: float(v) if isinstance(v, Fraction) else v for k, v in asdict(metadata_obj).items()}
@@ -754,6 +784,33 @@ class Model(ABC):
             into the existing ``tensors`` dict via ``dict.update``.
         """
         pass
+
+    # The paged KV cache a prompt of plain token ids fills: each ``text_inputs``
+    # id takes one position, and decode at most the request's output cap.
+    PROMPT_KV_CACHE: str | None = None
+
+    def context_use(
+        self,
+        tensors: NameToTensorList,
+        input_modalities: list[str],
+        output_modalities: list[str],
+        model_kwargs: dict,
+    ) -> dict[str, ContextUse]:
+        """How far a preprocessed request moves each KV cache's positions, by resource key.
+
+        ``tensors`` and ``model_kwargs`` are what ``process_prompt`` left. The
+        data worker refuses, with a 400 before the conductor sees it, a request
+        whose ``prompt + generated`` is past that cache's ``max_seq_len`` (as
+        this deployment's ``resources:`` block sets it). A model whose prompt
+        is more than token ids (attachments, conditioning, a second cache)
+        overrides this; an empty result checks nothing.
+        """
+        if self.PROMPT_KV_CACHE is None:
+            return {}
+        return {self.PROMPT_KV_CACHE: ContextUse(
+            sum(t.numel() for t in tensors.get("text_inputs", [])),
+            resolve_max_output_tokens(self, model_kwargs),
+        )}
 
     def max_input_files(self) -> dict[str, int]:
         """Most files of each input modality one request may attach, e.g.

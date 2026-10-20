@@ -129,14 +129,23 @@ def _preprocess_loop(**kwargs):
     worker.run()
 
 
-def _kv_page_sizes(model: Model, model_config: dict) -> dict[str, int]:
-    """Page size per KV resource whose prefix cache is on, after this deployment's YAML has been applied."""
+def _paged_kv_configs(model: Model, model_config: dict | None) -> dict[str, PagedKVConfig]:
+    """Each paged KV resource's config, after this deployment's YAML has been applied."""
     specs = model.get_node_resources()
-    apply_yaml_overrides(specs, model_config)
+    apply_yaml_overrides(specs, model_config or {})
     return {
-        spec.resource_key: spec.config.page_size
+        spec.resource_key: spec.config
         for spec in specs
-        if isinstance(spec, KVSpec) and isinstance(spec.config, PagedKVConfig) and spec.config.prefix_cache
+        if isinstance(spec, KVSpec) and isinstance(spec.config, PagedKVConfig)
+    }
+
+
+def _kv_page_sizes(model: Model, model_config: dict) -> dict[str, int]:
+    """Page size per KV resource whose prefix cache is on."""
+    return {
+        key: config.page_size
+        for key, config in _paged_kv_configs(model, model_config).items()
+        if config.prefix_cache
     }
 
 
@@ -451,6 +460,9 @@ class PreprocessWorkerThread:
     _next_transfer_publish = 0.0
     # class-level so a thread built without __init__ never sends ENABLE_METRICS
     worker_metrics_requested: threading.Event | None = None
+    model_config: dict | None = None
+    # each paged KV cache's max_seq_len, read on the first request a model counts
+    _context_lengths: dict[str, int] | None = None
 
     def __init__(
         self,
@@ -482,6 +494,7 @@ class PreprocessWorkerThread:
         self._prefix_streams = {
             key: by_label for key, by_label in declared.items() if key in self._prefix_page_sizes
         }
+        self.model_config = model_config
         self.in_queue = in_queue
         self.result_tensor_queue = result_tensor_queue
         self.cleanup_request_queue = cleanup_request_queue
@@ -639,6 +652,7 @@ class PreprocessWorkerThread:
                 prompt_tensors = prompt_tensors.new_input_tensors
             if prompt_tensors:
                 tensors.update(prompt_tensors)
+            self._check_context(tensors, input, model_kwargs)
             layouts = model_kwargs.pop("prefix_layout", {})
             # after the update: the chain keys the tensors the request will
             # actually be prefilled with
@@ -699,6 +713,34 @@ class PreprocessWorkerThread:
             if self.enable_prof:
                 profile.inputs = self._summarize_inputs(input)
             self.profile_queue.put(profile)
+
+    def _check_context(
+        self, tensors: NameToTensorList, input: PreprocessInput, model_kwargs: dict,
+    ) -> None:
+        """Refuse a request whose prompt and output cannot fit a KV cache's
+        positions, before the conductor schedules it (``Model.context_use``)."""
+        # read like INTERNAL_KWARGS: a stand-in model that is not a Model counts nothing
+        context_use = getattr(self.model, "context_use", None)
+        uses = context_use(
+            tensors, input.input_modalities, input.output_modalities, model_kwargs,
+        ) if context_use is not None else None
+        if not uses:
+            return
+        if self._context_lengths is None:
+            self._context_lengths = {
+                key: config.max_seq_len
+                for key, config in _paged_kv_configs(self.model, self.model_config).items()
+            }
+        for key, use in uses.items():
+            context = self._context_lengths[key]
+            limit = max(context - use.generated, 0)
+            if use.prompt > limit:
+                cache = f" in its {key!r} cache" if len(uses) > 1 else ""
+                raise ValueError(
+                    f"The prompt is {use.prompt} tokens{cache}; the model takes at most "
+                    f"{limit} (its {context}-token context less the {use.generated} "
+                    "tokens its output can take)"
+                )
 
     @staticmethod
     def _start_profile(input: PreprocessInput) -> DataWorkerProfile:

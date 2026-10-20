@@ -33,7 +33,7 @@ from mstar.distributed.base import ShardingConfig
 from mstar.distributed.communication import GlobalParallelConfig, WorkerParallelGroups
 from mstar.engine.resources import KVReqConfig, ResourceReqConfig
 from mstar.graph.base import GraphEdge, NodeAndGraphWalk, TensorPointerInfo
-from mstar.model.base import ForwardPassArgs, Model, WorkerGraph
+from mstar.model.base import ForwardPassArgs, Model, WorkerGraph, resolve_max_output_tokens
 from mstar.observability import catalog
 from mstar.observability.recorders import Gauge, MetricSnapshot, merge
 from mstar.platforms import apply_process_env_defaults
@@ -559,24 +559,10 @@ class Conductor:
         )
 
     def _max_output_tokens(self, model_kwargs: dict) -> int:
-        """The request's output cap: an int >= 1 within the model's published
-        limit, else ``ValueError`` (a 400). Checked here because the cap is
-        compared inside the run loop, where a non-int would raise and the
-        request would hang."""
-        requested = model_kwargs.get("max_output_tokens")
-        if requested is not None and (
-            isinstance(requested, bool) or not isinstance(requested, int) or requested < 1
-        ):
-            raise ValueError(f"max_output_tokens must be an integer >= 1; got {requested!r}")
-        limit = self.model.get_max_output_tokens_limit()
-        if requested is not None and limit is not None and requested > limit:
-            raise ValueError(
-                f"max_output_tokens is {requested}; this model produces at most {limit}"
-            )
-        cap = self.model.get_max_output_tokens(**model_kwargs)
-        if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
-            raise ValueError(f"max_output_tokens must be an integer >= 1; got {cap!r}")
-        return cap
+        """The request's output cap. Checked here because the cap is compared
+        inside the run loop, where a non-int would raise and the request would
+        hang."""
+        return resolve_max_output_tokens(self.model, model_kwargs)
 
     def _resource_specs(self) -> dict:
         """The model's resource specs by key, for admission-time capability checks."""
