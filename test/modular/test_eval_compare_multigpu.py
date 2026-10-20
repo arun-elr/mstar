@@ -131,7 +131,8 @@ def test_a_multi_gpu_model_at_the_front_is_not_starved_and_one_that_fits_nowhere
 def test_the_job_carries_its_gpus_into_cuda_visible_devices(tmp_path):
     man = mf.parse(copy.deepcopy(ONE))
     base = trees.Ref("main", "a" * 40, "main")
-    args = Namespace(python=sys.executable, data_dir=str(tmp_path), sessions=1, repeats=None)
+    args = Namespace(python=sys.executable, work_dir=str(tmp_path / "work"), data_dir=str(tmp_path),
+                     sessions=1, repeats=None)
     s = hosts.Slot(hosts.LocalTransport(), 2, host_dir=str(tmp_path))
     runner = compare.Runner(args, man, man.select("all"), base, base, tmp_path / "run", [s])
     assert runner.job(s, "fake", "out")["gpus"] == [2]
@@ -173,7 +174,8 @@ def run_job(tmp_path: Path, slow: str) -> Path:
     raw["models"]["fake"]["case_timeout_s"] = CAP_S
     man = mf.parse(raw)
     base, head = trees.Ref("main", "a" * 40, "main"), trees.Ref("x", "b" * 40, "PR #1")
-    args = Namespace(python=sys.executable, data_dir=str(tmp_path / "data"), sessions=1, repeats=None)
+    args = Namespace(python=sys.executable, work_dir=str(tmp_path / "work"), data_dir=str(tmp_path / "data"),
+                     sessions=1, repeats=None)
     s = hosts.Slot(hosts.LocalTransport(), None, host_dir=str(tmp_path / "host"))
     runner = compare.Runner(args, man, man.select("all"), base, head, tmp_path / "run", [s])
     runner.cache = tmp_path / "cache"
