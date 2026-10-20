@@ -2,7 +2,7 @@ import functools
 import logging
 import time
 from collections import Counter, defaultdict, deque
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, NamedTuple
@@ -407,14 +407,19 @@ class MicroScheduler:
         cap = max(rows, 1)
         self.batch_ceilings[key] = min(cap, self.batch_ceilings.get(key, cap))
 
-    def clear_batch_limit(self, node_name: str, graph_walk: str, rows: int) -> None:
+    def clear_batch_limit(
+        self, node_name: str, graph_walk: str, rows: int, walks: Iterable[str] = (),
+    ) -> None:
         """A step of ``rows`` rows of ``(node_name, graph_walk)`` admitted:
         lift its `limit_batch` limit, and its `cap_batch` cap if the step was
-        smaller than both.
+        smaller than both. ``walks`` are the real walks the step ran rows of.
 
         A step of a real walk lifts its combined walk's limit too: a mixed
         batch refused at two rows leaves a limit of one, which no mixed step
-        can meet, so no step under the combined label would ever lift it.
+        can meet, so no step under the combined label would ever lift it. A
+        mixed step lifts the limits of the walks it ran, since the combined
+        walk's own cap sized it; their caps stay, as the combined cap, not
+        their queues, set how many of their rows it took.
         """
         keys = [(node_name, graph_walk)]
         combined = self.combined_walk_of.get((node_name, graph_walk))
@@ -425,6 +430,9 @@ class MicroScheduler:
             ceiling = self.batch_ceilings.get(key)
             if ceiling is not None and rows < min(ceiling, limit or ceiling):
                 del self.batch_ceilings[key]
+        for walk in walks:
+            if walk != graph_walk:
+                self.batch_limits.pop((node_name, walk), None)
 
     def tp_rids(self, message: ScheduleTPNode) -> list[int]:
         """``ScheduleTPNode`` crosses the wire, so its rids are strings; these

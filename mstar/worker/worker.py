@@ -4688,6 +4688,7 @@ class Worker:
                         self.scheduler.clear_batch_limit(
                             pending.node_name, pending.graph_walk,
                             len(pending.batch.request_to_worker_graph),
+                            walks=pending.batch.rids_by_walk(),
                         )
                         with self._span("worker.postprocess_batch"):
                             self._postprocess_batch(pending, outputs)
