@@ -7,18 +7,18 @@ import asyncio
 import getpass
 import json
 import os
-import queue
 import re
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from test_output_failure_teardown import _Model, _TensorManager, _thread
 
 from mstar.api_server import entrypoint
-from mstar.api_server.data_worker import PreprocessWorkerThread
 from mstar.api_server.rust_frontend import RustFrontendBridge
 from mstar.engine.engine import ExecutingBatch
+from mstar.utils.ipc_format import ConductorMessageType
 from mstar.worker.micro_scheduler import MicroScheduler
 from mstar.worker.worker import Worker
 
@@ -53,10 +53,8 @@ def _upload(tmp_path, name: str) -> str:
 
 
 def _data_worker():
-    wt = PreprocessWorkerThread.__new__(PreprocessWorkerThread)
-    wt.out_queue = queue.Queue()
-    wt.request_output_state = {}
-    return wt
+    """A data worker with r1 in flight."""
+    return _thread(_Model(), _TensorManager())
 
 
 def test_a_decoder_failure_on_an_upload_reaches_the_client_as_an_error_id(tmp_path, caplog):
@@ -65,7 +63,7 @@ def test_a_decoder_failure_on_an_upload_reaches_the_client_as_an_error_id(tmp_pa
     with pytest.raises(OSError) as raised:
         Image.open(path)
     assert path in str(raised.value)  # the decoder names the upload
-    wt._fail_request("r1", raised.value, "preprocessing")
+    wt._fail_request("r1", raised.value, "preprocessing", abort=False)
 
     chunk = wt.out_queue.get_nowait()
     text = chunk.data.decode()
@@ -78,7 +76,9 @@ def test_a_decoder_failure_on_an_upload_reaches_the_client_as_an_error_id(tmp_pa
 def test_a_deliberate_decoder_refusal_keeps_its_message_without_the_path(tmp_path, caplog):
     path = _upload(tmp_path, "3f2a9c_clip.mp4")
     wt = _data_worker()
-    wt._fail_request("r1", ValueError(f"no video frames decoded from {path}"), "preprocessing")
+    wt._fail_request(
+        "r1", ValueError(f"no video frames decoded from {path}"), "preprocessing", abort=False,
+    )
 
     chunk = wt.out_queue.get_nowait()
     text = chunk.data.decode()
@@ -98,6 +98,11 @@ def test_an_arena_io_error_reaches_the_client_as_an_error_id(caplog):
         _assert_clean(text)
     assert texts[0] == texts[1]
     assert segment in _logged(caplog, _error_id(texts[0])).getMessage()
+    # the scrubbed error still stops the request's walk, once
+    assert wt.communicator.to_conductor() == [
+        (ConductorMessageType.ABORT_REQUEST, "r1"),
+        (ConductorMessageType.READS_DONE, "r1"),
+    ]
 
 
 def _worker(rids=("r1",)):
