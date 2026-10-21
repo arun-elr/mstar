@@ -794,10 +794,11 @@ class Model(ABC):
     PROMPT_DECODE_WALK = "decode"
 
     def max_decoded_tokens(self, cap: int, walk: str) -> int:
-        """Most tokens one request decodes in the Loop graph walk ``walk``: its
-        output ``cap``, or the Loop's ``max_iters`` if lower, since the Loop
-        ends there whatever the cap."""
-        return min(cap, self.get_graph_walk_graphs()[walk].max_iters)
+        """Most positions one request's decode takes in the Loop graph walk
+        ``walk``: its output ``cap`` and one more, since async scheduling can
+        start the next step before the last one's stop check runs, or the
+        Loop's ``max_iters`` if lower, since no step starts past it."""
+        return min(cap + 1, self.get_graph_walk_graphs()[walk].max_iters)
 
     def context_use(
         self,

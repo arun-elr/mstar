@@ -226,9 +226,9 @@ decode Loop walk is not named ``decode``). A model with attachments, conditionin
 or a second cache overrides ``context_use`` and returns a
 ``ContextUse(prompt, generated)`` per cache, counting positions as its prefill
 advances them (Qwen3.5, BAGEL, Qwen3-Omni, Qwen3-TTS and Fish S2-Pro do). ``generated`` is
-``max_decoded_tokens(cap, walk)``: the request's output cap, or the decode Loop's
-``max_iters`` if lower, since the Loop ends there. A model that declares neither is
-not checked.
+``max_decoded_tokens(cap, walk)``: the request's output cap plus the one step async
+scheduling can start before the last stop check, or the decode Loop's ``max_iters``
+if lower, since no step starts past it. A model that declares neither is not checked.
 
 ``Model.nodes`` is a read-only property. It returns the sorted set of node names that
 appear in any graph walk.

@@ -305,7 +305,8 @@ def test_a_larger_output_cap_lowers_the_limit(tmp_path, monkeypatch):
             "model_kwargs": json.dumps({"max_output_tokens": 8190}),
         })
         assert r.status_code == 400, r.text
-        assert "the model takes at most 2 (its 8192-position context less the 8190 its" in r.json()["detail"]
+        # the cap and the one step async scheduling can start past it
+        assert "the model takes at most 1 (its 8192-position context less the 8191 its" in r.json()["detail"]
         assert server.socket.sent_of(ConductorMessageType.NEW_REQUEST) == []
     finally:
         server.close()
@@ -368,6 +369,36 @@ def test_the_output_counted_is_the_decode_loops_bound(name, walk):
     assert uses[key].generated == model.get_graph_walk_graphs()[walk].max_iters < 32768
 
 
+@pytest.mark.parametrize("cap", [1, 2, 100])
+@pytest.mark.parametrize("name", sorted(CASES))
+def test_decode_counts_its_cap_and_one_speculative_step(name, cap, tmp_path):
+    """Async scheduling can start one decode step before the last one's stop
+    check runs, so a cap of ``cap`` can write ``cap + 1`` positions."""
+    model = CASES[name][0](tmp_path)
+    out = CASES[name][2]
+    result = model.process_prompt(CASES[name][3], ["text"], out)
+    tensors, kwargs = (result, {}) if isinstance(result, dict) else result
+    (use, *_) = model.context_use(dict(tensors), ["text"], out, {**kwargs, "max_output_tokens": cap}).values()
+    assert use.generated == cap + 1
+
+
+@pytest.mark.parametrize(("name", "cap"), [("bagel", 1), ("qwen3_5", 2)])
+def test_a_prompt_that_leaves_only_the_cap_is_refused(name, cap, tmp_path, monkeypatch):
+    """BAGEL meets a cap of 1 at prefill but still runs a decode step; Qwen3.5
+    runs ``cap`` decode steps. Either way async scheduling can start one more,
+    so a prompt that leaves exactly ``cap`` positions would reach max_seq_len."""
+    server, _ = _server(name, tmp_path, monkeypatch)
+    _, model_config, out, unit = CASES[name]
+    (key, one), *_ = _use(server.api.model, unit, out).items()
+    context = _paged_kv_configs(server.api.model, model_config)[key].max_seq_len
+    length = context - cap
+    try:
+        error = _submit(server, unit * (length - one.prompt + 1), out, {"max_output_tokens": cap})
+        assert error is not None and _refusal(length, length - 1) in error
+    finally:
+        server.close()
+
+
 def test_bagel_think_mode_image_output_counts_the_decode_loops_thinking():
     model = _Bagel(think_mode=True)
     tensors = model.process_prompt("a cat", ["text"], ["image"])
@@ -399,7 +430,7 @@ def test_a_cap_past_the_context_names_the_kwarg(tmp_path, monkeypatch):
     try:
         error = _submit(server, "a " * 10, ["text"], {"max_output_tokens": 9000})
         assert error is not None
-        assert "max_output_tokens lets the output take 9000 positions" in error
+        assert "max_output_tokens lets the output take 9001 positions" in error
         assert "8192-position context" in error
     finally:
         server.close()
@@ -413,7 +444,7 @@ def test_qwen3_omni_audio_output_counts_the_talkers_cache(tmp_path, monkeypatch)
     model, out = server.api.model, ["text", "audio"]
     kwargs = {"max_output_tokens": 1, "talker_max_output_tokens": 1000}
     one = _use(model, "a ", out)["talker_kv"]
-    limit = _paged_kv_configs(model, None)["talker_kv"].max_seq_len - 1000
+    limit = _paged_kv_configs(model, None)["talker_kv"].max_seq_len - 1001
     try:
         error = _submit(server, "a " * (limit - one.prompt + 2), out, kwargs)
         assert error is not None
@@ -440,7 +471,7 @@ def test_qwen3_5_counts_an_image_by_its_mrope_span(tmp_path):
     use = model.context_use(tensors, mods, ["text"], kwargs)
     order = tuple(0 if s.modality == TEXT else 1 for s in prefill_plan(parts_from_modalities(mods)))
 
-    assert use == {"kv_cache": ContextUse(_qwen3_5_vision_prefill(model, order, tensors), 2048)}
+    assert use == {"kv_cache": ContextUse(_qwen3_5_vision_prefill(model, order, tensors), 2049)}
     # max(4, 6) positions and two sentinels, against 24 tokens and two sentinels
     text = sum(t.numel() for t in tensors["text_inputs"])
     assert use["kv_cache"].prompt == text + 6 + 2
@@ -560,7 +591,7 @@ def test_fish_s2_pro_counts_a_clones_reference_frames():
     use = model.context_use(tensors, ["text", "audio"], ["audio"], kwargs)
 
     assert ref_frames == 21
-    assert use == {AR_KV: ContextUse(prefill.shape[0], 64)}
+    assert use == {AR_KV: ContextUse(prefill.shape[0], 64 + 1)}
 
 
 @pytest.mark.parametrize(("out", "walks"), [(["text"], 1), (["image"], 2)])
@@ -593,8 +624,9 @@ def test_bagel_think_mode_image_output_counts_its_thinking():
     tensors = model.process_prompt("a cat", ["text"], ["image"])
     use = model.context_use(tensors, ["text"], ["image"], {"max_output_tokens": 300})
     # the think span is prefilled first, then the prompt; up to 300 thought
-    # tokens are decoded and the latents sit one position past them
-    assert use["kv"] == ContextUse(sum(t.numel() for t in tensors["text_inputs"]), 301)
+    # tokens (and one speculative step) are decoded, and the latents sit one
+    # position past them
+    assert use["kv"] == ContextUse(sum(t.numel() for t in tensors["text_inputs"]), 302)
 
 
 def test_qwen3_omni_counts_match_the_thinker_prefill():
