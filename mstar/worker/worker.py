@@ -92,7 +92,12 @@ from mstar.utils.profiler import (
 from mstar.worker.engine_manager import EngineManager, refuse_combined_walks_across_tp_groups
 from mstar.worker.micro_scheduler import MicroScheduler, ScheduledBatch
 from mstar.worker.node_manager_utils import RequestStateManager
-from mstar.worker.read_gate import FollowerReadGate, edges_by_rid, signals_by_rid
+from mstar.worker.read_gate import (
+    FollowerReadGate,
+    edges_by_rid,
+    lockstep_feeders,
+    signals_by_rid,
+)
 from mstar.worker.worker_metrics import WorkerMetrics
 
 logger = logging.getLogger(__name__)
@@ -1501,17 +1506,15 @@ class Worker:
         self._gate_removed: RecentSet[str] = RecentSet(self._TP_NOSPEC_KEEP)
         # rank 0: the lockstep node's input names, and the other nodes with an
         # edge into it; None when unknown (every name, every node)
-        nodes = [] if model is None else [
-            node for section in model.get_graph_walk_graphs().values()
-            for node in section.get_nodes().values()
-        ]
+        walks = {} if model is None else model.get_graph_walk_graphs()
+        nodes = [node for section in walks.values() for node in section.get_nodes().values()]
         self._lockstep_inputs = None if model is None else frozenset(
             name for node in nodes if node.name in self._lockstep_led
             for name in node.input_names
         )
         self._lockstep_feeders = None if model is None else frozenset(
-            node.name for node in nodes if node.name not in self._lockstep_led
-            and any(edge.next_node in self._lockstep_led for edge in node.outputs)
+            name for section in walks.values()
+            for name in lockstep_feeders(section, self._lockstep_led)
         )
         # follower: rid -> edge -> external inputs of it this rank holds
         self._landed_counts = {}
@@ -1648,15 +1651,17 @@ class Worker:
     def _note_landed(self, ready: dict[int, list[GraphEdge]]) -> None:
         """Count the external inputs of the lockstep node that landed this pass."""
         node_names = self._lockstep_led or self._lockstep_followed
+        me = getattr(self.tensor_manager, "my_entity_id", None)
         for rid, edges in ready.items():
             for edge in edges:
                 if edge.next_node not in node_names:
                     continue
                 if edge.tensor_info and all(
-                    i._source_node_name in node_names for i in edge.tensor_info
+                    i._source_node_name in node_names and i.source_entity == me
+                    for i in edge.tensor_info
                 ):
-                    # the instance's own output coming back (a persisted token
-                    # as the decode walk's input): every rank produced it
+                    # this rank's own output of the lockstep node coming back
+                    # (a persisted token as the decode walk's input): no read
                     continue
                 if not edge.is_streaming:
                     self._count_external(rid, edge.name, [i.uuid for i in edge.tensor_info])

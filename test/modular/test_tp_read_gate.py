@@ -522,12 +522,35 @@ def test_the_instances_own_persisted_output_is_neither_marked_nor_counted(tmp_pa
     through the read path on every rank; every rank produced it, so the first
     decode step does not wait for a report."""
     leader, leader_mgr, follower, _follower_mgr, _reads = _pair(tmp_path)
-    token = _edge(70, name="text_inputs")
-    token.tensor_info[0]._source_node_name = NODE
-    leader._note_landed({"r0": [token]})
-    follower._note_landed({"r0": [token]})
+
+    def token(uuid, entity):
+        edge = _edge(uuid, name="text_inputs")
+        edge.tensor_info[0]._source_node_name = NODE
+        edge.tensor_info[0].source_entity = entity
+        return edge
+
+    leader._note_landed({"r0": [token(70, leader.tensor_manager.my_entity_id)]})
+    follower._note_landed({"r0": [token(71, follower.tensor_manager.my_entity_id)]})
     assert 70 not in leader._read_gate._external["r0"]
     assert "text_inputs" not in follower._landed_counts.get("r0", {})
+    # a prefill instance on other workers produced it: each decode rank reads
+    # that copy, which can fail, so it is gated like any other input
+    leader._note_landed({"r0": [token(80, "prefill_0")]})
+    follower._note_landed({"r0": [token(80, "prefill_0")]})
+    assert 80 in leader._read_gate._external["r0"]
+    assert follower._landed_counts["r0"]["text_inputs"] == 1
+
+
+def test_a_loops_terminal_output_into_the_lockstep_node_makes_its_nodes_feeders():
+    from mstar.graph.base import GraphNode, Loop, Sequential
+    from mstar.worker.read_gate import lockstep_feeders
+
+    encoder = GraphNode(name="enc", input_names=["x"], outputs=[GraphEdge(next_node="enc", name="x")])
+    walk = Sequential([
+        Loop(section=encoder, max_iters=2, outputs=[GraphEdge(next_node="LLM", name="x")]),
+        GraphNode(name="LLM", input_names=["x"], outputs=[]),
+    ])
+    assert lockstep_feeders(walk, frozenset({"LLM"})) == {"enc"}
 
 
 def test_removing_a_request_this_rank_never_admitted_drops_its_reports():
