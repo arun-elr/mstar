@@ -37,8 +37,8 @@ AR_SAMPLER = "semantic_sampler"
 PROMPT_LAYOUT_KEY = "prompt_layout"
 REF_CLIP_KEY = "ref_clip_key"
 
-# Fixed prompt text of the SGLang-Omni S2-Pro serving path (built with the
-# Fish Audio team), which segments are tokenized one by one exactly as here.
+# Fixed prompt text of the reference S2-Pro serving path (built with the
+# Fish Audio team), which tokenizes the segments one by one exactly as here.
 IM_START = "<|im_start|>"
 IM_END = "<|im_end|>"
 VOICE_TOKEN = "<|voice|>"
@@ -236,8 +236,8 @@ class FishDACConfig:
 class FishGenerationConfig:
     """Request sampling defaults.
 
-    Temperature, top-p and top-k are the SGLang-Omni S2-Pro defaults. The
-    residual codebooks are argmax, as there. SGLang-Omni's 16-token
+    Temperature, top-p and top-k are the reference S2-Pro serving defaults.
+    The residual codebooks are argmax, as there. The reference's 16-token
     repetition-penalty window and repetition-aware sampling are not ported:
     M*'s penalty counts the whole generation, so it defaults to off.
     """
