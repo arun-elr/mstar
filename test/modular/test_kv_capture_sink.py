@@ -10,6 +10,7 @@ rows take none, so the bucket is reachable and has to be captured and sized.
 from __future__ import annotations
 
 import sys
+from types import SimpleNamespace
 
 sys.path.insert(0, ".")
 
@@ -94,7 +95,6 @@ def test_the_captured_attention_wrapper_holds_every_page_the_capture_names(monke
     """A 48-page pool of 128-token pages and the one-row 8,192-token prefill
     bucket: a 6,006-token prompt replays it with 47 pages, and its capture
     names 64 sink pages, more than the 49 slots a pool-sized buffer holds."""
-    from types import SimpleNamespace
     from unittest.mock import Mock
 
     from mstar.engine.resources.attn.flashinfer import FlashInferManager
@@ -128,6 +128,46 @@ def test_the_captured_attention_wrapper_holds_every_page_the_capture_names(monke
     assert isinstance(wrapper, FlashInferPrefillWrapper)
     assert named == 64
     assert wrapper._paged_kv_indices_buf.numel() >= named, "the capture's copy into the buffer would overrun it"
+
+
+def test_the_captured_mla_wrapper_holds_every_page_the_capture_names(monkeypatch):
+    """The same 48-page pool and 8,192-token bucket on an MLA cache: the MLA
+    wrapper sized its indices from the pool too, 49 slots for the 64 pages."""
+    from mstar.engine.resources.attn import flashinfer_mla as fm
+    from mstar.engine.resources.kv.config import KVLayout
+
+    cfg = PagedKVConfig(
+        num_layers=1, num_kv_heads=1, head_dim=32, max_seq_len=8192, max_num_pages=48, page_size=128,
+        num_qo_heads=2, layout=KVLayout.MLA, kv_lora_rank=32, qk_rope_head_dim=0,
+    )
+    kv = KVManager(
+        cfg=cfg, name="kv", joint_comm_group=None, transfer_engine_info=None,
+        device=torch.device("cpu"), dtype=torch.float32,
+    )
+    bucket = BucketKey(graph_walk="prefill_text", bs=1, num_tokens=8192)
+    kv._cg_max_seq_len = bucket.num_tokens
+    kv.ingest_capture_row(-1)
+    step = KVStep(segments=(Segment(-1, "main", 8192),))
+    ctx = StepContext(
+        request_ids=(-1,), graph_walk=bucket.graph_walk, slot=0, capture=True,
+        slot_lease=SlotLease(slot=0, bucket=bucket), force_prefill=True,
+    )
+    assert kv.admit(step, ctx).ok
+    named = len(kv.plan(step, ctx)["main"].cpu_indptrs.paged_kv_indices)
+
+    built = []
+    # the kernel needs CUDA; only the size the manager asks for is under test
+    monkeypatch.setattr(fm.FlashInferMLAManager, "uses_kernel", property(lambda self: True))
+    monkeypatch.setattr(fm, "FlashInferMLAWrapper", lambda **kwargs: built.append(kwargs))
+    attn = fm.FlashInferMLAManager("kv", torch.device("cpu"), torch.float32, cfg, sm_scale=0.1)
+    attn._workspaces = SimpleNamespace(get=lambda label, slot=None: None)
+    attn._cg_wrapper(ctx.slot_lease, "main", num_rows=1)
+
+    # FlashInferMLAWrapper allocates max_num_pages + batch_size index slots
+    (kwargs,) = built
+    assert named == 64
+    slots = kwargs["max_num_pages"] + kwargs["batch_size"]
+    assert slots >= named, "the capture's copy into the buffer would overrun it"
 
 
 def test_a_served_step_that_pads_into_that_bucket_still_takes_real_pages():
