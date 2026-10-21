@@ -225,7 +225,7 @@ output reach. A model whose prompt is plain token ids in ``text_inputs`` sets
 decode Loop walk is not named ``decode``). A model with attachments, conditioning
 or a second cache overrides ``context_use`` and returns a
 ``ContextUse(prompt, generated)`` per cache, counting positions as its prefill
-advances them (Qwen3.5, BAGEL, Qwen3-Omni and Qwen3-TTS do). ``generated`` is
+advances them (Qwen3.5, BAGEL, Qwen3-Omni, Qwen3-TTS and Fish S2-Pro do). ``generated`` is
 ``max_decoded_tokens(cap, walk)``: the request's output cap, or the decode Loop's
 ``max_iters`` if lower, since the Loop ends there. A model that declares neither is
 not checked.

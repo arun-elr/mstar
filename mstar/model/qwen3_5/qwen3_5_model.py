@@ -563,12 +563,18 @@ class Qwen3_5DenseModel(Model):
         model_kwargs: dict,
     ) -> dict[str, ContextUse]:
         """A text id takes one position; an image its grid's MRoPE span and
-        its two sentinels, as `LLMSubmodule`'s vision prefill advances them."""
+        its two sentinels, and a video that per temporal group, as
+        `LLMSubmodule`'s vision prefill advances them. A video's timestamps
+        and outer sentinels are in ``text_inputs``."""
         prompt = sum(t.numel() for t in tensors.get("text_inputs", []))
-        grids = tensors.get("image_grid_thw", [])
-        if grids:
+        images = tensors.get("image_grid_thw", [])
+        videos = tensors.get("video_grid_thw", [])
+        if images or videos:
             merge = self.vision_config.spatial_merge_size
-            prompt += sum(vision_position_advance(grid, merge) + 2 for grid in grids)
+            prompt += sum(vision_position_advance(grid, merge) + 2 for grid in images)
+            prompt += sum(
+                int(grid[0]) * (vision_position_advance(grid, merge) + 2) for grid in videos
+            )
         generated = self.max_decoded_tokens(resolve_max_output_tokens(self, model_kwargs), "decode")
         return {KV_CACHE: ContextUse(prompt, generated)}
 

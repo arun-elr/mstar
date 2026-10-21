@@ -56,7 +56,14 @@ from mstar.engine.resources import (
 )
 from mstar.graph.base import GraphEdge, GraphNode, GraphSection, Loop, Sequential, TensorPointerInfo
 from mstar.graph.special_destinations import EMIT_TO_CLIENT, EMPTY_DESTINATION
-from mstar.model.base import ForwardPassArgs, Model, ProcessPromptOutput, TensorAndMetadata
+from mstar.model.base import (
+    ContextUse,
+    ForwardPassArgs,
+    Model,
+    ProcessPromptOutput,
+    TensorAndMetadata,
+    resolve_max_output_tokens,
+)
 from mstar.model.fish_s2_pro.config import (
     ALLOWED_TEXT_SPECIAL_TOKENS,
     AR_ATTN,
@@ -377,12 +384,24 @@ class FishS2ProModel(Model):
             ref_frames = self.config.codec.frames_for_samples(num_samples)
         ref_text = str(kwargs.get("ref_text") or "").strip() if clips else None
         ids, prefix_len = self.build_prompt(prompt.strip(), ref_text, ref_frames)
-        if len(ids) + ref_frames + self.get_max_output_tokens(**kwargs) > self.config.slow_ar.max_seq_len:
-            raise ValueError("Fish S2-Pro prompt plus max_new_tokens exceeds the 32,768-token context")
         metadata: dict[str, Any] = {PROMPT_LAYOUT_KEY: [prefix_len, ref_frames]}
         if clips:
             metadata[REF_CLIP_KEY] = clip_digest(clips[0])
         return ProcessPromptOutput({"prompt_ids": [torch.tensor(ids, dtype=torch.long)]}, metadata)
+
+    def context_use(
+        self,
+        tensors: NameToTensorList,
+        input_modalities: list[str],
+        output_modalities: list[str],
+        model_kwargs: dict,
+    ) -> dict[str, ContextUse]:
+        """The slow AR's prefill (prompt ids, and a clone's reference frames at
+        one position each), then one position per decoded frame."""
+        prompt = sum(t.numel() for t in tensors.get("prompt_ids", []))
+        prompt += int(model_kwargs[PROMPT_LAYOUT_KEY][1])
+        generated = self.max_decoded_tokens(resolve_max_output_tokens(self, model_kwargs), "ar_decode")
+        return {AR_KV: ContextUse(prompt, generated)}
 
     # -----------------------------------------------------------------------
     # Conductor partition state machine

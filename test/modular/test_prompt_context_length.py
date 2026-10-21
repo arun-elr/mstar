@@ -24,15 +24,20 @@ from types import SimpleNamespace
 import httpx
 import pytest
 import torch
+from test_fish_s2_pro_model import tiny_ar as _fish_ar
+from test_fish_s2_pro_model import tiny_model as _fish
 from test_orpheus_prompt_length import _Server
 from test_qwen3_5_config import _qwen3_8_config
+from test_qwen3_5_video import LAYOUTS as VIDEO_LAYOUTS
+from test_qwen3_5_video import a_video, an_image, sampled, write_synthetic_checkpoint
 from test_qwen3_tts_model import _make_model as _qwen3_tts
 from test_qwen3_tts_model import _tiny_model_config
 
 from mstar.api_server import entrypoint
 from mstar.api_server.data_worker import _paged_kv_configs
 from mstar.model.bagel.bagel_model import BagelModel
-from mstar.model.base import ContextUse, Model
+from mstar.model.base import ContextUse, Model, TensorAndMetadata
+from mstar.model.fish_s2_pro.config import AR_KV
 from mstar.model.multimodal import TEXT, parts_from_modalities, prefill_plan
 from mstar.model.qwen3_5.config import ROPE, Qwen3_5Config, Qwen3_5VisionConfig
 from mstar.model.qwen3_5.qwen3_5_model import Qwen3_5DenseModel
@@ -182,6 +187,8 @@ CASES = {
     "bagel": (lambda _: _Bagel(), {"resources": {"kv": {"max_seq_len": 6000}}}, ["text"], "a"),
     "qwen3_omni": (lambda _: _omni(), None, ["text"], "a "),
     "qwen3_tts": (lambda _: _qwen3_tts(), None, ["audio"], "a "),
+    # one id per character; the tiny checkpoint's 512-position context
+    "fish_s2_pro": (lambda _: _fish(), None, ["audio"], "a"),
 }
 
 
@@ -304,11 +311,11 @@ def test_a_larger_output_cap_lowers_the_limit(tmp_path, monkeypatch):
         server.close()
 
 
-def _submit(server, text: str, out: list[str], model_kwargs: dict):
+def _submit(server, text: str, out: list[str], model_kwargs: dict, input_modalities=("text",), **request):
     """Submit a request; return its refusal, or None once it reaches the conductor."""
     server.api.submit_request(
-        text=text, input_modalities=["text"], output_modalities=out,
-        model_kwargs=model_kwargs, streaming=False,
+        text=text, input_modalities=list(input_modalities), output_modalities=out,
+        model_kwargs=model_kwargs, streaming=False, **request,
     )
     deadline = time.monotonic() + 10
     while True:
@@ -427,13 +434,21 @@ def test_qwen3_5_counts_an_image_by_its_mrope_span(tmp_path):
     prefill leaves the position cursor, not the image's token count."""
     model = _qwen3_5(tmp_path)
     mods = ["image", "text"]
-    tensors = model.process_prompt(
+    tensors, kwargs = model.process_prompt(
         "look at this", mods, ["text"], tensors={"image_inputs": [torch.zeros(3, 32, 48)]},
     )
-    use = model.context_use(tensors, mods, ["text"], {})
+    use = model.context_use(tensors, mods, ["text"], kwargs)
     order = tuple(0 if s.modality == TEXT else 1 for s in prefill_plan(parts_from_modalities(mods)))
 
-    hidden = 4
+    assert use == {"kv_cache": ContextUse(_qwen3_5_vision_prefill(model, order, tensors), 2048)}
+    # max(4, 6) positions and two sentinels, against 24 tokens and two sentinels
+    text = sum(t.numel() for t in tensors["text_inputs"])
+    assert use["kv_cache"].prompt == text + 6 + 2
+
+
+def _qwen3_5_vision_prefill(model: Qwen3_5DenseModel, order: tuple, inputs: dict) -> int:
+    """How far `LLMSubmodule`'s vision prefill moves the position cursor."""
+    hidden, merge = 4, model.vision_config.spatial_merge_size ** 2
     stub = SimpleNamespace(
         vision_config=model.vision_config,
         get_device=lambda: torch.device("cpu"),
@@ -441,16 +456,111 @@ def test_qwen3_5_counts_an_image_by_its_mrope_span(tmp_path):
         node_resources={ROPE: SimpleNamespace(position=lambda rid, label: 0)},
         model=SimpleNamespace(model=SimpleNamespace(embed_tokens=lambda ids: torch.zeros(len(ids), hidden))),
     )
-    tokens = 1 * (8 // 2) * (12 // 2)
+    tokens = sum(int(grid.prod()) // merge for grid in inputs.get("image_grid_thw", []))
     prefilled = LLMSubmodule._vision_inputs(
         stub,
         SimpleNamespace(request_id="r", step_metadata={"prefill_order": order}),
-        {**tensors, "vision_embeds": [torch.zeros(tokens, hidden)]},
+        {**inputs, "vision_embeds": [torch.zeros(tokens, hidden)]},
     )
-    assert use == {"kv_cache": ContextUse(prefilled.tensor_inputs["mrope_advance"], 2048)}
-    # max(4, 6) positions and two sentinels, against 24 tokens and two sentinels
-    text = sum(t.numel() for t in tensors["text_inputs"])
-    assert use["kv_cache"].prompt == text + 6 + 2
+    return prefilled.tensor_inputs["mrope_advance"]
+
+
+@pytest.fixture(scope="module")
+def qwen3_5_video(tmp_path_factory) -> Qwen3_5DenseModel:
+    """Qwen3.5 over the video tests' synthetic checkpoint: a real tokenizer,
+    chat template and video processor."""
+    return Qwen3_5DenseModel(str(write_synthetic_checkpoint(tmp_path_factory.mktemp("qwen3_5_video"))))
+
+
+def _video_request(model: Qwen3_5DenseModel, layout: str):
+    """One of the video tests' layouts: its modalities, texts, sampled videos
+    and images."""
+    modalities, names = VIDEO_LAYOUTS[layout]
+    texts = [f"Question {i}: what happens?" for i in range(modalities.count(TEXT))]
+    videos = [sampled(*a_video(name), model.video_processor) for name in names]
+    images = [an_image() for _ in range(modalities.count("image"))]
+    return modalities, texts, videos, images
+
+
+@pytest.mark.parametrize("layout", sorted(VIDEO_LAYOUTS))
+def test_qwen3_5_counts_each_video_group_where_the_vision_prefill_leaves_it(qwen3_5_video, layout):
+    """A video's temporal groups are placed one by one like one-frame images,
+    each with two sentinels; its timestamps are text. The count is where the
+    vision prefill of the request's schedule leaves the cursor
+    (`test_qwen3_5_video` checks that row against transformers)."""
+    model = qwen3_5_video
+    modalities, texts, videos, images = _video_request(model, layout)
+    tensors, kwargs = model.process_prompt(
+        "\n".join(texts), modalities, ["text"],
+        tensors={"image_inputs": images, "video_inputs": [frames for frames, _ in videos]},
+        prompt_parts=parts_from_modalities(modalities, texts),
+        input_metadata={"video_inputs": [metadata for _, metadata in videos]},
+    )
+    use = model.context_use(tensors, modalities, ["text"], kwargs)
+    (step,) = model._prefill_schedule(modalities, tensors, kwargs["video_groups"])
+
+    assert use["kv_cache"].prompt == _qwen3_5_vision_prefill(model, step.order, {
+        "text_inputs": step.input_tensors["text_inputs"],
+        "image_grid_thw": step.input_tensors["image_grid_thw"],
+    })
+
+
+@pytest.mark.parametrize("over", [0, 1], ids=["at-the-limit", "one-over"])
+def test_a_video_that_pushes_the_prompt_past_the_context_is_a_400(qwen3_5_video, over, tmp_path, monkeypatch):
+    """A one-line question with a video, served: the video's positions count,
+    so a context that fits the text alone refuses the request one position
+    past the limit and admits it at the limit."""
+    model = qwen3_5_video
+    modalities, (text,), ((frames, metadata),), _ = _video_request(model, "video_then_question")
+    tensors, kwargs = model.process_prompt(
+        text, modalities, ["text"], tensors={"video_inputs": [frames]},
+        input_metadata={"video_inputs": [metadata]},
+    )
+    use = model.context_use(tensors, modalities, ["text"], kwargs)["kv_cache"]
+    # so a count of the text alone would admit the one-over case
+    assert use.prompt - 1 > sum(t.numel() for t in tensors["text_inputs"])
+    monkeypatch.setattr(model, "load_video", lambda path, device: TensorAndMetadata(frames, metadata))
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"\0")
+
+    context = use.prompt + use.generated - over
+    server = _Server(
+        model=model, model_config={"resources": {"kv_cache": {"max_seq_len": context}}},
+        model_name="qwen3_5",
+    )
+    server.api.upload_dir = tmp_path
+    monkeypatch.setattr(entrypoint, "api_server", server.api)
+    try:
+        error = _submit(
+            server, text, ["text"], {}, input_modalities=modalities, file_paths={"video": [str(video)]},
+        )
+    finally:
+        server.close()
+    if over:
+        assert error is not None and _refusal(use.prompt, use.prompt - 1) in error
+    else:
+        assert error is None
+
+
+def test_fish_s2_pro_counts_a_clones_reference_frames():
+    """A clone's reference frames take one position each in the slow AR's
+    prefill, spliced in after the system prefix."""
+    model, ar = _fish(), _fish_ar()
+    clip = torch.zeros(20 * model.config.codec.hop_length + 1)
+    tensors, kwargs = model.process_prompt(
+        "hi", ["text", "audio"], ["audio"], {"audio_inputs": [clip]}, ref_text="r",
+    )
+    prefix_len, ref_frames = kwargs["prompt_layout"]
+    codes = torch.zeros(ref_frames, model.config.fast_ar.num_codebooks, dtype=torch.long)
+    # the stand-in tokenizer's ids are past the tiny AR's vocabulary; only the length matters
+    ids = torch.ones_like(tensors["prompt_ids"][0])
+    with torch.no_grad():
+        prefill = ar._build_prefill(ids, prefix_len, ref_frames, codes)
+
+    use = model.context_use(tensors, ["text", "audio"], ["audio"], kwargs)
+
+    assert ref_frames == 21
+    assert use == {AR_KV: ContextUse(prefill.shape[0], 64)}
 
 
 @pytest.mark.parametrize(("out", "walks"), [(["text"], 1), (["image"], 2)])

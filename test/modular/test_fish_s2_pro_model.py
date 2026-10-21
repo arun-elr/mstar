@@ -26,6 +26,7 @@ from mstar.model.fish_s2_pro.components.dac import apply_rotary_emb
 from mstar.model.fish_s2_pro.components.fast_ar import FishFastAR
 from mstar.model.fish_s2_pro.components.slow_ar import FishSlowAR, remap_slow_ar_weights
 from mstar.model.fish_s2_pro.config import (
+    AR_KV,
     AR_SAMPLER,
     PROMPT_LAYOUT_KEY,
     FishDACConfig,
@@ -622,10 +623,12 @@ def test_process_prompt_lays_out_clones_and_validates_requests():
     ]:
         with pytest.raises(ValueError, match=match):
             model.process_prompt(prompt, inputs, outputs, tensors)
+    # the cap and the length are the data worker's to refuse, from context_use
     with pytest.raises(ValueError, match="max_new_tokens must be in 1..4096"):
-        model.process_prompt("hi", ["text"], ["audio"], max_new_tokens=5000)
-    with pytest.raises(ValueError, match="exceeds the 32,768-token context"):
-        model.process_prompt("x" * 480, ["text"], ["audio"], max_new_tokens=64)
+        model.context_use(plain.new_input_tensors, ["text"], ["audio"], {**plain.metadata, "max_new_tokens": 5000})
+    tensors, kwargs = model.process_prompt("x" * 480, ["text"], ["audio"], max_new_tokens=64)
+    use = model.context_use(tensors, ["text"], ["audio"], {**kwargs, "max_new_tokens": 64})
+    assert use[AR_KV].prompt + use[AR_KV].generated > model.config.slow_ar.max_seq_len
 
 
 # ---------------------------------------------------------------------------
