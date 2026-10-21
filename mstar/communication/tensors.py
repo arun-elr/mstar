@@ -331,11 +331,12 @@ def _mooncake_transfer_timeout_s() -> int:
     return max(5, int(match.group())) if match else 5
 
 
-def _local_hca_count(engine) -> int:
-    """HCAs in the engine's local topology: Mooncake's sync read tries a
-    failed batch ``numContexts() + 1`` times."""
+def _local_hca_count(engine, device_filter: str) -> int:
+    """HCAs in the engine's local topology under the device filter it was
+    initialized with: Mooncake's sync read tries a failed batch
+    ``numContexts() + 1`` times."""
     try:
-        topology = json.loads(engine.get_local_topology())
+        topology = json.loads(engine.get_local_topology(device_filter))
         return len({hca for tiers in topology.values() for tier in tiers for hca in tier})
     except Exception:  # noqa: BLE001 — a topology we can't read means no retries
         return 0
@@ -449,9 +450,9 @@ class TrackedMooncakeReader(AsyncMooncakeReader):
     Retries and the deadline are the sync read's.
     """
 
-    def __init__(self, engine, device, max_workers: int = 3):
+    def __init__(self, engine, device, max_workers: int = 3, device_filter: str = ""):
         super().__init__(engine, device, max_workers=max_workers)
-        self._read_attempts = _local_hca_count(engine) + 1
+        self._read_attempts = _local_hca_count(engine, device_filter) + 1
         self._timeout_s = _mooncake_transfer_timeout_s()
 
     def _read(self, read_info: list["TransferReadInfo"]) -> None:
@@ -2046,7 +2047,10 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
         # the consumer has the engine copy ``nbytes`` from ``address + offset``
         # into a buffer it views with the descriptor's strides
         self.needs_flat_layout = protocol in (CommProtocol.RDMA, CommProtocol.TCP)
-        self._async_reader = TrackedMooncakeReader(engine._engine, device=device)
+        self._async_reader = TrackedMooncakeReader(
+            engine._engine, device=device,
+            device_filter=tcp_transfer_device if protocol == CommProtocol.TCP else "",
+        )
         self._transfer_status = self._async_reader.transfer_status
 
     @property
