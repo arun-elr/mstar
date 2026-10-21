@@ -202,7 +202,8 @@ From Stanford University & the University of Washington. Correspondence: `atindr
 
 ## Acknowledgments
 
-M\* builds on ideas and proven primitives from the open-source community —
+M\* builds on ideas and proven primitives from the open-source community — paged attention and
+continuous batching ([vLLM](https://github.com/vllm-project/vllm)),
 [FlashInfer](https://github.com/flashinfer-ai/flashinfer) kernels, streaming speech serving
 (VoxServe), and RDMA tensor transport ([Mooncake](https://github.com/kvcache-ai/Mooncake)).
 
