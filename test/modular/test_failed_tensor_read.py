@@ -220,10 +220,11 @@ def test_the_worker_fails_a_request_once_when_its_input_read_fails(tmp_path):
     assert w.scheduler.failed_rids == {"r1"}
 
 
-def test_the_data_worker_answers_a_failed_output_read_in_its_slot(tmp_path):
+def test_the_data_worker_answers_a_failed_output_read_in_its_slot(tmp_path, caplog):
     """The read of output 0 failed while output 1 waits in the reorder buffer:
     the error takes slot 0, so 1 follows it instead of waiting for the TTL,
-    and the API server gets one chunk per tensor it counted."""
+    and the API server gets one chunk per tensor it counted. The failure is
+    logged in one line each, without a traceback, as an input read's is."""
     wt = _preprocess_thread(model=None)
     held = ResultChunk(request_id="r1", modality="text", data=b"later", metadata={})
     wt.request_output_state["r1"].pending[1] = held
@@ -231,7 +232,11 @@ def test_the_data_worker_answers_a_failed_output_read_in_its_slot(tmp_path):
     wt.tensor_manager, _ = _shm_manager(tmp_path)
     wt.tensor_manager.pending = [_read("r1", _edge("u1", name="text_output"), _failed_future())]
 
-    assert wt._process_read_tensors() is True
+    with caplog.at_level("ERROR"):
+        assert wt._process_read_tensors() is True
+    errors = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert [r.exc_info for r in errors] == [None, None]
+    assert "output tensor read failed for request r1: RuntimeError" in errors[1].getMessage()
     chunks = [wt.out_queue.get_nowait(), wt.out_queue.get_nowait()]
     assert [c.modality for c in chunks] == ["error", "text"]
     assert b"output tensor read failed: RuntimeError: Mooncake read failed" in chunks[0].data
