@@ -890,7 +890,7 @@ class PreprocessWorkerThread:
 
     def _fail_request(
         self, request_id: str, exc: BaseException, stage: str, count: int = 1,
-        sequence: int | None = None, abort: bool = True,
+        sequence: int | None = None, abort: bool = True, traceback: bool = True,
     ):
         """Report a per-request data-worker failure to the API server.
 
@@ -905,8 +905,16 @@ class PreprocessWorkerThread:
 
         ``abort`` (False for a request the conductor has not seen) stops the
         request's walk, since its client already has its answer.
+
+        ``traceback`` False logs one line, for an error already logged where
+        it happened.
         """
-        logger.error("%s failed for request %s", stage, request_id, exc_info=exc)
+        if traceback:
+            logger.error("%s failed for request %s", stage, request_id, exc_info=exc)
+        else:
+            logger.error(
+                "%s failed for request %s: %s: %s", stage, request_id, type(exc).__name__, exc,
+            )
         status = 400 if isinstance(exc, (ValueError, TypeError)) else 500
         chunks = [
             ResultChunk(
@@ -1057,7 +1065,7 @@ class PreprocessWorkerThread:
                 slot = state.order.pop(info.uuid, None) if state is not None else None
                 self._fail_request(
                     request_id, failed.error, "output tensor read",
-                    sequence=slot[0] if slot is not None else None,
+                    sequence=slot[0] if slot is not None else None, traceback=False,
                 )
 
     def _process_read_tensors(self):
