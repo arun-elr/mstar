@@ -220,6 +220,27 @@ def test_speech_stream_releases_every_piece_it_submitted(monkeypatch):
     assert stub.released == submitted
 
 
+def test_speech_stream_schedules_its_reference_clip_cleanup(monkeypatch):
+    """The voice-clone clip is deleted after the cleanup delay, as it is when
+    the body runs."""
+    pytest.importorskip("soundfile")
+    from test_openai_router import _Chunk, _left_after_cleanup, _pcm, _wav_b64
+
+    from mstar.api_server import media_io
+
+    monkeypatch.setattr(media_io, "UPLOAD_CLEANUP_DELAY_S", 0.0)
+    stub = _router_stub("qwen3_tts_base")
+    stub.next_chunks = [_Chunk("audio", _pcm([1, 2, 3]))]
+    client = _client(monkeypatch, stub)
+    client.post("/v1/audio/speech", json={
+        "input": "hi", "ref_text": "hi", "ref_audio": _wav_b64(), "stream": True,
+    })
+    saved = [p for ps in stub.last_submit["file_paths"].values() for p in ps]
+    assert saved and all(Path(p).parent == stub.upload_dir for p in saved)
+    assert stub.released == [stub.last_submit["request_id"]]
+    assert _left_after_cleanup(stub.upload_dir) == []
+
+
 def test_transcription_stream_deletes_its_upload(monkeypatch):
     from test_openai_transcriptions import _StubAPI, _wav_bytes
 

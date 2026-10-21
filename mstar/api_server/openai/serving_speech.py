@@ -132,11 +132,17 @@ async def create_speech(api, model_name, adapter, req, raw_request=None):  # noq
                 # The first piece released itself; release the ones submitted ahead.
                 release_unread(api, pending, 1)
                 raise
+
+            def release_unstarted() -> None:
+                # What _stream_pcm's finally does, for a body that never ran it.
+                release_unread(api, pending, 0)
+                media_io.schedule_upload_cleanup(args.file_paths, api.upload_dir)
+
             stream_owns_uploads = True
             return ReleasingStreamingResponse(
                 _stream_pcm(api, submit, len(chunks), pending, first_iter, first, sample_rate,
                             with_wav_header=not raw_pcm, file_paths=args.file_paths),
-                release=lambda: release_unread(api, pending, 0),
+                release=release_unstarted,
                 media_type="audio/pcm" if raw_pcm else "audio/wav",
                 headers={"Cache-Control": "no-cache"},
             )
