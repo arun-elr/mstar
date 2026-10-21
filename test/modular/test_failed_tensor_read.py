@@ -270,8 +270,11 @@ class _Engine:
         self._ids = itertools.count(1)
         self._lock = threading.Lock()
 
-    def get_local_topology(self):
-        return json.dumps({"cpu:0": [[f"mlx5_{i}" for i in range(self.hcas)], []]})
+    def get_local_topology(self, device_name=""):
+        hcas = [f"mlx5_{i}" for i in range(self.hcas)]
+        if device_name:
+            hcas = [hca for hca in hcas if hca in device_name.split(",")]
+        return json.dumps({"cpu:0": [hcas, []]})
 
     def register_memory(self, ptr, nbytes):
         return 0
@@ -601,6 +604,14 @@ def test_a_failed_tensor_is_retried_as_often_as_the_sync_read_retries(engine, hc
         assert torch.equal(mgr.get_tensor(edge.tensor_info[0].uuid), src[0])
     else:
         assert "Status: -1" in str(error)
+
+
+@pytest.mark.parametrize("device_filter, attempts", [("", 3), ("mlx5_1", 2)])
+def test_retries_count_only_the_hcas_the_engines_device_filter_keeps(engine, device_filter, attempts):
+    engine.hcas = 2
+    reader = TrackedMooncakeReader(engine, "cpu", device_filter=device_filter)
+    assert reader._read_attempts == attempts
+    reader.shutdown()
 
 
 def test_a_read_past_its_deadline_hands_over_its_running_transfers(engine):
