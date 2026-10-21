@@ -33,7 +33,25 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 
+from mstar.graph.base import GraphSection
 from mstar.graph.runtime.base import ColumnarEdgeSpecs
+
+
+def lockstep_feeders(section: GraphSection, lockstep: frozenset[str]) -> set[str]:
+    """The nodes outside ``lockstep`` that can hand an edge to it: a node's
+    own outputs, or a loop's terminal and accumulated outputs, which then
+    count for every node in that loop."""
+    edges = list(getattr(section, "outputs", None) or ())
+    edges += getattr(section, "accumulated_outputs", None) or ()
+    found = set()
+    if any(edge.next_node in lockstep for edge in edges):
+        found |= {name for name in section.get_nodes() if name not in lockstep}
+    children = getattr(section, "sections", None)
+    if children is None and isinstance(getattr(section, "section", None), GraphSection):
+        children = [section.section]
+    for child in children or ():
+        found |= lockstep_feeders(child, lockstep)
+    return found
 
 
 def signals_by_rid(edges: ColumnarEdgeSpecs) -> dict[int, list[str]]:
