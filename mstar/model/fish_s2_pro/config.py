@@ -37,9 +37,9 @@ AR_SAMPLER = "semantic_sampler"
 PROMPT_LAYOUT_KEY = "prompt_layout"
 REF_CLIP_KEY = "ref_clip_key"
 
-# Fixed prompt text of the S2-Pro serving prompt built with the Fish Audio
-# team, which tokenizes the segments one by one exactly as here (the
-# fish-speech 0.1.0 package has no S2-Pro prompt).
+# Fixed prompt text of Fish Audio's published S2-Pro serving recipe, which
+# tokenizes the segments one by one exactly as here (the fish-speech 0.1.0
+# package has no S2-Pro prompt).
 # test_prompt_layout_matches_the_reference_segments pins the layout.
 IM_START = "<|im_start|>"
 IM_END = "<|im_end|>"
@@ -238,10 +238,10 @@ class FishDACConfig:
 class FishGenerationConfig:
     """Request sampling defaults.
 
-    Temperature, top-p and top-k are the defaults of the S2-Pro serving
-    recipe built with the Fish Audio team (test_sampling_defaults_and_greedy
-    pins them). The residual codebooks are argmax, as there. That recipe's
-    16-token repetition-penalty window and repetition-aware sampling are not ported:
+    Temperature, top-p and top-k are the defaults of Fish Audio's published
+    S2-Pro serving recipe (test_sampling_defaults_and_greedy pins them).
+    The residual codebooks are argmax, as there. That recipe's 16-token
+    repetition-penalty window and repetition-aware sampling are not ported:
     M*'s penalty counts the whole generation, so it defaults to off.
     """
 

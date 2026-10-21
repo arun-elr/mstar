@@ -323,7 +323,7 @@ class FishS2ProModel(Model):
         """Prompt token ids and ``prefix_len``, where a clone's reference frames go.
 
         The chat layout and the segment-by-segment tokenization are those of
-        the S2-Pro serving prompt built with the Fish Audio team (fixed text in
+        Fish Audio's published S2-Pro serving recipe (fixed text in
         ``config.py``, pinned by test_prompt_layout_matches_the_reference_segments):
         a clone puts the
         reference transcript and frames in the system turn, and the target
