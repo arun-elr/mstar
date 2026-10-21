@@ -800,15 +800,18 @@ class MicroScheduler:
 
         fresh = self._assemble_batch(request_state, *node_walk, entries) \
             if entries else None
+        held = None
         if fresh:
             gated = [r for r in fresh.request_to_worker_graph if self._gated(fresh, r)]
             if gated:
                 # popped already: they wait in the backlog, claimed, for the
-                # follower's report
-                self._backlog(node_walk, fresh.take_rows(gated))
+                # follower's report, behind the rows that were there first
+                held = fresh.take_rows(gated)
         if backlogged is None and not fresh:
+            if held is not None:
+                self._backlog(node_walk, held)
             return None
-        return self._build_and_schedule(request_state, BatchBuildRequest(
+        scheduled = self._build_and_schedule(request_state, BatchBuildRequest(
             node_name=node_walk[0], graph_walk=node_walk[1],
             backlog=backlogged, fresh=fresh or None, blocked_rids=blocked,
             capture_group_of=capture_group_of,
@@ -817,6 +820,9 @@ class MicroScheduler:
             pre_existing_batch_size=pre_existing_batch_size,
             pre_existing_walk=pre_existing_walk,
         ))
+        if held is not None:
+            self._backlog(node_walk, held)
+        return scheduled
 
     def _room_left(
         self, node_walk: tuple[str, str], pre_existing_walk: str | None,

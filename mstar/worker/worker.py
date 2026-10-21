@@ -380,6 +380,7 @@ class Worker:
     _landed_unreported: Mapping[int, set[str]] = MappingProxyType({})
     _gate_followers: Mapping[tuple[int, str], tuple[str, ...]] = MappingProxyType({})
     _lockstep_inputs: frozenset[str] | None = None
+    _lockstep_feeders: frozenset[str] | None = None
 
     # Metrics are off unless __init__ gets a status interval; class-level so a
     # worker built without __init__ reads them as off too.
@@ -1498,13 +1499,19 @@ class Worker:
         self._gate_followers = {}
         # rank 0: the wire ids it removed, whose late reports are dropped
         self._gate_removed: RecentSet[str] = RecentSet(self._TP_NOSPEC_KEEP)
-        # rank 0: the lockstep node's input names; None when unknown (all)
-        self._lockstep_inputs = None if model is None else frozenset(
-            name
-            for section in model.get_graph_walk_graphs().values()
+        # rank 0: the lockstep node's input names, and the other nodes with an
+        # edge into it; None when unknown (every name, every node)
+        nodes = [] if model is None else [
+            node for section in model.get_graph_walk_graphs().values()
             for node in section.get_nodes().values()
-            if node.name in self._lockstep_led
+        ]
+        self._lockstep_inputs = None if model is None else frozenset(
+            name for node in nodes if node.name in self._lockstep_led
             for name in node.input_names
+        )
+        self._lockstep_feeders = None if model is None else frozenset(
+            node.name for node in nodes if node.name not in self._lockstep_led
+            and any(edge.next_node in self._lockstep_led for edge in node.outputs)
         )
         # follower: rid -> edge -> external inputs of it this rank holds
         self._landed_counts = {}
@@ -1538,14 +1545,18 @@ class Worker:
         for rid, rid_uuids in by_rid.items():
             self._read_gate.external(rid, rid_uuids)
 
-    def _followers_host_only(self, rid: int, node_name: str, followers: list[str]) -> bool:
-        """Whether ``followers`` run nothing for ``rid`` but ``node_name``.
-        A node beside a follower feeds it without a read, which the follower
-        cannot count, so such a request is not gated (as before the gate)."""
+    def _followers_host_a_feeder(self, rid: int, node_name: str, followers: list[str]) -> bool:
+        """Whether a node with an edge into ``node_name`` runs beside one of
+        ``followers`` for ``rid``. Such a node feeds the follower without a
+        read, which it cannot count, so the request is not gated (as before
+        the gate). Other nodes beside a follower do not matter: it reports
+        only its lockstep node's inputs."""
         placement = getattr(self._graph_runtime.get_sharding_config(rid), "node_to_worker", {})
+        feeders = self._lockstep_feeders
         hosts = set(followers)
-        return not any(
-            key.node != node_name and hosts.intersection(workers)
+        return any(
+            key.node != node_name and (feeders is None or key.node in feeders)
+            and hosts.intersection(workers)
             for key, workers in placement.items()
         )
 
@@ -1575,7 +1586,7 @@ class Worker:
         followers = self._gate_followers.get(key)
         if followers is None:
             followers = tuple(self._instance_followers(rid, node_name, graph_walk))
-            if followers and not self._followers_host_only(rid, node_name, list(followers)):
+            if followers and self._followers_host_a_feeder(rid, node_name, list(followers)):
                 followers = ()
             self._gate_followers[key] = followers
         return followers
@@ -1640,6 +1651,12 @@ class Worker:
         for rid, edges in ready.items():
             for edge in edges:
                 if edge.next_node not in node_names:
+                    continue
+                if edge.tensor_info and all(
+                    i._source_node_name in node_names for i in edge.tensor_info
+                ):
+                    # the instance's own output coming back (a persisted token
+                    # as the decode walk's input): every rank produced it
                     continue
                 if not edge.is_streaming:
                     self._count_external(rid, edge.name, [i.uuid for i in edge.tensor_info])

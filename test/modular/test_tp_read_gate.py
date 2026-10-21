@@ -32,6 +32,7 @@ from mstar.utils.ipc_format import (
     DrainRequest,
     MessageSource,
     OffloadDelta,
+    RemoveRequest,
     WorkerMessageType,
 )
 from mstar.worker.micro_scheduler import MicroScheduler
@@ -451,3 +452,88 @@ def test_a_removed_requests_late_report_is_dropped_not_parked(tmp_path):
     leader._process_message_list([late])
     assert leader._unprocessed_messages["r9"] == []
 
+
+
+# --- which followers the gate waits on, on shipped configs' layouts ----------
+
+
+class _AnyFlagFalse:
+    """A model config with only what the graph builders read set; every
+    feature flag reads as off."""
+    max_inference_steps = 4
+    max_position_embeddings = 4096
+
+    def __getattr__(self, name):
+        return False
+
+
+def _walks(cls):
+    model = cls.__new__(cls)
+    model.config = _AnyFlagFalse()
+    return SimpleNamespace(get_graph_walk_graphs=lambda: cls.get_graph_walk_graphs(model))
+
+
+def _placement(config, moves=None):
+    """The shipped config's node_groups as node -> workers, with ``moves``
+    overriding a node's ranks."""
+    import yaml
+    groups = yaml.safe_load(open(f"configs/{config}"))["node_groups"]
+    ranks = {n: g["ranks"] for g in groups for n in g["node_names"]}
+    ranks.update(moves or {})
+    return {n: [f"worker_{r}" for r in rs] for n, rs in ranks.items()}
+
+
+def _leader_on(model, node, config, moves=None):
+    leader, _ = _rank("w0", ["r0"], SimpleNamespace(has_inflight_reads=lambda r: False))
+    leader.parallel_nodes = leader.parallel_leader_nodes = {node}
+    leader._setup_read_gate(model)
+    placement = _placement(config, moves)
+    group = SimpleNamespace(nodes={node}, _workers=placement[node])
+    leader._graph_runtime.get_sharding_config = lambda r: SimpleNamespace(
+        get_sharding_group=lambda n, g: group,
+        node_to_worker={NodeAndGraphWalk(n, "w"): ws for n, ws in placement.items()},
+    )
+    return leader
+
+
+def test_a_follower_beside_a_node_that_does_not_feed_it_is_still_gated():
+    """cosmos3_super_i2v_4step_tp2 puts vae_decoder on the dit pair's follower;
+    it takes dit's output and feeds nothing into it, so the follower still
+    reports dit's inputs and the request is gated."""
+    from mstar.model.cosmos3.cosmos3_model import Cosmos3Model
+    leader = _leader_on(_walks(Cosmos3Model), "dit", "cosmos3_super_i2v_4step_tp2.yaml")
+    assert leader._gated_followers("r0", "dit", "video_gen") == ("worker_1",)
+
+
+def test_a_follower_beside_a_node_that_feeds_it_is_not_gated():
+    """qwen3_5_9b_tp2 is gated as shipped; with the vision encoder moved onto
+    the follower, its embeddings would reach the follower's LLM without a
+    read, which it cannot count, so that layout is not gated."""
+    from mstar.model.qwen3_5.qwen3_5_model import Qwen3_5DenseModel
+    model = _walks(Qwen3_5DenseModel)
+    shipped = _leader_on(model, "LLM", "qwen3_5_9b_tp2.yaml")
+    assert shipped._gated_followers("r0", "LLM", "prefill_vision") == ("worker_1",)
+    moved = _leader_on(model, "LLM", "qwen3_5_9b_tp2.yaml", {"vision_encoder": [1]})
+    assert moved._gated_followers("r0", "LLM", "prefill_vision") == ()
+
+
+def test_the_instances_own_persisted_output_is_neither_marked_nor_counted(tmp_path):
+    """The prefill's new_token comes back as the decode walk's text_inputs
+    through the read path on every rank; every rank produced it, so the first
+    decode step does not wait for a report."""
+    leader, leader_mgr, follower, _follower_mgr, _reads = _pair(tmp_path)
+    token = _edge(70, name="text_inputs")
+    token.tensor_info[0]._source_node_name = NODE
+    leader._note_landed({"r0": [token]})
+    follower._note_landed({"r0": [token]})
+    assert 70 not in leader._read_gate._external["r0"]
+    assert "text_inputs" not in follower._landed_counts.get("r0", {})
+
+
+def test_removing_a_request_this_rank_never_admitted_drops_its_reports():
+    leader, _ = _rank("w0", ["r0"], SimpleNamespace(has_inflight_reads=lambda r: False))
+    leader._unprocessed_messages["r9"] = [SimpleNamespace(
+        message_type=WorkerMessageType.READS_LANDED, body=SimpleNamespace(request_id="r9"),
+    )]
+    leader._remove_request(RemoveRequest(request_id="r9"))
+    assert leader._unprocessed_messages["r9"] == [] and "r9" in leader._gate_removed
