@@ -11,6 +11,7 @@ import ctypes
 import itertools
 import json
 import threading
+import time
 from concurrent.futures import Future
 from types import SimpleNamespace
 
@@ -305,12 +306,23 @@ class _Engine:
                 self._freed.add(batch_id)
             return status
 
-    def report(self, remote, status):
-        """From now on, the live batch reading ``remote`` reports ``status``."""
-        with self._lock:
-            for batch_id, batch in self._batches.items():
-                if batch[1] == remote and batch_id not in self._freed:
+    def report(self, remote, status, wait=True):
+        """From now on, the live batch reading ``remote`` reports ``status``.
+        ``wait`` waits for the reader thread to submit it, which a loaded host
+        delays."""
+        deadline = time.monotonic() + 5
+        while True:
+            with self._lock:
+                live = [
+                    batch for batch_id, batch in self._batches.items()
+                    if batch[1] == remote and batch_id not in self._freed
+                ]
+                for batch in live:
                     batch[3] = [status]
+            if live or not wait:
+                return
+            assert time.monotonic() < deadline, f"no live batch reads {remote:#x}"
+            time.sleep(0.001)
 
     def submits(self, remote):
         return self._submits[remote]
@@ -337,7 +349,7 @@ def engine():
     yield engine
     # let any reader still polling a running batch finish
     for remote in list(engine.plan):
-        engine.report(remote, 1)
+        engine.report(remote, 1, wait=False)
     for mgr in managers:
         mgr._async_reader._executor.shutdown(wait=True)
     assert engine.after_free == [], "a freed batch was polled"
