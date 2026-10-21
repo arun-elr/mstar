@@ -25,8 +25,9 @@ follower has the row's inputs:
 
 A follower whose read fails never counts it, so the row stays out of every
 step; the failure reaches the conductor, whose drain fails that request alone.
-A request whose followers host another node is not gated: that node feeds the
-follower without a read, which the follower has no way to count.
+A request whose followers host a node with an edge into the lockstep node is
+not gated: that node feeds the follower without a read, which the follower has
+no way to count. Other nodes beside a follower do not matter.
 """
 from __future__ import annotations
 
