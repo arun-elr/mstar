@@ -2,6 +2,8 @@
 
 has ownership of per-(request,label) position counter"""
 
+import functools
+import logging
 from dataclasses import dataclass, field, fields
 
 import torch
@@ -27,6 +29,16 @@ from mstar.engine.resources.position.rope import (
     rope_apply_qk_inplace,  # noqa: F401  (registers mstar::rope_apply_qk_inplace)
 )
 from mstar.engine.resources.step import ADMIT_OK, AdmitOutcome, StepContext
+
+logger = logging.getLogger(__name__)
+
+
+@functools.cache
+def _warn_rope_table_ignored_on_xpu() -> None:
+    logger.warning(
+        "PositionConfig.rope_table_dtype is ignored on XPU: the XPU RoPE "
+        "cache is built in rope_dtype or the model dtype"
+    )
 
 
 @dataclass
@@ -109,7 +121,9 @@ class RopeManager(PositionManager):
             )
         # CUDA rotates from this table instead of in-kernel angles when set.
         self._rope_table: torch.Tensor | None = None
-        if config.rope_table_dtype is not None and device.type != "xpu":
+        if config.rope_table_dtype is not None and device.type == "xpu":
+            _warn_rope_table_ignored_on_xpu()
+        elif config.rope_table_dtype is not None:
             if config.llama31_params:
                 raise NotImplementedError("rope_table_dtype does not support Llama 3.1 RoPE scaling")
             rotary_dim = config.rotary_dim or head_dim

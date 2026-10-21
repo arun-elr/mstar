@@ -5,6 +5,7 @@ not encode are refused instead of silently ignored."""
 import pytest
 import torch
 
+from mstar.engine.resources.position import manager as manager_module
 from mstar.engine.resources.position.config import PositionConfig
 from mstar.engine.resources.position.manager import RopeManager
 
@@ -86,3 +87,15 @@ def test_llama31_scaling_is_refused_at_runtime_unless_it_is_a_no_op(kernel_calls
 def test_llama31_config_is_refused_at_build():
     with pytest.raises(NotImplementedError, match="Llama 3.1"):
         table_manager(rope_scale=8.0, **ATTENTION_LLAMA31_DEFAULTS)
+
+
+def test_xpu_warns_once_that_the_table_is_ignored(monkeypatch, caplog):
+    monkeypatch.setattr(RopeManager, "_build_rope_cache", lambda self, dim, *_: torch.zeros(64, dim))
+    manager_module._warn_rope_table_ignored_on_xpu.cache_clear()
+    config = PositionConfig(kv_cache="kv", rotary_dim=8, rope_table_dtype=torch.bfloat16)
+    with caplog.at_level("WARNING", logger=manager_module.__name__):
+        managers = [RopeManager(config, torch.device("xpu"), max_seq_len=64, head_dim=8) for _ in range(2)]
+    assert all(m._rope_table is None for m in managers)
+    warnings = [r for r in caplog.records if "rope_table_dtype is ignored on XPU" in r.getMessage()]
+    assert len(warnings) == 1
+    manager_module._warn_rope_table_ignored_on_xpu.cache_clear()

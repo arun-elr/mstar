@@ -541,7 +541,8 @@ def _fold_weight_norm(state: dict[str, torch.Tensor]) -> Iterator[tuple[str, tor
             yield name, tensor
 
 
-# Two bf16 steps at |x| near 1; a wrong rope base or length is off by far more.
+# Absolute: two bf16 steps at |x| = 1, four in [0.5, 1) and more for smaller
+# values. Hosts differ by one step; a wrong rope base or length is off by far more.
 _ROPE_TABLE_ATOL = 2.0**-6
 
 
@@ -563,12 +564,15 @@ def load_codec_state(module: nn.Module, state: dict[str, torch.Tensor], prefixes
             continue
         if name.endswith(".freqs_cis"):
             own = buffers.get(name)
-            if (
-                own is None
-                or own.shape != tensor.shape
-                or (own.detach().cpu().float() - tensor.float()).abs().max() > _ROPE_TABLE_ATOL
-            ):
-                raise RuntimeError(f"Fish codec RoPE table {name} differs from the reference table")
+            if own is None or own.shape != tensor.shape:
+                own_shape = None if own is None else tuple(own.shape)
+                raise RuntimeError(f"Fish codec RoPE table {name}: checkpoint {tuple(tensor.shape)} vs {own_shape}")
+            gap = (own.detach().cpu().float() - tensor.float()).abs().max().item()
+            if gap > _ROPE_TABLE_ATOL:
+                raise RuntimeError(
+                    f"Fish codec RoPE table {name} differs from the reference table "
+                    f"by {gap:.3g}, over the {_ROPE_TABLE_ATOL:.3g} tolerance"
+                )
             with torch.no_grad():
                 own.copy_(tensor.to(dtype=own.dtype))
             continue

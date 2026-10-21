@@ -393,7 +393,7 @@ def test_codec_runs_the_checkpoints_rope_table_even_one_bf16_step_off(config, de
     assert torch.equal(fresh.quantizer.post_module.freqs_cis, stored)
 
     other_base = precompute_freqs_cis(256, 16, 5000.0)
-    with pytest.raises(RuntimeError, match="RoPE table"):
+    with pytest.raises(RuntimeError, match=r"RoPE table .* by [0-9.]+, over the 0\.0156 tolerance"):
         load_codec_state(FishDACDecoder(config.codec), {**state, key: other_base}, ("quantizer.", "decoder."))
 
 
