@@ -10,7 +10,7 @@
 <rect width="2000" height="1483" fill="#FFFFFF"/>
 
 <text x="50" y="68" font-size="40" font-weight="bold" fill="#0F172A">One RL training step: M* runs rollouts, RLinf trains</text>
-<text x="50" y="116" font-size="26" fill="#333333">Target policy: Cosmos3 Nano. Cosmos3 Edge for cheap development runs. Badges give the plan phase.</text>
+<text x="50" y="116" font-size="26" fill="#333333">Pi0.5 first (a known RLinf result), then Cosmos3 Nano with Edge for dev runs. Badges give the plan phase.</text>
 
 <rect x="1318" y="140" width="632" height="232" rx="14" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
 <rect x="1350" y="161" width="70" height="26" rx="6" fill="#C8102E" stroke="#9B0B22" stroke-width="2"/><text x="1440" y="182" font-size="24" fill="#0F172A">existing M*</text>
@@ -42,7 +42,7 @@
 <text x="1300" y="413" font-size="26" font-weight="bold" fill="#555555">reward (task success)</text>
 
 <text x="92" y="538" font-size="32" font-weight="bold" fill="#C8102E">M* rollout engine</text>
-<text x="92" y="580" font-size="26" fill="#111111">Cosmos3 Nano policy</text>
+<text x="92" y="580" font-size="26" fill="#111111">flow-matching policies</text>
 
 <rect x="440" y="550" width="420" height="148" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="3" stroke-dasharray="12 7"/>
 <text x="650" y="607" font-size="25" font-weight="bold" font-family="DejaVu Sans Mono, monospace" fill="#111111" text-anchor="middle">/v1/actions/generations</text>
@@ -51,9 +51,9 @@
 <line x1="650" y1="698" x2="650" y2="752" stroke="#333333" stroke-width="5" marker-end="url(#k)"/>
 
 <rect x="92" y="758" width="758" height="275" rx="16" fill="#C8102E" stroke="#9B0B22" stroke-width="3"/>
-<text x="270" y="838" font-size="32" font-weight="bold" fill="#FFFFFF" text-anchor="middle">Cosmos3 policy</text>
-<text x="270" y="890" font-size="28" fill="#FFFFFF" text-anchor="middle">joint video +</text>
-<text x="270" y="928" font-size="28" fill="#FFFFFF" text-anchor="middle">action denoising</text>
+<text x="270" y="838" font-size="32" font-weight="bold" fill="#FFFFFF" text-anchor="middle">Robot policy</text>
+<text x="270" y="890" font-size="28" fill="#FFFFFF" text-anchor="middle">Pi0.5 first,</text>
+<text x="270" y="928" font-size="28" fill="#FFFFFF" text-anchor="middle">then Cosmos3 Nano</text>
 <rect x="458" y="793" width="358" height="206" rx="16" fill="#FFFFFF" stroke="#111111" stroke-width="3" stroke-dasharray="12 7"/>
 <text x="637" y="855" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">Flow-SDE step</text>
 <text x="637" y="905" font-size="26" fill="#111111" text-anchor="middle">one random step</text>
@@ -92,7 +92,7 @@
 <text x="258" y="1100" font-size="26" font-weight="bold" fill="#111111">new weights (version N+1)</text>
 
 <text x="1410" y="538" font-size="32" font-weight="bold" fill="#111111">RLinf trainer</text>
-<rect x="1828" y="512" width="62" height="32" rx="16" fill="#FFFFFF" stroke="#111111" stroke-width="2"/><text x="1859" y="535" font-size="20" font-weight="bold" fill="#111111" text-anchor="middle">P3</text>
+<rect x="1800" y="512" width="90" height="32" rx="16" fill="#FFFFFF" stroke="#111111" stroke-width="2"/><text x="1845" y="535" font-size="20" font-weight="bold" fill="#111111" text-anchor="middle">P2, P3</text>
 <rect x="1417" y="600" width="483" height="90" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
 <text x="1658" y="656" font-size="30" font-weight="bold" fill="#111111" text-anchor="middle">rollout buffer</text>
 <line x1="1658" y1="690" x2="1658" y2="708" stroke="#111111" stroke-width="5" marker-end="url(#o)"/>
@@ -118,8 +118,8 @@
 <rect x="1417" y="1080" width="483" height="148" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
 <text x="1658" y="1118" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">clipped policy loss</text>
 <text x="1658" y="1154" font-size="22" fill="#111111" text-anchor="middle">ratio = exp(new − old log-prob)</text>
-<text x="1658" y="1184" font-size="22" fill="#111111" text-anchor="middle">trainer recomputes both</text>
-<text x="1658" y="1213" font-size="22" fill="#111111" text-anchor="middle">from the step state, video fixed</text>
+<text x="1658" y="1184" font-size="22" fill="#111111" text-anchor="middle">old: M*'s log-prob; new: recomputed</text>
+<text x="1658" y="1213" font-size="22" fill="#111111" text-anchor="middle">from the recorded step state</text>
 <line x1="1658" y1="1228" x2="1658" y2="1260" stroke="#111111" stroke-width="5" marker-end="url(#o)"/>
 <rect x="1417" y="1264" width="483" height="100" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
 <text x="1658" y="1306" font-size="30" font-weight="bold" fill="#111111" text-anchor="middle">update weights</text>
