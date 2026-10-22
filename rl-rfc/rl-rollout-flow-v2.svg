@@ -47,7 +47,7 @@
 <rect x="440" y="550" width="420" height="148" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="3" stroke-dasharray="12 7"/>
 <text x="650" y="607" font-size="25" font-weight="bold" font-family="DejaVu Sans Mono, monospace" fill="#111111" text-anchor="middle">/v1/actions/generations</text>
 <text x="650" y="656" font-size="26" fill="#111111" text-anchor="middle">rollout mode, RLinf's protocol</text>
-<rect x="720" y="534" width="146" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="793" y="557" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P2</text>
+<rect x="686" y="534" width="180" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="776" y="557" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P2, P3</text>
 <line x1="650" y1="698" x2="650" y2="752" stroke="#333333" stroke-width="5" marker-end="url(#k)"/>
 
 <rect x="92" y="758" width="758" height="275" rx="16" fill="#C8102E" stroke="#9B0B22" stroke-width="3"/>
@@ -58,12 +58,12 @@
 <text x="637" y="855" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">Flow-SDE step</text>
 <text x="637" y="905" font-size="26" fill="#111111" text-anchor="middle">one random step</text>
 <text x="637" y="943" font-size="26" fill="#111111" text-anchor="middle">noise on actions only</text>
-<rect x="676" y="777" width="146" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="749" y="800" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P2</text>
+<rect x="642" y="777" width="180" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="732" y="800" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P2, P3</text>
 <line x1="850" y1="895" x2="893" y2="895" stroke="#333333" stroke-width="5" marker-end="url(#k)"/>
 
 <rect x="900" y="550" width="275" height="483" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="3" stroke-dasharray="12 7"/>
 <text x="1038" y="597" font-size="30" font-weight="bold" fill="#111111" text-anchor="middle">Outputs</text>
-<rect x="1029" y="534" width="146" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="1102" y="557" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P2</text>
+<rect x="995" y="534" width="180" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="1085" y="557" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P1, P2</text>
 <rect x="920" y="636" width="236" height="60" rx="8" fill="#F2F2F2"/><text x="1038" y="674" font-size="24" fill="#111111" text-anchor="middle">action chunk</text>
 <rect x="920" y="712" width="236" height="96" rx="8" fill="#F2F2F2"/><text x="1038" y="752" font-size="24" fill="#111111" text-anchor="middle">SDE step state</text><text x="1038" y="786" font-size="24" fill="#111111" text-anchor="middle">+ step index</text>
 <rect x="920" y="824" width="236" height="96" rx="8" fill="#F2F2F2"/><text x="1038" y="864" font-size="24" fill="#111111" text-anchor="middle">action log-prob</text><text x="1038" y="898" font-size="24" fill="#111111" text-anchor="middle">(per chunk)</text>
