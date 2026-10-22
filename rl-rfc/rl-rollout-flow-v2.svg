@@ -117,7 +117,7 @@
 <line x1="1821" y1="1048" x2="1790" y2="1076" stroke="#9A9A9A" stroke-width="5" stroke-dasharray="10 7" marker-end="url(#ol)"/>
 <rect x="1417" y="1080" width="483" height="148" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
 <text x="1658" y="1118" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">clipped policy loss</text>
-<text x="1658" y="1154" font-size="22" fill="#111111" text-anchor="middle">ratio = new / old log-prob</text>
+<text x="1658" y="1154" font-size="22" fill="#111111" text-anchor="middle">ratio = exp(new − old log-prob)</text>
 <text x="1658" y="1184" font-size="22" fill="#111111" text-anchor="middle">trainer recomputes both</text>
 <text x="1658" y="1213" font-size="22" fill="#111111" text-anchor="middle">from the step state, video fixed</text>
 <line x1="1658" y1="1228" x2="1658" y2="1260" stroke="#111111" stroke-width="5" marker-end="url(#o)"/>
