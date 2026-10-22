@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1780" viewBox="0 0 2000 1483" font-family="DejaVu Sans, Arial, sans-serif">
+<defs>
+  <marker id="g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555555"/></marker>
+  <marker id="b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#111111"/></marker>
+  <marker id="k" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333333"/></marker>
+  <marker id="p" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#111111"/></marker>
+  <marker id="o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#111111"/></marker>
+  <marker id="ol" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9A9A9A"/></marker>
+</defs>
+<rect width="2000" height="1483" fill="#FFFFFF"/>
+
+<text x="50" y="68" font-size="40" font-weight="bold" fill="#0F172A">One RL training step: M* runs rollouts, RLinf trains</text>
+<text x="50" y="116" font-size="26" fill="#333333">Target policy: Cosmos3 Nano. Cosmos3 Edge for cheap development runs. Badges give the plan phase.</text>
+
+<rect x="1318" y="140" width="632" height="232" rx="14" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
+<rect x="1350" y="161" width="70" height="26" rx="6" fill="#C8102E" stroke="#9B0B22" stroke-width="2"/><text x="1440" y="182" font-size="24" fill="#0F172A">existing M*</text>
+<rect x="1350" y="198" width="70" height="26" rx="6" fill="#FFFFFF" stroke="#C8102E" stroke-width="2.5" stroke-dasharray="8 5"/><text x="1440" y="219" font-size="24" fill="#0F172A">opt-in M* pieces</text>
+<rect x="1350" y="235" width="70" height="26" rx="6" fill="#FFFFFF" stroke="#111111" stroke-width="2.5" stroke-dasharray="8 5"/><text x="1440" y="256" font-size="24" fill="#0F172A">M* control plane (opt-in)</text>
+<rect x="1350" y="272" width="70" height="26" rx="6" fill="#F4F4F4" stroke="#111111" stroke-width="2"/><text x="1440" y="293" font-size="24" fill="#0F172A">trainer (RLinf)</text>
+<rect x="1350" y="309" width="70" height="26" rx="6" fill="#FFFFFF" stroke="#8C8C8C" stroke-width="2"/><text x="1440" y="330" font-size="24" fill="#0F172A">simulator</text>
+<rect x="1740" y="161" width="70" height="26" rx="13" fill="#FFFFFF" stroke="#0F172A" stroke-width="2"/><text x="1775" y="181" font-size="18" font-weight="bold" fill="#0F172A" text-anchor="middle">P2</text><text x="1822" y="182" font-size="24" fill="#0F172A">phase</text>
+
+<rect x="50" y="192" width="1150" height="240" rx="22" fill="#FFFFFF" stroke="#8C8C8C" stroke-width="3"/>
+<rect x="50" y="485" width="1150" height="955" rx="22" fill="#FFFFFF" stroke="#C8102E" stroke-width="3"/>
+<rect x="1367" y="485" width="583" height="955" rx="22" fill="#FFFFFF" stroke="#111111" stroke-width="3"/>
+<text x="92" y="248" font-size="32" font-weight="bold" fill="#111111">Simulator</text>
+<text x="92" y="292" font-size="26" fill="#444444">LIBERO, run by</text>
+<text x="92" y="326" font-size="26" fill="#444444">RLinf env workers;</text>
+<text x="92" y="360" font-size="26" fill="#444444">groups of 8 share</text>
+<text x="92" y="394" font-size="26" fill="#444444">an initial state</text>
+<rect x="497" y="218" width="680" height="145" rx="14" fill="#FFFFFF" stroke="#555555" stroke-width="2.5"/>
+<rect x="482" y="230" width="680" height="145" rx="14" fill="#FFFFFF" stroke="#555555" stroke-width="2.5"/>
+<rect x="467" y="242" width="682" height="148" rx="14" fill="#FFFFFF" stroke="#555555" stroke-width="3"/>
+<text x="808" y="297" font-size="30" font-weight="bold" fill="#111111" text-anchor="middle">N parallel robot task envs</text>
+<text x="808" y="351" font-size="26" fill="#111111" text-anchor="middle">camera images + robot state</text>
+
+<line x1="651" y1="392" x2="651" y2="540" stroke="#555555" stroke-width="5" marker-end="url(#g)"/>
+<text x="458" y="468" font-size="26" font-weight="bold" fill="#555555">observation</text>
+<line x1="1038" y1="548" x2="1038" y2="398" stroke="#111111" stroke-width="5" marker-end="url(#b)"/>
+<text x="1060" y="468" font-size="26" font-weight="bold" fill="#111111">action chunk</text>
+<path d="M1149 370 L1766 370 L1766 590" fill="none" stroke="#555555" stroke-width="5" marker-end="url(#g)"/>
+<text x="1300" y="413" font-size="26" font-weight="bold" fill="#555555">reward (task success)</text>
+
+<text x="92" y="538" font-size="32" font-weight="bold" fill="#C8102E">M* rollout engine</text>
+<text x="92" y="580" font-size="26" fill="#111111">Cosmos3 Nano policy</text>
+
+<rect x="440" y="550" width="420" height="148" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="3" stroke-dasharray="12 7"/>
+<text x="650" y="607" font-size="25" font-weight="bold" font-family="DejaVu Sans Mono, monospace" fill="#111111" text-anchor="middle">/v1/actions/generations</text>
+<text x="650" y="656" font-size="26" fill="#111111" text-anchor="middle">rollout mode, RLinf's protocol</text>
+<rect x="720" y="534" width="146" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="793" y="557" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P0</text>
+<line x1="650" y1="698" x2="650" y2="752" stroke="#333333" stroke-width="5" marker-end="url(#k)"/>
+
+<rect x="92" y="758" width="758" height="275" rx="16" fill="#C8102E" stroke="#9B0B22" stroke-width="3"/>
+<text x="270" y="838" font-size="32" font-weight="bold" fill="#FFFFFF" text-anchor="middle">Cosmos3 policy</text>
+<text x="270" y="890" font-size="28" fill="#FFFFFF" text-anchor="middle">joint video +</text>
+<text x="270" y="928" font-size="28" fill="#FFFFFF" text-anchor="middle">action denoising</text>
+<rect x="458" y="793" width="358" height="206" rx="16" fill="#FFFFFF" stroke="#111111" stroke-width="3" stroke-dasharray="12 7"/>
+<text x="637" y="855" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">Flow-SDE step</text>
+<text x="637" y="905" font-size="26" fill="#111111" text-anchor="middle">one random step</text>
+<text x="637" y="943" font-size="26" fill="#111111" text-anchor="middle">noise on actions only</text>
+<rect x="676" y="777" width="146" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="749" y="800" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P2</text>
+<line x1="850" y1="895" x2="893" y2="895" stroke="#333333" stroke-width="5" marker-end="url(#k)"/>
+
+<rect x="900" y="550" width="275" height="483" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="3" stroke-dasharray="12 7"/>
+<text x="1038" y="597" font-size="30" font-weight="bold" fill="#111111" text-anchor="middle">Outputs</text>
+<rect x="1029" y="534" width="146" height="32" rx="16" fill="#FFFFFF" stroke="#C8102E" stroke-width="2"/><text x="1102" y="557" font-size="20" font-weight="bold" fill="#C8102E" text-anchor="middle">opt-in · P2</text>
+<rect x="920" y="636" width="236" height="60" rx="8" fill="#F2F2F2"/><text x="1038" y="674" font-size="24" fill="#111111" text-anchor="middle">action chunk</text>
+<rect x="920" y="712" width="236" height="96" rx="8" fill="#F2F2F2"/><text x="1038" y="752" font-size="24" fill="#111111" text-anchor="middle">SDE step state</text><text x="1038" y="786" font-size="24" fill="#111111" text-anchor="middle">+ step index</text>
+<rect x="920" y="824" width="236" height="96" rx="8" fill="#F2F2F2"/><text x="1038" y="864" font-size="24" fill="#111111" text-anchor="middle">action log-prob</text><text x="1038" y="898" font-size="24" fill="#111111" text-anchor="middle">(per chunk)</text>
+<rect x="920" y="936" width="236" height="60" rx="8" fill="#F2F2F2"/><text x="1038" y="974" font-size="23" font-family="DejaVu Sans Mono, monospace" fill="#111111" text-anchor="middle">weight_version</text>
+
+<line x1="1175" y1="646" x2="1408" y2="646" stroke="#111111" stroke-width="5" marker-end="url(#b)"/>
+<text x="1283" y="545" font-size="23" font-weight="bold" fill="#111111" text-anchor="middle">step state,</text>
+<text x="1283" y="574" font-size="23" font-weight="bold" fill="#111111" text-anchor="middle">log-prob,</text>
+<text x="1283" y="603" font-size="23" font-weight="bold" fill="#111111" text-anchor="middle">version</text>
+
+<rect x="92" y="1150" width="1083" height="272" rx="22" fill="#FFFFFF" stroke="#111111" stroke-width="3" stroke-dasharray="12 7"/>
+<text x="130" y="1200" font-size="30" font-weight="bold" fill="#111111">Admin control plane</text>
+<rect x="530" y="1176" width="146" height="32" rx="16" fill="#FFFFFF" stroke="#111111" stroke-width="2"/><text x="603" y="1199" font-size="20" font-weight="bold" fill="#111111" text-anchor="middle">opt-in · P1</text>
+<rect x="122" y="1240" width="150" height="100" rx="14" fill="#FFFFFF" stroke="#111111" stroke-width="3"/><text x="197" y="1299" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">pause</text>
+<rect x="298" y="1240" width="215" height="100" rx="14" fill="#FFFFFF" stroke="#111111" stroke-width="3"/><text x="405" y="1282" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">reload</text><text x="405" y="1318" font-size="22" fill="#111111" text-anchor="middle">every rank idle</text>
+<rect x="539" y="1240" width="215" height="100" rx="14" fill="#FFFFFF" stroke="#111111" stroke-width="3"/><text x="646" y="1282" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">verify</text><text x="646" y="1318" font-size="22" fill="#111111" text-anchor="middle">per-rank SHA-256</text>
+<rect x="780" y="1240" width="200" height="100" rx="14" fill="#FFFFFF" stroke="#111111" stroke-width="3"/><text x="880" y="1282" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">commit</text><text x="880" y="1318" font-size="22" fill="#111111" text-anchor="middle">N to N+1</text>
+<rect x="1006" y="1240" width="150" height="100" rx="14" fill="#FFFFFF" stroke="#111111" stroke-width="3"/><text x="1081" y="1299" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">resume</text>
+<line x1="272" y1="1290" x2="294" y2="1290" stroke="#111111" stroke-width="5" marker-end="url(#p)"/>
+<line x1="513" y1="1290" x2="535" y2="1290" stroke="#111111" stroke-width="5" marker-end="url(#p)"/>
+<line x1="754" y1="1290" x2="776" y2="1290" stroke="#111111" stroke-width="5" marker-end="url(#p)"/>
+<line x1="980" y1="1290" x2="1002" y2="1290" stroke="#111111" stroke-width="5" marker-end="url(#p)"/>
+<text x="130" y="1378" font-size="22" fill="#111111">Any rank fails: stay paused, never serve mixed versions.</text>
+<text x="130" y="1408" font-size="22" fill="#111111">Weights copied into existing tensors; weight-derived caches dropped.</text>
+<line x1="233" y1="1150" x2="233" y2="1040" stroke="#111111" stroke-width="5" marker-end="url(#p)"/>
+<text x="258" y="1100" font-size="26" font-weight="bold" fill="#111111">new weights (version N+1)</text>
+
+<text x="1410" y="538" font-size="32" font-weight="bold" fill="#111111">RLinf trainer</text>
+<rect x="1828" y="512" width="62" height="32" rx="16" fill="#FFFFFF" stroke="#111111" stroke-width="2"/><text x="1859" y="535" font-size="20" font-weight="bold" fill="#111111" text-anchor="middle">P3</text>
+<rect x="1417" y="600" width="483" height="90" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
+<text x="1658" y="656" font-size="30" font-weight="bold" fill="#111111" text-anchor="middle">rollout buffer</text>
+<line x1="1658" y1="690" x2="1658" y2="708" stroke="#111111" stroke-width="5" marker-end="url(#o)"/>
+<rect x="1460" y="712" width="396" height="90" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
+<text x="1658" y="750" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">advantage</text>
+<text x="1658" y="784" font-size="22" fill="#111111" text-anchor="middle">groups of 8, filtered</text>
+<line x1="1580" y1="802" x2="1552" y2="822" stroke="#111111" stroke-width="5" marker-end="url(#o)"/>
+<line x1="1740" y1="802" x2="1775" y2="822" stroke="#9A9A9A" stroke-width="5" stroke-dasharray="10 7" marker-end="url(#ol)"/>
+<rect x="1408" y="826" width="284" height="222" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
+<text x="1550" y="874" font-size="30" font-weight="bold" fill="#111111" text-anchor="middle">GRPO</text>
+<text x="1550" y="914" font-size="22" fill="#111111" text-anchor="middle">group-relative</text>
+<text x="1550" y="946" font-size="22" fill="#111111" text-anchor="middle">over 8 rollouts</text>
+<text x="1550" y="978" font-size="22" fill="#111111" text-anchor="middle">of the same state</text>
+<text x="1550" y="1010" font-size="22" fill="#111111" text-anchor="middle">no critic</text>
+<rect x="1632" y="812" width="56" height="30" rx="15" fill="#FFFFFF" stroke="#111111" stroke-width="2"/><text x="1660" y="834" font-size="19" font-weight="bold" fill="#111111" text-anchor="middle">v1</text>
+<rect x="1725" y="826" width="192" height="222" rx="14" fill="#FFFFFF" stroke="#9A9A9A" stroke-width="3" stroke-dasharray="10 7"/>
+<text x="1821" y="874" font-size="30" font-weight="bold" fill="#555555" text-anchor="middle">PPO</text>
+<text x="1821" y="946" font-size="22" fill="#555555" text-anchor="middle">value head</text>
+<text x="1821" y="978" font-size="22" fill="#555555" text-anchor="middle">+ GAE</text>
+<rect x="1836" y="812" width="76" height="30" rx="15" fill="#FFFFFF" stroke="#111111" stroke-width="2"/><text x="1874" y="834" font-size="19" font-weight="bold" fill="#111111" text-anchor="middle">later</text>
+<line x1="1550" y1="1048" x2="1580" y2="1076" stroke="#111111" stroke-width="5" marker-end="url(#o)"/>
+<line x1="1821" y1="1048" x2="1790" y2="1076" stroke="#9A9A9A" stroke-width="5" stroke-dasharray="10 7" marker-end="url(#ol)"/>
+<rect x="1417" y="1080" width="483" height="148" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
+<text x="1658" y="1118" font-size="28" font-weight="bold" fill="#111111" text-anchor="middle">clipped policy loss</text>
+<text x="1658" y="1154" font-size="22" fill="#111111" text-anchor="middle">ratio = new / old log-prob</text>
+<text x="1658" y="1184" font-size="22" fill="#111111" text-anchor="middle">trainer recomputes both</text>
+<text x="1658" y="1213" font-size="22" fill="#111111" text-anchor="middle">from the step state, video fixed</text>
+<line x1="1658" y1="1228" x2="1658" y2="1260" stroke="#111111" stroke-width="5" marker-end="url(#o)"/>
+<rect x="1417" y="1264" width="483" height="100" rx="14" fill="#F4F4F4" stroke="#111111" stroke-width="3"/>
+<text x="1658" y="1306" font-size="30" font-weight="bold" fill="#111111" text-anchor="middle">update weights</text>
+<text x="1658" y="1344" font-size="24" fill="#111111" text-anchor="middle">FSDP actor</text>
+<line x1="1417" y1="1330" x2="1182" y2="1330" stroke="#111111" stroke-width="5" marker-end="url(#o)"/>
+<rect x="1212" y="1240" width="160" height="72" fill="#FFFFFF"/>
+<text x="1292" y="1268" font-size="22" font-weight="bold" fill="#111111" text-anchor="middle">checkpoint</text>
+<text x="1292" y="1298" font-size="22" font-weight="bold" fill="#111111" text-anchor="middle">on disk</text>
+
+<path d="M1156 872 L1295 872 L1295 1150 L1415 1150" fill="none" stroke="#555555" stroke-width="3.5" stroke-dasharray="6 6"/>
+<circle cx="1156" cy="872" r="7" fill="#555555"/>
+<circle cx="1417" cy="1150" r="7" fill="#555555"/>
+<rect x="1240" y="975" width="110" height="86" rx="14" fill="#FFFFFF" stroke="#555555" stroke-width="3"/>
+<text x="1295" y="1010" font-size="24" font-weight="bold" fill="#555555" text-anchor="middle">parity</text>
+<text x="1295" y="1042" font-size="24" font-weight="bold" fill="#555555" text-anchor="middle">check</text>
+</svg>
