@@ -21,7 +21,7 @@ from mstar.api_server.request_types import (
     RequestFailed,
 )
 from mstar.communication.communicator import CommProtocol, make_communicator
-from mstar.conductor.generation_control import GenerationControl
+from mstar.conductor.generation_control import GenerationControl, GenerationState
 from mstar.conductor.request_info import (
     CurrentForwardConductorMetadata,
     CurrentForwardPassInfo,
@@ -1107,7 +1107,8 @@ class Conductor:
                 "Request %s was aborted before ingest; dropping", body.request_id
             )
             return
-        if self._generation is not None and self._generation.paused:
+        generation = self._generation
+        if generation is not None and generation.state is not GenerationState.SERVING:
             self._reject_request(body.request_id, "generation is paused", status=503)
             return
         try:
@@ -1990,16 +1991,6 @@ class Conductor:
                 self.communicator.send(worker_id, WorkerMessage(
                     message_type=WorkerMessageType.ENABLE_METRICS, body=message.body,
                 ))
-        elif message.message_type == ConductorMessageType.PAUSE_GENERATION:
-            self._generation.pause(message.body)
-        elif message.message_type == ConductorMessageType.CONTINUE_GENERATION:
-            self._generation.resume(message.body)
-        elif message.message_type == ConductorMessageType.UPDATE_WEIGHTS_FROM_DISK:
-            self._generation.update(message.body)
-        elif message.message_type == ConductorMessageType.GET_GENERATION_STATE:
-            self._generation.report(message.body)
-        elif message.message_type == ConductorMessageType.WEIGHT_CONTROL_ACK:
-            self._generation.ack(message.body)
         elif message.message_type == ConductorMessageType.WORKER_GRAPHS_DONE:
             rid = message.body.request_id
             # Draining requests linger in self.requests (concurrency
@@ -2019,6 +2010,18 @@ class Conductor:
                 )
             if self.enable_nvtx:
                 range_pop()
+        # pause and weight-update control, after every per-request type so the
+        # per-step messages compare as many types as they did without it
+        elif message.message_type == ConductorMessageType.PAUSE_GENERATION:
+            self._generation.pause(message.body)
+        elif message.message_type == ConductorMessageType.CONTINUE_GENERATION:
+            self._generation.resume(message.body)
+        elif message.message_type == ConductorMessageType.UPDATE_WEIGHTS_FROM_DISK:
+            self._generation.update(message.body)
+        elif message.message_type == ConductorMessageType.GET_GENERATION_STATE:
+            self._generation.report(message.body)
+        elif message.message_type == ConductorMessageType.WEIGHT_CONTROL_ACK:
+            self._generation.ack(message.body)
         else:
             raise ValueError(f"Unknown message type: {message.message_type}")
 
@@ -2150,8 +2153,9 @@ class Conductor:
                             self._fail_after_error(request_id, "completing it", exc)
 
                 self._sweep_expiry()
-                if self._generation is not None:
-                    self._generation.tick(len(self.requests))
+                generation = self._generation
+                if generation is not None and generation.state is not GenerationState.SERVING:
+                    generation.tick(len(self.requests))
                 if self._status_interval_s is not None:
                     self._maybe_send_status()
 
