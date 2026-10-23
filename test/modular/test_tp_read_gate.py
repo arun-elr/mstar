@@ -105,6 +105,9 @@ def _rank(worker_id, rids, tensor_manager, consumes=None):
     w.tensor_manager = tensor_manager
     w.engine_manager = SimpleNamespace(get_engine=lambda n: SimpleNamespace(
         take_resident_delta=lambda n: OffloadDelta.new(),
+        decide_cached_prefix=lambda b: {},
+        page_trails=lambda n: {},
+        prefix_cache_open=lambda n: False,
     ))
     w.wakeup_event = SimpleNamespace(drain=lambda: None)
     w.enable_nvtx = False
