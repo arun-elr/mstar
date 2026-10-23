@@ -11,6 +11,7 @@ import secrets
 import shutil
 import stat
 import sys
+import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -452,8 +453,19 @@ class TrackedMooncakeReader(AsyncMooncakeReader):
 
     def __init__(self, engine, device, max_workers: int = 3, device_filter: str = ""):
         super().__init__(engine, device, max_workers=max_workers)
-        self._read_attempts = _local_hca_count(engine, device_filter) + 1
+        self._device_filter = device_filter
+        self._attempts: int | None = None
+        self._attempts_lock = threading.Lock()
         self._timeout_s = _mooncake_transfer_timeout_s()
+
+    @property
+    def _read_attempts(self) -> int:
+        """Counted on the first failed tensor, not at startup:
+        ``get_local_topology`` starts a second engine, about 1 s."""
+        with self._attempts_lock:
+            if self._attempts is None:
+                self._attempts = _local_hca_count(self._engine, self._device_filter) + 1
+            return self._attempts
 
     def _read(self, read_info: list["TransferReadInfo"]) -> None:
         """Raises ``AsyncReadError``, after which this thread polls none of
@@ -492,7 +504,7 @@ class TrackedMooncakeReader(AsyncMooncakeReader):
                 if status != _TRANSFER_FAILED:
                     # may or may not have freed the batch: never poll it again
                     raise fail(f"Mooncake read returned unknown status {status}", {ptr})
-                if attempts[ptr] >= self._read_attempts or time.monotonic() > deadline:
+                if time.monotonic() > deadline or attempts[ptr] >= self._read_attempts:
                     raise fail(f"Mooncake read failed. Status: {status}")
                 submit(info)
             if not running:

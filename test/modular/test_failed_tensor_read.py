@@ -264,6 +264,8 @@ class _Engine:
     def __init__(self, hcas=0):
         self.plan: dict[int, list] = {}
         self.hcas = hcas
+        self.topology_calls = 0
+        self.topology_delay = 0
         self.submit_failure = 0
         self.unregister_result = 0
         self.unregistered: list[int] = []
@@ -276,6 +278,8 @@ class _Engine:
         self._lock = threading.Lock()
 
     def get_local_topology(self, device_name=""):
+        self.topology_calls += 1
+        time.sleep(self.topology_delay)
         hcas = [f"mlx5_{i}" for i in range(self.hcas)]
         if device_name:
             hcas = [hca for hca in hcas if hca in device_name.split(",")]
@@ -617,6 +621,33 @@ def test_retries_count_only_the_hcas_the_engines_device_filter_keeps(engine, dev
     reader = TrackedMooncakeReader(engine, "cpu", device_filter=device_filter)
     assert reader._read_attempts == attempts
     reader.shutdown()
+
+
+def test_reads_that_succeed_never_count_the_hcas(engine):
+    """Counting starts a second Mooncake engine, so neither startup nor a
+    successful read pays for it."""
+    mgr = engine.manager()
+    src = _sources(2)
+    engine.plan = {s.data_ptr(): [[0, 1]] for s in src}
+    future, _ = _start(mgr, "ok", src)
+    assert future.exception(timeout=5) is None
+    assert engine.topology_calls == 0
+
+
+def test_the_first_failed_tensor_counts_the_hcas_once(engine):
+    """Reads failing at once on the reader's three threads count once."""
+    engine.hcas, engine.topology_delay = 1, 0.05
+    mgr = engine.manager()
+    futures = []
+    for i in range(3):
+        src = _sources(1)
+        engine.plan[src[0].data_ptr()] = [[-1], [1]]
+        (future,) = mgr.start_read_tensors(f"r{i}", [_remote_edge(src, first_uuid=100 + i)])
+        futures.append((future, src))
+    for future, src in futures:
+        assert future.exception(timeout=5) is None
+        assert engine.submits(src[0].data_ptr()) == 2
+    assert engine.topology_calls == 1
 
 
 def test_a_read_past_its_deadline_hands_over_its_running_transfers(engine):
