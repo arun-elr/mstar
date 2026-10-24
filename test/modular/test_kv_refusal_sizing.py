@@ -181,7 +181,7 @@ def _refuse_after_a_pool_filling_prefill(spans: dict[str, int]) -> _FailingWorke
     )
     worker._handle_admit_failure(batch, SimpleNamespace(
         node_name=SCHED_NODE, admit_error=outcome.reason,
-        failed_resource="kv", request_ids=list(spans),
+        failed_resource="kv", request_ids=list(spans), cached_rids=set(),
     ))
     return worker
 
