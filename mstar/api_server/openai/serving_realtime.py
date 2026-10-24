@@ -23,7 +23,7 @@ client's commit. ``{"type": "server_vad", "threshold", "prefix_padding_ms",
 ``audio_start_ms`` / ``audio_end_ms`` on the session's audio timeline; a
 turn that reaches the item cap is committed there instead of refused.
 ``{"type": "semantic_vad", "eagerness"}`` asks an end-of-turn model at each
-pause instead, and runs as ``server_vad`` when that model is unavailable.
+pause instead, and the update is refused when that model is unavailable.
 
 ``chunk_seconds`` below ``MIN_CHUNK_SECONDS`` is raised to it and must not
 pass the item cap, and the unfixed counts are non-negative integers; numeric
