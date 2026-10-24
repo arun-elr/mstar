@@ -25,8 +25,11 @@ OpenAI-capable models opt in by adding an adapter and registering it in
 from __future__ import annotations
 
 import http.client
+import logging
 import math
 import re
+import ssl
+import urllib.error
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -35,6 +38,8 @@ from mstar.api_server import media_io
 from mstar.api_server.openai.speech_chunking import split_sentences
 from mstar.model.multimodal import PromptPart
 from mstar.model.registry import qwen_3_5_dense_sizes as QWEN_3_5_DENSE_SIZES
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # for type checkers / IDEs only (annotations are lazy via __future__)
     from mstar.api_server.openai.protocol import (
@@ -628,22 +633,49 @@ class KokoroAdapter(OpenAIAdapter):
         )
 
 
+# A ref_audio URL that did not deliver: an HTTP error status or a refused
+# redirect (HTTPError), DNS or connect failures (URLError), a timeout, a dropped
+# connection, a TLS failure or a body cut short. These are the request's fault.
+_REF_AUDIO_FETCH_ERRORS = (
+    urllib.error.URLError,
+    http.client.HTTPException,
+    TimeoutError,
+    ConnectionError,
+    ssl.SSLError,
+)
+
+
+def _ref_audio_fetch_failure(exc: BaseException) -> str:
+    """What went wrong with a ref_audio fetch, in words that name no server path."""
+    if isinstance(exc, urllib.error.HTTPError):
+        return f"HTTP {exc.code}"
+    return type(exc).__name__
+
+
 def _resolve_ref_audio(ref: str, upload_dir: Path, decoder: str) -> str:
     """A reference voice clip from the request: a data URL, an http(s) URL (only
     when the server allows remote fetch), or bare base64 that ``decoder`` (the
     model's audio loader) can open. Returns its path. Every form gets the same
     ``check_ref_audio``, so a clip the data worker would fail on, or one longer
-    than ``MAX_REF_AUDIO_SECONDS``, is a 400 here."""
+    than ``MAX_REF_AUDIO_SECONDS``, is a 400 here.
+
+    A clip that is not audio, malformed base64 and a failed fetch are 400s.
+    Failing to store the clip (a full disk, ``upload_dir`` permissions) is the
+    server's fault: a 500 whose text, like the 400s, names no server path."""
     if not isinstance(ref, str):
         raise ValueError(f"ref_audio must be a data URL or base64 string, got {type(ref).__name__}")
-    if ref.startswith("data:") or ref.split(":", 1)[0].lower() in ("http", "https"):
-        try:
-            path = media_io.resolve_media_ref(ref, upload_dir)[1]
-        except (OSError, http.client.HTTPException) as exc:  # urllib errors, timeouts, truncated bodies
-            raise ValueError(f"could not fetch ref_audio: {exc!r}") from exc
-        media_io.check_ref_audio(path, decoder)
-        return path
-    path = media_io.save_base64_audio(ref, upload_dir, decoder)
+    try:
+        if ref.startswith("data:") or ref.split(":", 1)[0].lower() in ("http", "https"):
+            try:
+                path = media_io.resolve_media_ref(ref, upload_dir)[1]
+            except _REF_AUDIO_FETCH_ERRORS as exc:
+                raise ValueError(f"could not fetch ref_audio ({_ref_audio_fetch_failure(exc)})") from exc
+            media_io.check_ref_audio(path, decoder)
+            return path
+        path = media_io.save_base64_audio(ref, upload_dir, decoder)
+    except OSError as exc:
+        logger.error("could not store a ref_audio upload under %s: %r", upload_dir, exc)
+        raise RuntimeError("the server could not store ref_audio") from None
     if path:
         return path
     raise ValueError(
