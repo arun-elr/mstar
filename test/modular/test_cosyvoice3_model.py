@@ -471,6 +471,87 @@ def test_adapter_cuts_chinese_where_the_reference_split_paragraph_does(text, cut
     assert adapters.CosyVoice3Adapter().split_speech_text(text) == expected
 
 
+def _reference_split_paragraph(text: str, comma_split: bool = False) -> list[str]:
+    """CosyVoice's ``frontend_utils.split_paragraph(text, lang="zh", token_max_n=80,
+    token_min_n=60, merge_len=20)``, line for line, for text that already ends in
+    one of its marks and has no Latin mark inside a word."""
+    pounc = ["。", "？", "！", "；", "：", "、", ".", "?", "!", ";"] + (["，", ","] if comma_split else [])
+    st, utts = 0, []
+    for i, c in enumerate(text):
+        if c in pounc:
+            if len(text[st:i]) > 0:
+                utts.append(text[st:i] + c)
+            if i + 1 < len(text) and text[i + 1] in ['"', "”"]:
+                utts.append(utts.pop(-1) + text[i + 1])
+                st = i + 2
+            else:
+                st = i + 1
+    final, cur = [], ""
+    for utt in utts:
+        if len(cur + utt) > 80 and len(cur) > 60:
+            final.append(cur)
+            cur = ""
+        cur = cur + utt
+    if len(cur) > 0:
+        if len(cur) < 20 and len(final) != 0:
+            final[-1] = final[-1] + cur
+        else:
+            final.append(cur)
+    return final
+
+
+# A 300-character sentence: the longest the splitter keeps whole.
+_ZH_SENTENCE_300 = ("我们沿着河边慢慢地走着，看着远处的山和近处的树，" * 13)[:299] + "。"
+_ZH_RUN_ON = (
+    "那天早上我起得很早，窗外的天空还是灰蒙蒙的，街上几乎没有行人，只有几辆送货的卡车慢慢地开过，"
+    "我泡了一杯热茶，坐在书桌前打开电脑，开始整理昨天会议的记录，同事们提出了很多有意思的想法，"
+    "有的人建议把项目分成几个阶段来完成，有的人希望先做一个小规模的试验，看看用户的反应再决定下一步，"
+    "还有人担心预算不够，需要向上级申请更多的资源，我把这些意见一条一条地写下来，又补充了自己的看法，"
+    "等我抬起头来的时候，太阳已经升得很高了，楼下的咖啡店也开门了，空气里飘着面包和咖啡的香味，"
+    "我决定下楼去买一份早餐，顺便在街上走一走，让脑子休息一下，然后再回来继续把报告写完，"
+    "下午还要和设计团队开会，讨论新版本的界面，所以上午一定要把这份记录整理好发给大家。"
+)
+
+
+@pytest.mark.parametrize("text", [
+    _ZH_PARAGRAPH * 6,  # about 600 characters of sentences
+    _ZH_LONG_CLAUSES * 3,  # three 88-character sentences
+    _ZH_SENTENCE_300 + _ZH_PARAGRAPH,  # a 300-character sentence stays whole
+    _JA_ENUMERATED * 2,
+], ids=["zh-sentences", "zh-long-sentences", "zh-300", "ja-kanji"])
+def test_chinese_pieces_under_the_limit_are_the_reference_pieces(text):
+    """A passage with no piece over 300 characters is cut exactly where the
+    reference cuts it, so the fallback below changes nothing for it."""
+    reference = _reference_split_paragraph(text)
+    assert max(map(len, reference)) <= adapters.CosyVoice3Adapter._ZH_MAX_PIECE_CHARS
+    assert adapters.CosyVoice3Adapter().split_speech_text(text) == reference
+
+
+def test_a_run_on_chinese_sentence_over_the_limit_is_cut_at_its_commas():
+    """The reference keeps this 630-character sentence whole (one piece, past
+    the LM's 512 tokens with any prompt); it is cut at its commas instead, the
+    way the reference's comma_split mode cuts it, with no character dropped or
+    added."""
+    text = _ZH_RUN_ON[:-1] + "，" + _ZH_RUN_ON
+    assert len(text) > 600 and _reference_split_paragraph(text) == [text]
+    pieces = adapters.CosyVoice3Adapter().split_speech_text(text)
+    assert pieces == _reference_split_paragraph(text, comma_split=True)
+    assert "".join(pieces) == text and len(pieces) >= 6
+    assert all(len(p) < 160 and p[-1] in "，。" for p in pieces)
+    # sentences around it keep the reference's cut
+    framed = _ZH_PARAGRAPH + _ZH_RUN_ON + _ZH_PARAGRAPH
+    framed_pieces = adapters.CosyVoice3Adapter().split_speech_text(framed)
+    assert "".join(framed_pieces) == framed and max(map(len, framed_pieces)) < 160
+    assert framed_pieces[0] == _reference_split_paragraph(framed)[0]
+
+
+def test_chinese_with_no_punctuation_is_cut_into_even_parts():
+    text = ("我们今天要去城市东边的大公园散步然后再去湖边看花" * 30)[:700]
+    pieces = adapters.CosyVoice3Adapter().split_speech_text(text)
+    assert "".join(pieces) == text
+    assert all(len(p) < 160 for p in pieces) and len(pieces) >= 5
+
+
 @pytest.mark.parametrize("text, max_chars", [
     # max_chars: 80 tokens at the text's characters per token in the CosyVoice3 tokenizer
     ("오늘은 날씨가 정말 좋습니다. 공원에 같이 산책하러 갑시다. " * 20, int(80 * 1.41)),

@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from mstar.api_server import media_io
-from mstar.api_server.openai.speech_chunking import split_sentences
+from mstar.api_server.openai.speech_chunking import _cut_evenly, split_sentences
 from mstar.model.multimodal import PromptPart
 from mstar.model.registry import qwen_3_5_dense_sizes as QWEN_3_5_DENSE_SIZES
 
@@ -780,6 +780,7 @@ class CosyVoice3Adapter(OpenAIAdapter):
     (``text_normalize``) does: pieces of about 80 tokens, or 60 to 80
     characters for text with Chinese, cut at sentence ends (and at ``：`` and
     ``、`` with Chinese), with a short tail merged into the piece before it.
+    A Chinese piece over 300 characters is cut again at its commas.
     In one request the LM ends long text early or garbles its end. Without Chinese, an estimate of the Qwen2 BPE token
     count stands in for the reference's real one, so Hangul, kana and
     Cyrillic pieces stay near 80 tokens as English ones do.
@@ -795,6 +796,13 @@ class CosyVoice3Adapter(OpenAIAdapter):
     # sentence or clause mark (with a closing quote), or a Latin one before a
     # space or the end, so "3.5" stays whole.
     _ZH_SENTENCE = re.compile(r".*?(?:[。？！；：、][\"”]?|[.?!;](?=\s|\Z)|\Z)", re.DOTALL)
+    # The same with commas, for a piece too long for the LM.
+    _ZH_CLAUSE = re.compile(r".*?(?:[。？！；：、，][\"”]?|[.?!;,](?=\s|\Z)|\Z)", re.DOTALL)
+    # A Han character is one token of this tokenizer, and Latin text fewer per
+    # character, so a piece's length bounds its tokens. The LM takes 512 tokens
+    # of prompt text and text: 7 for the system prompt, at most about 200 for
+    # the transcript of a 30 s reference clip, and 300 for the piece.
+    _ZH_MAX_PIECE_CHARS = 300
 
     def split_speech_text(self, text: str) -> list[str]:
         if re.search(r"[\u4e00-\u9fff]", text):  # the reference's ``contains_chinese``
@@ -810,10 +818,29 @@ class CosyVoice3Adapter(OpenAIAdapter):
         """Text with Chinese cut as the reference cuts it: sentences joined with
         nothing between them until a piece is past 60 characters and the next
         sentence would take it past 80, a tail under 20 merged into the piece
-        before it, and a longer sentence kept whole rather than wrapped."""
+        before it, and a longer sentence kept whole rather than wrapped.
+
+        A piece over ``_ZH_MAX_PIECE_CHARS``, which the reference would send
+        whole but which could take a request past the LM's 512 tokens (a 400,
+        or audio cut short when it is not the first piece), is cut again at
+        commas as well, as ``split_paragraph(comma_split=True)`` cuts, after a clause over
+        80 characters (a run with no punctuation) is cut into even parts; every
+        piece of that is under 160 characters."""
+        pieces: list[str] = []
+        for piece in cls._group_chinese(cls._ZH_SENTENCE.findall(text)):
+            if len(piece) <= cls._ZH_MAX_PIECE_CHARS:
+                pieces.append(piece)
+                continue
+            clauses = cls._ZH_CLAUSE.findall(piece)
+            pieces += cls._group_chinese([c for clause in clauses for c in _cut_evenly(clause, 80)])
+        return pieces
+
+    @staticmethod
+    def _group_chinese(sentences: list[str]) -> list[str]:
+        """The grouping of the reference's ``split_paragraph(lang="zh")``."""
         pieces: list[str] = []
         current = ""
-        for sentence in cls._ZH_SENTENCE.findall(text):
+        for sentence in sentences:
             if len(current + sentence) > 80 and len(current) > 60:
                 pieces.append(current)
                 current = ""
