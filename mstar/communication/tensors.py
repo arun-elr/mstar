@@ -241,7 +241,8 @@ def _warn_if_mooncake_unpatched() -> None:
 
 
 class MemoryRegistrationError(RuntimeError):
-    """The transfer engine refused to register a tensor for remote reads."""
+    """The transfer engine refused to register a tensor for remote reads, or a
+    buffer for a read into it."""
 
 
 # ---------------------------------------------------------------------------
@@ -317,7 +318,8 @@ def _may_be_reading(future) -> bool:
     if not future.done():
         return True
     error = _read_error(future)
-    return error is not None and not isinstance(error, CancelledError)
+    # a refused registration fails the read before it starts
+    return error is not None and not isinstance(error, (CancelledError, MemoryRegistrationError))
 
 
 def _submit_failed(batch_id: int) -> bool:
@@ -1697,7 +1699,7 @@ class TensorCommunicationManager(ABC):
         """Adopt the batch ids a finished read handed over for ``kept``. False
         if whether its transfers stopped cannot be learned: then its buffers
         are never freed."""
-        if error is None or isinstance(error, CancelledError):
+        if error is None or isinstance(error, (CancelledError, MemoryRegistrationError)):
             return True  # completed after all, or never started
         if self._transfer_status is None or not isinstance(error, AsyncReadError):
             why = f"its {type(error).__name__} does not say whether the transfer stopped"
@@ -2205,12 +2207,18 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
             if tensor.nbytes:
                 ret_value = self.transfer_engine.unregister_memory(tensor.data_ptr())
                 if ret_value != 0:
-                    # Logged, not raised: the tensor is dropped either way, and
-                    # a raise would abort the rest of a request's teardown
-                    # (from REMOVE_REQUEST, in the worker's main loop).
+                    # Logged, not raised: a raise would abort the rest of a
+                    # request's teardown (from REMOVE_REQUEST, in the worker's
+                    # main loop). The engine may still hold the region, so the
+                    # tensor is kept for the life of the process: freed, its
+                    # address goes back to the allocator, and a later request's
+                    # tensor there is refused as an overlap (-7).
+                    self._unreleasable_buffers.append(tensor)
                     logger.error(
-                        "Mooncake memory unregistration failed for uuid %s: %s",
-                        uuid, ret_value,
+                        "Mooncake memory unregistration failed for uuid %s: %s; "
+                        "keeping its %d bytes allocated so the address is not "
+                        "reused while it may still be registered",
+                        uuid, ret_value, tensor.nbytes,
                     )
         self.tensor_store.remove_tensor(uuid)
 
@@ -2239,6 +2247,8 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 future=None, graph_edges=[graph_edge], request_id=request_id,
                 transfer_uuids=transfer_uuids,
             )
+            # why the engine refused to pin a buffer of this edge, if it did
+            refused: str | None = None
             for info in graph_edge.tensor_info:
                 if info.source_entity == self.my_entity_id:
                     self._slice_existing_tensor(
@@ -2268,6 +2278,11 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                 if info.nbytes == 0:
                     continue
 
+                # the edge's buffers go with the read, so teardown waits for it
+                transfer_uuids.append(info.uuid)
+                if refused is not None:
+                    continue  # the read will not run: nothing more to pin
+
                 # Marked only once registered: teardown unregisters what is
                 # marked.
                 ret_value = (
@@ -2277,14 +2292,14 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                     if self.protocol in (CommProtocol.RDMA, CommProtocol.TCP)
                     else 0
                 )
-                if ret_value == 0:
-                    self.tensor_store.set_metadata(info.uuid, mem_registered=True)
-                else:
-                    logger.warning(
+                if ret_value != 0:
+                    refused = (
                         "Mooncake refused to register the read buffer for "
-                        "request %s, uuid %s: %s",
-                        self.rid_to_str(request_id), info.uuid, ret_value,
+                        f"request {self.rid_to_str(request_id)}, uuid "
+                        f"{info.uuid}: {ret_value}"
                     )
+                    continue
+                self.tensor_store.set_metadata(info.uuid, mem_registered=True)
 
                 read_info.append(TransferReadInfo(
                     source_session_id=info.source_session_id,
@@ -2292,12 +2307,18 @@ class MooncakeCommunicationManager(TensorCommunicationManager):
                     remote_ptr=info.address + info.offset,
                     nbytes=info.nbytes,
                 ))
-                transfer_uuids.append(info.uuid)
                 logger.debug("Started transfer read for uuid %s", info.uuid)
             if self.enable_prof or fp.read_src is not None:
                 for ri in read_info:
                     ri.fp = fp
-            fut = self._async_reader.submit(read_info)
+            if refused is not None:
+                # Reading into an unpinned buffer fails or lands nowhere, so the
+                # request fails here, as on a failed read: get_ready_tensors
+                # drops the edge and take_failed_reads names the request.
+                fut = Future()
+                fut.set_exception(MemoryRegistrationError(refused))
+            else:
+                fut = self._async_reader.submit(read_info)
             fp.future = fut
             if fut is not None:
                 futures.append(fut)

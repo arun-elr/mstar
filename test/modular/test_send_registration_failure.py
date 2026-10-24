@@ -493,26 +493,116 @@ class _RefusingEngine(_Engine):
         return -3
 
 
-def test_a_read_buffer_the_engine_refused_is_not_marked_registered():
-    """Teardown unregisters what is marked; a read buffer marked registered
-    whatever the engine said made it unregister memory never registered."""
-    engine = _RefusingEngine()
+class _ReadEngine(_Engine):
+    """Refuses to register a buffer of ``refuse_nbytes`` bytes, records each
+    read, and answers -3 when asked to unregister memory it never registered."""
+
+    def __init__(self, refuse_nbytes):
+        super().__init__()
+        self.refuse_nbytes = refuse_nbytes
+        self.read = []
+
+    def register_memory(self, ptr, nbytes):
+        if nbytes == self.refuse_nbytes:
+            return -7
+        return super().register_memory(ptr, nbytes)
+
+    def unregister_memory(self, ptr):
+        self.unregistered.append(ptr)
+        return 0 if ptr in self.registered else -3
+
+    def batch_transfer_sync_read(self, session_id, local_ptrs, remote_ptrs, nbytes):
+        self.read.extend(local_ptrs)
+        return 0
+
+
+def _edge(*infos):
+    edge = GraphEdge(name="x", next_node="n")
+    edge.tensor_info = [
+        TensorPointerInfo(
+            dims=(nbytes // 4,), dtype=torch.float32, stride=(1,), nbytes=nbytes,
+            address=0x1000, uuid=uuid, source_session_id="peer:1", source_entity="w1",
+        )
+        for uuid, nbytes in infos
+    ]
+    return edge
+
+
+def test_a_read_whose_buffer_the_engine_refused_fails_only_its_request():
+    """r0's second buffer is refused. Its read was submitted anyway, into
+    memory the engine never pinned; now r0 fails as on a failed read, r1
+    reads as before, and r0's one registered buffer is unregistered."""
+    engine = _ReadEngine(refuse_nbytes=16)
     mgr = _manager(engine)
     try:
-        edge = GraphEdge(name="x", next_node="n")
-        edge.tensor_info = [TensorPointerInfo(
-            dims=(4,), dtype=torch.float32, stride=(1,), nbytes=16,
-            address=0x1000, uuid=77, source_session_id="peer:1",
-            source_entity="w1",
-        )]
-        futures = mgr.start_read_tensors("r0", [edge])
-        for f in futures:
-            f.result()
+        f0 = mgr.start_read_tensors("r0", [_edge((70, 32), (71, 16))])
+        r1_edge = _edge((80, 32))
+        f1 = mgr.start_read_tensors("r1", [r1_edge])
+        f1[0].result()
+        assert f0[0].done(), "a refused read must not wait on the reader"
+        kept_ptr = mgr.tensor_store.get_tensor(70).data_ptr()
+        assert not mgr.tensor_store.is_registered(71)
 
-        assert mgr.tensor_store.check_uuid_presence(77)
-        assert not mgr.tensor_store.is_registered(77)
-        mgr.force_cleanup_request("r0")
-        assert engine.unregistered == []
-        assert not mgr.tensor_store.check_uuid_presence(77)
+        ready = mgr.get_ready_tensors()
+        (failed,) = mgr.take_failed_reads()
+
+        assert list(ready) == ["r1"]
+        assert failed.request_id == "r0"
+        assert type(failed.error).__name__ == "MemoryRegistrationError"
+        assert "uuid 71: -7" in str(failed.error)
+        assert engine.read == [mgr.tensor_store.get_tensor(80).data_ptr()]
+        assert not mgr.has_inflight_reads("r0")
+
+        # the next poll frees r0's buffers: no transfer ever ran into them
+        mgr.get_ready_tensors()
+        assert mgr._kept_reads == [] and mgr._unreleasable_buffers == []
+        assert engine.unregistered == [kept_ptr]
     finally:
         mgr._async_reader._executor.shutdown(wait=True)
+
+
+def test_a_failed_unregister_keeps_the_tensor_alive():
+    """Mooncake keeps a region it failed to unregister. Freed, the tensor's
+    address went back to the allocator, and the next tensor placed there was
+    refused as an overlap (-7), failing an unrelated request."""
+
+    class _StuckEngine(_Engine):
+        def unregister_memory(self, ptr):
+            super().unregister_memory(ptr)
+            return -1
+
+    engine = _StuckEngine()
+    mgr = _manager(engine)
+    try:
+        t = torch.randn(64)
+        ptr = t.data_ptr()
+        uuids = _store(mgr, "r0", t)
+        assert mgr.register_for_send_uuids(ParallelList(["r0"], [uuids])) is None
+        del t
+
+        mgr.force_cleanup_request("r0")
+
+        assert engine.unregistered == [ptr]
+        assert not mgr.tensor_store.check_uuid_presence(uuids[0])
+        assert [b.data_ptr() for b in mgr._unreleasable_buffers] == [ptr], (
+            "the tensor was freed while the engine may still hold its region"
+        )
+    finally:
+        mgr._async_reader._executor.shutdown(wait=True)
+
+
+def test_a_leader_drops_a_failed_row_its_follower_keeps():
+    """One step on rank 0 and on a follower, its row 0 already failed. Rank 0
+    takes it out of the in-flight step; the follower, which rank 0 drives,
+    keeps it, for the loop-back a step rank 0 may yet send reads. Row 1 runs
+    the same on both."""
+    leader = _postprocess_worker(refuse=set())
+    follower = _postprocess_worker(refuse=set(), follower=True)
+    for w in (leader, follower):
+        w.scheduler.failed_rids.add(0)
+
+        Worker._postprocess_batch(w, *_decode_step([0, 1]))
+
+    assert leader.log.routed == [[1]] and leader.log.registered == [[1]]
+    assert follower.log.routed == [[0, 1]] and follower.log.registered == [[0, 1]]
+    assert leader.log.sent == [[1]] and follower.log.sent == [[0, 1]]
