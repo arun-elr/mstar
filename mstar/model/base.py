@@ -29,7 +29,6 @@ from mstar.graph.base import (
     TensorPointerInfo,
     top_level_entities,
 )
-from mstar.model.loader.reload import WeightReloadRefusedError
 from mstar.model.media_limits import VideoBudget, read_image
 from mstar.model.multimodal import TEXT, PromptPart
 
@@ -727,6 +726,10 @@ class Model(ABC):
 
         The default refuses; a model opts in by overriding this.
         """
+        # Imported here: loader/__init__.py pulls safetensors, which the rust-transport
+        # job does not install, and importing this module is how those tests start.
+        from mstar.model.loader.reload import WeightReloadRefusedError
+
         del path, submodules, check_only
         raise WeightReloadRefusedError(f"{type(self).__name__} does not support reloading weights in place")
 

@@ -10,6 +10,7 @@ refuse a checkpoint that does not match before copying anything.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from types import SimpleNamespace
 
@@ -312,6 +313,25 @@ def test_an_index_naming_a_file_outside_the_checkpoint_is_refused(ckpts):
 
 def test_a_rank_hosting_only_the_snac_decoder_has_nothing_to_reload(ckpts):
     _orpheus(ckpts.a_dir).reload_weights(ckpts.b_dir, {"snac_decoder": nn.Linear(2, 2)})
+
+
+def test_importing_model_base_does_not_import_safetensors():
+    """rust-transport does not install safetensors. Importing the model base
+    used to load the loader package, and the rust tests could not collect."""
+    code = (
+        "import sys\n"
+        "class Block:\n"
+        "    def find_spec(self, name, path, target=None):\n"
+        "        if name == 'safetensors' or name.startswith('safetensors.'):\n"
+        "            raise ModuleNotFoundError(name)\n"
+        "        return None\n"
+        "sys.meta_path.insert(0, Block())\n"
+        "from mstar.model.base import Model\n"
+        "assert 'safetensors' not in sys.modules\n"
+        "print('ok', Model.__name__)\n"
+    )
+    got = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
+    assert got.returncode == 0, got.stderr
 
 
 def test_a_model_refuses_by_default(ckpts):

@@ -370,6 +370,27 @@ def test_a_reused_label_on_a_rank_that_missed_the_copy_does_not_resume():
     assert "worker_0" in refused.error_message and "worker_1" not in refused.error_message
 
 
+def test_a_pause_during_resume_verification_stays_paused():
+    """A pause that lands while continue is still being verified used to get
+    200 paused, and the verify then resumed anyway."""
+    c = _paused(_conductor())
+    c._generation.resume(ContinueGeneration(op_id="c"))
+    assert c._generation.state.value == "verifying"
+    c._generation.pause(PauseGeneration(op_id="p", mode="wait"))
+    assert _answers(c, "p") == [], "pause was answered before verify finished"
+    _ack_all(c, WeightOp.VERIFY, version=None)
+    pause = _answers(c, "p")[-1]
+    assert (pause.status, pause.state, pause.paused) == (200, "paused", True)
+    assert c._generation.state.value == "paused"
+    cont = _answers(c, "c")[-1]
+    assert cont.status == 409 and cont.paused and cont.state == "paused"
+    c._ingest_request(_new_request("late"))
+    assert _failures(c)["late"] == (503, "generation is paused")
+    c._generation.resume(ContinueGeneration(op_id="c2"))
+    _ack_all(c, WeightOp.VERIFY, version=None)
+    assert (_answers(c, "c2")[-1].status, c._generation.state.value) == (200, "serving")
+
+
 def test_an_apply_no_rank_ran_leaves_the_committed_copy_servable():
     """Every rank timed out before copying (their apply was superseded): all
     still hold the committed copy, so serving it again is safe."""
