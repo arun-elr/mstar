@@ -444,6 +444,33 @@ def test_adapter_splits_long_text_like_the_reference_frontend():
     assert adapter.split_speech_text("Hello there. How are you today?") == ["Hello there. How are you today?"]
 
 
+_ZH_LONG_CLAUSES = (
+    "在这个阳光明媚的早晨，我们一家人决定去城市东边的那座大公园散步，顺便看看湖边新开的花，"
+    "再去旁边的小店买一些点心和饮料，最后在傍晚之前回到家里休息一下，准备明天的工作和学习任务。"
+)
+_JA_ENUMERATED = (
+    "今日はとても良い天気ですね、公園に行きましょう、そしてお弁当を食べましょう、それから湖のそばを散歩して、"
+    "夕方には家に帰りましょう、明日も早いですから今日は早く寝ましょう。"
+)
+_ZH_PARAGRAPH = (
+    "今天下午我们在会议室讨论了明年的预算安排。大家对维修费用的上涨表示担忧，尤其是东边那几栋老楼。"
+    "经过长时间的讨论，他们同意推迟投票：等到有更多数据再说！"
+    "与此同时，财务办公室会准备一份详细的报告；报告会在下个月初提交给委员会。你觉得这个安排怎么样？“我觉得很好。”他说。"
+)
+
+
+@pytest.mark.parametrize("text, cut", [
+    # the pieces of the reference's split_paragraph(text, lang="zh", token_max_n=80, token_min_n=60, merge_len=20)
+    (_ZH_LONG_CLAUSES, []),  # one 88-character sentence stays whole, with no space added at its commas
+    (_JA_ENUMERATED, [65]),  # 、 is a break, so the cut is between clauses
+    (_ZH_PARAGRAPH, [75]),  # ：and ！ are breaks, and the closing quote stays with its sentence
+], ids=["zh-long-clauses", "ja-enumeration", "zh-paragraph"])
+def test_adapter_cuts_chinese_where_the_reference_split_paragraph_does(text, cut):
+    bounds = [0, *cut, len(text)]
+    expected = [text[a:b] for a, b in pairwise(bounds)]
+    assert adapters.CosyVoice3Adapter().split_speech_text(text) == expected
+
+
 @pytest.mark.parametrize("text, max_chars", [
     # max_chars: 80 tokens at the text's characters per token in the CosyVoice3 tokenizer
     ("오늘은 날씨가 정말 좋습니다. 공원에 같이 산책하러 갑시다. " * 20, int(80 * 1.41)),

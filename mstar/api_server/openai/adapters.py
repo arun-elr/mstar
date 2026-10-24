@@ -745,10 +745,10 @@ class CosyVoice3Adapter(OpenAIAdapter):
     tokens) pass through ``extra_body``. ``speed`` is dropped.
 
     Long text is synthesized in sentence chunks, as the reference frontend
-    (``text_normalize``) does: pieces of about 80 tokens, or 80 characters
-    for text with Chinese, cut at sentence ends, with a short tail merged
-    into the piece before it. In one request the LM ends long text early or
-    garbles its end. Without Chinese, an estimate of the Qwen2 BPE token
+    (``text_normalize``) does: pieces of about 80 tokens, or 60 to 80
+    characters for text with Chinese, cut at sentence ends (and at ``：`` and
+    ``、`` with Chinese), with a short tail merged into the piece before it.
+    In one request the LM ends long text early or garbles its end. Without Chinese, an estimate of the Qwen2 BPE token
     count stands in for the reference's real one, so Hangul, kana and
     Cyrillic pieces stay near 80 tokens as English ones do.
     """
@@ -759,14 +759,39 @@ class CosyVoice3Adapter(OpenAIAdapter):
     # nothing shorter than the smallest piece (80 characters of Chinese) is split
     speech_chunk_min_chars = 81
 
+    # A sentence of the reference's ``split_paragraph(lang="zh")``: up to a CJK
+    # sentence or clause mark (with a closing quote), or a Latin one before a
+    # space or the end, so "3.5" stays whole.
+    _ZH_SENTENCE = re.compile(r".*?(?:[。？！；：、][\"”]?|[.?!;](?=\s|\Z)|\Z)", re.DOTALL)
+
     def split_speech_text(self, text: str) -> list[str]:
         if re.search(r"[\u4e00-\u9fff]", text):  # the reference's ``contains_chinese``
-            return split_sentences(text, max_chars=80, min_chars=20)
+            return self._split_chinese(text)
         # The reference counts real tokens here; characters per token differ
         # by script (Hangul or kana about 1.5, Cyrillic about 2.7, English about 4.7).
         chars_per_token = len(text) / max(1.0, self._estimated_tokens(text))
         max_chars = min(self.speech_chunk_max_chars, max(80, int(80 * chars_per_token)))
         return split_sentences(text, max_chars=max_chars, min_chars=int(20 * chars_per_token))
+
+    @classmethod
+    def _split_chinese(cls, text: str) -> list[str]:
+        """Text with Chinese cut as the reference cuts it: sentences joined with
+        nothing between them until a piece is past 60 characters and the next
+        sentence would take it past 80, a tail under 20 merged into the piece
+        before it, and a longer sentence kept whole rather than wrapped."""
+        pieces: list[str] = []
+        current = ""
+        for sentence in cls._ZH_SENTENCE.findall(text):
+            if len(current + sentence) > 80 and len(current) > 60:
+                pieces.append(current)
+                current = ""
+            current += sentence
+        if current.strip():
+            if len(current) < 20 and pieces:
+                pieces[-1] += current
+            else:
+                pieces.append(current)
+        return [piece.strip() for piece in pieces]
 
     @classmethod
     def _estimated_tokens(cls, text: str) -> float:
