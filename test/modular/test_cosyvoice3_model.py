@@ -39,6 +39,7 @@ from mstar.model.cosyvoice3.config import (
     END_OF_PROMPT_ID,
     LM_ATTN,
     LM_KV,
+    LM_LABEL,
     LM_POS,
     SYSTEM_PROMPT,
     CausalHiFTConfig,
@@ -232,7 +233,7 @@ def test_process_prompt_modes_and_token_limits(model):
     assert torch.equal(zero.new_input_tensors[TEXT_INPUTS][0], expected)
     assert zero.new_input_tensors["ref_audio"][0].shape == clip.shape
     # 2x and 20x the text's 3 tokens; the voice key is the clip's content hash
-    assert zero.metadata == {
+    assert {k: v for k, v in zero.metadata.items() if k != "kv_layout"} == {
         MIN_SPEECH_TOKENS: 6,
         MAX_SPEECH_TOKENS: 60,
         VOICE_KEY: int(voice_key_for(clip)[0]),
@@ -853,6 +854,100 @@ def test_lm_stop_judges_each_step_by_its_own_index():
     assert sub.check_stop(4, info, out) == set()  # token 3 of 4
     out[STEP_INDEX] = [torch.tensor([3])]
     assert sub.check_stop(4, info, out) == {DECODE_LOOP}
+
+
+@pytest.mark.parametrize("budget", [1, 2, 6])
+def test_lm_caps_decode_where_its_stop_check_ends_it(model, budget):
+    cfg = _tiny_config()
+    sub, res = _lm(cfg)
+    _fixed_logits(sub, favourite=5, second=6)
+    info = _info(0, 0, limits=(0, budget), ras_window=0)
+    engine = SimpleNamespace(request_ids=[0], resources={LM_ATTN: res.kv_attn})
+    walk, inputs, iterations = "prefill", _lm_request(), 0
+    with torch.no_grad():
+        while True:
+            prepared = sub.prepare_inputs(walk, info, inputs)
+            res.plan([prepared.input_seq_len])
+            out = sub.forward_batched(walk, engine, **sub.preprocess(walk, engine, [prepared]))[0]
+            sub.postprocess(0, info, out, inputs=prepared)
+            inputs = {PREV_TOKEN: out[PREV_TOKEN]}
+            stop = sub.check_stop(0, info, out)
+            if walk == "decode":
+                iterations += 1
+                if stop:
+                    break
+            walk = "decode"
+
+    caps = model.get_loop_caps(**{MAX_SPEECH_TOKENS: budget})
+    assert caps == {DECODE_LOOP: iterations}, "the cap and the stop check end decode on different iterations"
+    assert model.get_loop_caps(max_new_tokens=budget) == caps
+
+
+@pytest.mark.parametrize("seconds", [0.5, 1.0 + 1 / SR, 7.3, 30.0])
+def test_a_reference_clip_is_laid_out_at_the_tokens_the_tokenizer_makes_of_it(seconds):
+    from mstar.model.chatterbox.components.audio import MelSpectrogram24k
+    from mstar.model.chatterbox.components.s3_tokenizer import S3Tokenizer
+    from mstar.model.cosyvoice3.submodules import ReferenceEncoder, reference_tokens
+
+    cfg = CosyVoice3Config()
+    # token counts follow from the clip's length alone, so the weights are left as allocated
+    encoder = ReferenceEncoder(S3Tokenizer(cfg.tokenizer).eval(), MelSpectrogram24k(cfg.mel), None)
+    clip = _clip(seconds)
+    with torch.no_grad():
+        tokens = encoder.tokens(clip)
+    assert tokens.numel() == reference_tokens(clip.numel(), cfg)
+
+
+@pytest.mark.parametrize(
+    "kwargs, walk, prompt_tokens",
+    [
+        ({"ref_text": "ref words"}, "prefill_voice", True),
+        ({}, "prefill", False),
+        ({"instruct": "speak slowly"}, "prefill", False),
+    ],
+)
+def test_process_prompt_lays_out_the_rows_the_lm_prefill_writes(model, kwargs, walk, prompt_tokens):
+    from mstar.model.cosyvoice3.submodules import reference_tokens
+
+    clip = _clip(2.0)
+    tensors = {"audio_inputs": [clip]}
+    out = model.process_prompt("one two three", ["text", "audio"], ["audio"], tensors=tensors, **kwargs)
+    layout = out.metadata["kv_layout"][LM_KV][LM_LABEL]
+    ids = out.new_input_tensors[TEXT_INPUTS][0]
+    prompt = torch.zeros(reference_tokens(clip.numel(), model.config) if prompt_tokens else 0, dtype=torch.long)
+
+    assert {span.walk for span in layout.spans} == {walk}
+    assert layout.growth == ((DECODE_LOOP, 1),)
+    lm = CosyVoice3LM(_tiny_config().lm)
+    rows = lm.build_prefill_embeds(ids % lm.config.text_vocab_size, prompt).shape[0]
+    assert sum(span.length for span in layout.spans) == rows, "the layout and the prefill disagree on its rows"
+
+
+def test_kv_labels_pass_the_load_checks_and_the_longest_request_fits(model):
+    from mstar.engine.resources.kv.config import refuse_undeclared_labels
+    from mstar.worker.engine_manager import _refuse_undeclared_pools, _refuse_unknown_walks
+
+    specs = model.get_node_resources()
+    _refuse_unknown_walks(model)
+    _refuse_undeclared_pools(specs, model)
+
+    text = " ".join(["w"] * 400)
+    kwargs = {"ref_text": " ".join(["r"] * (model.config.max_text_tokens - 400 - 10)), "ignore_eos": True}
+    kwargs["max_new_tokens"] = model.config.max_speech_tokens
+    out = model.process_prompt(text, ["text", "audio"], ["audio"], tensors={"audio_inputs": [_clip(30.0)]}, **kwargs)
+    model_kwargs = {**kwargs, **out.metadata}
+    configs = model.get_request_resource_configs({}, model_kwargs)
+    layout = model_kwargs["kv_layout"]
+    refuse_undeclared_labels("CosyVoice3Model", {k: tuple(v) for k, v in model.kv_labels().items()}, layout, configs)
+    caps = model.get_loop_caps(**model_kwargs)
+    kv = configs[LM_KV]
+    kv.apply_conductor_config(
+        kv_layout={label: row.row() for label, row in layout[LM_KV].items()}, loop_caps=caps,
+    )
+    spec = next(s for s in specs if s.resource_key == LM_KV)
+    kv.validate(spec)
+    positions = kv.kv_layout[LM_LABEL].positions(caps)
+    assert spec.config.max_seq_len - 30 < positions <= spec.config.max_seq_len
 
 
 def test_lm_ras_breaks_a_repeating_favourite():

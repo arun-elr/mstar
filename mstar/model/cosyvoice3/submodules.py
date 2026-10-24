@@ -106,6 +106,19 @@ def _voice_key(fwd_info: CurrentForwardPassInfo) -> int:
     return int((fwd_info.step_metadata or {})[VOICE_KEY])
 
 
+def reference_tokens(samples: int, config: CosyVoice3Config) -> int:
+    """How many prompt tokens `ReferenceEncoder.tokens` makes of a ``samples``-long
+    24 kHz clip. `SpeakerEncoderSubmodule` asserts the same count."""
+    from mstar.model.chatterbox.components.s3_tokenizer import AudioEncoderV2
+
+    wav16 = -(-samples * TOKENIZER_SR // SAMPLE_RATE)
+    frames = wav16 // config.tokenizer.hop_size
+    tokens = AudioEncoderV2._conv_out_len(AudioEncoderV2._conv_out_len(frames, 2), 2)
+    mel = config.mel
+    mel_frames = (samples + 2 * ((mel.n_fft - mel.hop_size) // 2) - mel.n_fft) // mel.hop_size + 1
+    return min(tokens, mel_frames // 2)
+
+
 class ReferenceEncoder:
     """Reference clip -> prompt tokens, prompt mel and x-vector, as
     ``frontend_zero_shot`` computes them: tokens from the 16 kHz clip, mel
@@ -171,6 +184,10 @@ class SpeakerEncoderSubmodule(NodeSubmodule):
             # a new clip only: the token count is data-dependent, so the
             # tokenizer reads its lengths back to the host
             tokens = self.encoder.tokens(ref_audio)
+            assert tokens.numel() == reference_tokens(ref_audio.numel(), self.config), (
+                f"the speech tokenizer made {tokens.numel()} prompt tokens of a {ref_audio.numel()}-sample clip, "
+                "not the count `reference_tokens` gives the LM's kv_layout"
+            )
             self.cache.put(voice_key, tokens)
         return {PROMPT_TOKENS: [tokens]}
 

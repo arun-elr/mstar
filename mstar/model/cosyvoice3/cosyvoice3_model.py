@@ -57,7 +57,15 @@ from mstar.engine.resources import (
 )
 from mstar.graph.base import GraphEdge, GraphNode, GraphSection, Loop, Sequential, TensorPointerInfo
 from mstar.graph.special_destinations import EMIT_TO_CLIENT, EMPTY_DESTINATION
-from mstar.model.base import ForwardPassArgs, Model, ProcessPromptOutput, TensorAndMetadata
+from mstar.model.base import (
+    ForwardPassArgs,
+    KVLabel,
+    LabelLayout,
+    Model,
+    ProcessPromptOutput,
+    Span,
+    TensorAndMetadata,
+)
 from mstar.model.chatterbox.chatterbox_model import (
     ChatterboxModel,
     _flag,
@@ -85,6 +93,7 @@ from mstar.model.cosyvoice3.config import (
 )
 from mstar.model.cosyvoice3.submodules import (
     AUDIO_CHUNK,
+    DECODE_LOOP,
     MAX_SPEECH_TOKENS,
     MEL,
     MEL_FINAL,
@@ -95,6 +104,7 @@ from mstar.model.cosyvoice3.submodules import (
     SPEECH_TOKENS,
     TEXT_INPUTS,
     VOICE_KEY,
+    reference_tokens,
 )
 from mstar.model.submodule_base import NodeSubmodule
 from mstar.streaming.chunk_policy import ScheduledLeftContextChunkPolicy
@@ -127,6 +137,8 @@ MAX_RAS_WINDOW = 64
 class CosyVoice3Model(Model):
     """Model contract: prompt processing, graph, partitions, resources and the
     per-partition state machine. No GPU compute lives here."""
+
+    LENGTH_KWARGS = ("max_output_tokens", "max_new_tokens")
 
     def __init__(
         self,
@@ -282,6 +294,29 @@ class CosyVoice3Model(Model):
 
     def get_max_output_tokens(self, **model_kwargs: Any) -> int:
         return self.resolve_generation_kwargs(model_kwargs)["max_new_tokens"] or self._speech_limit
+
+    def get_loop_caps(self, **model_kwargs: Any) -> dict[str, int]:
+        # the stop check counts the prefill's token, so decode runs one iteration fewer than the budget
+        budget = self.get_max_output_tokens(**model_kwargs)
+        if model_kwargs.get(MAX_SPEECH_TOKENS) is not None:
+            budget = min(budget, int(model_kwargs[MAX_SPEECH_TOKENS]))
+        return {DECODE_LOOP: max(1, budget - 1)}
+
+    def kv_labels(self) -> dict[str, dict[str, KVLabel]]:
+        return {LM_KV: {LM_LABEL: KVLabel(growth=(("decode", DECODE_LOOP),))}}
+
+    @staticmethod
+    def _lm_layout(walk: str, text_tokens: int, prompt_tokens: int) -> LabelLayout:
+        """What the LM writes: ``[sos | text | task_id | prompt speech]`` as ``build_prefill_embeds``
+        lays it out, then a row per decode step."""
+        return LabelLayout(
+            spans=(
+                Span("rows", walk, 1, 1, TEXT_INPUTS),
+                Span("ids", walk, text_tokens, text_tokens, TEXT_INPUTS),
+                Span("rows", walk, 1 + prompt_tokens, 1 + prompt_tokens, PROMPT_TOKENS),
+            ),
+            growth=((DECODE_LOOP, 1),),
+        )
 
     # -----------------------------------------------------------------------
     # Graph
@@ -513,6 +548,12 @@ class CosyVoice3Model(Model):
         if knobs["ignore_eos"] and knobs["max_new_tokens"] is not None:
             max_len = knobs["max_new_tokens"]
         min_len = min(int(text_ids.numel() * s.min_token_text_ratio), max_len)
+        zero_shot = mode == "zero_shot"
+        layout = self._lm_layout(
+            "prefill_voice" if zero_shot else "prefill",
+            ids.numel(),
+            reference_tokens(wav.numel(), self.config) if zero_shot else 0,
+        )
         return ProcessPromptOutput(
             {TEXT_INPUTS: [ids], REF_AUDIO: [wav]},
             {
@@ -520,6 +561,7 @@ class CosyVoice3Model(Model):
                 MAX_SPEECH_TOKENS: max(max_len, 1),
                 VOICE_KEY: int(voice_key_for(wav)[0]),
                 PROMPT_MODE: mode,
+                "kv_layout": {LM_KV: {LM_LABEL: layout}},
             },
         )
 
