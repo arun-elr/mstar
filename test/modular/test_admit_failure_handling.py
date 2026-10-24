@@ -795,3 +795,30 @@ def test_per_request_keeps_one_slot_when_the_node_is_single_buffered():
 
     assert engine.run_slots == [0, 0, 0]
     assert engine.mgmt.next_slot == 0
+
+
+def test_a_batch_too_big_alone_that_evicts_its_own_row_is_capped():
+    """Sixteen running rows the pool holds ten of, with more waiting. Each
+    refusal offloaded one row of the batch and the queue refilled the retry
+    to sixteen, so every pass took another running row off the GPU."""
+    alone = 10
+    sched = _scheduler(_SchedEngine(max_bs=16))
+    rids_all = [f"r{i}" for i in range(48)]
+    manager = _Manager(rids_all)
+    worker = _EvictingWorker(holders=rids_all)
+    worker.scheduler = sched
+    worker._graph_runtime = manager.runtime
+    sizes = []
+    for _ in range(8):
+        batch = _next_batch(sched, manager)
+        rids = list(batch.request_to_worker_graph)
+        sizes.append(len(rids))
+        if len(rids) <= alone:
+            break
+        worker._handle_allocation_failure(batch, SimpleNamespace(
+            node_name=SCHED_NODE, failed_resource="kv",
+            admit_error=_sized_refusal(rids[alone], rows_fit=alone, rows_fit_alone=alone),
+        ))
+
+    assert sizes == [16, alone], f"batch sizes {sizes}, {len(worker.offloaded)} rows offloaded"
+    assert len(worker.offloaded) == 1

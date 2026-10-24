@@ -2507,9 +2507,12 @@ class Worker:
         # A batch the pool cannot hold even with nothing else resident does not
         # fit after evicting a request outside it: that request only comes back
         # into the pages it freed. Only a row of the batch makes the retry smaller.
+        # Compared with the rows the resource sized: a row the prefix cache
+        # served whole is in the batch but runs no step and holds no pages.
         reason = node_batch.admit_error
         alone = getattr(reason, "rows_fit_alone", None)
-        too_big = alone is not None and alone < len(batch_ids)
+        sized = getattr(reason, "rows_sized", None)
+        too_big = alone is not None and alone < (len(batch_ids) if sized is None else sized)
 
         # scope the eviction to whichever resource actually ran out, when the
         # admit named one
@@ -2522,6 +2525,13 @@ class Worker:
 
         if victim_id is not None:
             self.scheduler.hold_requests([victim_id])
+            # the victim is a row of the batch; rows waiting to run would refill
+            # the retry to the size the pool cannot hold, and each refusal would
+            # offload another running row
+            if too_big and self.scheduler.could_refill(
+                batch.node_name, batch.graph_walk, batch_ids,
+            ):
+                self.scheduler.cap_batch(batch.node_name, batch.graph_walk, alone)
             logger.warning(
                 "OOM on node=%s walk=%s: offloaded victim=%s, "
                 "retrying %d remaining requests",

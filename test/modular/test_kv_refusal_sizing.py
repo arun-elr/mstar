@@ -229,3 +229,94 @@ def test_pages_two_labels_share_are_counted_once():
 
     assert isinstance(outcome.reason, AllocationFailed), outcome.reason
     assert (outcome.reason.rows_fit, outcome.reason.rows_fit_alone) == (0, 1)
+
+
+def _admit_step(mgr: KVManager, step: KVStep, rids: tuple[str, ...]):
+    for rid in rids:
+        if rid not in mgr._streams:
+            mgr.ingest_request(rid)
+    outcome = mgr.admit(step, _ctx(*rids))
+    if not outcome.ok:
+        mgr.rollback_admit(step, _ctx(*rids))
+    return outcome
+
+
+def _unguided_step(spans: dict[str, int]) -> KVStep:
+    """Bagel's CFG step for rows that are not guided: their ``cfg_text`` and
+    ``cfg_img`` labels run against the sink and reserve nothing."""
+    labels = ("main", "cfg_text", "cfg_img")
+    return KVStep(
+        segments=tuple(Segment(rid, label, span) for label in labels for rid, span in spans.items()),
+        sink=frozenset((rid, label) for label in labels[1:] for rid in spans),
+    )
+
+
+def test_labels_on_the_sink_are_not_counted_in_a_footprint():
+    """Fifteen usable pages, ten held. An unguided prompt of seven pages was
+    counted at 21, its sink labels at seven each, and failed for good as
+    bigger than the pool, though it fits once the other request goes."""
+    mgr = _manager(16)
+    assert _admit(mgr, {"old": 10 * PAGE_SIZE}, commit=True).ok
+
+    outcome = _admit_step(mgr, _unguided_step({"r": 7 * PAGE_SIZE}), ("r",))
+
+    assert isinstance(outcome.reason, AllocationFailed), outcome.reason
+    reason = outcome.reason
+    assert (reason.rows_fit, reason.rows_fit_alone, reason.rows_sized) == (0, 1, 1)
+
+
+def test_labels_on_the_sink_do_not_shrink_the_rows_that_fit_alone():
+    """Three unguided rows of four pages: twelve pages, which the 15-page
+    pool holds. Counted at twelve each, one fit alone."""
+    mgr = _manager(16)
+    assert _admit(mgr, {"old": 8 * PAGE_SIZE}, commit=True).ok
+
+    outcome = _admit_step(
+        mgr, _unguided_step({f"u{i}": 4 * PAGE_SIZE for i in range(3)}), ("u0", "u1", "u2"),
+    )
+
+    reason = outcome.reason
+    assert isinstance(reason, AllocationFailed), reason
+    assert (reason.rows_fit, reason.rows_fit_alone, reason.rows_sized) == (1, 3, 3)
+
+
+def test_a_capture_step_sizes_no_rows():
+    """A capture's rows run against the sink, as `admit` treats them."""
+    mgr = _manager(8)
+    step = KVStep(segments=(Segment("r", "main", 2 * PAGE_SIZE),))
+    ctx = StepContext(request_ids=("r",), graph_walk="w", slot=0, capture=True)
+    error = AllocationFailed(message="", pages_short=1, label="main", request_id="r")
+
+    with mgr._lock:
+        reason = mgr._sized_refusal(step, ctx, error)
+
+    assert (reason.rows_fit, reason.rows_fit_alone, reason.rows_sized) == (None, 0, 0)
+
+
+def test_a_row_the_cache_served_does_not_make_a_batch_too_big_alone():
+    """Sixteen prompts, one served whole by the prefix cache. The fifteen
+    others need 60 of the 63 usable pages and fit once the decoding request
+    holding ten goes. Compared with the batch's sixteen rows, the fifteen
+    that fit alone read as too big: eviction was kept to the batch's rows,
+    which hold nothing, so nothing was evicted and the walk was capped."""
+    mgr = _manager(64)
+    assert _admit(mgr, {"decoder": 10 * PAGE_SIZE}, commit=True).ok
+    spans = {f"p{i}": 4 * PAGE_SIZE for i in range(15)}
+
+    outcome = _admit(mgr, spans)
+
+    reason = outcome.reason
+    assert isinstance(reason, AllocationFailed), reason
+    assert (reason.rows_fit_alone, reason.rows_sized) == (15, 15)
+    worker = _FailingWorker(holders=["decoder"])
+    batch = ScheduledBatch(
+        node_name=SCHED_NODE, graph_walk=SCHED_WALK,
+        request_to_worker_graph=dict.fromkeys([*spans, "cached"], "wg"),
+    )
+    worker._handle_admit_failure(batch, SimpleNamespace(
+        node_name=SCHED_NODE, admit_error=reason, failed_resource="kv",
+        request_ids=list(spans), cached_rids={"cached"},
+    ))
+
+    assert worker.offloaded == ["decoder"], "the request holding pages was not evicted"
+    assert worker.failed == {}
