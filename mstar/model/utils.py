@@ -360,21 +360,40 @@ class ByteLevelDetokenizer:
                 chars.append(256 + n)
                 n += 1
         self.byte_decoder = {chr(c): b for b, c in zip(printable, chars, strict=True)}
+        # Added tokens this tokenizer's decode writes out as they are, not
+        # through the byte map: transformers 4.x slow tokenizers do this for
+        # non-special added tokens, so "«é»" would otherwise become U+FFFD.
+        self.verbatim = {}
+        for i, added in getattr(tokenizer, "added_tokens_decoder", {}).items():
+            text = str(added)
+            if i in self.special_ids or self._byte_map(text) == text.encode("utf-8"):
+                continue
+            try:
+                decoded = tokenizer.decode([i])
+            except (KeyError, TypeError, ValueError):  # 5.x slow decode raises on "<中>"
+                continue
+            if decoded == text:
+                self.verbatim[i] = text.encode("utf-8")
+
+    def _byte_map(self, token: str) -> bytes:
+        try:
+            return bytes(self.byte_decoder[c] for c in token)
+        except KeyError:
+            # an added token outside the byte alphabet ("<中>") is its own
+            # UTF-8, as in the tokenizers library's ByteLevel decoder
+            return token.encode("utf-8")
 
     def to_bytes(self, token_ids: list[int]) -> bytes:
         raw = bytearray()
-        tokens = self.tokenizer.convert_ids_to_tokens(
-            [i for i in token_ids if i not in self.special_ids]
-        )
-        for token in tokens:
+        ids = [i for i in token_ids if i not in self.special_ids]
+        for i, token in zip(ids, self.tokenizer.convert_ids_to_tokens(ids), strict=True):
             if token is None:  # an id past the vocabulary, which decode skips too
                 continue
-            try:
-                raw.extend(bytes(self.byte_decoder[c] for c in token))
-            except KeyError:
-                # an added token outside the byte alphabet ("<中>") is its own
-                # UTF-8, as in the tokenizers library's ByteLevel decoder
-                raw.extend(token.encode("utf-8"))
+            verbatim = self.verbatim.get(i)
+            if verbatim is not None:
+                raw.extend(verbatim)
+                continue
+            raw.extend(self._byte_map(token))
         return bytes(raw)
 
     @staticmethod
