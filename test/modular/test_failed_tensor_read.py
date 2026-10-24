@@ -22,6 +22,7 @@ from test_request_failure_propagation import _preprocess_thread, _worker
 from mstar.api_server.request_types import ResultChunk
 from mstar.communication.communicator import BaseCommunicator, CommProtocol
 from mstar.communication.tensors import (
+    _TRANSFER_COMPLETED,
     MOONCAKE_IMPORT_ERROR,
     AsyncMooncakeReader,
     AsyncReadError,
@@ -741,6 +742,59 @@ def test_real_mooncake_tcp_frees_a_failed_reads_buffer():
         consumer.force_cleanup_request("bad")
         consumer.get_ready_tensors()
         assert buffer_ptr in unregistered
+        assert consumer._kept_reads == [] and consumer._unreleasable_buffers == []
+    finally:
+        for mgr in (producer, consumer):
+            mgr._async_reader._executor.shutdown(wait=True)
+
+
+@pytest.mark.skipif(MOONCAKE_IMPORT_ERROR is not None, reason=f"mooncake unavailable: {MOONCAKE_IMPORT_ERROR}")
+def test_real_mooncake_tcp_keeps_a_failed_reads_buffers_until_its_running_transfer_stops():
+    """One read of two tensors over real Mooncake TCP: the first was never
+    registered on the producer and fails at once, the second (2 GiB) is still
+    moving when the read gives up. The request fails at once, but its buffers
+    stay registered and the request keeps a read in flight (READS_DONE waits)
+    until Mooncake reports the large transfer COMPLETED; then both buffers
+    are unregistered and freed."""
+    def make(entity):
+        return create_tensor_communication_manager(
+            protocol=CommProtocol.TCP, my_entity_id=entity, hostname="localhost",
+            device="cpu", communicator=_Communicator(), tcp_transfer_device="lo",
+        )
+
+    producer, consumer = make("producer"), make("consumer")
+    recording = _Recording(consumer._async_reader._engine)
+    consumer._async_reader._engine = recording
+    unregistered = []
+    unregister = consumer.transfer_engine.unregister_memory
+    consumer.transfer_engine.unregister_memory = lambda ptr: unregistered.append(ptr) or unregister(ptr)
+    try:
+        bad = torch.ones(4096, dtype=torch.int32)
+        big = torch.ones(2 << 30, dtype=torch.uint8)
+        bad_info = producer.store_and_return_tensor_info("r", {"bad": [bad]})["bad"]
+        big_info = producer.store_and_return_tensor_info("r", {"big": [big]})["big"]
+        producer.register_for_send("r", big_info)
+        edge = GraphEdge(next_node="n", name="x")
+        edge.tensor_info = bad_info + big_info
+
+        (future,) = consumer.start_read_tensors("r", [edge])
+        ptrs = [consumer.get_tensor(info.uuid).data_ptr() for info in edge.tensor_info]
+        error = future.exception(timeout=60)
+        assert isinstance(error, AsyncReadError), error
+        assert ptrs[1] in error.running, "the 2 GiB transfer finished before the read gave up"
+
+        assert consumer.get_ready_tensors() == {}
+        assert [f.request_id for f in consumer.take_failed_reads()] == ["r"]
+        assert consumer.has_inflight_reads("r")
+        assert not set(ptrs) & set(unregistered)
+        deadline = time.monotonic() + 120
+        while consumer.has_inflight_reads("r"):
+            assert not set(ptrs) & set(unregistered), "a buffer was freed while its transfer ran"
+            assert time.monotonic() < deadline, "the large transfer never reported that it stopped"
+            consumer.get_ready_tensors()
+            time.sleep(0.01)
+        assert _TRANSFER_COMPLETED in recording.statuses
+        assert set(ptrs) <= set(unregistered)
         assert consumer._kept_reads == [] and consumer._unreleasable_buffers == []
     finally:
         for mgr in (producer, consumer):
