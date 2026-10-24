@@ -594,9 +594,33 @@ def test_initial_args_route_reference_audio_and_stream_lead(model):
         "VAEDecoder", ["text", "audio"], ["audio"], {}, model_kwargs={STREAM_LEAD_KEY: 3}
     )
     assert vae.stream_lead_items == {STREAM_EDGE: 3}
-    plain = model.get_initial_forward_pass_args("Talker", ["text"], ["audio"], signals)
+    _, zero_shot = model.process_prompt("hello", ["text"], ["audio"])
+    plain = model.get_initial_forward_pass_args("Talker", ["text"], ["audio"], signals, model_kwargs=zero_shot)
     assert plain.full_metadata.graph_walk == "talker_prefill"
     assert {edge.next_node for edge in plain.inputs} == {"Talker"}
+
+
+@pytest.mark.parametrize("ref_text", ["", "world"])
+def test_the_talker_walk_follows_the_prompt_mode_not_input_modalities(model, ref_text):
+    """``/generate`` takes ``input_modalities`` from the client: a clip sent with
+    ``["text"]`` builds a cloning prompt, so the conductor must run the
+    RefEncoder walk for it too, or the Talker has no reference latents."""
+    signals = {name: [f"ptr-{name}"] for name in ("text_inputs", "gen_params", "audio_inputs")}
+    _, metadata = model.process_prompt(
+        "hello", ["text"], ["audio"], tensors={"audio_inputs": [torch.zeros(16000)]}, ref_text=ref_text
+    )
+    assert metadata[PROMPT_MODE_KEY] != MODE_ZERO_SHOT
+    talker = model.get_initial_forward_pass_args("Talker", ["text"], ["audio"], signals, model_kwargs=metadata)
+    assert talker.full_metadata.graph_walk == "talker_prefill_clone"
+    assert ("RefEncoder", "audio_inputs") in {(edge.next_node, edge.name) for edge in talker.inputs}
+    assert talker.step_metadata[PROMPT_MODE_KEY] == metadata[PROMPT_MODE_KEY]
+
+
+def test_the_talker_walk_needs_the_prompt_mode(model):
+    """Only process_prompt sets the mode (INTERNAL_KWARGS drops a client's), so
+    a request without one never reached it; refuse it rather than guess."""
+    with pytest.raises(ValueError, match=PROMPT_MODE_KEY):
+        model.get_initial_forward_pass_args("Talker", ["text", "audio"], ["audio"], {}, model_kwargs={})
 
 
 @pytest.mark.parametrize("ref_text, lead", [(None, 0), ("", 0), ("world", 3)])
@@ -635,6 +659,75 @@ def test_load_audio_resamples_to_16k_and_bounds_duration(model, tmp_path):
     soundfile.write(path, tone[:4410].numpy(), 44100)
     with pytest.raises(ValueError, match="between"):
         model.load_audio(str(path), "cpu")
+
+
+def _pipe_written_flac(path: Path, seconds: float, rate: int) -> Path:
+    """A FLAC that libsndfile wrote to a pipe, as ``ffmpeg ... -f flac -`` or
+    ``sox ... -t flac -`` would: it cannot seek back to fill in STREAMINFO, so
+    the header gives no sample count (libsndfile reports 2**63 - 1 frames)."""
+    import os
+    import threading
+
+    soundfile = pytest.importorskip("soundfile")
+    tone = (0.25 * torch.sin(torch.arange(int(seconds * rate)) * 0.05)).numpy()
+    read_fd, write_fd = os.pipe()
+    received = []
+
+    def drain():
+        with os.fdopen(read_fd, "rb") as pipe:
+            received.append(pipe.read())
+
+    reader = threading.Thread(target=drain)
+    reader.start()
+    with soundfile.SoundFile(
+        write_fd, mode="w", samplerate=rate, channels=1, format="FLAC", subtype="PCM_16", closefd=True
+    ) as sound:
+        sound.write(tone)
+    reader.join()
+    path.write_bytes(received[0])
+    assert soundfile.info(str(path)).frames == 2**63 - 1
+    return path
+
+
+# libsndfile cannot decode the last frame of a FLAC with no sample count; its encoder writes 4096 samples a frame
+_LAST_FLAC_FRAME = 4096
+
+
+def test_load_audio_reads_a_flac_written_to_a_pipe(model, tmp_path):
+    """Its header names no length, so the length is counted as it decodes
+    rather than read as 2**63 - 1 frames (a 400 "clip is 5.8e14 s")."""
+    path = _pipe_written_flac(tmp_path / "piped.flac", 3.0, 16000)
+    loaded = model.load_audio(str(path), "cpu")
+    assert loaded.metadata["sample_rate"] == 16000
+    assert 3 * 16000 - _LAST_FLAC_FRAME <= loaded.data.shape[0] <= 3 * 16000
+
+
+def test_load_audio_resamples_a_flac_written_to_a_pipe(model, tmp_path):
+    pytest.importorskip("soxr")
+    path = _pipe_written_flac(tmp_path / "piped.flac", 3.0, 48000)
+    samples = model.load_audio(str(path), "cpu").data.shape[0]
+    assert 3 * 16000 - _LAST_FLAC_FRAME / 3 - 1 <= samples <= 3 * 16000
+
+
+@pytest.mark.parametrize("seconds, shown", [(0.3, r"0\.\d\d"), (75.0, r"60\.\d\d")])
+def test_load_audio_bounds_a_flac_written_to_a_pipe_at_its_counted_length(model, tmp_path, monkeypatch, seconds, shown):
+    """Too short or too long is refused at the length counted; a long one is
+    decoded only just past the 60 s limit."""
+    from mstar.model import media_limits
+
+    path = _pipe_written_flac(tmp_path / "piped.flac", seconds, 16000)
+    blocks = []
+    count = media_limits._sound_file_blocks
+
+    def counting(*args):
+        for block in count(*args):
+            blocks.append(len(block))
+            yield block
+
+    monkeypatch.setattr(media_limits, "_sound_file_blocks", counting)
+    with pytest.raises(ValueError, match=rf"reference clip is {shown} s; it must be between"):
+        model.load_audio(str(path), "cpu")
+    assert sum(blocks) <= 61 * 16000
 
 
 @pytest.mark.parametrize("level", [0.0, 5e-4])
