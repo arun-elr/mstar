@@ -16,6 +16,8 @@ import pytest
 from mstar.conductor.conductor import Conductor, RequestData
 from mstar.conductor.generation_control import GenerationControl
 from mstar.utils.ipc_format import (
+    ConductorMessage,
+    ConductorMessageType,
     ContinueGeneration,
     GetGenerationState,
     NewRequestConductor,
@@ -435,3 +437,21 @@ def test_an_update_needs_a_path_and_a_version(field, value):
     setattr(body, field, value)
     c._generation.update(body)
     assert _answers(c, "u")[-1].status == 400 and field in _answers(c, "u")[-1].error_message
+
+
+def test_a_conductor_without_the_state_machine_refuses_control_messages():
+    c = _conductor()
+    c._generation = None
+    for message_type, body in [
+        (ConductorMessageType.PAUSE_GENERATION, PauseGeneration(op_id="p")),
+        (ConductorMessageType.CONTINUE_GENERATION, ContinueGeneration(op_id="c")),
+        (ConductorMessageType.UPDATE_WEIGHTS_FROM_DISK,
+         UpdateWeightsFromDisk(op_id="u", model_path="/ckpt", weight_version="v1")),
+        (ConductorMessageType.GET_GENERATION_STATE, GetGenerationState(op_id="s")),
+        (ConductorMessageType.WEIGHT_CONTROL_ACK, WeightControlAck(epoch=1, worker_id="worker_0", op="quiesce")),
+    ]:
+        c._route_message(ConductorMessage(message_type=message_type, body=body), [])
+    assert [(a.op_id, a.status, a.paused) for a in _answers(c)] == [
+        ("p", 503, False), ("c", 503, False), ("u", 503, False), ("s", 503, False),
+    ]
+    assert len(c.sent) == 4, "the ack has no caller to answer"

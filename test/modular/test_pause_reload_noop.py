@@ -3,8 +3,8 @@
 Serving traffic must take main's path: the same messages, byte for byte, and no
 call into the control code. Three checks:
 
-- every per-request and per-step message encodes to the bytes main encodes
-  (``WIRE_GOLDEN`` was captured on main at 57191c773);
+- every per-request and per-step message encodes to the same bytes, and
+  decodes back to itself, with the pause messages registered as without them;
 - a request's whole life through the real ``Conductor.run`` sends the same
   messages with the pause state machine serving as with it absent, and never
   calls into the state machine;
@@ -17,6 +17,7 @@ import dataclasses
 import hashlib
 import sys
 import threading
+import typing
 from types import SimpleNamespace
 
 sys.path.insert(0, ".")
@@ -27,10 +28,12 @@ import mstar.communication.wire_types  # noqa: F401  (registers the tags)
 from mstar.api_server.request_types import (
     APIServerMessage,
     ConductorStatus,
+    GenerationControlResult,
     RequestComplete,
     RequestFailed,
 )
-from mstar.communication.wire import encode
+from mstar.communication import wire
+from mstar.communication.wire import decode, encode
 from mstar.conductor.request_info import CurrentForwardPassInfo
 from mstar.graph.base import GraphEdge, TensorPointerInfo
 from mstar.graph.loop_indices import NestedLoopIndices
@@ -140,39 +143,40 @@ def _digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:16]
 
 
-def wire_digests() -> dict[str, str]:
-    return {name: _digest(encode(msg)) for name, msg in _normal_messages()}
+# The tags pause and reload register. Only these, and the API server body union
+# they widen, are this feature's; every other message's bytes belong to main.
+PAUSE_TAGS = frozenset({
+    "weight_control", "pause_generation", "continue_generation", "update_weights_from_disk",
+    "get_generation_state", "weight_control_ack", "generation_control_result",
+})
 
 
-# sha256 prefixes of ``encode(msg)`` for ``_normal_messages()``. new_request and
-# schedule_tp were re-pinned after the rebase (loop_caps, and schedule_tp's bytes).
-WIRE_GOLDEN = {
-    "worker.new_request": "a15b5600fd029a56",
-    "worker.input_signals": "45c67121bcf23db1",
-    "worker.remove": "c842c575556ff67a",
-    "worker.drain": "ccc50892e200f19b",
-    "worker.schedule_tp": "bd48b6462083e90f",
-    "worker.tp_no_spec": "cf5fe26c0053329b",
-    "worker.stop_loops": "544eb485fdb06926",
-    "worker.tensor_received": "8af28fad12eb399a",
-    "worker.unpersist": "d6efbf99fde7e170",
-    "worker.enable_metrics": "626529432a9a575c",
-    "conductor.new_request": "60d00fce28d0b6c8",
-    "conductor.wgs_done": "1ee8859f4e2825a5",
-    "conductor.fail": "073c265a1750ba53",
-    "conductor.reads_done": "ead0230898f6336a",
-    "conductor.abort": "8f0a1bc1a1e0125b",
-    "conductor.setup_done": "b2bd46bf039345d8",
-    "conductor.enable_metrics": "f81eb080d75252c9",
-    "api.request_complete": "1da193f47b4f8ee4",
-    "api.request_failed": "107a5a59cf2983a0",
-    "api.conductor_status": "7e733c2f93317abd",
-    "api.setup_done": "40dba096b6784e60",
-}
+def _without_pause_types(monkeypatch) -> None:
+    """The wire as it is without pause and reload: none of their tags, and the
+    API server body union without their result. Plans are rebuilt from that."""
+    assert PAUSE_TAGS <= wire._TAG_TO_TYPE.keys(), "a pause tag was renamed; update PAUSE_TAGS"
+    branches = typing.get_args(APIServerMessage.__annotations__["body"])
+    assert GenerationControlResult in branches
+    monkeypatch.setattr(wire, "_TAG_TO_TYPE", {
+        t: c for t, c in wire._TAG_TO_TYPE.items() if t not in PAUSE_TAGS})
+    monkeypatch.setattr(wire, "_TYPE_TO_TAG", {
+        c: t for c, t in wire._TYPE_TO_TAG.items() if t not in PAUSE_TAGS})
+    monkeypatch.setitem(APIServerMessage.__annotations__, "body", typing.Union[
+        tuple(b for b in branches if b is not GenerationControlResult)])
+    monkeypatch.setattr(wire, "_PLANS", {})
 
 
-def test_per_request_and_per_step_messages_encode_as_on_main():
-    assert wire_digests() == WIRE_GOLDEN
+def test_per_request_and_per_step_messages_encode_as_without_pause(monkeypatch):
+    messages = _normal_messages()
+    with_pause = {name: encode(msg) for name, msg in messages}
+    read_with = {name: decode(data) for name, data in with_pause.items()}
+    for name, msg in messages:
+        assert type(read_with[name]) is type(msg)
+        assert type(read_with[name].body) is type(msg.body), f"{name} decodes to another body"
+
+    _without_pause_types(monkeypatch)
+    assert {name: encode(msg) for name, msg in messages} == with_pause
+    assert {name: decode(data) for name, data in with_pause.items()} == read_with
 
 
 # ── a request's life through the real conductor ─────────────────────────────

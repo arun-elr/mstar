@@ -84,8 +84,8 @@ class GenerationControlResult:
     query, matched to the call by ``op_id``.
 
     ``status`` is an HTTP status: 200 done, 400 checkpoint refused (nothing
-    copied), 409 wrong state, 500 a rank failed mid-copy, 504 a rank did not
-    answer in time. ``ranks`` maps each worker that answered the last
+    copied), 409 wrong state, 500 a rank failed mid-copy, 503 no pause control
+    on this conductor, 504 a rank did not answer in time. ``ranks`` maps each worker that answered the last
     protocol step to ``"ok"`` or its error, plus the version it holds.
     """
     op_id: str
