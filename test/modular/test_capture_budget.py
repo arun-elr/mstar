@@ -368,7 +368,9 @@ def test_every_bucket_is_sized_whatever_the_pools_size(measured, monkeypatch):
     runner.prepare_for_capture = lambda: [
         CGSlotSpec(bucket=b, slot=s, config=config) for b in (wide, fits) for s in (0, 1)
     ]
-    engine = SimpleNamespace(_device=torch.device("cuda", 0), _submodules={"LLM": None}, _gpu_memory_fraction=None)
+    engine = SimpleNamespace(
+        _device=torch.device("cuda", 0), _submodules={"LLM": _NO_PRECISION}, _gpu_memory_fraction=None,
+    )
 
     plan = Engine._plan_captures(engine, {"LLM": runner}, {"LLM": {}})
 
