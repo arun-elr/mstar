@@ -651,3 +651,29 @@ def test_an_unreadable_environ_leaves_the_endpoint_namespace(tmp_path, monkeypat
     finally:
         os.killpg(leader.pid, signal.SIGKILL)
         leader.wait()
+
+
+def test_an_idle_compile_worker_pool_exiting_is_not_a_server_process_exiting(tmp_path):
+    """A cold start spawns Torch Inductor's compile workers (one per core) in the server's group; they exit once
+    compiles go quiet, which the stress run and the health check counted as a crash."""
+    pool = tmp_path / "site" / "torch" / "_inductor" / "compile_worker"
+    pool.mkdir(parents=True)
+    (pool / "__main__.py").write_text("import time; time.sleep(60)\n")
+    server = tmp_path / "server.py"   # a file, so the server's own command line does not name the pool
+    server.write_text("import subprocess, sys, time\n"
+                      f"w = subprocess.Popen([sys.executable, {str(pool / '__main__.py')!r}])\n"
+                      "print(w.pid, flush=True); time.sleep(60)\n")
+    leader = subprocess.Popen([sys.executable, str(server)], start_new_session=True, stdout=subprocess.PIPE,
+                              text=True)
+    try:
+        helper = int(leader.stdout.readline())
+        deadline = time.monotonic() + 10
+        while b"compile_worker" not in Path(f"/proc/{helper}/cmdline").read_bytes():
+            assert time.monotonic() < deadline
+            time.sleep(0.05)
+        assert stress.helper_process(helper) and not stress.helper_process(leader.pid)
+        assert stress.group_pids(leader.pid) == {leader.pid}
+        assert arm._group_pids(leader.pid) == {leader.pid}
+    finally:
+        os.killpg(leader.pid, signal.SIGKILL)
+        leader.wait()

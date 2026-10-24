@@ -135,11 +135,13 @@ MIN_AGE_S = 5.0   # a server process younger than this at the case's start may b
 
 def _group_pids(sid: int, min_age_s: float = 0.0) -> set[int]:
     """Live processes of the server's session (``ManagedServer`` starts it as a session leader); a worker that
-    died and was not reaped yet (a zombie) does not count."""
+    died and was not reaped yet (a zombie) does not count, nor do helpers such as compile workers
+    (``stress.helper_process``)."""
     r = subprocess.run(["ps", "-o", "pid=,stat=,etimes=", "-g", str(sid)], capture_output=True, text=True,
                        check=False)
     return {int(f[0]) for f in (ln.split() for ln in r.stdout.splitlines()) if len(f) == 3 and f[0].isdigit()
-            and not f[1].startswith("Z") and f[2].isdigit() and int(f[2]) >= min_age_s}
+            and not f[1].startswith("Z") and f[2].isdigit() and int(f[2]) >= min_age_s
+            and not stress.helper_process(int(f[0]))}
 
 
 def _namespaces(server: ManagedServer) -> set[str]:

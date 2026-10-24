@@ -440,9 +440,19 @@ def shm_entries(root: str, namespaces: set[str], pids: set[int]) -> int:
     return n
 
 
+def helper_process(pid: int) -> bool:
+    """A process the server's group holds that is not part of the server: Torch Inductor's compile-worker pool,
+    which a cold start spawns (one per core) and which exits once compiles go quiet, so its exit is no crash."""
+    try:
+        return b"/torch/_inductor/compile_worker/" in Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return False
+
+
 def group_pids(pgid: int) -> set[int]:
+    """The server's processes, helpers (``helper_process``) left out."""
     r = subprocess.run(["ps", "-o", "pid=", "-g", str(pgid)], capture_output=True, text=True, check=False)
-    return {int(x) for x in r.stdout.split()}
+    return {pid for pid in map(int, r.stdout.split()) if not helper_process(pid)}
 
 
 def alive(pid: int) -> bool:
