@@ -305,7 +305,7 @@ def test_captured_solve_equals_the_eager_solve_of_the_same_padded_inputs(estimat
             label=label, config=config, resources={}, step_runner=mock.Mock(), device=device,
             autocast_dtype=None, num_slots=1, memory_pool=pool,
         )
-        runner.warmup_and_capture()
+        runner.warmup_and_capture(None)  # no plan: every bucket
         assert runner.any_graphs and not runner.dropped_shapes
         runners[label] = runner
 
