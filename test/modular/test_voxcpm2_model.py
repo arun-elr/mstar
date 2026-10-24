@@ -396,7 +396,7 @@ def test_a_one_patch_request_ends_after_prefill(model, budget, done):
     budget the prefill patch spends goes straight to done instead of a decode
     step that would only veto itself."""
     args = model.get_initial_forward_pass_args(
-        "Talker", ["text"], ["audio"], {}, model_kwargs={PATCH_BUDGET_KEY: budget}
+        "Talker", ["text"], ["audio"], {}, model_kwargs={PATCH_BUDGET_KEY: budget, PROMPT_MODE_KEY: MODE_ZERO_SHOT}
     )
     nxt = model.get_partition_forward_pass_args("Talker", args.full_metadata, {"latent_patch": []})
     assert nxt.request_done is done
