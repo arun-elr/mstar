@@ -1018,7 +1018,6 @@ class Worker:
             self._read_gate.forget(request_id)
             for key in [k for k in self._gate_followers if k[0] == request_id]:
                 del self._gate_followers[key]
-            self._forget_follower_reports(body.request_id)
         if getattr(self, "_lockstep_followed", None):
             self._landed_counts.pop(request_id, None)
             self._landed_unreported.pop(request_id, None)
@@ -1482,8 +1481,6 @@ class Worker:
         # rank 0: (rid, walk) -> the followers the gate waits on for that row,
         # empty when it does not gate the request
         self._gate_followers = {}
-        # rank 0: the wire ids it removed, whose late reports are dropped
-        self._gate_removed: RecentSet[str] = RecentSet(self._TP_NOSPEC_KEEP)
         # rank 0: the lockstep node's input names, and the other nodes with an
         # edge into it; None when unknown (every name, every node)
         walks = {} if model is None else model.get_graph_walk_graphs()
@@ -1610,17 +1607,6 @@ class Worker:
         """The read gate for a row a speculation would continue."""
         followers = self._gated_followers(rid, node_name, graph_walk)
         return bool(followers) and self._read_gate.missing(rid, followers, row_edges, stream_ends)
-
-    def _forget_follower_reports(self, wire_rid: str) -> None:
-        """Rank 0, on removing ``wire_rid``: its parked reports are stale, and
-        so is any that lands later; a later request reusing the id must not
-        inherit their counts."""
-        self._gate_removed.add(wire_rid)
-        parked = self._unprocessed_messages.get(wire_rid)
-        if parked:
-            parked[:] = [
-                m for m in parked if m.message_type != WorkerMessageType.READS_LANDED
-            ]
 
     def _record_follower_reads(self, body: ReadsLanded) -> None:
         handle = self._rid(body.request_id)
