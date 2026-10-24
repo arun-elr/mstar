@@ -633,6 +633,11 @@ class RealtimeTranscription:
         Audio steps once, after the last operation, so one long append is one
         step, as without turn detection; a turn's commit decodes the rest."""
         s = self.session
+        if any(op[0] == "end_of_turn_failed" for op in ops):
+            for op in ops:
+                if op[0] == "end_of_turn_failed":
+                    await self._end_of_turn_failed(op[1])
+            ops = [op for op in ops if op[0] != "end_of_turn_failed"]
         for i, op in enumerate(ops):
             if op[0] == "audio":
                 s.add(op[1])
@@ -644,6 +649,22 @@ class RealtimeTranscription:
                 await self.send(_event("input_audio_buffer.speech_started", audio_start_ms=op[1], item_id=s.item_id))
             else:
                 await self.send(_event("input_audio_buffer.speech_stopped", audio_end_ms=op[1], item_id=s.item_id))
+
+    async def _end_of_turn_failed(self, exc: Exception) -> None:
+        """semantic_vad's end-of-turn model raised: the segmenter no longer
+        asks it, so tell the client how this session's turns end now. The
+        error is logged in full under an id; the event carries only the id,
+        as for a failed step."""
+        s = self.session
+        error_id = uuid.uuid4().hex[:12]
+        logger.error("realtime end-of-turn model failed (error id %s, session %s); semantic_vad turns now end "
+                     "on silence alone", error_id, s.session_id, exc_info=exc)
+        silence_s = realtime_vad.EAGERNESS[s.turn_detection.eagerness][2] / 1000
+        await self.send(_error(
+            f"semantic_vad's end-of-turn model failed (error id {error_id}); this session's turns now end after "
+            f"{silence_s:g} s of silence; send transcription_session.update to switch to server_vad",
+            kind="server_error", code="end_of_turn_failed",
+        ))
 
     async def commit(self) -> None:
         """Finish the item: decode what is left, report it, start a new one."""

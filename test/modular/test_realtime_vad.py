@@ -751,6 +751,40 @@ def test_semantic_vad_keeps_listening_when_the_model_says_not_done(vad_client, m
     _assert_items_are_the_stream(turns, heard, stream)
 
 
+class _FailingEndOfTurn(_EndOfTurn):
+    """Fake end-of-turn model that raises, as onnxruntime or the feature extractor can."""
+
+    def __call__(self, audio):
+        self.calls.append(audio.size)
+        raise RuntimeError("[ONNXRuntimeError] : 6 : RUNTIME_EXCEPTION : /srv/models/smart-turn.onnx")
+
+
+def test_semantic_vad_survives_an_end_of_turn_model_error(vad_client, monkeypatch, caplog):
+    """The model raising at a pause is an error event, not a closed socket
+    (1011): the session goes on, its turns end at medium's 4 s silence
+    limit, the model is not asked again, and every sample is in exactly one
+    item. The event has an error id and no server path."""
+    client, stub = vad_client
+    heard = _step_samples(stub)
+    eot = _FailingEndOfTurn(0.9)
+    monkeypatch.setattr(realtime_vad, "smart_turn", lambda: eot)
+    stream = np.concatenate([_speech(10), _silence(130), _speech(10), _silence(130)])
+    with caplog.at_level("ERROR"):
+        _, events = _run_semantic(client, stream)
+    errors = [e for e in events if e["type"] == "error"]
+    assert len(errors) == 1, errors
+    error = errors[0]["error"]
+    assert error["type"] == "server_error" and error["code"] == "end_of_turn_failed"
+    assert "after 4 s of silence" in error["message"] and "/srv" not in error["message"]
+    error_id = error["message"].split("error id ")[1].split(")")[0]
+    assert error_id in caplog.text and "RUNTIME_EXCEPTION" in caplog.text
+    turns = _turns(events)
+    # the second turn's prefix is the 5 silent frames left after the first one ended
+    assert [(t["start"], t["end"]) for t in turns] == [(0, (10 + 125) * 32), ((10 + 125) * 32, (150 + 125) * 32)]
+    assert len(eot.calls) == 1
+    _assert_items_are_the_stream(turns, heard, stream)
+
+
 @pytest.mark.parametrize("eagerness,end_frames", [
     ("high", 7),        # 0.6 >= 0.3: ends at the 200 ms pause (7 frames, 224 ms)
     ("medium", 10),     # 0.6 >= 0.5: ends at the 300 ms pause (10 frames)

@@ -290,7 +290,8 @@ class TurnSegmenter:
 
     ``feed`` takes audio of any length and returns operations in stream
     order: ``("speech_started", audio_start_ms)``, ``("audio", samples)`` for
-    the open turn, ``("speech_stopped", audio_end_ms)``, ``("commit",)``.
+    the open turn, ``("speech_stopped", audio_end_ms)``, ``("commit",)``,
+    and ``("end_of_turn_failed", exc)`` when the end-of-turn model raises.
     Times are milliseconds from the start of the session's audio. A turn
     starts on a frame at or above ``threshold`` and takes up to
     ``prefix_padding_ms`` of the audio before it; it ends after the frame
@@ -372,9 +373,24 @@ class TurnSegmenter:
             # a copy: a view would keep the whole append it came in alive
             self._recent.append(frame.copy())
             if not done and paused < self._pause_cap <= self._silence:
-                done = self._eot(np.concatenate(self._recent)) >= self._eot_threshold
+                done = self._ask_end_of_turn(ops)
         if done:
             self._stop(start + FRAME, ops)
+
+    def _ask_end_of_turn(self, ops: list) -> bool:
+        """Whether ``end_of_turn`` says the turn is over. If the model raises
+        (onnxruntime, the feature extractor), the error goes out as an
+        ``("end_of_turn_failed", exc)`` operation and this segmenter stops
+        asking: its turns then end at the eagerness' longest silence, the
+        limit that already ends a turn regardless. The frame is counted
+        before the call, so the stream state stays whole either way."""
+        try:
+            return self._eot(np.concatenate(self._recent)) >= self._eot_threshold
+        except Exception as exc:  # noqa: BLE001 — any model failure; the session goes on
+            ops.append(("end_of_turn_failed", exc))
+            self._eot = None
+            self._recent.clear()
+            return False
 
     def _open(self, start: int, ops: list) -> None:
         """Start a turn at stream index ``start``, with the prefix padding
