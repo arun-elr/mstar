@@ -562,8 +562,84 @@ def test_adapter_reports_a_failed_fetch_as_a_bad_request(tmp_path, monkeypatch, 
         raise error
 
     monkeypatch.setattr(adapters.media_io, "resolve_media_ref", refuse)
-    with pytest.raises(ValueError, match="could not fetch ref_audio"):
+    with pytest.raises(ValueError, match="could not fetch ref_audio") as refused:
         adapters.CosyVoice3Adapter().speech_to_request(_speech(ref_audio="http://example.test/clip.wav"), tmp_path)
+    assert str(refused.value).endswith(("(HTTP 302)", "(IncompleteRead)"))
+
+
+def test_a_failed_fetch_names_no_path(tmp_path, monkeypatch):
+    """A URLError around an OSError would carry its filename in a repr; the 400
+    names the error type only."""
+
+    def refuse(*args, **kwargs):
+        raise urllib.error.URLError(FileNotFoundError(2, "No such file", "/srv/mstar/uploads/x.wav"))
+
+    monkeypatch.setattr(adapters.media_io, "resolve_media_ref", refuse)
+    with pytest.raises(ValueError) as refused:
+        adapters.CosyVoice3Adapter().speech_to_request(_speech(ref_audio="http://example.test/clip.wav"), tmp_path)
+    assert str(refused.value) == "could not fetch ref_audio (URLError)"
+
+
+_NOT_AUDIO = base64.b64encode(b"RIFF\x24\x00\x00\x00WAVE").decode()
+
+
+@pytest.mark.parametrize("ref", ["data:audio/wav;base64," + _NOT_AUDIO, _NOT_AUDIO], ids=["data-url", "base64"])
+@pytest.mark.parametrize("error", [
+    OSError(28, "No space left on device", "/srv/mstar/uploads/clip.wav"),
+    PermissionError(13, "Permission denied", "/srv/mstar/uploads"),
+], ids=["disk-full", "no-permission"])
+def test_an_upload_the_server_cannot_write_is_not_a_bad_request(tmp_path, monkeypatch, error, ref):
+    """Disk full or no permission while saving the clip is the server's fault:
+    it leaves the adapter as a RuntimeError (a 500) that names no path,
+    not as a ValueError (a 400)."""
+
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(Path, "write_bytes", fail)
+    with pytest.raises(RuntimeError) as raised:
+        adapters.CosyVoice3Adapter().speech_to_request(_speech(ref_audio=ref, ref_text="w"), tmp_path)
+    assert not isinstance(raised.value, ValueError)
+    assert str(raised.value) == "the server could not store ref_audio"
+
+
+def test_an_upload_write_failure_is_a_500_with_no_path(tmp_path, monkeypatch):
+    """Through the route: the client gets a 500 that names no upload path."""
+    import sys
+    import types
+
+    pytest.importorskip("httpx")
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    import mstar.api_server
+    from mstar.api_server.openai.router import router
+
+    api = SimpleNamespace(
+        model_name="cosyvoice3",
+        model=SimpleNamespace(get_output_sample_rate=lambda modality="audio": 24000),
+        upload_dir=tmp_path,
+        submit_request=lambda **kw: pytest.fail("nothing is submitted"),
+    )
+    fake_ep = types.ModuleType("mstar.api_server.entrypoint")
+    fake_ep.api_server = api
+    monkeypatch.setitem(sys.modules, "mstar.api_server.entrypoint", fake_ep)
+    monkeypatch.setattr(mstar.api_server, "entrypoint", fake_ep, raising=False)
+
+    def fail(path, data):
+        raise OSError(28, "No space left on device", str(path))
+
+    monkeypatch.setattr(Path, "write_bytes", fail)
+    app = FastAPI()
+    app.include_router(router)
+    r = TestClient(app, raise_server_exceptions=False).post(
+        "/v1/audio/speech",
+        json={"model": "cosyvoice3", "input": "hello", "ref_audio": "data:audio/wav;base64," + _NOT_AUDIO,
+              "ref_text": "w"},
+    )
+    assert r.status_code == 500
+    assert r.json()["error"]["message"] == "the server could not store ref_audio"
+    assert str(tmp_path) not in r.text
 
 
 def test_adapter_refuses_a_file_under_the_upload_dir(tmp_path):
