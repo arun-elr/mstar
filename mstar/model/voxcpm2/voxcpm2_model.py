@@ -141,6 +141,7 @@ class VoxCPM2Model(Model):
     REF_MIN_PEAK = 1e-3
     # the reference demo offers 1 to 3; float32 overflows to inf past about 3.4e38
     MAX_CFG_VALUE = 10.0
+    INTERNAL_KWARGS = (*TALKER_STEP_METADATA, STREAM_LEAD_KEY)
     LENGTH_KWARGS = ("max_new_tokens", "max_output_tokens", "max_len")
     # English speech measured at 1.3 to 2.9 patches per text token (24 zero-shot
     # requests of 1,300 to 1,700 tokens), so text up to max_len / 3 tokens fits in max_len patches
