@@ -35,6 +35,7 @@ def test_a_failed_rid_gets_no_completion_frame(failed):
         request_id="r", partition="default", graph_walk="w",
         partition_worker_graph_ids=[0],
         worker_graph_to_workers=ParallelList([0], [["worker_0"]]),
+        loop_caps={},
     )
     block = ColumnarEdgeSpecs.empty()
     block.add(rid, "tok", [], False, next_node="gen")

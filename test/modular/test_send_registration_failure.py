@@ -222,6 +222,7 @@ def _postprocess_worker(refuse, follower=False):
         increment_ref_batch_uniform=lambda *a: None,
         dereference_batch_uniform=lambda *a: None,
         register_for_send_uuids=register,
+        drop_host_copies=lambda: None,
     )
 
     def route(route_input):
