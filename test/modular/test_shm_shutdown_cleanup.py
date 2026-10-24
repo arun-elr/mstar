@@ -520,3 +520,47 @@ def test_a_worker_killed_in_a_hung_teardown_leaves_no_arena_segments(tmp_path):
             os.unlink(f"/dev/shm/mstar_{ns}.lock")
     assert left == []
     assert _namespace_files(shm_dir, prefix) == []
+
+
+def test_a_stop_while_the_handlers_are_saved_still_unlinks_and_keeps_the_error(monkeypatch):
+    """The conductor's SIGTERM right after a Ctrl-C can land while ``_run_worker``
+    reads the handlers it will put back; the unlinks still run, and so does a
+    stop right after the handlers are back, without hiding ``run()``'s error."""
+    getsignal, setsignal = signal.getsignal, signal.signal
+    stops = {"get": 1, "restore": 1}
+    calls = []
+
+    def _get(s):
+        if stops["get"]:
+            stops["get"] -= 1
+            raise SystemExit(0)    # the SIGTERM, mid-snapshot
+        return getsignal(s)
+
+    def _set(s, h):
+        setsignal(s, h)
+        if h is not signal.SIG_IGN and stops["restore"]:
+            stops["restore"] -= 1
+            raise SystemExit(0)    # another, right after the first handler is back
+
+    class _Manager:
+        names_unique_per_launch = True
+
+        def unlink_owned_files(self):
+            calls.append("unlink")
+
+    class _Crashed:
+        tensor_manager = _Manager()
+
+        def run(self):
+            raise RuntimeError("step failed")
+
+    old = getsignal(signal.SIGTERM), getsignal(signal.SIGINT)
+    monkeypatch.setattr(signal, "getsignal", _get)
+    monkeypatch.setattr(signal, "signal", _set)
+    try:
+        with pytest.raises(RuntimeError, match="step failed"):
+            _run_worker(_Crashed())
+        assert calls == ["unlink"] and stops == {"get": 0, "restore": 0}
+    finally:
+        setsignal(signal.SIGTERM, old[0])
+        setsignal(signal.SIGINT, old[1])

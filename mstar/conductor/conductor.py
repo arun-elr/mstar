@@ -186,13 +186,15 @@ def _run_worker(worker) -> None:
         worker.run()
     except BaseException as e:
         stop = e
-    handlers = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGINT)}
+    handlers = None
     while True:
         try:
             # A Ctrl-C reaches the conductor too, and its SIGTERM lands here
             # within milliseconds, often already pending. One that fires before
             # these are ignored is caught below, and the unlinks start over
             # (each file is untracked only once it is gone).
+            if handlers is None:
+                handlers = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGINT)}
             signal.signal(signal.SIGTERM, signal.SIG_IGN)
             signal.signal(signal.SIGINT, signal.SIG_IGN)
             _unlink_owned_files(worker.tensor_manager)
@@ -201,11 +203,14 @@ def _run_worker(worker) -> None:
             stop = stop or e
     # A signal that arrives while ignored is dropped, not queued. Putting the
     # handlers back lets a second stop break a teardown that hangs (a thread
-    # join, an atexit hook), so the interpreter still reaches the arena's
-    # finalizer instead of waiting for the conductor's SIGKILL.
-    for s, h in handlers.items():
-        if h is not None:  # None: set outside Python, nothing to put back
-            signal.signal(s, h)
+    # join, an atexit hook). One that fires right away must not hide the
+    # error run() ended on.
+    try:
+        for s, h in handlers.items():
+            if h is not None:  # None: set outside Python, nothing to put back
+                signal.signal(s, h)
+    except (KeyboardInterrupt, SystemExit) as e:
+        stop = stop or e
     if stop is not None:
         raise stop
 
