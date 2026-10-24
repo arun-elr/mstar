@@ -253,3 +253,76 @@ def test_transcription_stream_deletes_its_upload(monkeypatch):
     )
     assert stub.submits == []
     assert not list(Path(stub.upload_dir).iterdir())
+
+
+# ── release failures and a real client ─────────────────────────────────────
+
+
+def test_a_failing_release_is_logged_and_the_send_error_stays(caplog):
+    """``release`` raising in the ``finally`` must not replace the error that
+    left the body unstarted: the server sees the client leaving, and the
+    release failure is in the log."""
+    from mstar.api_server.streaming_response import ReleasingStreamingResponse
+
+    async def body():
+        yield b"never"
+
+    def release():
+        raise RuntimeError("release broke")
+
+    response = ReleasingStreamingResponse(body(), release=release)
+    with caplog.at_level("ERROR"), pytest.raises(ClientDisconnect):
+        asyncio.run(response(_ASGI_2_4, _disconnected, _client_gone))
+    assert "body never started failed" in caplog.text and "release broke" in caplog.text
+
+
+@pytest.mark.parametrize("close", ["right_after_sending", "once_submitted"])
+def test_a_real_client_that_leaves_before_the_first_byte_is_released(served, close):  # noqa: F811
+    """A real uvicorn server and a raw socket client: the client sends a
+    streaming /generate and closes before any byte of the reply arrives,
+    either at once or once the request is submitted. The request is aborted,
+    and neither its pending entry, its request_id nor its in-flight slot is
+    left behind. Closing at once, while the route is still waiting (here on
+    a slow request_id check), is the case uvicorn 0.28.0 leaves unstarted:
+    its send raises on the headers. Current uvicorn starts the body."""
+    import socket
+    import threading
+
+    import uvicorn
+
+    from mstar.api_server import entrypoint
+
+    if close == "right_after_sending":
+        wait_for_request_id = served.server.wait_for_request_id
+
+        async def slow(request_id):
+            await asyncio.sleep(0.5)   # the client is gone by now
+            await wait_for_request_id(request_id)
+
+        served.server.wait_for_request_id = slow
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(entrypoint.app, port=port, log_level="warning", lifespan="off"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        _wait(lambda: server.started, timeout=15)
+        form = b"text=hi&streaming=true&request_id=r1"
+        with socket.create_connection(("127.0.0.1", port)) as client:
+            client.sendall(b"POST /generate HTTP/1.1\r\nHost: x\r\n"
+                           b"Content-Type: application/x-www-form-urlencoded\r\n"
+                           b"Content-Length: %d\r\n\r\n%s" % (len(form), form))
+            if close == "once_submitted":
+                _wait(lambda: served.data_worker.inputs)
+                assert "r1" in served.server._live
+        # closed without reading; nothing was answered, so no body byte was sent
+        _wait(lambda: served.data_worker.inputs)
+        key = served.key()
+        _wait(lambda: served.data_worker.aborted == [key], timeout=10)
+        _wait(lambda: key not in served.server.pending_requests and "r1" not in served.server._live)
+        samples = served.scrape()
+        assert samples[("mstar_requests_in_flight", _labels())] == 0
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)

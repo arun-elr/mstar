@@ -1,9 +1,12 @@
 """A streaming response that cleans up after a body Starlette never started."""
 
 import inspect
+import logging
 from collections.abc import AsyncGenerator, Callable
 
 from fastapi.responses import StreamingResponse
+
+logger = logging.getLogger(__name__)
 
 
 class ReleasingStreamingResponse(StreamingResponse):
@@ -29,4 +32,9 @@ class ReleasingStreamingResponse(StreamingResponse):
             await super().__call__(scope, receive, send)
         finally:
             if inspect.getasyncgenstate(self.body_iterator) == inspect.AGEN_CREATED:
-                self._release()
+                try:
+                    self._release()
+                except Exception:
+                    # logged, not raised: raising here would replace the send
+                    # error the server needs to see with this one
+                    logger.exception("releasing a streaming response whose body never started failed")
