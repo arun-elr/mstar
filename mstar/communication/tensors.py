@@ -538,10 +538,10 @@ class TensorCommunicationManager(ABC):
         self._uuid_minter = TensorUuidMinter(my_entity_id)
         self.pending: list[FutureAndPointers] = []
         self.read_finished: dict[Rid, set[int]] = {}
-        # req_id -> {(producer uuid, offset, nbytes) -> local uuid} for the
-        # received slices ``_take_cached_read`` re-pointed, and req_id ->
+        # req_id -> {(producer uuid, offset, nbytes, dims) -> local uuid} for
+        # the received slices ``_take_cached_read`` re-pointed, and req_id ->
         # {local uuid -> producer uuid} so their acks name the producer's.
-        self.slice_uuids: dict[Rid, dict[tuple[int, int, int], int]] = {}
+        self.slice_uuids: dict[Rid, dict[tuple[int, int, int, tuple[int, ...]], int]] = {}
         self.slice_origins: dict[Rid, dict[int, int]] = {}
 
         self.req_rx_info: dict[Rid, SourceAndEdgeToRxInfo] = {}
@@ -1305,16 +1305,20 @@ class TensorCommunicationManager(ABC):
         producer tensor carries that tensor's uuid. A slice other than the one
         stored under it is re-pointed to a uuid of this process's, which the
         caller reads into when this returns False; its ack still names the
-        producer's uuid (``_collect_and_send_acks``).
+        producer's uuid (``_collect_and_send_acks``). A slice is matched by its
+        dims as well as its bytes: rows of zero bytes (a ``[4, 0]`` tensor) give
+        every slice offset 0 and nbytes 0.
         """
         store = self.tensor_store
         if not store.check_uuid_presence(info.uuid):
             return False
         stored = store.get_info(info.uuid)
-        if stored.offset == info.offset and stored.nbytes == info.nbytes:
+        dims = tuple(info.dims)
+        if (stored.offset == info.offset and stored.nbytes == info.nbytes
+                and tuple(stored.dims) == dims):
             store.increment_ref(info.uuid, 1)
             return True
-        key = (info.uuid, info.offset, info.nbytes)
+        key = (info.uuid, info.offset, info.nbytes, dims)
         slices = self.slice_uuids.setdefault(request_id, {})
         local = slices.get(key)
         if local is not None and store.check_uuid_presence(local):

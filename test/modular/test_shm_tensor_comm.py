@@ -705,12 +705,18 @@ def _transport(protocol, entity_id, shm_dir):
     )
 
 
+@pytest.mark.parametrize("shape", [
+    pytest.param((4, 3), id="rows"),
+    # Zero-byte rows: every slice is offset 0, nbytes 0, so only its dims tell
+    # ``a``'s [2, 0] from ``b``'s [1, 0].
+    pytest.param((4, 0), id="empty-rows"),
+])
 @pytest.mark.parametrize("protocol", [
     pytest.param(CommProtocol.SHM, id="file"),
     pytest.param(CommProtocol.TCP, id="mooncake"),
 ])
 def test_two_slices_of_one_tensor_on_one_worker_do_not_alias(
-    tmp_path, monkeypatch, protocol,
+    tmp_path, monkeypatch, protocol, shape,
 ):
     """Every slice of a producer tensor carries the producer's uuid, so a
     receive cache keyed by the uuid alone handed ``b`` the rows stored for
@@ -722,7 +728,7 @@ def test_two_slices_of_one_tensor_on_one_worker_do_not_alias(
     for mgr in (prod, cons):
         mgr.register_request("req1", cfg)
 
-    x = torch.arange(12.0).reshape(4, 3)
+    x = torch.arange(float(shape[0] * shape[1])).reshape(shape)
     (info,) = prod.store_and_return_tensor_info(
         "req1", {"x": [x]}, node_name="src", graph_walk="w",
     )["x"]

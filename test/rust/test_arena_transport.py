@@ -767,8 +767,13 @@ def test_a_peer_reads_its_own_half_of_a_sharded_edge(tmp_path):
         assert torch.equal(got, expected), f"rank {rank} read the wrong rows"
 
 
+@pytest.mark.parametrize("shape", [
+    pytest.param((4, 3), id="rows"),
+    # Zero-byte rows: both slices are offset 0, nbytes 0; only dims differ.
+    pytest.param((4, 0), id="empty-rows"),
+])
 @pytest.mark.parametrize("backend", ["python", "rust"])
-def test_two_slices_of_one_tensor_on_one_worker_do_not_alias(tmp_path, backend):
+def test_two_slices_of_one_tensor_on_one_worker_do_not_alias(tmp_path, backend, shape):
     """``x`` goes from a TP=1 producer to a TP=2 ``B`` and a TP=4 ``C``, both
     with rank 0 on worker_1, which so receives rows [0, 2) and row 0 under one
     producer uuid. Keyed by the uuid alone, ``C`` got ``B``'s rows."""
@@ -794,7 +799,7 @@ def test_two_slices_of_one_tensor_on_one_worker_do_not_alias(tmp_path, backend):
     for mgr in (prod, cons):
         mgr.register_request(7, cfg)
 
-    x = torch.arange(12, dtype=torch.float32).reshape(4, 3)
+    x = torch.arange(shape[0] * shape[1], dtype=torch.float32).reshape(shape)
     (info,) = prod.store_and_return_tensor_info(
         7, {"x": [x]}, node_name="A", graph_walk="decode",
     )["x"]
