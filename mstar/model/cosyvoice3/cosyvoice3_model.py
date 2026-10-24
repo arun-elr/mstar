@@ -138,6 +138,7 @@ class CosyVoice3Model(Model):
     """Model contract: prompt processing, graph, partitions, resources and the
     per-partition state machine. No GPU compute lives here."""
 
+    INTERNAL_KWARGS = (MIN_SPEECH_TOKENS, MAX_SPEECH_TOKENS, VOICE_KEY, PROMPT_MODE)
     LENGTH_KWARGS = ("max_output_tokens", "max_new_tokens")
 
     def __init__(

@@ -261,6 +261,9 @@ def test_process_prompt_modes_and_token_limits(model):
         "one", ["text", "audio"], ["audio"], tensors={"audio_inputs": [clip]}, max_new_tokens=100, ignore_eos=True
     )
     assert (forced.metadata[MIN_SPEECH_TOKENS], forced.metadata[MAX_SPEECH_TOKENS]) == (2, 100)
+    # every key the conductor reads back is one the data worker strips from the client
+    for out in (zero, cross, instruct, capped, forced):
+        assert set(out.metadata) - {"kv_layout"} <= set(model.INTERNAL_KWARGS)
 
 
 @pytest.mark.parametrize(
