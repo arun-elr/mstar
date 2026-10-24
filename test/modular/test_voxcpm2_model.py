@@ -352,6 +352,9 @@ def test_process_prompt_builds_each_reference_mode(model):
         MIN_LEN_KEY: 2,
         REF_DIGEST_KEY: digest,
     }
+    # every key the conductor reads back is one the data worker strips from the client
+    for meta in (zero_meta, ref_meta, metadata):
+        assert set(meta) - {"kv_layout"} <= set(model.INTERNAL_KWARGS)
 
 
 def test_process_prompt_collapses_whitespace_like_the_reference(model, monkeypatch):
