@@ -209,6 +209,10 @@ def health_after(before: dict, server: ManagedServer, log_path: Path) -> list[st
         left &= _new_shm(set(before["shm"]), ours, ns)   # an entry counts only if it stayed the whole wait
     if left:
         found.append(f"/dev/shm +{len(left)} entries")
+    if gone:   # arena segments are named by namespace, not pid: only an exit says one may be orphaned
+        orphans = stress.unmapped_arena_segments(str(SHM), ns, _group_pids(server.pid))
+        if orphans:
+            found.append(f"/dev/shm {len(orphans)} arena segment(s) no live server process maps")
     try:
         with open(log_path, "rb") as f:
             f.seek(before["log_at"])

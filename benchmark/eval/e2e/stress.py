@@ -390,6 +390,31 @@ def namespace_file(name: str, namespaces: set[str]) -> bool:
     return any(name.startswith(f"mstar_{ns}_") and not name.startswith(f"mstar_{ns}_arena_") for ns in namespaces)
 
 
+def unmapped_arena_segments(root: str, namespaces: set[str], pids: set[int]) -> list[str]:
+    """Arena segments under one of ``namespaces`` in ``root`` that none of ``pids`` maps. A live arena maps every
+    segment it grew, so these were left by a process that exited without its exit-time unlink (a crash, a
+    SIGKILL) and that no live peer still reads. Asked only once a process of the server has exited: a segment the
+    dead process grew and a live peer still maps is not counted, so this can miss a leak but never names a live
+    arena's memory as one."""
+    try:
+        names = {n for n in os.listdir(root) if any(n.startswith(f"mstar_{ns}_arena_") for ns in namespaces)}
+    except OSError:
+        return []
+    prefix = os.path.join(root, "")
+    for pid in pids:
+        if not names:
+            break
+        try:
+            with open(f"/proc/{pid}/maps") as f:
+                for line in f:
+                    path = line.split(None, 5)[5:]
+                    if path and path[0].startswith(prefix):
+                        names.discard(path[0].rstrip("\n").removesuffix(" (deleted)")[len(prefix):])
+        except OSError:
+            continue   # exited meanwhile, or not ours to read: it maps nothing we can see
+    return sorted(names)
+
+
 def shm_owner(name: str) -> int | None:
     """The pid in mstar's per-process names (``mstar_arena_<entity>_<pid>_<token>``, ``mstar_kv_<uid>_<pid>_<hash>``);
     None for a tensor file (``mstar_<deployment>_<entity>_<uuid>``), which goes once its request is done."""
@@ -497,7 +522,10 @@ def run_session(url: str, pgid: int, arm: str, session: int, d: Path, cfg: dict,
         if gone:
             lost_runs(runs[i + 1:], arm, session, d, ["crash"], f"not run: the server exited during run {r}",
                       publish)
-            log(f"{arm} s{session}: {len(gone)} server process(es) exited; the next session starts a fresh server")
+            left = unmapped_arena_segments(shm, namespaces, group_pids(pgid))
+            log(f"{arm} s{session}: {len(gone)} server process(es) exited"
+                + (f", leaving {len(left)} arena segment(s) no live process maps" if left else "")
+                + "; the next session starts a fresh server")
             return
 
 

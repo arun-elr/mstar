@@ -290,14 +290,18 @@ def test_health_findings_name_exited_processes_leftover_shm_and_crash_lines(tmp_
         with open(log, "a") as f:
             f.write("ERROR worker_1: Mooncake read failed for request r7\nFatal Python error: Segmentation fault\n")
         found = arm.health_after(before, server, log)
-        assert found == ["1 server process(es) exited", "/dev/shm +2 entries", "log: segfault",
+        # the arena segment is not a tensor leak, but with a process gone and nothing mapping it, it is reported
+        assert found == ["1 server process(es) exited", "/dev/shm +2 entries",
+                         "/dev/shm 1 arena segment(s) no live server process maps", "log: segfault",
                          "log: mooncake read failed"]
     finally:
         os.killpg(p.pid, signal.SIGKILL)
         p.wait()
 
 
-def test_the_deployment_token_matches_the_one_mstar_names_tensor_files_with(tmp_path, monkeypatch):
+@pytest.mark.parametrize("token", [None, "0123456789abcdef"], ids=["no-token", "launch-token"])
+def test_the_deployment_token_matches_the_one_mstar_names_tensor_files_with(tmp_path, monkeypatch, token):
+    """The harness rebuilds ``tensors._deployment_namespace`` by hand; this catches either side drifting."""
     tensors = pytest.importorskip("mstar.communication.tensors")
     monkeypatch.delenv("MSTAR_DEPLOYMENT_TOKEN", raising=False)
     from mstar.communication.communicator import BaseCommunicator, CommProtocol
@@ -307,8 +311,19 @@ def test_the_deployment_token_matches_the_one_mstar_names_tensor_files_with(tmp_
     (sock / "conductor.ipc").touch()
     comm = Namespace(protocol=CommProtocol.IPC, ipc_socket_path_prefix=f"{sock}/")
     comm._endpoint = lambda entity: BaseCommunicator._endpoint(comm, entity)
-    server = Namespace(command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
-    assert arm._namespaces(server) == {tensors._deployment_namespace(comm)}
+    if token is None:
+        server = Namespace(command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
+        assert arm._namespaces(server) == {tensors._deployment_namespace(comm)}
+        return
+    worker = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True,
+                              env={**os.environ, "MSTAR_DEPLOYMENT_TOKEN": token})
+    try:
+        server = Namespace(pid=worker.pid, command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
+        monkeypatch.setenv("MSTAR_DEPLOYMENT_TOKEN", token)
+        assert tensors._deployment_namespace(comm) in arm._namespaces(server)
+    finally:
+        worker.kill()
+        worker.wait()
 
 
 @pytest.mark.parametrize("stale", ["oldtokenoldtoken", ""])
@@ -551,3 +566,88 @@ def test_seeded_transport_faults_on_the_head_arm_are_flagged_end_to_end(tmp_path
     assert rows["text"].flagged and rows["text"].correct_detail.startswith("head worker health: log: mooncake")
     assert rows["timeout"].flagged and rows["timeout"].correct_detail.startswith(
         "head worker health: log: segfault, log: worker died")
+
+
+def test_a_worker_that_exits_leaves_the_arena_segments_no_live_process_maps(tmp_path, monkeypatch):
+    """Arena segments are named by namespace, not pid, so a live arena's segments look like a dead one's. Once a
+    server process exits, the ones no live process maps are reported; one a live peer still maps is not."""
+    import mmap
+
+    monkeypatch.delenv("MSTAR_DEPLOYMENT_TOKEN", raising=False)
+    shm = tmp_path / "shm"
+    shm.mkdir()
+    monkeypatch.setattr(arm, "SHM", shm)
+    monkeypatch.setattr(arm, "SHM_SETTLE_S", 0.5)
+    monkeypatch.setattr(arm, "MIN_AGE_S", 0)
+    sock = tmp_path / "sock"
+    sock.mkdir()
+    (sock / "conductor.ipc").touch()
+    ns = hashlib.sha1(f"ipc://{os.path.realpath(sock / 'conductor.ipc')}".encode()).hexdigest()[:12]
+    segs = []
+    for w in (0, 1):
+        seg = shm / f"mstar_{ns}_arena_worker_{w}_ab12cd34.seg0"
+        seg.write_bytes(b"\0" * mmap.PAGESIZE)
+        segs.append(seg)
+    # a "server" session whose two workers each map their arena's segment
+    mapper = ("import mmap, sys, time; f = open(sys.argv[1], 'r+b'); m = mmap.mmap(f.fileno(), 4096); "
+              "print('mapped', flush=True); time.sleep(60)")
+    script = ("import subprocess, sys, time\n"
+              f"ws = [subprocess.Popen([sys.executable, '-c', {mapper!r}, s], stdout=subprocess.PIPE, text=True)"
+              f" for s in {[str(x) for x in segs]!r}]\n"
+              "assert all(w.stdout.readline().strip() == 'mapped' for w in ws)\n"
+              "print(*[w.pid for w in ws], flush=True); time.sleep(60)\n")
+    leader = subprocess.Popen([sys.executable, "-c", script], start_new_session=True, stdout=subprocess.PIPE,
+                              text=True)
+    try:
+        first, _ = map(int, leader.stdout.readline().split())
+        server = Namespace(pid=leader.pid, command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
+        before = arm.health_before(server, tmp_path / "server.log")
+        assert before["ns"] == [ns]
+        assert arm.health_after(before, server, tmp_path / "server.log") == []   # live arenas: no finding
+        os.kill(first, signal.SIGKILL)
+        deadline = time.monotonic() + 10
+        while stress.alive(first) and time.monotonic() < deadline:   # a zombie maps nothing
+            time.sleep(0.05)
+        assert stress.unmapped_arena_segments(str(shm), {ns}, stress.group_pids(leader.pid)) == [segs[0].name]
+        assert arm.health_after(before, server, tmp_path / "server.log") == [
+            "1 server process(es) exited", "/dev/shm 1 arena segment(s) no live server process maps"]
+    finally:
+        os.killpg(leader.pid, signal.SIGKILL)
+        leader.wait()
+
+
+def test_an_unreadable_environ_leaves_the_endpoint_namespace(tmp_path, monkeypatch):
+    """A worker whose ``/proc/<pid>/environ`` cannot be read (gone meanwhile, or another user's under hidepid)
+    gives no token, so the server's own one or none is used, and its files are never misattributed."""
+    monkeypatch.delenv("MSTAR_DEPLOYMENT_TOKEN", raising=False)
+    sock = tmp_path / "sock"
+    sock.mkdir()
+    (sock / "conductor.ipc").touch()
+    endpoint = f"ipc://{os.path.realpath(sock / 'conductor.ipc')}"
+    script = ("import os, subprocess, sys, time\n"
+              "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'],"
+              " env={**os.environ, 'MSTAR_DEPLOYMENT_TOKEN': 'workertokenworkr'})\n"
+              "print(c.pid, flush=True); time.sleep(60)\n")
+    leader = subprocess.Popen([sys.executable, "-c", script], start_new_session=True, stdout=subprocess.PIPE,
+                              text=True, env={**os.environ, "MSTAR_DEPLOYMENT_TOKEN": "leadertokenleadr"})
+    try:
+        child = int(leader.stdout.readline())
+        read = Path.read_bytes
+        refused = []
+
+        def _read_bytes(self):
+            if str(self) == f"/proc/{child}/environ":
+                refused.append(child)
+                raise PermissionError(13, "Permission denied", str(self))
+            return read(self)
+
+        monkeypatch.setattr(Path, "read_bytes", _read_bytes)
+        assert stress._proc_env_token(child) is None and refused == [child]
+        assert stress._proc_env_token(2 ** 22 + 1) is None           # no such pid
+        assert stress.launch_tokens(leader.pid) == {"leadertokenleadr"}
+        server = Namespace(pid=leader.pid, command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
+        assert arm._namespaces(server) == {hashlib.sha1(k.encode()).hexdigest()[:12]
+                                           for k in (endpoint, f"leadertokenleadr\0{endpoint}")}
+    finally:
+        os.killpg(leader.pid, signal.SIGKILL)
+        leader.wait()
