@@ -1153,9 +1153,7 @@ async fn generate_finish(
     // An empty id means none, as the Python /generate's form parsing reads it.
     let request_id = request_id.filter(|id| !id.is_empty());
     if let Err(msg) = request_id.as_deref().map_or(Ok(()), check_request_id) {
-        for path in file_paths.values().flatten() {
-            let _ = std::fs::remove_file(path);
-        }
+        // `uploads` drops unkept here, which deletes the saved files.
         return detail_error(400, &msg);
     }
     let output_modalities: Vec<String> = out_mods_raw
@@ -1580,11 +1578,14 @@ mod tests {
     async fn every_refusal_after_the_form_leaves_no_upload_behind() {
         let mut st = state(None);
         st.upload_dir = socket_dir();
+        let long_id = "a".repeat(MAX_REQUEST_ID_LEN + 1);
         for (field, value, detail) in [
             ("model_kwargs", "[1]", "model_kwargs must be a JSON object"),
             ("model_kwargs", "{", "model_kwargs JSON: EOF while parsing an object at line 1 column 1"),
             ("tokenize", "true", "tokenize=true requires the server to be started with MSTAR_TOKENIZER"),
             ("input_modalities", "video_frame", "'video_frame' is an output-only modality"),
+            ("request_id", "a/b", "request_id must be at most 128 characters from [A-Za-z0-9._:-]"),
+            ("request_id", long_id.as_str(), "request_id must be at most 128 characters from [A-Za-z0-9._:-]"),
         ] {
             let req = multipart_request("/generate", &[
                 ("files", Some("clip.wav"), b"RIFF"),
