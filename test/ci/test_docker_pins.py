@@ -61,6 +61,33 @@ class DockerPinTests(unittest.TestCase):
             self.assertIsNotNone(pin, f"{path.name}: no setuptools floor in the .[all] install")
             self.assertGreaterEqual(version(pin.group(1)), build_floor, path.name)
 
+    def test_asr_torchcodec_pin_matches_the_images(self):
+        # torchcodec declares no torch requirement, so an open range resolves to the newest
+        # release, which fails to load next to the pinned torch
+        extras = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"]["optional-dependencies"]
+        pin = next(d for d in extras["asr"] if d.startswith("torchcodec"))
+        minor = version(build_args(DOCKERFILES[0])["TORCHCODEC_VERSION"])[1]
+        self.assertEqual(pin, f"torchcodec==0.{minor}.*")
+
+    def test_every_pillow_requirement_has_the_same_floor(self):
+        extras = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"]["optional-dependencies"]
+        pins = {name: d for name, deps in extras.items() for d in deps if re.match(r"pillow\b", d, re.I)}
+        self.assertTrue(pins)
+        floors = set(pins.values())
+        self.assertEqual(len(floors), 1, pins)
+        self.assertRegex(floors.pop(), r"^Pillow>=\d")
+
+    def test_alias_packages_share_the_setuptools_build_floor(self):
+        def floor(path):
+            requires = tomllib.loads(path.read_text())["build-system"]["requires"]
+            return version(next(r for r in requires if r.startswith("setuptools>=")).split(">=")[1])
+
+        root = floor(REPO_ROOT / "pyproject.toml")
+        aliases = sorted((REPO_ROOT / "packaging/aliases").glob("*/pyproject.toml"))
+        self.assertTrue(aliases)
+        for path in aliases:
+            self.assertEqual(floor(path), root, path.parent.name)
+
     def test_mooncake_wheel_matches_the_cuda_major(self):
         for path in DOCKERFILES:
             args = build_args(path)

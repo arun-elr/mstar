@@ -98,7 +98,7 @@ eval = [
     "datasets",
     "huggingface-hub",
     "matplotlib",
-    "Pillow",
+    "Pillow>=12.3.0",
     "soundfile",
     "transformers",
 ]
@@ -355,7 +355,8 @@ asr = [
     "huggingface-hub",
     "mooncake-transfer-engine>=0.3.13.post1",
     "safetensors",
-    "torchcodec>=0.10",
+    # torchcodec 0.N pairs with torch 2.N and does not declare it; the Dockerfiles pin the same
+    "torchcodec==0.10.*",
     "transformers",
     "datasets",
     "jiwer",  # WER computation for asr_eval.py
