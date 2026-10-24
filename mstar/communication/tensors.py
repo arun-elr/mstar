@@ -2317,18 +2317,23 @@ class SharedMemoryCommunicationManager(TensorCommunicationManager):
         for its TENSOR_RECEIVED or REMOVE_REQUEST, for a process that is
         stopping. A second call finds nothing left."""
         files = self._shm_files
-        # Untracked only once unlinked, so a stop between the two leaves the
-        # entry for a retry; a fresh iterator each time, as the orphan
-        # watchdog's thread can run this at the same time.
-        while (item := next(iter(files.items()), None)) is not None:
-            uuid, path = item
+        # The orphan watchdog's thread can run this at the same time, so each
+        # path is taken by one caller, and put back for the retry if a stop
+        # cuts its unlink.
+        while True:
+            try:
+                uuid, path = files.popitem()
+            except KeyError:
+                break
             try:
                 os.unlink(path)
             except OSError:
                 # Already gone (FileNotFoundError) or not removable: either
                 # way, keep going so the rest are still reclaimed.
                 pass
-            files.pop(uuid, None)
+            except BaseException:
+                files[uuid] = path
+                raise
 
 
 # ---------------------------------------------------------------------------

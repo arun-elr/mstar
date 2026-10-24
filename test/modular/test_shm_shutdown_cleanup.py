@@ -19,6 +19,7 @@ import multiprocessing as mp
 import os
 import signal
 import sys
+import threading
 import time
 from types import SimpleNamespace
 
@@ -380,6 +381,31 @@ def test_a_stop_before_an_unlink_leaves_the_file_for_the_retry(tmp_path, monkeyp
     with pytest.raises(SystemExit):
         mine.unlink_owned_files()
     mine.unlink_owned_files()
+    assert _namespace_files(shm_dir, prefix) == []
+
+
+def test_the_watchdog_and_the_stopping_worker_each_unlink_a_file_once(tmp_path, monkeypatch):
+    """The orphan watchdog's thread drains the same files while the worker's
+    main thread is inside an unlink."""
+    shm_dir, prefix = _dirs(tmp_path)
+    mine = SharedMemoryCommunicationManager(
+        my_entity_id="worker_0", hostname="localhost", device="cpu",
+        communicator=_DeploymentCommunicator(prefix), shm_dir=shm_dir,
+    )
+    _send_unacked(mine, 3)
+    unlink, unlinked = os.unlink, []
+
+    def _watchdog_drains_during_the_first(path):
+        unlinked.append(path)
+        if len(unlinked) == 1:
+            watchdog = threading.Thread(target=mine.unlink_owned_files)
+            watchdog.start()
+            watchdog.join()
+        unlink(path)
+
+    monkeypatch.setattr(os, "unlink", _watchdog_drains_during_the_first)
+    mine.unlink_owned_files()
+    assert len(unlinked) == len(set(unlinked)) == 3
     assert _namespace_files(shm_dir, prefix) == []
 
 
