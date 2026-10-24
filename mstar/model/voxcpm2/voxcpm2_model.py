@@ -338,11 +338,19 @@ class VoxCPM2Model(Model):
         """A reference clip as 16 kHz mono float32, resampled as ``librosa.load`` does (soxr HQ)."""
         import soundfile
 
+        from mstar.model.media_limits import read_sound_file, sound_file_seconds
+
         rate = self.config.audio_vae.sample_rate
         try:
             info = soundfile.info(filepath)
-            self._check_reference_seconds(info.frames / info.samplerate if info.samplerate else 0.0)
-            waveform, sample_rate = soundfile.read(filepath, dtype="float32", always_2d=True)
+            seconds = sound_file_seconds(info.frames, info.samplerate)
+            if seconds is not None:
+                self._check_reference_seconds(seconds)
+                waveform, sample_rate = soundfile.read(filepath, dtype="float32", always_2d=True)
+            else:
+                # no sample count in the header (a FLAC written to a pipe): count it as it decodes
+                waveform, sample_rate = read_sound_file(filepath, self.REF_MAX_SECONDS)
+                self._check_reference_seconds(len(waveform) / sample_rate if sample_rate else 0.0)
         except soundfile.LibsndfileError:
             # the client's error (400); libsndfile's message names the server's upload path
             raise ValueError("VoxCPM2 ref_audio is not audio soundfile can read (WAV, FLAC, OGG or MP3)") from None
@@ -497,7 +505,11 @@ class VoxCPM2Model(Model):
     ) -> ForwardPassArgs:
         model_kwargs = model_kwargs or {}
         if partition_name == "Talker":
-            clone = "audio" in input_modalities
+            # the mode process_prompt built the prompt for, not the caller's
+            # input_modalities: a clip sent with ["text"] still clones
+            if PROMPT_MODE_KEY not in model_kwargs:
+                raise ValueError(f"VoxCPM2 request is missing {PROMPT_MODE_KEY}, which process_prompt sets")
+            clone = int(model_kwargs[PROMPT_MODE_KEY]) != MODE_ZERO_SHOT
             walk = "talker_prefill_clone" if clone else "talker_prefill"
             metadata = CurrentForwardConductorMetadata(
                 input_modalities=input_modalities,
