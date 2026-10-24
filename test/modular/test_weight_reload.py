@@ -10,6 +10,7 @@ refuse a checkpoint that does not match before copying anything.
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -23,6 +24,7 @@ from torch import nn
 
 from mstar.distributed.communication import CommGroup
 from mstar.engine.engine import Engine
+from mstar.engine.resources.kv import cpu_page_pool
 from mstar.engine.resources.kv import manager as manager_mod
 from mstar.engine.resources.kv.config import PagedKVConfig
 from mstar.engine.resources.kv.keys import fingerprint
@@ -395,3 +397,61 @@ def test_reload_drops_the_prefix_cache_and_reroots_it(ckpts, monkeypatch):
     root_v1 = kv._prefix_root
     kv.drop_prefix_cache("v1")
     assert kv._prefix_root != root_v1, "a second reload under the same name reused the root"
+
+
+class _UnpinnedTorch:
+    """``torch`` for ``cpu_page_pool`` on a host with no pinned-memory allocator."""
+
+    def __getattr__(self, name):
+        return getattr(torch, name)
+
+    @staticmethod
+    def empty(*args, pin_memory=False, **kwargs):
+        del pin_memory
+        return torch.empty(*args, **kwargs)
+
+
+def test_reload_frees_the_host_tier_too(ckpts, monkeypatch, caplog):
+    """With offload on, the host pool files pages under the same rooted keys.
+    Re-rooting without evicting them would leave them resident where no key
+    reaches them; the device evictions also go through the host pool's count."""
+    monkeypatch.setattr(manager_mod, "KVTransferManager", _StubTransfer)
+    monkeypatch.setattr(cpu_page_pool, "torch", _UnpinnedTorch())
+    kv = KVManager(
+        cfg=PagedKVConfig(
+            num_layers=1, num_kv_heads=1, head_dim=8, max_seq_len=4096,
+            max_num_pages=16, page_size=16, cpu_offload_pages=8,
+        ),
+        name="kv", joint_comm_group=None, transfer_engine_info=None,
+        device=torch.device("cpu"), dtype=torch.float32,
+    )
+    assert kv.enable_prefix_cache(b"root")
+    keys = [fingerprint(b"root", k) for k in (b"k0", b"k1", b"k2")]
+    device_free = kv._arena.num_free
+    first, second = kv._arena.acquire(2)
+    kv._index.insert_run(keys[:2], [first, second], None)
+    kv._arena.release([first, second])
+    # the host holds a copy of k0 and the only copy of k1 and k2
+    host = kv._cpu_pool
+    host_free = host.arena.num_free
+    host_pages = host.arena.acquire(3)
+    host.index.insert_run(keys, host_pages, None)
+    host.arena.release(host_pages)
+    assert host.arena.num_free == host_free - 3
+
+    dropped_keys: list[bytes] = []
+    count_dropped = host.count_dropped
+    monkeypatch.setattr(host, "count_dropped", lambda ks: (dropped_keys.extend(ks), count_dropped(ks)))
+    returned: list = []
+    drop = kv.drop_prefix_cache
+    monkeypatch.setattr(kv, "drop_prefix_cache", lambda salt: returned.append(drop(salt)))
+
+    # caplog's handler fails the test on a record that does not format
+    with caplog.at_level(logging.INFO, logger=manager_mod.logger.name):
+        _engine(_orpheus(ckpts.a_dir), _lm(ckpts.a_dir), kv=kv).reload_weights(ckpts.b_dir, "v1")
+
+    assert returned == [5] and type(returned[0]) is int
+    assert sorted(dropped_keys) == sorted(keys[:2]), "device evictions skipped the host pool's count"
+    assert kv._arena.num_free == device_free and kv._index.num_pages() == 0
+    assert host.arena.num_free == host_free and host.index.num_pages() == 0, "host pages kept under the old root"
+    assert "(2 device and 3 host pages freed)" in caplog.text

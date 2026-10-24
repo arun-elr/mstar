@@ -17,6 +17,7 @@ import yaml
 from mstar.api_server.request_types import (
     APIServerMessage,
     ConductorStatus,
+    GenerationControlResult,
     RequestComplete,
     RequestFailed,
 )
@@ -66,6 +67,14 @@ from mstar.utils.profiler import nvtx_enabled, range_pop, range_push
 from mstar.validation import validate_deployment
 
 logger = logging.getLogger(__name__)
+
+_GENERATION_CONTROL_TYPES = frozenset({
+    ConductorMessageType.PAUSE_GENERATION,
+    ConductorMessageType.CONTINUE_GENERATION,
+    ConductorMessageType.UPDATE_WEIGHTS_FROM_DISK,
+    ConductorMessageType.GET_GENERATION_STATE,
+    ConductorMessageType.WEIGHT_CONTROL_ACK,
+})
 
 
 class DeadWorkerError(RuntimeError):
@@ -2012,18 +2021,37 @@ class Conductor:
                 range_pop()
         # pause and weight-update control, after every per-request type so the
         # per-step messages compare as many types as they did without it
-        elif message.message_type == ConductorMessageType.PAUSE_GENERATION:
-            self._generation.pause(message.body)
-        elif message.message_type == ConductorMessageType.CONTINUE_GENERATION:
-            self._generation.resume(message.body)
-        elif message.message_type == ConductorMessageType.UPDATE_WEIGHTS_FROM_DISK:
-            self._generation.update(message.body)
-        elif message.message_type == ConductorMessageType.GET_GENERATION_STATE:
-            self._generation.report(message.body)
-        elif message.message_type == ConductorMessageType.WEIGHT_CONTROL_ACK:
-            self._generation.ack(message.body)
+        elif message.message_type in _GENERATION_CONTROL_TYPES:
+            self._route_generation_control(message)
         else:
             raise ValueError(f"Unknown message type: {message.message_type}")
+
+    def _route_generation_control(self, message) -> None:
+        generation = self._generation
+        if generation is None:
+            # only a conductor built without __init__ (a test stub) has no state machine
+            logger.warning("Refusing %s: this conductor has no pause control", message.message_type.value)
+            op_id = getattr(message.body, "op_id", None)
+            if op_id is not None:
+                self.communicator.send("api_server", APIServerMessage(
+                    message_type="generation_control_result",
+                    body=GenerationControlResult(
+                        op_id=op_id, status=503, state=GenerationState.SERVING.value, paused=False,
+                        error_message="pause and weight updates are not available on this conductor",
+                    ),
+                ))
+            return
+        t = message.message_type
+        if t == ConductorMessageType.PAUSE_GENERATION:
+            generation.pause(message.body)
+        elif t == ConductorMessageType.CONTINUE_GENERATION:
+            generation.resume(message.body)
+        elif t == ConductorMessageType.UPDATE_WEIGHTS_FROM_DISK:
+            generation.update(message.body)
+        elif t == ConductorMessageType.GET_GENERATION_STATE:
+            generation.report(message.body)
+        else:
+            generation.ack(message.body)
 
     def _fail_after_error(
         self, request_id: str | None, step: str, exc: Exception,
