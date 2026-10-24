@@ -478,8 +478,10 @@ class _EvictingWorker(_HoldingWorker):
             evictable=lambda node: True,
             is_offloaded=lambda node, rid: rid in self.offloaded,
             reclaimable=lambda node, rid, resources: rid in holders,
-            offload_request=lambda node, rid: self.offloaded.append(rid) or 12,
+            offload_request=lambda node, rid, affected_resources=None: self.offloaded.append(rid) or 12,
         )
+        # #461's worker keeps one; harmless here
+        self._no_victim_logged = {}
         self.engine_manager = SimpleNamespace(get_engine=lambda node: engine)
 
 
