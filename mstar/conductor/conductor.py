@@ -2010,7 +2010,9 @@ class Conductor:
 
         A request whose ``request_complete`` already went out is only torn
         down: its client has the result."""
-        logger.exception("Conductor error %s for request %s", step, request_id)
+        text, _ = client_error_text(
+            exc, f"Conductor error {step} for request {request_id}", log=logger,
+        )
         request_data = self.requests.get(request_id)
         if request_data is None or request_id in self.draining:
             return  # unknown, never admitted, or already being torn down
@@ -2019,7 +2021,7 @@ class Conductor:
                 request_id, request_data,
                 failure_error=(
                     None if request_data.completion_sent
-                    else f"Conductor error {step}: {type(exc).__name__}: {exc}"
+                    else f"Conductor error {step}: {text}"
                 ),
             )
         except Exception:
