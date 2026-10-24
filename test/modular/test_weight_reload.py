@@ -13,6 +13,7 @@ import json
 import logging
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, ".")
@@ -311,6 +312,52 @@ def test_an_index_naming_a_file_outside_the_checkpoint_is_refused(ckpts):
         {"weight_map": {"model.norm.weight": "../b/model.safetensors"}},
     ))
     _refused(ckpts, str(outside), "outside")
+
+
+def _hub_snapshot(hub, name: str, state) -> str:
+    """``state`` laid out as the Hugging Face cache stores it: two shards and an
+    index in ``snapshots/<rev>/``, each a symlink into ``blobs/``."""
+    blobs, snap = hub / "blobs", hub / "snapshots" / name
+    blobs.mkdir(parents=True, exist_ok=True)
+    snap.mkdir(parents=True)
+    keys = sorted(state)
+    shards = {"model-00001-of-00002.safetensors": keys[::2], "model-00002-of-00002.safetensors": keys[1::2]}
+    files = {}
+    for shard, names in shards.items():
+        save_file({k: state[k] for k in names}, str(blobs / f"{name}-{shard}"))
+        files[shard] = f"{name}-{shard}"
+    index = {"weight_map": {k: shard for shard, names in shards.items() for k in names}}
+    (blobs / f"{name}-index").write_text(json.dumps(index))
+    files["model.safetensors.index.json"] = f"{name}-index"
+    (blobs / f"{name}-config").write_text(json.dumps({
+        "architectures": ["LlamaForCausalLM"], "hidden_size": HIDDEN,
+        "num_hidden_layers": LAYERS, "torch_dtype": "float32",
+    }))
+    files["config.json"] = f"{name}-config"
+    for link, blob in files.items():
+        (snap / link).symlink_to(Path("..") / ".." / "blobs" / blob)
+    return str(snap)
+
+
+def test_a_checkpoint_in_the_hub_cache_layout_reloads(ckpts):
+    """Every file of a cached snapshot is a symlink out of its directory, into
+    ``blobs/``; those are the checkpoint's own files, not ones outside it."""
+    hub = ckpts.tmp / "hub"
+    a, b = _hub_snapshot(hub, "rev-a", ckpts.a), _hub_snapshot(hub, "rev-b", ckpts.b)
+    lm = _lm(a)
+    engine = _engine(_orpheus(a), lm)
+    engine.reload_weights(b, "v1")
+    assert torch.equal(lm.model.norm.weight, ckpts.b["model.norm.weight"])
+    assert torch.equal(lm.model.layers[0].self_attn.qkv_proj.weight, _qkv(ckpts.b))
+
+
+def test_an_index_naming_an_absolute_path_is_refused(ckpts):
+    absolute = ckpts.tmp / "absolute"
+    absolute.mkdir()
+    (absolute / "model.safetensors.index.json").write_text(json.dumps(
+        {"weight_map": {"model.norm.weight": str(Path(ckpts.b_dir) / "model.safetensors")}},
+    ))
+    _refused(ckpts, str(absolute), "outside")
 
 
 def test_a_rank_hosting_only_the_snac_decoder_has_nothing_to_reload(ckpts):
