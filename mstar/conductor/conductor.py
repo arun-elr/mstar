@@ -173,7 +173,8 @@ def _unlink_owned_files(tensor_manager) -> None:
 
 
 def _run_worker(worker) -> None:
-    """``worker.run()``, then unlink the tensor files the worker still owns.
+    """``worker.run()``, then unlink the tensor files (and arena segments) the
+    worker still owns.
 
     A stop (the conductor's SIGTERM, a Ctrl-C) leaves the files of requests in
     flight waiting for a TENSOR_RECEIVED or REMOVE_REQUEST that will not come,
@@ -185,6 +186,7 @@ def _run_worker(worker) -> None:
         worker.run()
     except BaseException as e:
         stop = e
+    handlers = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGINT)}
     while True:
         try:
             # A Ctrl-C reaches the conductor too, and its SIGTERM lands here
@@ -197,6 +199,13 @@ def _run_worker(worker) -> None:
             break
         except (KeyboardInterrupt, SystemExit) as e:
             stop = stop or e
+    # A signal that arrives while ignored is dropped, not queued. Putting the
+    # handlers back lets a second stop break a teardown that hangs (a thread
+    # join, an atexit hook), so the interpreter still reaches the arena's
+    # finalizer instead of waiting for the conductor's SIGKILL.
+    for s, h in handlers.items():
+        if h is not None:  # None: set outside Python, nothing to put back
+            signal.signal(s, h)
     if stop is not None:
         raise stop
 
