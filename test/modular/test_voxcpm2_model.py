@@ -345,7 +345,7 @@ def test_process_prompt_builds_each_reference_mode(model):
     assert joined["text_inputs"][0].tolist() == [3, AUDIO_START_TOKEN]  # "worldhello"
     # max patches follow the target text only
     digest = hashlib.blake2b(clip.numpy().tobytes(), digest_size=16).hexdigest()
-    assert metadata == {
+    assert {k: v for k, v in metadata.items() if k != "kv_layout"} == {
         STREAM_LEAD_KEY: 3,
         PATCH_BUDGET_KEY: 16,
         PROMPT_MODE_KEY: MODE_REF_CONTINUATION,
@@ -398,6 +398,80 @@ def test_a_one_patch_request_ends_after_prefill(model, budget, done):
     nxt = model.get_partition_forward_pass_args("Talker", args.full_metadata, {"latent_patch": []})
     assert nxt.request_done is done
     assert nxt.full_metadata.graph_walk == ("talker_prefill" if done else "talker_decode")
+
+
+@pytest.mark.parametrize("budget", [2, 5])
+def test_talker_caps_decode_where_its_stop_check_ends_it(model, budget):
+    """A one-patch budget ends after prefill (above); past that, decode runs one
+    iteration fewer than the budget, since the prefill's patch counts."""
+    talker, _, _ = _talker(model)
+    edges, meta = _request(model, "hello world", max_new_tokens=budget)
+    info = _info("a", 5, meta)
+    patch = torch.zeros(model.config.patch_size, model.config.feat_dim)
+    walk, inputs, iterations = "talker_prefill", edges, 0
+    while True:
+        prepared = talker.prepare_inputs(walk, info, inputs)
+        # the stop head never fires, so only the budget ends decode
+        out = {"latent_patch": [patch], "stop_flag": [torch.tensor([0, prepared.kwargs["step"]])]}
+        talker.postprocess("a", info, out)
+        inputs = {"latent_patch": out["latent_patch"]}
+        stop = talker.check_stop("a", info, out)
+        if walk == "talker_decode":
+            iterations += 1
+            if stop:
+                break
+        walk = "talker_decode"
+
+    caps = model.get_loop_caps(**meta)
+    assert caps == {TALKER_LOOP: iterations}, "the cap and the stop check end decode on different iterations"
+    assert model.get_loop_caps(max_new_tokens=budget) == caps
+
+
+@pytest.mark.parametrize("ref_text", [None, "", "world "], ids=["zero-shot", "reference", "continuation"])
+def test_process_prompt_lays_out_the_rows_the_talker_prefill_writes(model, ref_text):
+    from mstar.engine.resources import KVReqConfig
+    from mstar.engine.resources.kv.config import refuse_undeclared_labels
+    from mstar.validation.resources import _undeclared_pools, _unknown_prefix_walks
+
+    specs = model.get_node_resources()
+    assert list(_unknown_prefix_walks(model)) == []
+    assert list(_undeclared_pools(specs, model)) == []
+
+    clip = None if ref_text is None else torch.randn(20000, generator=torch.Generator().manual_seed(1)) * 0.1
+    modalities = ["text"] if clip is None else ["text", "audio"]
+    tensors = None if clip is None else {"audio_inputs": [clip]}
+    kwargs = {} if clip is None else {"ref_text": ref_text}
+    out = model.process_prompt("hello world", modalities, ["audio"], tensors=tensors, **kwargs)
+    meta = out.metadata
+    layout = meta["kv_layout"]
+    assert set(layout) == {"base_kv", "res_kv"} and layout["base_kv"] == layout["res_kv"]
+    (span,) = layout["base_kv"]["main"].spans
+    walk = "talker_prefill" if clip is None else "talker_prefill_clone"
+    assert span.walk == walk
+
+    talker, _, _ = _talker(model)
+    edges = dict(out.new_input_tensors)
+    if clip is not None:
+        info = _info("r", 0, {k: meta[k] for k in (PROMPT_MODE_KEY, REF_DIGEST_KEY)})
+        ref = _ref_encoder(model)
+        prepared = ref.prepare_inputs(walk, info, {"audio_inputs": [clip]})
+        with torch.inference_mode():
+            edges.update(ref.forward(walk, None, **prepared.tensor_inputs, **prepared.kwargs))
+    step = model.get_initial_forward_pass_args("Talker", modalities, ["audio"], {}, model_kwargs=meta).step_metadata
+    prefill = talker.prepare_inputs(walk, _info("r", 0, step), edges)
+    assert span.length == prefill.input_seq_len, "the layout and the prefill disagree on its rows"
+
+    configs = model.get_request_resource_configs({}, meta)
+    for key in ("base_kv", "res_kv"):
+        configs.setdefault(key, KVReqConfig(needed_labels=["main"]))
+    refuse_undeclared_labels("VoxCPM2Model", {k: tuple(v) for k, v in model.kv_labels().items()}, layout, configs)
+    caps = model.get_loop_caps(**meta)
+    for spec in specs:
+        if spec.resource_key in layout:
+            kv = configs[spec.resource_key]
+            kv.apply_conductor_config(kv_layout={"main": layout[spec.resource_key]["main"].row()}, loop_caps=caps)
+            kv.validate(spec)
+            assert kv.kv_layout["main"].positions(caps) == span.length + meta[PATCH_BUDGET_KEY] - 1
 
 
 @pytest.mark.parametrize(

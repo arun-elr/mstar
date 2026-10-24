@@ -51,7 +51,15 @@ from mstar.engine.resources import (
 )
 from mstar.graph.base import GraphEdge, GraphNode, GraphSection, Loop, Sequential, TensorPointerInfo
 from mstar.graph.special_destinations import EMIT_TO_CLIENT, EMPTY_DESTINATION
-from mstar.model.base import ForwardPassArgs, Model, ProcessPromptOutput, TensorAndMetadata
+from mstar.model.base import (
+    ForwardPassArgs,
+    KVLabel,
+    LabelLayout,
+    Model,
+    ProcessPromptOutput,
+    Span,
+    TensorAndMetadata,
+)
 from mstar.model.submodule_base import NodeSubmodule
 from mstar.model.voxcpm2.config import (
     AUDIO_START_TOKEN,
@@ -133,6 +141,7 @@ class VoxCPM2Model(Model):
     REF_MIN_PEAK = 1e-3
     # the reference demo offers 1 to 3; float32 overflows to inf past about 3.4e38
     MAX_CFG_VALUE = 10.0
+    LENGTH_KWARGS = ("max_new_tokens", "max_output_tokens", "max_len")
     # English speech measured at 1.3 to 2.9 patches per text token (24 zero-shot
     # requests of 1,300 to 1,700 tokens), so text up to max_len / 3 tokens fits in max_len patches
     MAX_PATCHES_PER_TEXT_TOKEN = 3.0
@@ -468,6 +477,11 @@ class VoxCPM2Model(Model):
             REF_DIGEST_KEY: digest,
             STREAM_LEAD_KEY: lead,
         }
+        # both LMs write the same rows: the prompt (``build_prompt``), then one per decode step
+        walk = "talker_prefill" if mode == MODE_ZERO_SHOT else "talker_prefill_clone"
+        prefill = Span("ids" if mode == MODE_ZERO_SHOT else "rows", walk, prompt_len, prompt_len, "text_inputs")
+        layout = LabelLayout(spans=(prefill,), growth=(("talker_decode_loop", 1),))
+        metadata["kv_layout"] = {BASE_KV: {"main": layout}, RES_KV: {"main": layout}}
         return ProcessPromptOutput(outputs, metadata)
 
     # -- conductor state machine -------------------------------------------------
@@ -563,8 +577,16 @@ class VoxCPM2Model(Model):
     def get_max_output_tokens(self, **model_kwargs: Any) -> int:
         return self._patch_cap(model_kwargs)
 
-    def get_max_output_tokens_limit(self) -> int | None:
-        return self.config.max_len
+    def get_loop_caps(self, **model_kwargs: Any) -> dict[str, int]:
+        # the stop check counts the prefill's patch, so decode runs one iteration fewer than the budget
+        budget = self._patch_cap(model_kwargs)
+        if model_kwargs.get(PATCH_BUDGET_KEY) is not None:
+            budget = min(budget, int(model_kwargs[PATCH_BUDGET_KEY]))
+        return {"talker_decode_loop": max(1, budget - 1)}
+
+    def kv_labels(self) -> dict[str, dict[str, KVLabel]]:
+        talker = {"main": KVLabel(growth=(("talker_decode", "talker_decode_loop"),))}
+        return {BASE_KV: talker, RES_KV: talker}
 
     def get_output_sample_rate(self, modality: str = "audio") -> int:
         return self.config.output_sample_rate
