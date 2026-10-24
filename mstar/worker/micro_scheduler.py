@@ -384,7 +384,7 @@ class MicroScheduler:
         key = self._key(node_name, graph_walk)
         if self._live_backlog(key) - batch_rids:
             return True
-        exclude = self.pending_removes | set(self.held_until) | self.failed_rids | batch_rids
+        exclude = self.failed_rids.union(self.pending_removes, self.held_until, batch_rids)
         engine = self.engine_manager.get_engine(node_name)
         return any(
             not engine.is_offloaded(spec.node_name, rid)
