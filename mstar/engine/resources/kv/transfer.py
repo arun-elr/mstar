@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import threading
 import uuid
 from abc import ABC, abstractmethod
@@ -638,7 +639,24 @@ class ShmKVTransferEngine(KVTransferEngine):
                 self._remove_request_locked(request_id)
 
 
-def make_deployment_kv_shm_dir(namespace: str) -> str:
+def _kv_shm_base() -> str:
+    base = os.getenv("MSTAR_KV_SHM_DIR")
+    if base is None:
+        base = (
+            "/dev/shm"
+            if os.path.isdir("/dev/shm")
+            else "/tmp"
+        )
+    os.makedirs(base, exist_ok=True)
+    return base
+
+
+def make_deployment_kv_shm_dir(
+    namespace: str,
+    socket_path_prefix: str = "",
+    dist_init_method: str = "",
+    owner_pid: int | None = None,
+) -> str:
     """Create, or join, the private SHM directory of one local deployment.
 
     The directory is ``mstar_<namespace>_kv`` under the deployment namespace
@@ -648,6 +666,11 @@ def make_deployment_kv_shm_dir(namespace: str) -> str:
     namespace sharing the tmpfs. For that reason the pid-named directories
     of older builds (``mstar_kv_<uid>_<pid>_<digest>``) are not swept here:
     from another PID namespace a live one looks dead.
+
+    Without a namespace (a control channel other than IPC or TCP, which the
+    built-in communicators never are) the directory is named and swept by
+    conductor pid as before (``_pid_named_kv_shm_dir``), which is right
+    unless deployments in different PID namespaces share the tmpfs.
     """
     from mstar.communication.tensors import (
         _hold_namespace_lock,
@@ -655,21 +678,52 @@ def make_deployment_kv_shm_dir(namespace: str) -> str:
     )
 
     if not namespace:
-        # Every worker's control channel is IPC or TCP, which always
-        # derives one; refuse rather than share an unswept directory.
-        raise ValueError("shared-memory KV transfer needs a deployment namespace")
-    base = os.getenv("MSTAR_KV_SHM_DIR")
-    if base is None:
-        base = (
-            "/dev/shm"
-            if os.path.isdir("/dev/shm")
-            else "/tmp"
-        )
-    os.makedirs(base, exist_ok=True)
-
+        return _pid_named_kv_shm_dir(
+            socket_path_prefix, dist_init_method, owner_pid)
+    base = _kv_shm_base()
     _hold_namespace_lock(base, namespace)
     _sweep_dead_namespaces(base, namespace)
     path = os.path.join(base, f"mstar_{namespace}_kv")
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    os.chmod(path, 0o700)
+    return path
+
+
+def _pid_named_kv_shm_dir(
+    socket_path_prefix: str,
+    dist_init_method: str,
+    owner_pid: int | None = None,
+) -> str:
+    """``mstar_kv_<uid>_<conductor pid>_<digest>``: the conductor pid plus its
+    distributed-init endpoint separate concurrent servers, and directories of
+    this uid whose conductor no longer exists are swept at startup."""
+    base = _kv_shm_base()
+    uid = os.getuid() if hasattr(os, "getuid") else 0
+    owner_pid = os.getppid() if owner_pid is None else owner_pid
+    digest = hashlib.sha256(
+        f"{socket_path_prefix}\0{dist_init_method}".encode()
+    ).hexdigest()[:16]
+    prefix = f"mstar_kv_{uid}_"
+    path = os.path.join(base, f"{prefix}{owner_pid}_{digest}")
+
+    for entry in os.scandir(base):
+        if (
+            not entry.name.startswith(prefix)
+            or not entry.is_dir(follow_symlinks=False)
+            or entry.path == path
+        ):
+            continue
+        suffix = entry.name[len(prefix):]
+        pid_text, separator, _ = suffix.partition("_")
+        if not separator or not pid_text.isdigit():
+            continue
+        try:
+            os.kill(int(pid_text), 0)
+        except ProcessLookupError:
+            shutil.rmtree(entry.path, ignore_errors=True)
+        except PermissionError:
+            continue
+
     os.makedirs(path, mode=0o700, exist_ok=True)
     os.chmod(path, 0o700)
     return path

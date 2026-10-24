@@ -153,3 +153,29 @@ def test_a_link_under_a_dead_namespace_is_removed_not_followed(
 
     assert not os.path.lexists(kv_base / f"mstar_{'d' * 12}_kv")
     assert (outside / "keep").exists()
+
+
+def test_without_a_namespace_the_directory_is_named_and_swept_by_conductor_pid(kv_base):
+    """A control channel other than IPC or TCP derives no namespace. The worker
+    then falls back to the pid-named directory instead of failing to start."""
+    uid = os.getuid()
+    dead = subprocess.Popen([sys.executable, "-c", "pass"])
+    dead.wait()
+    stale = kv_base / f"mstar_kv_{uid}_{dead.pid}_{'0' * 16}"
+    stale.mkdir()
+    (stale / "orphan.pt").touch()
+    live = kv_base / f"mstar_kv_{uid}_{os.getpid()}_{'1' * 16}"
+    live.mkdir()
+
+    path = make_deployment_kv_shm_dir("", socket_path_prefix="/tmp/mstar_x", dist_init_method="tcp://h:1",
+                                      owner_pid=os.getpid())
+    assert os.path.dirname(path) == str(kv_base)
+    assert os.path.basename(path).startswith(f"mstar_kv_{uid}_{os.getpid()}_")
+    assert os.stat(path).st_mode & 0o777 == 0o700
+    # another worker of the same deployment joins it; another deployment does not
+    assert make_deployment_kv_shm_dir("", socket_path_prefix="/tmp/mstar_x", dist_init_method="tcp://h:1",
+                                      owner_pid=os.getpid()) == path
+    assert make_deployment_kv_shm_dir("", socket_path_prefix="/tmp/mstar_y", dist_init_method="tcp://h:1",
+                                      owner_pid=os.getpid()) != path
+    assert not stale.exists() and live.exists()
+    assert not [n for n in os.listdir(kv_base) if n.endswith(".lock")]   # no namespace lock taken
