@@ -61,13 +61,16 @@ class DockerPinTests(unittest.TestCase):
             self.assertIsNotNone(pin, f"{path.name}: no setuptools floor in the .[all] install")
             self.assertGreaterEqual(version(pin.group(1)), build_floor, path.name)
 
-    def test_asr_torchcodec_pin_matches_the_images(self):
-        # torchcodec declares no torch requirement, so an open range resolves to the newest
-        # release, which fails to load next to the pinned torch
+    def test_asr_pins_the_images_torch_and_torchcodec_pair(self):
+        # torchcodec declares no torch requirement and fails to load next to another torch
+        # (0.17 on torch 2.10, 0.10 on torch 2.12), so the extra pins both halves of the pair
+        args = build_args(DOCKERFILES[0])
         extras = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"]["optional-dependencies"]
-        pin = next(d for d in extras["asr"] if d.startswith("torchcodec"))
-        minor = version(build_args(DOCKERFILES[0])["TORCHCODEC_VERSION"])[1]
-        self.assertEqual(pin, f"torchcodec==0.{minor}.*")
+        asr = extras["asr"]
+        major, minor = version(args["TORCH_VERSION"])[:2]
+        self.assertIn(f"torch>={args['TORCH_VERSION']},<{major}.{minor + 1}", asr)
+        codec_minor = version(args["TORCHCODEC_VERSION"])[1]
+        self.assertIn(f"torchcodec==0.{codec_minor}.*", asr)
 
     def test_every_pillow_requirement_has_the_same_floor(self):
         extras = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"]["optional-dependencies"]

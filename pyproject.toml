@@ -355,7 +355,9 @@ asr = [
     "huggingface-hub",
     "mooncake-transfer-engine>=0.3.13.post1",
     "safetensors",
-    # torchcodec 0.N pairs with torch 2.N and does not declare it; the Dockerfiles pin the same
+    # torchcodec doesn't declare its torch requirement and loads only next to the torch
+    # it was built for, so the extra pins the pair the Dockerfiles ship (torch 2.10 with 0.10)
+    "torch>=2.10.0,<2.11",
     "torchcodec==0.10.*",
     "transformers",
     "datasets",

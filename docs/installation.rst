@@ -431,6 +431,8 @@ https://pytorch.org/get-started/locally/. Keep all three packages on the same ``
 ``torchcodec`` doesn't declare its ``torch`` version, so the resolver otherwise picks the
 newest release (0.17 at the time of writing), which fails to load next to torch 2.10; 0.10
 is the release built against it.
+The ``[asr]`` extra pins that pair itself (``torch`` 2.10 with ``torchcodec`` 0.10, as in the
+Docker images), so installing it puts ``torch`` on 2.10.
 
 Verify the install
 ------------------
