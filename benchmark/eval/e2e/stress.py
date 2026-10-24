@@ -340,7 +340,7 @@ async def workload(url: str, cfg: dict, refs: Refs, tag: str, seed: int) -> dict
 
 def server_namespaces(server) -> set[str]:
     """This server's deployment namespace in its tensor file names (``mstar_<ns>_<entity>_<uuid>``): the SHA-1 of
-    its launch token (``launch_token``) and its conductor's IPC endpoint (``tensors._deployment_namespace``), found
+    its launch token (``launch_tokens``) and its conductor's IPC endpoint (``tensors._deployment_namespace``), found
     under its ``--socket-path-prefix``. With a token, the endpoint-only SHA-1 is kept beside it: a build without the
     token in its names inherits one from a harness environment that carries it. Empty when there is no such socket
     (another layout): its tensor files then go uncounted, never misattributed."""
@@ -349,24 +349,39 @@ def server_namespaces(server) -> set[str]:
         prefix = Path(cmd[cmd.index("--socket-path-prefix") + 1])
     except (AttributeError, AssertionError, ValueError, IndexError):
         return set()
-    token = launch_token(server.pid) if getattr(server, "pid", None) else None
+    tokens = launch_tokens(server.pid) if getattr(server, "pid", None) else set()
     keys = [f"ipc://{os.path.realpath(p)}" for p in prefix.rglob("conductor.ipc")]
-    keys += [f"{token}\0{k}" for k in keys] if token else []
+    keys += [f"{token}\0{k}" for token in sorted(tokens) for k in list(keys)]
     return {hashlib.sha1(k.encode()).hexdigest()[:12] for k in keys}
 
 
-def launch_token(pgid: int) -> str | None:
-    """``MSTAR_DEPLOYMENT_TOKEN`` from the environment of a process in the server's group: the API server mints it
-    after it starts, so only the processes it spawns carry it. None for a build that sets no token."""
-    for pid in sorted(group_pids(pgid)):
-        try:
-            env = Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
-        except OSError:
-            continue
-        for kv in env:
-            if kv.startswith(b"MSTAR_DEPLOYMENT_TOKEN="):
-                return kv.split(b"=", 1)[1].decode()
+def _proc_env_token(pid: int) -> str | None:
+    """``MSTAR_DEPLOYMENT_TOKEN`` in ``/proc/<pid>/environ``, the environment at exec. A later ``os.environ`` write
+    does not show up here, and an empty value counts as unset."""
+    try:
+        env = Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
+    except OSError:
+        return None
+    for kv in env:
+        if kv.startswith(b"MSTAR_DEPLOYMENT_TOKEN="):
+            token = kv.split(b"=", 1)[1].decode()
+            return token or None
     return None
+
+
+def launch_tokens(pgid: int) -> set[str]:
+    """Tokens that name this launch's files.
+
+    The API server mints ``MSTAR_DEPLOYMENT_TOKEN`` after it starts, so ``/proc`` of its own pid can still hold
+    the empty or previous token it was exec'd with. The processes it spawned carry the token that names the
+    files. With none of those, the server's own non-empty token is used: a launcher-set token is kept, and a
+    single process is its own server."""
+    pids = group_pids(pgid)
+    spawned = {t for pid in pids if pid != pgid and (t := _proc_env_token(pid))}
+    if spawned:
+        return spawned
+    own = _proc_env_token(pgid)
+    return {own} if own else set()
 
 
 def namespace_file(name: str, namespaces: set[str]) -> bool:

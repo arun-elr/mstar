@@ -26,7 +26,7 @@ pytest.importorskip("aiohttp")
 
 from test_eval_compare import RUN, chat_model, fake_tree, finish, write_arm  # noqa: E402
 
-from benchmark.eval.e2e import arm, checks, compare, hosts, report, request_path, trees  # noqa: E402
+from benchmark.eval.e2e import arm, checks, compare, hosts, report, request_path, stress, trees  # noqa: E402
 from benchmark.eval.e2e import manifest as mf  # noqa: E402
 
 CONFIGS = ("qwen3tts_1p7b_split", "orpheus_pd_disaggregated", "qwen3omni_pd_disaggregated")
@@ -309,6 +309,50 @@ def test_the_deployment_token_matches_the_one_mstar_names_tensor_files_with(tmp_
     comm._endpoint = lambda entity: BaseCommunicator._endpoint(comm, entity)
     server = Namespace(command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
     assert arm._namespaces(server) == {tensors._deployment_namespace(comm)}
+
+
+@pytest.mark.parametrize("stale", ["oldtokenoldtoken", ""])
+def test_a_stale_token_on_the_api_server_does_not_hide_the_one_its_workers_carry(tmp_path, monkeypatch, stale):
+    """The API server mints after exec, so ``/proc`` of its pid still shows the token it was started with (a
+    previous launch's, or empty). Reading that one, which is usually the lowest pid, misses the token the
+    workers were spawned with and the leak check never sees their files."""
+    monkeypatch.delenv("MSTAR_DEPLOYMENT_TOKEN", raising=False)
+    monkeypatch.delenv("MSTAR_DEPLOYMENT_TOKEN_MINTED", raising=False)
+    sock = tmp_path / "sock"
+    sock.mkdir()
+    (sock / "conductor.ipc").touch()
+    endpoint = f"ipc://{os.path.realpath(sock / 'conductor.ipc')}"
+    fresh = "newtokennewtoken"
+    script = (
+        "import os, subprocess, sys, time\n"
+        "env = os.environ.copy()\n"
+        f"env['MSTAR_DEPLOYMENT_TOKEN'] = {fresh!r}\n"
+        "env['MSTAR_DEPLOYMENT_TOKEN_MINTED'] = env['MSTAR_DEPLOYMENT_TOKEN']\n"
+        "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'], env=env)\n"
+        "print(c.pid, flush=True)\n"
+        "time.sleep(120)\n"
+    )
+    parent_env = {**os.environ, "MSTAR_DEPLOYMENT_TOKEN": stale}
+    if stale:
+        parent_env["MSTAR_DEPLOYMENT_TOKEN_MINTED"] = stale
+    parent = subprocess.Popen(
+        [sys.executable, "-c", script], start_new_session=True, env=parent_env,
+        stdout=subprocess.PIPE, text=True,
+    )
+    try:
+        child = int(parent.stdout.readline())
+        assert child in stress.group_pids(parent.pid)
+        server = Namespace(pid=parent.pid, command=lambda: ["mstar", "--socket-path-prefix", f"{sock}/"])
+        got = arm._namespaces(server)
+        fresh_ns = hashlib.sha1(f"{fresh}\0{endpoint}".encode()).hexdigest()[:12]
+        endpoint_only = hashlib.sha1(endpoint.encode()).hexdigest()[:12]
+        assert fresh_ns in got and endpoint_only in got
+        if stale:
+            stale_ns = hashlib.sha1(f"{stale}\0{endpoint}".encode()).hexdigest()[:12]
+            assert stale_ns not in got
+    finally:
+        os.killpg(parent.pid, signal.SIGKILL)
+        parent.wait()
 
 
 def test_the_namespace_follows_the_launch_token_the_server_spawned_its_workers_with(tmp_path, monkeypatch):
