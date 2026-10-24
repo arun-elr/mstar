@@ -1278,7 +1278,7 @@ def test_captured_regions_replay_the_eager_result_on_cuda(model):
             autocast_dtype=None,
             num_slots=1,
         )
-        runner.warmup_and_capture()
+        runner.warmup_and_capture(None)  # no plan: every bucket
         assert runner.any_graphs and not runner.dropped_shapes
         return runner
 
