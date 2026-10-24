@@ -13,6 +13,7 @@ refusal leaves the loaded weights untouched.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -46,13 +47,13 @@ def safetensors_files(path: str | Path) -> list[Path]:
             weight_map = json.loads(index.read_text())["weight_map"]
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise WeightReloadRefusedError(f"unreadable {index.name}: {exc}") from exc
-        root = path.resolve()
         files = []
         for name in sorted(set(weight_map.values())):
-            shard = (path / name).resolve()
-            if not shard.is_relative_to(root):
+            # Checked on the name, not the resolved path: in the Hugging Face
+            # cache every file of a snapshot is a symlink into ``blobs/``.
+            if Path(name).is_absolute() or os.path.normpath(name).split(os.sep)[0] == os.pardir:
                 raise WeightReloadRefusedError(f"{index.name} names {name!r}, outside {path}")
-            files.append(shard)
+            files.append(path / name)
         return files
     single = path / "model.safetensors"
     if single.is_file():
