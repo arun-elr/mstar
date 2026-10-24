@@ -1460,8 +1460,12 @@ class TensorCommunicationManager(ABC):
                     final_ready.setdefault(req_id, []).append(edge)
                     continue
                 # Already-emitted edge re-surfacing (re-delivery / retry): skip
-                # the buffering path and pass through unchanged.
-                if any(info.uuid in seen_uuids for info in edge.tensor_info):
+                # the buffering path and pass through unchanged. Only when
+                # every tensor was: a slice re-pointed to a local uuid
+                # (``_take_cached_read``) can sit beside one reused from an
+                # earlier edge, so the first-read bookkeeping below is per
+                # tensor.
+                if all(info.uuid in seen_uuids for info in edge.tensor_info):
                     final_ready.setdefault(req_id, []).append(edge)
                     continue
 
@@ -1472,7 +1476,7 @@ class TensorCommunicationManager(ABC):
                     per_source: dict[str, list[int]] = {}  # source -> [bytes, count]
                     edge_rx_time = 0.0
                     for info in edge.tensor_info:
-                        if info.source_entity == self.my_entity_id:
+                        if info.source_entity == self.my_entity_id or info.uuid in seen_uuids:
                             continue
                         agg = per_source.setdefault(info.source_entity, [0, 0])
                         agg[0] += info.nbytes
@@ -1501,8 +1505,10 @@ class TensorCommunicationManager(ABC):
 
                 tensors: list[torch.Tensor] = []
                 for info in edge.tensor_info:
-                    self.tensor_store.dereference(info.uuid, 1)
-                    seen_uuids.add(info.uuid)
+                    if info.uuid not in seen_uuids:
+                        # a first read holds a transit ref; a reused one does not
+                        self.tensor_store.dereference(info.uuid, 1)
+                        seen_uuids.add(info.uuid)
                     self.uuid_to_shard_dim[info.uuid] = shard_dim
                     tensors.append(self.get_tensor(info.uuid))
 

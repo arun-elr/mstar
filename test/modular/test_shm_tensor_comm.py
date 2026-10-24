@@ -647,7 +647,7 @@ def test_a_read_that_finishes_early_waits_for_the_ones_started_before_it():
 # Two slices of one producer tensor on one consumer
 # ---------------------------------------------------------------------------
 
-def _two_slice_config() -> ShardingConfig:
+def _two_slice_config(shard_dim: int = 0) -> ShardingConfig:
     """``x`` is sharded on dim 0 from a TP=1 producer into a TP=2 node ``a``
     and a TP=4 group of ``b`` and ``c``, each with its rank 0 on worker_1. So
     worker_1 receives two slices of one producer uuid, rows [0, 2) for ``a``
@@ -659,7 +659,7 @@ def _two_slice_config() -> ShardingConfig:
             ShardingGroup(nodes=["b", "c"], tp_size=4, graph_walks=["w"]),
         ],
         tp_enabled_nodes={"src", "a", "b", "c"},
-        shard_dim={"x": 0},
+        shard_dim={"x": shard_dim},
     )
     tp4 = [f"worker_{i}" for i in range(1, 5)]
     cfg.setup({
@@ -760,6 +760,62 @@ def test_two_slices_of_one_tensor_on_one_worker_do_not_alias(
         assert cons.tensor_store.check_uuid_presence(edge.tensor_info[0].uuid)
         cons.dereference(edge.tensor_info[0].uuid)
     assert cons.tensor_store.get_all_uuids("req1") == []
+
+
+@pytest.mark.parametrize("shard_dim", [0, 1])
+@pytest.mark.parametrize("protocol", [
+    pytest.param(CommProtocol.SHM, id="file"),
+    pytest.param(CommProtocol.TCP, id="mooncake"),
+])
+def test_an_edge_mixing_a_reused_and_a_new_slice_is_read_in_full(
+    tmp_path, monkeypatch, protocol, shard_dim,
+):
+    """``x`` holds a tensor with rows and one with none on the shard dim. On
+    worker_1 the empty one's slice is the same for ``a`` and ``b``, so ``b``
+    reuses it while its other slice is new: that edge holds a reused and a
+    new tensor. The new one still drops its transit ref and gets its layout
+    back."""
+    monkeypatch.setattr(tensors_mod, "TransferEngine", _InProcessTransferEngine)
+    prod = _transport(protocol, "worker_0", str(tmp_path))
+    cons = _transport(protocol, "worker_1", str(tmp_path))
+    cfg = _two_slice_config(shard_dim)
+    for mgr in (prod, cons):
+        mgr.register_request("req1", cfg)
+
+    full = torch.arange(12.0).reshape(4, 3)
+    empty = torch.zeros(0, 3)
+    if shard_dim == 1:
+        full, empty = full.T.contiguous(), empty.T.contiguous()
+    infos = prod.store_and_return_tensor_info(
+        "req1", {"x": [full, empty]}, node_name="src", graph_walk="w",
+    )["x"]
+    edges = [
+        cfg.fanout_graph_edges(
+            GraphEdge(name="x", next_node=node, tensor_info=infos),
+            source_node="src", source_graph_walk="w", dest_graph_walk="w",
+        )["worker_1"]
+        for node in ("a", "b")
+    ]
+    for info in infos:
+        prod.increment_ref(info.uuid, n=len(edges))
+    prod.register_for_send("req1", infos)
+
+    for fut in cons.start_read_tensors("req1", edges, graph_walk="w") or []:
+        fut.result()
+    ready = cons.get_ready_tensors(graph_walk="w")["req1"]
+    got = {e.next_node: [cons.get_tensor(i.uuid) for i in e.tensor_info] for e in ready}
+    rows = (slice(None), slice(0, 2)) if shard_dim else (slice(0, 2),)
+    row = (slice(None), slice(0, 1)) if shard_dim else (slice(0, 1),)
+    assert torch.equal(got["a"][0], full[rows])
+    assert torch.equal(got["b"][0], full[row]), "b's new slice lost its layout"
+    assert got["a"][1].shape == got["b"][1].shape == empty.shape
+    assert [msg.body.successful_tensors for _, msg in cons.communicator.sent] == [
+        {infos[0].uuid: 2, infos[1].uuid: 2}
+    ]
+    for edge in ready:
+        for info in edge.tensor_info:
+            cons.dereference(info.uuid)
+    assert cons.tensor_store.get_all_uuids("req1") == [], "a slice kept its transit ref"
 
 
 # ---------------------------------------------------------------------------
