@@ -353,3 +353,48 @@ def _tolerance(dtype: torch.dtype) -> float:
     # moves a frame by a few hundredths of its ~unit scale after ten guided
     # steps in bf16, and by a few thousandths in float32
     return 0.25 if dtype == torch.bfloat16 else 1e-2
+
+
+# -- turning capture off per deployment --------------------------------------------------
+
+
+def _model(tmp_path, monkeypatch, **kwargs):
+    from mstar.model.cosyvoice3.cosyvoice3_model import CosyVoice3Model
+
+    monkeypatch.setattr(CosyVoice3Model, "_build_text_tokenizer", lambda self: None)
+    return CosyVoice3Model(model_path_hf=str(tmp_path), **kwargs)
+
+
+def test_capture_fields_come_from_model_kwargs(tmp_path, monkeypatch):
+    default = CosyVoice3Config()
+    assert _model(tmp_path, monkeypatch).config.flow_capture_frame_buckets == default.flow_capture_frame_buckets
+    cfg = _model(
+        tmp_path, monkeypatch,
+        flow_capture_frame_buckets=[300, 100, 100, 200.0], flow_capture_batch_sizes=[4, 1, 2],
+        flow_capture_batch_frames=1024,
+    ).config
+    assert cfg.flow_capture_frame_buckets == (100, 200, 300)
+    assert cfg.flow_capture_batch_sizes == (1, 2, 4) and cfg.flow_capture_batch_frames == 1024
+    for bad in ({"flow_capture_frame_buckets": [0]}, {"flow_capture_frame_buckets": "100"},
+                {"flow_capture_batch_sizes": [1.5]}, {"flow_capture_batch_frames": -1}):
+        with pytest.raises(ValueError, match="flow_capture"):
+            _model(tmp_path, monkeypatch, **bad)
+
+
+@pytest.mark.parametrize("kwargs", [{"flow_capture_frame_buckets": []}, {"flow_capture_batch_frames": 0}],
+                         ids=["no-buckets", "no-frame-budget"])
+def test_a_deployment_can_turn_capture_off(tmp_path, monkeypatch, kwargs):
+    """No region is captured, and a solve that the default would replay runs
+    eagerly to the same mel."""
+    model_cfg = _model(tmp_path, monkeypatch, **kwargs).config
+    on_cfg = _config()
+    off_cfg = _config(flow_capture_frame_buckets=model_cfg.flow_capture_frame_buckets,
+                      flow_capture_batch_frames=model_cfg.flow_capture_batch_frames)
+    on, off = FlowSubmodule(_flow(on_cfg), None, on_cfg), FlowSubmodule(_flow(off_cfg), None, off_cfg)
+    cases = [(_voice(on_cfg, 10), _tokens(20, 0), True)]
+    on_runners, off_runners = _runners(on, monkeypatch), _runners(off, monkeypatch)
+    assert off_runners == {} and list(on_runners)
+    calls = _replays(on_runners, monkeypatch)
+    replayed = _solve(on, cases, on_runners)
+    assert calls == [(flow_region(64), 1)]
+    torch.testing.assert_close(_solve(off, cases, off_runners)[0], replayed[0], rtol=0, atol=1e-10)
