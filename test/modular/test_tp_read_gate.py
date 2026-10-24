@@ -16,6 +16,7 @@ the test says. Messages between the ranks go through the wire codec.
 from concurrent.futures import Future
 from types import SimpleNamespace
 
+import pytest
 import torch
 from test_failed_tensor_read import _read, _shm_manager
 from test_micro_scheduler import NODE, WALK, _Engine, _Manager
@@ -33,6 +34,7 @@ from mstar.utils.ipc_format import (
     DrainRequest,
     MessageSource,
     OffloadDelta,
+    ReadsLanded,
     RemoveRequest,
     WorkerMessageType,
 )
@@ -51,10 +53,11 @@ def _info(stream_buffers_by_consumer=None):
     )
 
 
-def _rank(worker_id, rids, tensor_manager, consumes=None):
-    """Instance rank ``WORKERS.index(worker_id)`` of a TP=2 instance of NODE.
-    ``consumes[rid]`` lists the (signal, uuids) a popped row of ``rid`` takes."""
-    leader = worker_id == WORKERS[0]
+def _rank(worker_id, rids, tensor_manager, consumes=None, workers=WORKERS):
+    """Instance rank ``workers.index(worker_id)`` of a TP instance of NODE on
+    ``workers``. ``consumes[rid]`` lists the (signal, uuids) a popped row of
+    ``rid`` takes."""
+    leader = worker_id == workers[0]
     manager = _Manager(rids)
     manager.per_request_info = {r: _info() for r in rids}
     if consumes is not None:
@@ -88,7 +91,7 @@ def _rank(worker_id, rids, tensor_manager, consumes=None):
         send=lambda dest, msg=None: w.sent.append((dest, decode(encode(msg)))),
     )
     group = SimpleNamespace(
-        nodes={NODE}, tp_size=2, _tp_rank=WORKERS.index(worker_id), _workers=WORKERS,
+        nodes={NODE}, tp_size=len(workers), _tp_rank=workers.index(worker_id), _workers=workers,
     )
     sharding = SimpleNamespace(groups=[group], get_sharding_group=lambda n, g: group)
 
@@ -565,3 +568,195 @@ def test_removing_a_request_this_rank_never_admitted_drops_its_reports():
     )]
     leader._remove_request(RemoveRequest(request_id="r9"))
     assert "r9" not in leader._unprocessed_messages and "r9" in leader._removed_rids
+
+
+@pytest.mark.parametrize("config", sorted(
+    p.name for p in __import__("pathlib").Path("configs").glob("*.yaml")
+    if "sp_size" in p.read_text()
+))
+def test_every_rank_of_an_sp_instance_gets_every_input_it_is_gated_on(config):
+    """The gate holds a row until each follower counted as many deliveries of
+    an input as rank 0 numbered, so a follower whose share of an input had no
+    tensor would hold the row for good. On every shipped SP layout the
+    lockstep node's inputs are replicated: each rank, rank 0 included, gets
+    every delivery, from the API server and from every producer."""
+    import yaml
+
+    from mstar.distributed.base import ShardingConfig
+    from mstar.model.cosmos3.cosmos3_model import Cosmos3Model
+    from mstar.model.registry import MODEL_REGISTRY
+
+    spec = yaml.safe_load(open(f"configs/{config}"))
+    module, name = MODEL_REGISTRY[spec["model"]]
+    cls = getattr(__import__(module, fromlist=[name]), name)
+    assert issubclass(cls, Cosmos3Model)  # the only SP model; extend the walks stub for another
+    walks = _walks(cls).get_graph_walk_graphs()
+    placement = _placement(config)
+    (lockstep,) = [n for g in spec["node_groups"] if g.get("sp_size", 1) > 1 for n in g["node_names"]]
+    instance = placement[lockstep]
+    sharding: ShardingConfig = cls.get_sharding_config(cls.__new__(cls), f"configs/{config}")
+    sharding.setup({
+        NodeAndGraphWalk(node, walk): placement[node]
+        for walk, section in walks.items() for node in section.get_nodes()
+    })
+    checked = 0
+    for walk, section in walks.items():
+        nodes = section.get_nodes()
+        if lockstep not in nodes:
+            continue
+        group = sharding.get_sharding_group(lockstep, walk)
+        assert group._workers == instance and len(instance) > 1
+        sources = [(None, name) for name in nodes[lockstep].input_names]
+        sources += [
+            (node.name, edge.name) for node in nodes.values()
+            for edge in getattr(node, "outputs", None) or ()
+            if edge.next_node == lockstep and node.name != lockstep
+        ]
+        for source, signal in sources:
+            src = sharding.get_sharding_group(source, walk) if source else None
+            got = set()
+            for rank in range(src.tp_size if src else 1):
+                for dest in sharding.compute_fanout(
+                    signal, walk, source or "api_server", lockstep, [8], walk,
+                    source_tp_rank=rank if src else None,
+                ):
+                    if dest.full_tensor or dest.end_idxs[0] > dest.start_idxs[0]:
+                        got.add(dest.worker)
+            assert got == set(instance), (walk, source, signal, got)
+            checked += 1
+    # a persisted output (vae_encoder's cond_latents) re-enters a later walk
+    # as the lockstep node's input, fanned out from the worker that kept it
+    for pwalk, psection in walks.items():
+        for node in psection.get_nodes().values():
+            for edge in getattr(node, "outputs", None) or ():
+                if not edge.persist or node.name == lockstep:
+                    continue
+                for walk, section in walks.items():
+                    nodes = section.get_nodes()
+                    if lockstep not in nodes or edge.name not in nodes[lockstep].input_names:
+                        continue
+                    got = {
+                        dest.worker for dest in sharding.compute_fanout(
+                            edge.name, pwalk, node.name, lockstep, [8], walk,
+                        ) if dest.full_tensor
+                    }
+                    assert got == set(instance), (pwalk, node.name, edge.name, walk, got)
+                    checked += 1
+    assert checked
+
+
+def test_at_tp4_a_row_waits_for_every_follower_and_one_failed_read_holds_only_it(tmp_path):
+    """Three followers: rank 0 runs r0 only once all three reported it. w3's
+    read of r1 fails, so r1 never runs, though w1 and w2 reported theirs."""
+    workers = ["w0", "w1", "w2", "w3"]
+    leader_tm, _ = _shm_manager(tmp_path / "w0")
+    leader, leader_mgr = _rank(
+        "w0", ["r0", "r1"], leader_tm, workers=workers,
+        consumes={"r0": [(GRID, [10])], "r1": [(GRID, [11])]},
+    )
+    leader_tm.pending = [
+        _reading(leader_tm, rid, _grid_edge(uuid), _landed())
+        for rid, uuid in (("r0", 10), ("r1", 11))
+    ]
+    leader._check_ready_tensors()
+    followers, reads = {}, {}
+    for k, w in enumerate(workers[1:]):
+        tm, _comm = _shm_manager(tmp_path / w)
+        followers[w], mgr = _rank(w, ["r0", "r1"], tm, workers=workers)
+        mgr.queues["wg0"]._ready = {}
+        reads[w] = {"r0": Future(), "r1": Future()}
+        tm.pending = [
+            _reading(tm, rid, _grid_edge(100 * (k + 1) + i), reads[w][rid])
+            for i, rid in enumerate(("r0", "r1"))
+        ]
+
+    def land(w, rid, error=None):
+        if error is None:
+            reads[w][rid].set_result(None)
+        else:
+            reads[w][rid].set_exception(error)
+        followers[w]._check_ready_tensors()
+        return _deliver(followers[w], leader, WorkerMessageType.READS_LANDED)
+
+    for w in ("w1", "w2"):
+        assert [m.body.request_id for m in land(w, "r0")] == ["r0"]
+        assert [m.body.request_id for m in land(w, "r1")] == ["r1"]
+    assert leader.scheduler.get_next_batch(leader_mgr) is None  # w3 has neither
+    assert [m.body.request_id for m in land("w3", "r0")] == ["r0"]
+    assert _rows(leader.scheduler.get_next_batch(leader_mgr)) == ["r0"]
+    assert land("w3", "r1", RuntimeError("Mooncake read failed. Status: -1")) == []
+    assert [list(m.body.errors) for d, m in followers["w3"].sent if d == "conductor"
+            and m.message_type == ConductorMessageType.FAIL_REQUESTS] == [["r1"]]
+    assert leader.scheduler.get_next_batch(leader_mgr) is None
+
+
+def test_a_report_parked_before_new_request_counts_once_it_is_replayed(tmp_path):
+    """The follower's report can reach rank 0 before rank 0's NEW_REQUEST: it
+    is parked under the wire id and replayed with the request, so the row
+    does not wait for a second report."""
+    leader, leader_mgr, follower, _follower_mgr, reads = _pair(tmp_path)
+    reads["r0"].set_result(None)
+    follower._check_ready_tensors()
+    (report,) = _taken(follower, "w0", WorkerMessageType.READS_LANDED)
+    info = leader_mgr.per_request_info.pop("r0")  # rank 0 has not admitted r0 yet
+    leader._process_message_list([report])
+    assert leader._unprocessed_messages["r0"] == [report]
+    assert leader._read_gate._counts.get("r0") is None
+    leader_mgr.per_request_info["r0"] = info
+    leader._process_unprocessed("r0")  # what _add_new_request does last
+    assert "r0" not in leader._unprocessed_messages
+    assert _rows(leader.scheduler.get_next_batch(leader_mgr)) == ["r0"]
+
+
+class _PastTheGateError(Exception):
+    pass
+
+
+def _speculating_leader(prepped_uuid):
+    """Rank 0 about to continue r0 speculatively, with prep handing back r0's
+    row with ``prepped_uuid`` on the grid edge. Past the gate's check the
+    speculation raises _PastTheGateError; a dropped one records its commit."""
+    leader, _ = _rank("w0", ["r0"], SimpleNamespace(
+        has_inflight_reads=lambda r: False, get_tensor=None,
+    ))
+    commits = []
+    block = ColumnarEdgeSpecs.empty()
+    block.add("r0", GRID, [prepped_uuid], False)
+
+    def to_input_tensors(*a, **k):
+        raise _PastTheGateError
+
+    block.to_input_tensors = to_input_tensors
+    leader._graph_runtime.prep_spec_rids = lambda inp: SimpleNamespace(
+        spec_id=7, ready_rids=list(inp.rids), input_edges=block, consumed_streaming_edge_idxs=[],
+    )
+    leader._graph_runtime.commit_speculation = lambda sid, ok, rids: commits.append((sid, ok, rids))
+    leader.scheduler.backlog_splits_from = lambda *a: False
+    leader.scheduler.room_for_continuing = lambda t: None
+    leader._is_tearing_down = lambda r: False
+    leader._streams_possible = lambda: False
+    pending = SimpleNamespace(batch=SimpleNamespace(node_name=NODE))
+    target = SimpleNamespace(node_name=NODE, graph_walk=WALK)
+    return leader, commits, lambda: leader._try_speculate_next(pending, (target, ["r0"]))
+
+
+def test_a_speculation_that_would_continue_a_row_ahead_of_a_followers_read_is_dropped():
+    leader, commits, speculate = _speculating_leader(10)
+    leader._read_gate.external("r0", [10])  # rank 0 read it; the follower has not reported
+    assert speculate() is None
+    assert commits == [(7, False, ["r0"])]
+
+
+def test_a_speculation_continues_a_row_once_the_follower_reported_its_input():
+    leader, commits, speculate = _speculating_leader(10)
+    leader._read_gate.external("r0", [10])
+    leader._record_follower_reads(ReadsLanded(
+        request_id="r0", follower="w1", counts={GRID: 1}, stream_items={},
+    ))
+    try:
+        speculate()
+    except _PastTheGateError:
+        pass
+    else:
+        raise AssertionError("the speculation stopped before the gate let it through")
+    assert commits == []
