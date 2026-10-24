@@ -27,6 +27,7 @@ from mstar.engine.resources.step import StepContext
 from mstar.graph.base import GraphEdge, NodeAndGraphWalk, TensorPointerInfo
 from mstar.graph.runtime.base import ColumnarEdgeSpecs
 from mstar.streaming.stream_buffer import StreamChunkInfo
+from mstar.utils.containers import RecentSet
 from mstar.utils.ipc_format import (
     ConductorMessageType,
     DrainRequest,
@@ -37,7 +38,7 @@ from mstar.utils.ipc_format import (
 )
 from mstar.worker.micro_scheduler import MicroScheduler
 from mstar.worker.read_gate import FollowerReadGate
-from mstar.worker.worker import Worker
+from mstar.worker.worker import _REMOVED_RIDS_KEEP, Worker
 
 WORKERS = ["w0", "w1"]
 GRID = "image_grid_thw"
@@ -114,6 +115,7 @@ def _rank(worker_id, rids, tensor_manager, consumes=None):
     w._unprocessed_messages = {}
     w._in_flight_rids, w._pending_drains = set(), set()
     w._draining_rids, w._reads_done_sent = set(), set()
+    w._removed_rids = RecentSet(_REMOVED_RIDS_KEEP)
     w._setup_read_gate()
     return w, manager
 
@@ -446,14 +448,14 @@ def test_a_removed_requests_late_report_is_dropped_not_parked(tmp_path):
     leader._unprocessed_messages["r9"] = [SimpleNamespace(
         message_type=WorkerMessageType.READS_LANDED, body=SimpleNamespace(request_id="r9"),
     )]
-    leader._forget_follower_reports("r9")
-    assert leader._unprocessed_messages["r9"] == []
+    leader._mark_removed("r9")
+    assert "r9" not in leader._unprocessed_messages
     reads["r0"].set_result(None)
     follower._check_ready_tensors()
     (late,) = _taken(follower, "w0", WorkerMessageType.READS_LANDED)
     late.body.request_id = "r9"
     leader._process_message_list([late])
-    assert leader._unprocessed_messages["r9"] == []
+    assert "r9" not in leader._unprocessed_messages
 
 
 
@@ -562,4 +564,4 @@ def test_removing_a_request_this_rank_never_admitted_drops_its_reports():
         message_type=WorkerMessageType.READS_LANDED, body=SimpleNamespace(request_id="r9"),
     )]
     leader._remove_request(RemoveRequest(request_id="r9"))
-    assert leader._unprocessed_messages["r9"] == [] and "r9" in leader._gate_removed
+    assert "r9" not in leader._unprocessed_messages and "r9" in leader._removed_rids
