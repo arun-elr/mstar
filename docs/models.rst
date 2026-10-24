@@ -366,7 +366,10 @@ CosyVoice3 notes
   sentence pieces, as the reference frontend does: about 80 tokens (320
   characters) of English, or 80 characters of text with Chinese, each piece
   cloning the same voice. In one request the LM ends long text early or
-  garbles its end. ``sentence_chunking: false`` sends the text whole.
+  garbles its end. A Chinese sentence over 300 characters, which the
+  reference keeps whole, is also cut at its commas, so that each piece stays
+  under the LM's 512 tokens of transcript and text.
+  ``sentence_chunking: false`` sends the text whole.
 - Japanese written in kana alone, with spaces between words, is read poorly,
   as it is by the official model: in tests both garbled common words such as
   ゆっくり and ありがとうございました on every seed.
