@@ -818,6 +818,74 @@ def test_an_edge_mixing_a_reused_and_a_new_slice_is_read_in_full(
     assert cons.tensor_store.get_all_uuids("req1") == [], "a slice kept its transit ref"
 
 
+@pytest.mark.parametrize("protocol", [
+    pytest.param(CommProtocol.SHM, id="file"),
+    pytest.param(CommProtocol.TCP, id="mooncake"),
+])
+def test_a_slice_does_not_join_another_nodes_gather(tmp_path, monkeypatch, protocol):
+    """``x`` goes from a TP=2 producer to ``g`` (TP=1, gathers both ranks'
+    shards) and to ``s`` (TP=4, takes a slice of rank 0's), both on
+    worker_1. ``s``'s slice arrives while ``g``'s gather waits for rank 1,
+    and must not be counted as one of ``g``'s shards."""
+    monkeypatch.setattr(tensors_mod, "TransferEngine", _InProcessTransferEngine)
+
+    def config(src_rank=None):
+        cfg = ShardingConfig(
+            groups=[
+                ShardingGroup(nodes=["src"], tp_size=2, graph_walks=["w"], _tp_rank=src_rank),
+                ShardingGroup(nodes=["g"], tp_size=1, graph_walks=["w"]),
+                ShardingGroup(nodes=["s"], tp_size=4, graph_walks=["w"]),
+            ],
+            tp_enabled_nodes={"src", "g", "s"},
+            shard_dim={"x": 0},
+        )
+        cfg.setup({
+            NodeAndGraphWalk("src", "w"): ["worker_0", "worker_5"],
+            NodeAndGraphWalk("g", "w"): ["worker_1"],
+            NodeAndGraphWalk("s", "w"): [f"worker_{i}" for i in range(1, 5)],
+        })
+        return cfg
+
+    cfg = config()
+    prods = [_transport(protocol, w, str(tmp_path)) for w in ("worker_0", "worker_5")]
+    cons = _transport(protocol, "worker_1", str(tmp_path))
+    for rank, prod in enumerate(prods):
+        prod.register_request("req1", config(rank))
+    cons.register_request("req1", cfg)
+
+    x = torch.arange(12.0).reshape(4, 3)
+    infos = []
+    for rank, prod in enumerate(prods):
+        (info,) = prod.store_and_return_tensor_info(
+            "req1", {"x": [x[2 * rank:2 * rank + 2].clone()]},
+            node_name="src", graph_walk="w",
+        )["x"]
+        infos.append(info)
+
+    def edge(node, rank):
+        return cfg.fanout_graph_edges(
+            GraphEdge(name="x", next_node=node, tensor_info=[infos[rank]]),
+            source_node="src", source_graph_walk="w", dest_graph_walk="w",
+            source_tp_rank=rank,
+        )["worker_1"]
+
+    order = [edge("g", 0), edge("s", 0), edge("g", 1)]
+    prods[0].increment_ref(infos[0].uuid, n=2)
+    prods[1].increment_ref(infos[1].uuid, n=1)
+    for prod, info in zip(prods, infos, strict=True):
+        prod.register_for_send("req1", [info])
+
+    for fut in cons.start_read_tensors("req1", order, graph_walk="w") or []:
+        fut.result()
+    ready = cons.get_ready_tensors(graph_walk="w")["req1"]
+    got = {e.next_node: cons.get_tensor(e.tensor_info[0].uuid) for e in ready}
+    assert torch.equal(got["s"], x[:1])
+    assert torch.equal(got["g"], x)
+    for e in ready:
+        cons.dereference(e.tensor_info[0].uuid)
+    assert cons.tensor_store.get_all_uuids("req1") == []
+
+
 # ---------------------------------------------------------------------------
 # Factory tests
 # ---------------------------------------------------------------------------

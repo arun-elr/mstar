@@ -553,8 +553,10 @@ class TensorCommunicationManager(ABC):
 
         # req_id -> cfg
         self.sharding_configs: dict[Rid, ShardingConfig] = {}
-        # req_id -> {name -> shards}
-        self.buffered_shards: dict[Rid, dict[str, BufferedShards]] = {}
+        # req_id -> {(name, consumer node) -> shards}: two nodes on this
+        # worker can gather the same signal, or one gather it while the other
+        # takes its slice whole
+        self.buffered_shards: dict[Rid, dict[tuple[str, str], BufferedShards]] = {}
         self.uuid_to_shard_dim: dict[int, int | None] = {}
         self._flat_copy_stream: torch.cuda.Stream | None = None
         self._flat_copy_pending = False
@@ -1495,10 +1497,11 @@ class TensorCommunicationManager(ABC):
                         )
 
                 shard_dim = edge._shard_dim
-                if edge.name not in self.buffered_shards.get(req_id, {}):
+                buf_key = (edge.name, edge.next_node)
+                if buf_key not in self.buffered_shards.get(req_id, {}):
                     total_fanin = edge._total_fanin
                     if total_fanin > 1:
-                        self.buffered_shards[req_id][edge.name] = BufferedShards(
+                        self.buffered_shards[req_id][buf_key] = BufferedShards(
                             total_fanin=total_fanin, shard_dim=shard_dim,
                             shards={},
                         )
@@ -1512,8 +1515,8 @@ class TensorCommunicationManager(ABC):
                     self.uuid_to_shard_dim[info.uuid] = shard_dim
                     tensors.append(self.get_tensor(info.uuid))
 
-                if edge.name in self.buffered_shards.get(req_id, {}):
-                    buf = self.buffered_shards[req_id][edge.name]
+                if buf_key in self.buffered_shards.get(req_id, {}):
+                    buf = self.buffered_shards[req_id][buf_key]
                     buf.shards.setdefault(
                         edge.tensor_info[0].source_tp_rank, []
                     ).extend(tensors)
@@ -1549,7 +1552,7 @@ class TensorCommunicationManager(ABC):
                             self.uuid_to_shard_dim[uuid_] = None
                             new_infos.append(info)
                         edge.tensor_info = new_infos
-                        del self.buffered_shards[req_id][edge.name]
+                        del self.buffered_shards[req_id][buf_key]
                         final_ready.setdefault(req_id, []).append(edge)
                     # else: still waiting on more shards; don't emit yet
                 else:
