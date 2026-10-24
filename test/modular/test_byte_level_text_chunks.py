@@ -116,6 +116,45 @@ def test_joined_bytes_equal_one_decode_for_any_ids(tokenizer):
         assert b"".join(_per_step(detok, ids)).decode("utf-8", "replace") == expected, ids
 
 
+def test_an_added_token_that_decode_writes_as_is_stays_as_is(fast_tokenizer, tmp_path):
+    """transformers 4.x slow tokenizers (BAGEL's) decode a non-special added
+    token as written. "«é»" is all byte-alphabet characters, so the byte map
+    would turn it into U+FFFD. 5.x maps it like the fast tokenizer does, so
+    this emulates 4.x's ``_decode`` on top of BAGEL's tokenizer."""
+    pytest.importorskip("regex")
+    from mstar.model.bagel.components.tokenization import BagelTokenizer, add_special_tokens
+
+    fast_tokenizer.backend_tokenizer.model.save(str(tmp_path))
+    tok = BagelTokenizer(str(tmp_path / "vocab.json"), str(tmp_path / "merges.txt"))
+    tok.add_tokens(["«é»", "<think>"])
+    tok = add_special_tokens(tok)[0]
+    added = set(tok.added_tokens_encoder) - set(tok.all_special_tokens)
+    byte_map_decode = tok.decode
+
+    def legacy_decode(ids, **kwargs):
+        text, run = "", []
+        for i in ids:
+            token = tok.convert_ids_to_tokens(i)
+            if token in added:
+                text += (byte_map_decode(run) if run else "") + token
+                run = []
+            else:
+                run.append(i)
+        return text + (byte_map_decode(run) if run else "")
+
+    tok.decode = legacy_decode
+    ids = _ids(tok, "猫 «é» café<think>")
+    assert tok.convert_tokens_to_ids("«é»") in ids
+    assert legacy_decode(ids) == "猫 «é» café<think>"
+    detok = TextChunkDetokenizer(tok)
+    assert b"".join(_per_step(detok, ids)).decode() == legacy_decode(ids)
+    # the tokenizer's own decode: 5.x maps "«é»" through the bytes, 4.x does not
+    tok.decode = byte_map_decode
+    i = tok.convert_tokens_to_ids("«é»")
+    as_is = {i: "«é»".encode()} if byte_map_decode([i]) == "«é»" else {}
+    assert TextChunkDetokenizer(tok)._bytes.verbatim == as_is
+
+
 def test_a_tokenizer_that_is_not_byte_level_keeps_decode():
     class SentencePieceLike:
         def decode(self, ids):
