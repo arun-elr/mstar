@@ -1580,9 +1580,13 @@ class Worker:
             self.scheduler.read_failed_rids.update(
                 f.request_id for f in failed_reads if f.request_id in self.request_state.per_request_info
             )
-            # reported once per request
+            # reported once per request; the tensor manager logged the read's
+            # error where it failed
             failed = {
-                f.request_id: f"Error in worker: input tensor read failed: {type(f.error).__name__}: {f.error}"
+                f.request_id: "Error in worker: input tensor read failed: " + client_error_text(
+                    f.error, f"Worker {self.worker_id}: input tensor read of request {f.request_id} failed",
+                    log=logger, traceback=False,
+                )[0]
                 for f in failed_reads
                 if f.request_id not in self.scheduler.failed_rids
             }
