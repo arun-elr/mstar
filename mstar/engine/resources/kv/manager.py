@@ -678,6 +678,9 @@ class KVManager(AttentionResource):
         self._index = PrefixIndex(self._arena)
         return True
 
+    def drop_weight_derived_state(self, salt: str) -> int:
+        return self.drop_prefix_cache(salt)
+
     def drop_prefix_cache(self, salt: str) -> int:
         """Forget every cached page and hang later keys from a root salted with
         ``salt``, for weights reloaded in place: a page computed under the old

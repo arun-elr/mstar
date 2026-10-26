@@ -5,6 +5,7 @@ States, and what moves between them::
     serving --pause--> draining --no request left--> quiescing --every rank idle--> paused
     paused --update--> preparing --every rank checked--> applying --every rank copied--> paused
     paused --continue--> verifying --every rank on the committed version--> serving
+    draining --continue--> serving
 
 Any state but ``serving`` refuses new requests (the conductor answers them with a
 503). ``pause`` with mode ``abort`` also fails the requests in flight; ``wait`` lets
@@ -20,6 +21,12 @@ label reused for other weights, or an apply that never ran on a rank or ran afte
 its step timed out, keeps the deployment paused. A pause that arrives while that
 check is still running waits for the ranks to answer, and the deployment stays
 paused.
+
+``continue`` while still draining cancels the pause: no rank has been asked
+anything yet, so generation goes straight back to serving. Each pause still
+waiting gets a 409 saying it was cancelled, and the continue gets a 200.
+Requests a pause in abort mode already failed stay failed. Once the ranks are
+being asked to confirm idle, ``continue`` gets a 409 until the pause lands.
 
 A rank that does not answer within ``timeout_s`` fails the step it was in. Its late
 answer is ignored: each step carries its own epoch.
@@ -179,6 +186,15 @@ class GenerationControl:
 
     def resume(self, body: ContinueGeneration) -> None:
         if self.state is GenerationState.SERVING:
+            self._answer(body.op_id, 200)
+            return
+        if self.state is GenerationState.DRAINING:
+            # no rank has been asked anything yet, so nothing needs checking
+            logger.info("Continue while draining; cancelling the pause")
+            self.state = GenerationState.SERVING
+            self.mode = None
+            self._quiesced = False
+            self._answer_pause(409, "pause cancelled by continue before generation paused")
             self._answer(body.op_id, 200)
             return
         if self.state is not GenerationState.PAUSED:
