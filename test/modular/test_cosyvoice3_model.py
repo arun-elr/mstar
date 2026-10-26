@@ -1112,11 +1112,11 @@ def test_process_prompt_lays_out_the_rows_the_lm_prefill_writes(model, kwargs, w
 
 def test_kv_labels_pass_the_load_checks_and_the_longest_request_fits(model):
     from mstar.engine.resources.kv.config import refuse_undeclared_labels
-    from mstar.worker.engine_manager import _refuse_undeclared_pools, _refuse_unknown_walks
+    from mstar.validation.resources import _undeclared_pools, _unknown_prefix_walks
 
     specs = model.get_node_resources()
-    _refuse_unknown_walks(model)
-    _refuse_undeclared_pools(specs, model)
+    assert list(_unknown_prefix_walks(model)) == []
+    assert list(_undeclared_pools(specs, model)) == []
 
     text = " ".join(["w"] * 400)
     kwargs = {"ref_text": " ".join(["r"] * (model.config.max_text_tokens - 400 - 10)), "ignore_eos": True}
