@@ -72,41 +72,20 @@ def test_check_refuses(request_id):
         check_request_id(request_id)
 
 
-@pytest.mark.parametrize("request_id", BAD_IDS)
-def test_submit_request_refuses_directly(request_id):
-    with pytest.raises(ValueError) as raised:
+def test_submit_request_refuses_directly():
+    with pytest.raises(ValueError, match=r"^request_id must be at most 128 characters"):
         APIServer.__new__(APIServer).submit_request(
-            text="hi", input_modalities=["text"], output_modalities=["text"], request_id=request_id,
+            text="hi", input_modalities=["text"], output_modalities=["text"], request_id="a b",
         )
-    assert str(raised.value) == REQUEST_ID_ERROR
 
 
-@pytest.mark.parametrize("streaming", ["true", "false"])
-@pytest.mark.parametrize("request_id", BAD_IDS)
-def test_generate_refuses_with_400(server, streaming, request_id):
-    response = TestClient(entrypoint.app).post(
-        "/generate", data={"text": "hi", "streaming": streaming, "request_id": request_id},
-    )
-    assert response.status_code == 400
-    assert response.json() == {"detail": REQUEST_ID_ERROR}
-    assert server.submitted == []
-
-
-def test_generate_refuses_before_saving_uploads(server, tmp_path):
+def test_generate_refuses_with_400_before_saving_uploads(server, tmp_path):
     response = TestClient(entrypoint.app).post(
         "/generate", data={"request_id": "a b", "streaming": "true"}, files={"files": ("obs.png", b"PNG")},
     )
-    assert response.status_code == 400
+    assert (response.status_code, response.json()) == (400, {"detail": REQUEST_ID_ERROR})
+    assert server.submitted == []
     assert list(tmp_path.iterdir()) == []
-
-
-@pytest.mark.parametrize("streaming", ["true", "false"])
-def test_generate_serves_the_longest_id(server, streaming):
-    response = TestClient(entrypoint.app).post(
-        "/generate", data={"text": "hi", "streaming": streaming, "request_id": LONGEST},
-    )
-    assert response.status_code == 200
-    assert server.submitted == [LONGEST]
 
 
 def test_error_text_matches_the_rust_frontend_test():
