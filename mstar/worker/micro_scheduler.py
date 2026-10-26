@@ -2,7 +2,7 @@ import functools
 import logging
 import time
 from collections import Counter, defaultdict, deque
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, NamedTuple
@@ -286,6 +286,8 @@ class MicroScheduler:
         # (node, graph walk) -> most rows the KV pool can hold at once even
         # with nothing else resident; see `cap_batch`
         self.batch_ceilings: dict[tuple[str, str], int] = {}
+        # (node, graph walk) -> the resource whose refusal set its cap, if named
+        self.ceiling_resources: dict[tuple[str, str], str | None] = {}
         # Rids with a deferred remove; stop initiating new work for them.
         # Shared by reference with Worker._pending_removes.
         self.pending_removes: dict[int, None] = {}
@@ -402,19 +404,38 @@ class MicroScheduler:
             for rid in spec.rids
         )
 
-    def cap_batch(self, node_name: str, graph_walk: str, rows: int) -> None:
+    def cap_batch(
+        self, node_name: str, graph_walk: str, rows: int, resource: str | None = None,
+    ) -> None:
         """Keep ``(node_name, graph_walk)``'s batches to ``rows`` (at least
-        one), the most its KV pool holds even with nothing else resident.
+        one), the most the KV pool ``resource`` holds even with nothing else
+        resident.
 
         Unlike `limit_batch`, a step that admits at this size does not lift it:
         the next full batch could never fit either, so it would be refused,
         and with a victim to evict, evict one for nothing, on every other
         step. Lifted by a step that admits fewer rows than the cap, where the
-        queue no longer fills it and the next batch may be of smaller rows.
+        queue no longer fills it and the next batch may be of smaller rows,
+        or by a teardown that hands pages of ``resource`` back (see
+        `lift_batch_caps`).
         """
         key = (node_name, graph_walk)
         cap = max(rows, 1)
-        self.batch_ceilings[key] = min(cap, self.batch_ceilings.get(key, cap))
+        if cap <= self.batch_ceilings.get(key, cap):
+            self.batch_ceilings[key] = cap
+            self.ceiling_resources[key] = resource
+
+    def lift_batch_caps(self, resources: Collection[str]) -> None:
+        """A teardown handed pages of ``resources`` back: lift the `cap_batch`
+        caps their refusals set, and a cap whose refusal named no resource.
+
+        A cap is sized from the rows refused then. On a busy walk every step
+        is at the cap, so a smaller step never comes to lift it, and it would
+        outlast the rows that set it.
+        """
+        for key, resource in list(self.ceiling_resources.items()):
+            if resource is None or resource in resources:
+                del self.batch_ceilings[key], self.ceiling_resources[key]
 
     def clear_batch_limit(
         self, node_name: str, graph_walk: str, rows: int, walks: Iterable[str] = (),
@@ -438,7 +459,7 @@ class MicroScheduler:
             limit = self.batch_limits.pop(key, None)
             ceiling = self.batch_ceilings.get(key)
             if ceiling is not None and rows < min(ceiling, limit or ceiling):
-                del self.batch_ceilings[key]
+                del self.batch_ceilings[key], self.ceiling_resources[key]
         for walk in walks:
             if walk != graph_walk:
                 self.batch_limits.pop((node_name, walk), None)

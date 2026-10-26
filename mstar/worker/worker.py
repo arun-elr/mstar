@@ -1015,7 +1015,9 @@ class Worker:
         # on the abort/fail path via a prior DrainRequest, on the happy path
         # once the api server finished reading the outputs.
         self._mark_removed(body.request_id)
-        self.engine_manager.remove_request(request_id)
+        freed = self.engine_manager.remove_request(request_id)
+        if freed:
+            self.scheduler.lift_batch_caps(freed)
         if self._lockstep_led:
             self._lockstep_unread.pop(request_id, None)
         if self._stream_buffer_rids:
@@ -2531,7 +2533,7 @@ class Worker:
             if too_big and self.scheduler.could_refill(
                 batch.node_name, batch.graph_walk, batch_ids,
             ):
-                self.scheduler.cap_batch(batch.node_name, batch.graph_walk, alone)
+                self.scheduler.cap_batch(batch.node_name, batch.graph_walk, alone, failed)
             logger.warning(
                 "OOM on node=%s walk=%s: offloaded victim=%s, "
                 "retrying %d remaining requests",
@@ -2553,7 +2555,7 @@ class Worker:
             self.scheduler.hold_requests(shed)
             if self.scheduler.could_refill(batch.node_name, batch.graph_walk, batch_ids):
                 if too_big:
-                    self.scheduler.cap_batch(batch.node_name, batch.graph_walk, alone)
+                    self.scheduler.cap_batch(batch.node_name, batch.graph_walk, alone, failed)
                 fit = getattr(reason, "rows_fit", None)
                 self.scheduler.limit_batch(
                     batch.node_name, batch.graph_walk,

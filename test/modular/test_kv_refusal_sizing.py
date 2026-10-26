@@ -16,12 +16,22 @@ sys.path.insert(0, ".")
 
 import pytest
 import torch
-from test_admit_failure_handling import _NO_LIMITS, SCHED_NODE, SCHED_WALK, _EvictingWorker
+from test_admit_failure_handling import (
+    _NO_LIMITS,
+    SCHED_NODE,
+    SCHED_WALK,
+    _EvictingWorker,
+    _SchedEngine,
+)
+from test_micro_scheduler import _Manager, _next_batch, _scheduler
+from test_worker_drain import _worker as _teardown_worker
 
+from mstar.engine.engine import Engine
 from mstar.engine.resources.kv import manager as manager_mod
 from mstar.engine.resources.kv.config import KVStep, PagedKVConfig
 from mstar.engine.resources.kv.manager import KVManager
 from mstar.engine.resources.step import AdmitRuntimeError, AllocationFailed, Segment, StepContext
+from mstar.utils.ipc_format import RemoveRequest
 from mstar.worker.micro_scheduler import ScheduledBatch
 from mstar.worker.worker import Worker
 
@@ -320,3 +330,99 @@ def test_a_row_the_cache_served_does_not_make_a_batch_too_big_alone():
 
     assert worker.offloaded == ["decoder"], "the request holding pages was not evicted"
     assert worker.failed == {}
+
+
+# --- a teardown that hands pages back lifts a cap ---------------------------
+
+
+def _engine_manager(**pools: KVManager) -> SimpleNamespace:
+    """The worker's engine manager over the real ``Engine.remove_request``,
+    with these KV pools as the engine's resources."""
+    engine = SimpleNamespace(
+        _loopback_steps={}, _resources=pools, _submodules={},
+        _runner=SimpleNamespace(
+            remove_request=lambda rid: [pool.remove_request(rid) for pool in pools.values()],
+        ),
+    )
+    return SimpleNamespace(
+        remove_request=lambda rid: Engine.remove_request(engine, rid), evictable_nodes=list,
+    )
+
+
+def _remove(worker, *rids: str) -> None:
+    for rid in rids:
+        Worker._remove_request(worker, RemoveRequest(request_id=rid))
+
+
+def test_a_teardown_that_frees_pages_lifts_a_cap_a_busy_walk_never_steps_under():
+    """Sixteen decoding rows of three full pages each need a fourth, and the
+    63 usable pages hold fifteen of them alone, so the victim branch caps the
+    walk at fifteen. With 48 rows decoding every step is at the cap, and only
+    a smaller step lifted it, so it outlasted the long rows that set it."""
+    pool = _manager(64)
+    long_rows = [f"d{i}" for i in range(16)]
+    for rid in long_rows:
+        assert _admit(pool, {rid: 3 * PAGE_SIZE}, commit=True).ok
+    outcome = _admit(pool, dict.fromkeys(long_rows, 1))
+    assert isinstance(outcome.reason, AllocationFailed)
+    assert outcome.reason.rows_fit_alone == 15
+
+    sched = _scheduler(_SchedEngine(max_bs=16))
+    manager = _Manager([*long_rows, *(f"s{i}" for i in range(32))])
+    batch = _next_batch(sched, manager)
+    assert list(batch.request_to_worker_graph) == long_rows
+    refuser = _EvictingWorker(holders=long_rows)
+    refuser.scheduler, refuser._graph_runtime = sched, manager.runtime
+    refuser._handle_allocation_failure(batch, SimpleNamespace(
+        node_name=SCHED_NODE, failed_resource="kv", admit_error=outcome.reason,
+    ))
+    assert refuser.offloaded == ["d0"]
+
+    for _ in range(4):
+        step = list(_next_batch(sched, manager).request_to_worker_graph)
+        assert len(step) == 15
+        sched.clear_batch_limit(SCHED_NODE, SCHED_WALK, len(step))
+        manager.in_flight.clear()
+        for rid in step:
+            manager.ingest(rid)
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 15
+
+    worker = _teardown_worker(known_rids=long_rows)
+    worker.scheduler, worker.engine_manager = sched, _engine_manager(kv=pool)
+    free = pool._arena.num_free
+    _remove(worker, "d1")
+    manager.queues["wg0"]._ready.pop("d1", None)
+
+    assert pool._arena.num_free == free + 3
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 16, (
+        "the cap outlived a teardown that handed its pool's pages back"
+    )
+    assert len(_next_batch(sched, manager).request_to_worker_graph) == 16
+
+
+def test_a_teardown_that_frees_none_of_the_capping_pool_leaves_the_cap():
+    """The cross pool's refusal set the cap. A request holding pages of the
+    self pool only, and one admitted that never ran, free none of it, so a
+    full batch would be refused again."""
+    self_kv, cross_kv = _manager(16), _manager(16)
+    free = self_kv._arena.num_free
+    assert _admit(self_kv, {"a": 2 * PAGE_SIZE}, commit=True).ok
+    cross_kv.ingest_request("a")
+    for pool in (self_kv, cross_kv):
+        pool.ingest_request("b")
+    sched = _scheduler(_SchedEngine(max_bs=16))
+    sched.cap_batch(SCHED_NODE, SCHED_WALK, 15, "cross_kv")
+    worker = _teardown_worker(known_rids=("a", "b", "c"))
+    worker.scheduler = sched
+    worker.engine_manager = _engine_manager(self_kv=self_kv, cross_kv=cross_kv)
+
+    _remove(worker, "a", "b")
+
+    assert self_kv._arena.num_free == free, "the teardown did not run"
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 15, (
+        "a teardown that freed none of the cross pool lifted its cap"
+    )
+
+    assert _admit(cross_kv, {"c": 2 * PAGE_SIZE}, commit=True).ok
+    _remove(worker, "c")
+    assert sched._max_batch_size(SCHED_NODE, SCHED_WALK) == 16

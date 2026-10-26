@@ -583,6 +583,33 @@ def test_a_mixed_step_lifts_the_limits_of_the_walks_it_ran():
     )
 
 
+def test_could_refill_counts_the_rows_that_could_run_in_the_retry():
+    """The real `could_refill`, which the handler tests above stub. Rows of
+    the key outside the batch refill it, unless they are failed, held,
+    being removed, offloaded or of another walk. ``pending_removes`` is the
+    worker's dict: a set union over it raised TypeError."""
+    sched = _scheduler(_SchedEngine(max_bs=8, offloaded={"off"}))
+    manager = _Manager(
+        ["b0", "b1", "w0", "failed", "held", "gone", "off", "p0"], walks={"p0": "prefill"},
+    )
+    sched.runtime = manager.runtime
+    manager.runtime.combined_walk_of = sched.combined_walk_of
+    sched.failed_rids.add("failed")
+    sched.hold_requests(["held"])
+    sched.pending_removes = {"gone": None}
+
+    assert not sched.could_refill(SCHED_NODE, SCHED_WALK, {"b0", "b1", "w0"})
+    assert sched.could_refill(SCHED_NODE, SCHED_WALK, {"b0", "b1"}), "w0 waits to run"
+
+    manager.queues["wg0"]._ready.pop("w0")
+    sched.backlog[(SCHED_NODE, SCHED_WALK)] = ScheduledBatch(
+        node_name=SCHED_NODE, graph_walk=SCHED_WALK,
+        request_to_worker_graph={"w0": "wg0", "gone": "wg0"},
+    )
+    assert sched.could_refill(SCHED_NODE, SCHED_WALK, {"b0", "b1"}), "backlogged w0 waits to run"
+    assert not sched.could_refill(SCHED_NODE, SCHED_WALK, {"b0", "b1", "w0"})
+
+
 # --- the unbatchable path admits everything before it runs anything --------
 
 
