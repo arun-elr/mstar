@@ -80,7 +80,7 @@ TRIGGER_S = 2.0
 # The whole run; a run still going past this hung.
 DEADLINE_S = 30.0
 # Per-rank setup a fix adds to Worker.__init__ (see the module docstring).
-_DESIGN_SETUP = ("_setup_read_gate",)
+_DESIGN_SETUP = ("_setup_read_gate", "_setup_tp_read_check")
 
 # What each request reads. A grid prompt is Qwen3.5's prefill_vision layout:
 # text, image, text; an image of grid (t, h, w) takes t*(h/2)*(w/2) tokens.

@@ -74,6 +74,7 @@ def _worker(known_rids=("r1", "r2")):
     w._graph_runtime = _Runtime(known_rids)
     w.scheduler = MicroScheduler.__new__(MicroScheduler)
     w.scheduler.failed_rids = set()
+    w.scheduler.read_failed_rids = set()
     w.scheduler.held_until = {}
     w.scheduler.admit_errors = {}
     w.scheduler.backlog = {}
