@@ -18,7 +18,6 @@ from types import MappingProxyType
 from typing import NamedTuple
 
 import torch
-import torch.distributed as dist
 
 from mstar.communication.codec import WireCodec
 from mstar.communication.communicator import CommProtocol, make_communicator
@@ -30,6 +29,7 @@ from mstar.communication.tensors import (
     create_tensor_communication_manager,
 )
 from mstar.conductor.request_info import CurrentForwardPassInfo
+from mstar.distributed.all_reduce import flagged_on_any_rank
 from mstar.distributed.base import ShardingConfig
 from mstar.distributed.communication import WorkerParallelGroups
 from mstar.engine import apply_dynamo_config
@@ -1544,20 +1544,17 @@ class Worker:
         failed the read reported it, and the others fail it here, so its outputs
         and its pages never exist on any rank.
 
-        One gloo all-reduce of a flag per row (MAX over TP, then SP), in the
-        leader's row order, on the GPU thread where every rank prepares the
-        step. CPU tensors: it waits on the other ranks, never on the device."""
+        One vote of a flag per row over TP, then SP (``flagged_on_any_rank``),
+        in the leader's row order, on the GPU thread where every rank prepares
+        the step."""
         rids = node_batch.read_check_rids
         failed = self.scheduler.read_failed_rids
-        flags = torch.tensor([r in failed for r in rids], dtype=torch.int32)
         node = node_batch.node_name
-        for group in (
+        votes = flagged_on_any_rank([r in failed for r in rids], (
             self.parallel_groups.get_tp_config_for_node(node),
             self.parallel_groups.get_sp_config_for_node(node),
-        ):
-            if group.world_size > 1:
-                dist.all_reduce(flags, op=dist.ReduceOp.MAX, group=group.cpu_group)
-        flagged = {r for r, f in zip(rids, flags.tolist(), strict=True) if f}
+        ))
+        flagged = {r for r, f in zip(rids, votes, strict=True) if f}
         if not flagged:
             return
         for rid in flagged:
@@ -1570,17 +1567,23 @@ class Worker:
         """Poll for completed RDMA transfers, feed ready graph edges to worker graph queues."""
         self.wakeup_event.drain()
         ready = self.tensor_manager.get_ready_tensors()
-        failed = {
-            f.request_id: f"Error in worker: input tensor read failed: {type(f.error).__name__}: {f.error}"
-            for f in self.tensor_manager.take_failed_reads()
-            if f.request_id not in self.scheduler.failed_rids
-        }
-        if failed:
-            # only a TP step's read check asks (see ``unread_rows``)
+        failed_reads = self.tensor_manager.take_failed_reads()
+        if failed_reads:
+            # Every failed read is recorded for a TP step's read check (see
+            # ``unread_rows``), a request this rank already failed for another
+            # reason included: until the conductor's removal lands, rank 0 can
+            # still send a read-checked step naming it.
             self.scheduler.read_failed_rids.update(
-                rid for rid in failed if rid in self.request_state.per_request_info
+                f.request_id for f in failed_reads if f.request_id in self.request_state.per_request_info
             )
-            self._fail_requests(failed)
+            # reported once per request
+            failed = {
+                f.request_id: f"Error in worker: input tensor read failed: {type(f.error).__name__}: {f.error}"
+                for f in failed_reads
+                if f.request_id not in self.scheduler.failed_rids
+            }
+            if failed:
+                self._fail_requests(failed)
         if ready and self._lockstep_led:
             self._note_lockstep_reads(ready)
         for request_id, edges in ready.items():
@@ -3196,17 +3199,23 @@ class Worker:
                 new_request_to_worker_graph[rid] = prep_wg[rid]
                 per_request_inputs[rid] = prep_inputs[rid]
             elif rid in unread:
-                # In with no inputs, as on the serial path: the step has rank 0's
-                # rows until its read check takes this one out.
-                new_request_to_worker_graph[rid] = in_batch[rid] if rid in in_batch else \
-                    self._graph_runtime.get_worker_graph_id_for_node(
-                        head.node_name,
-                        head.walks[head_walk_idx[rid]] if head.walks else head.graph_walk,
-                    )
                 per_request_inputs[rid] = {}
             else:
                 new_request_to_worker_graph[rid] = fresh_wg[rid]
                 per_request_inputs[rid] = fresh_inputs[rid]
+        request_walks = {r: head.walks[w] for r, w in head_walk_idx.items()} if head.walks else None
+        if unread:
+            # In with no inputs, as on the serial path: the step has rank 0's
+            # rows until its read check takes these out. An unread row not in
+            # N is no continuing row, so voiding the speculation
+            # (``_maybe_clear_spec``) pushes it back though it was never popped.
+            # Harmless only while every later head naming it is read-checked,
+            # so ``unread_rows`` keeps it out of the pop: rank 0 checks each
+            # step taking the input until one runs (``_consume_lockstep_reads``),
+            # and that step's check takes the row out on every rank.
+            new_request_to_worker_graph, _ = self.scheduler.with_unread_rows(
+                head, head_rids, unread, new_request_to_worker_graph, request_walks or {},
+            )
 
         # Committed: the serial path must not see the head any more.
         self.scheduler.pop_tp_follow_head()
@@ -3222,9 +3231,7 @@ class Worker:
             new_request_to_worker_graph, per_request_inputs,
             consumed_streaming_edges, in_n,
             is_same_node=True, spec_id=prep.spec_id, tp_seq=head.spec_seq,
-            request_walks={
-                r: head.walks[w] for r, w in head_walk_idx.items()
-            } if head.walks else None,
+            request_walks=request_walks,
         )
         if head.read_check and speculation is not None:
             speculation.node_batch.read_check_rids = tuple(head_rids)

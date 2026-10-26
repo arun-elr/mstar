@@ -137,15 +137,19 @@ def test_a_prepare_that_runs_a_collective_per_row_stays_in_step(tmp_path, monkey
 def test_a_step_whose_every_row_failed_runs_empty_on_every_rank(tmp_path, monkeypatch):
     """Rank 0 sends a step of rows the follower could read none of: both ranks
     run it empty, both requests fail and drain, and nothing is routed."""
+    clean = acc._run(tmp_path / "clean", acc.Scenario(kind="text", fail=False))
+    assert not clean.crashed and not clean.hung, clean.summary()
     monkeypatch.setattr(acc, "_rank_main", _rank_main_every_row_fails)
-    run = acc._run(tmp_path, acc.Scenario(kind="text"))
+    run = acc._run(tmp_path / "failed", acc.Scenario(kind="text"))
     assert not run.crashed, run.summary() + "\n" + "\n".join(map(str, run.crashed.values()))
     assert not run.hung, run.summary()
     assert set(run.failed) == {"r0", "r1"}, run.summary()
     assert run.torn_down("r0") and run.torn_down("r1"), run.summary()
     assert run.routed == {0: {}, 1: {}}, run.summary()
-    # no rank sat in a collective the other never joined
-    assert run.elapsed < acc.COLLECTIVE_S, run.summary()
+    # No rank sat in a collective the other never joined, which costs a
+    # COLLECTIVE_S wait. Measured against the run with no failure, not as a
+    # fixed bound: starting the two ranks alone takes seconds on a slow host.
+    assert run.elapsed < clean.elapsed + acc.COLLECTIVE_S, (run.summary(), clean.summary())
 
 
 # ── the check itself at TP4 and TP2 x SP2 (four gloo ranks) ───────────────
@@ -315,6 +319,36 @@ def test_without_a_read_check_a_follower_pops_the_row_like_any_other(caplog):
     assert sum("no read check" in r.getMessage() for r in caplog.records) == 1
 
 
+def test_a_read_that_fails_after_its_request_failed_still_goes_to_the_check(tmp_path):
+    """This rank already failed r1 for another reason, and r1's read then fails
+    before the conductor's removal lands. The read is not reported again, but it
+    is recorded for the check: rank 0's read-checked step naming r1 is built
+    with r1 empty, so this rank joins the step's check and the check takes r1
+    out, rather than this rank waiting on r1 with no warning while rank 0 waits
+    in the check."""
+    sched, manager = _follower_scheduler(ready=["r0"])
+    sched.fail_rids({"r1"})
+    tm, _ = _shm_manager(tmp_path)
+    w = Worker.__new__(Worker)
+    w.scheduler, w.request_state, w.tensor_manager = sched, manager, tm
+    w.wakeup_event = SimpleNamespace(drain=lambda: None)
+    w.enable_nvtx = False
+    reported = []
+    w._fail_requests = reported.append
+    tm.pending.append(_read("r1", _input(17, "text_inputs"), _failed_future()))
+    w._check_ready_tensors()
+    assert reported == [], "r1 was already reported failed"
+    assert sched.read_failed_rids == {"r1"}
+
+    sched.register_tp_follow(_head(read_check=True))
+    batch = sched.get_next_batch(manager)
+
+    assert batch is not None, "the follower waits on r1, which never readies"
+    assert list(batch.request_to_worker_graph) == ["r0", "r1"]
+    assert batch.read_check_rids == ("r0", "r1")
+    assert manager.pops[-1][1] == ["r0"]
+
+
 def test_a_removed_requests_read_failure_is_forgotten():
     """The flag is keyed by the handle, which a later request can get."""
     sched, _ = _follower_scheduler(ready=[], read_failed=["r1"])
@@ -430,6 +464,38 @@ def test_an_async_follower_that_cannot_prep_gives_back_only_the_rows_it_popped()
     assert Worker._try_follow_speculation(w, pending) is None
     assert w.pushed_back == ["f0"]
     assert w.scheduler.peek_tp_follow() is not None
+
+
+def test_a_voided_speculations_unread_row_stays_out_of_the_next_read_checked_head():
+    """f1's read failed here and f1 is not in N, so it is no continuing row of
+    the speculation: voiding it (``_maybe_clear_spec``) pushes f1 back with the
+    fresh rows, though it was never popped, and the graph then holds f1 as
+    ready with no input. Rank 0 sends the step again, read-checked, since it
+    never ran: the follower still pops only the rows it read. Only the read
+    check keeps f1 out: a head without one would pop it."""
+    w, pending = _spec_follower(
+        read_failed=["f1"], continuing=["c0"], fresh=["f0", "f1"], head_rids=["c0", "f0", "f1"],
+    )
+    spec = Worker._try_follow_speculation(w, pending)
+    spec.continuing_rids = set(w.continuing[-1])  # as ``_assemble_speculation`` sets it
+    manager = w.request_state
+
+    # what ``_maybe_clear_spec`` gives back
+    sb = spec.scheduled_batch
+    fresh = [rid for rid in sb.request_to_worker_graph if rid not in spec.continuing_rids]
+    assert fresh == ["f0", "f1"]
+    w._graph_runtime.push_back_node(NODE, fresh, [sb.request_to_worker_graph[r] for r in fresh])
+    assert NODE in manager.queues["wg0"]._ready["f1"]
+
+    manager.ingest("c0")  # N's routing readies its continuing row
+    w.scheduler.register_tp_follow(_head(read_check=True, rids=("c0", "f0", "f1")))
+    batch = w.scheduler.get_next_batch(manager)
+    assert list(batch.request_to_worker_graph) == ["c0", "f0", "f1"]
+    assert manager.pops[-1][1] == ["c0", "f0"]
+
+    w.scheduler.register_tp_follow(_head(read_check=False, rids=("f1",)))
+    assert w.scheduler.get_next_batch(manager) is not None
+    assert manager.pops[-1][1] == ["f1"]
 
 
 # ── rank 0 marks the steps whose rows take an input a follower reads ──────
