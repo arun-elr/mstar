@@ -7,7 +7,7 @@ import threading
 import time
 import time as _time
 from collections import defaultdict, deque
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -3466,18 +3466,8 @@ class Worker:
         ):
             torn_down = self.scheduler.failed_rids & valid_rids
             if torn_down:
-                for rid in torn_down:
-                    outputs.pop(rid, None)
-                    batch_N.batch.discard_rid(rid)
-                    batch_N.node_batch.per_request_info.pop(rid, None)
-                    # no terminal-stream stop or partition done for it either
-                    batch_N.node_batch.final_stream_rids.discard(rid)
-                    batch_N.node_batch.stream_partition_done_rids.discard(rid)
+                self._drop_failed_rids(batch_N, outputs, torn_down)
                 valid_rids -= torn_down
-                batch_N.node_batch.request_ids = [
-                    rid for rid in batch_N.node_batch.request_ids
-                    if rid in valid_rids
-                ]
                 if not valid_rids:
                     # no outputs leave, but the step's kernels may still be
                     # running in the capture slot a later step reuses
@@ -4282,9 +4272,9 @@ class Worker:
     def _drop_failed_rids(
         self, pending: PendingBatch,
         outputs: dict[int, NameToTensorList],
-        failed_requests: dict[int, str],
+        failed_requests: Collection[int],
     ) -> None:
-        """Excise ``failed_requests`` from a finished batch.
+        """Excise ``failed_requests`` (rids, or a rid -> error map) from a finished batch.
 
         A rid that raised in ``postprocess`` is still carried in the batch (the
         engine only recorded the error), and one that raised in
