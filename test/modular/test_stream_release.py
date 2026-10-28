@@ -51,27 +51,66 @@ class _PreprocessWorker:
         self.aborted.append(key)
 
 
-def _generate_stream(monkeypatch, request_id="r1"):
-    """The streaming ``/generate`` response, built by the real route."""
+async def _connected():
+    """The client's ``receive`` while it stays: nothing arrives."""
+    await asyncio.Event().wait()
+
+
+def _first_chunk(server, request_id, finish=False):
+    """The engine's first result chunk for ``request_id``'s live submission,
+    and with ``finish`` its completion."""
+    key = server._live[request_id]
+    with server.request_lock:
+        req = server.pending_requests[key]
+        req.chunks.append(ResultChunk(request_id=key, modality="text", data=b"out", metadata={}))
+        if finish:
+            req.event.set()
+    req.notify()
+    return key
+
+
+async def _generate_response(server, request_id="r1", answer=None):
+    """The streaming ``/generate`` response, built by the real route. The route
+    returns once the engine's first chunk is in, so ``answer`` (default: the
+    first chunk) runs once the request is submitted. Await it in the loop that
+    then sends the response, as a server does: the route has started reading
+    the request's results there."""
     from mstar.api_server import entrypoint
 
     async def form():
         return {"text": "hi", "streaming": "true"}
 
-    server = make_test_api_server(preprocess_worker=_PreprocessWorker())
-    monkeypatch.setattr(entrypoint, "api_server", server)
-    response = asyncio.run(entrypoint.generate(
-        request=SimpleNamespace(headers={}, form=form), text="hi", files=None,
+    route = asyncio.ensure_future(entrypoint.generate(
+        request=SimpleNamespace(headers={}, form=form, receive=_connected), text="hi", files=None,
         input_modalities=None, output_modalities="text", streaming=True,
         model_kwargs=None, request_id=request_id,
     ))
-    return server, response, server._live[request_id]
+    while request_id not in server._live:
+        assert not route.done(), route
+        await asyncio.sleep(0)
+    key = server._live[request_id]
+    await asyncio.to_thread(answer) if answer else _first_chunk(server, request_id)
+    return await route, key
+
+
+def _test_server(monkeypatch):
+    from mstar.api_server import entrypoint
+
+    server = make_test_api_server(preprocess_worker=_PreprocessWorker())
+    monkeypatch.setattr(entrypoint, "api_server", server)
+    return server
 
 
 def test_generate_aborts_its_request_when_the_headers_cannot_be_sent(monkeypatch):
-    server, response, key = _generate_stream(monkeypatch)
-    with pytest.raises(ClientDisconnect):
-        asyncio.run(response(_ASGI_2_4, _disconnected, _client_gone))
+    server = _test_server(monkeypatch)
+
+    async def run():
+        response, key = await _generate_response(server)
+        with pytest.raises(ClientDisconnect):
+            await response(_ASGI_2_4, _disconnected, _client_gone)
+        return key
+
+    key = asyncio.run(run())
     assert key not in server.pending_requests and "r1" not in server._live
     assert server.preprocess_worker.aborted == [key]
 
@@ -80,49 +119,50 @@ def test_generate_aborts_its_request_when_the_disconnect_wins_the_race(monkeypat
     """A server whose ``send`` blocks while the client leaves, so Starlette
     (below ASGI 2.4) cancels the response before the body starts. uvicorn's
     ``send`` never blocks like this; the case guards other ASGI servers."""
-    server, response, key = _generate_stream(monkeypatch)
+    server = _test_server(monkeypatch)
 
     async def stuck(message):
         await asyncio.Event().wait()
 
-    asyncio.run(response(_ASGI_2_0, _disconnected, stuck))
+    async def run():
+        response, key = await _generate_response(server)
+        await response(_ASGI_2_0, _disconnected, stuck)
+        return key
+
+    key = asyncio.run(run())
     assert key not in server.pending_requests
     assert server.preprocess_worker.aborted == [key]
 
 
 def test_a_generate_stream_that_was_read_is_not_aborted_on_close(monkeypatch):
-    server, response, key = _generate_stream(monkeypatch)
-    req = server.pending_requests[key]
-    req.chunks.append(ResultChunk(request_id="r1", modality="text", data=b"out", metadata={}))
-    req.event.set()
+    server = _test_server(monkeypatch)
     sent = []
 
     async def send(message):
         sent.append(message)
 
-    asyncio.run(response(_ASGI_2_4, _disconnected, send))
+    async def run():
+        response, _ = await _generate_response(server, answer=lambda: _first_chunk(server, "r1", finish=True))
+        await response(_ASGI_2_4, _disconnected, send)
+
+    asyncio.run(run())
     assert b"".join(m.get("body", b"") for m in sent)
     assert server.preprocess_worker.aborted == []
 
 
 def test_a_finished_stream_released_before_its_body_counts_once_as_an_abort(served):  # noqa: F811
-    from mstar.api_server import entrypoint
     from mstar.observability.metrics import OUTCOMES
 
-    async def form():
-        return {"text": "hi", "streaming": "true"}
+    async def run():
+        def answer():
+            served.answer(served.key())
+            _wait(served.server.pending_requests[served.key()].event.is_set)
 
-    response = asyncio.run(entrypoint.generate(
-        request=SimpleNamespace(headers={}, form=form), text="hi", files=None,
-        input_modalities=None, output_modalities="text", streaming=True,
-        model_kwargs=None, request_id="r1",
-    ))
-    key = served.key()
-    served.answer(key)
-    _wait(served.server.pending_requests[key].event.is_set)
-    with pytest.raises(ClientDisconnect):
-        asyncio.run(response(_ASGI_2_4, _disconnected, _client_gone))
+        response, _ = await _generate_response(served.server, answer=answer)
+        with pytest.raises(ClientDisconnect):
+            await response(_ASGI_2_4, _disconnected, _client_gone)
 
+    asyncio.run(run())
     samples = served.scrape()
     assert {o: _count(samples, o) for o in OUTCOMES if _count(samples, o)} == {"abort": 1}
     assert samples[("mstar_requests_in_flight", _labels())] == 0
@@ -131,13 +171,18 @@ def test_a_finished_stream_released_before_its_body_counts_once_as_an_abort(serv
 def test_a_release_targets_its_own_submission_not_a_later_one(monkeypatch):
     """The first stream's request finished and the client resubmitted its id
     before that stream closed: closing it leaves the new submission alone."""
-    server, response, old = _generate_stream(monkeypatch)
-    server.pending_requests[old].event.set()
-    server.submit_request(input_modalities=["text"], output_modalities=["text"], request_id="r1")
-    new = server._live["r1"]
-    assert new != old
-    with pytest.raises(ClientDisconnect):
-        asyncio.run(response(_ASGI_2_4, _disconnected, _client_gone))
+    server = _test_server(monkeypatch)
+
+    async def run():
+        response, old = await _generate_response(server, answer=lambda: _first_chunk(server, "r1", finish=True))
+        server.submit_request(input_modalities=["text"], output_modalities=["text"], request_id="r1")
+        new = server._live["r1"]
+        assert new != old
+        with pytest.raises(ClientDisconnect):
+            await response(_ASGI_2_4, _disconnected, _client_gone)
+        return old, new
+
+    old, new = asyncio.run(run())
     assert old not in server.pending_requests and new in server.pending_requests
     assert server.preprocess_worker.aborted == []
 

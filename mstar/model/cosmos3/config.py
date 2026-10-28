@@ -230,16 +230,14 @@ class Cosmos3ReasonerConfig:
 REASONER_MODEL_TYPES: frozenset[str] = frozenset({"cosmos3_edge"})
 # transformer/config.json ``backbone_type`` of the Edge checkpoints, and the
 # model card's serving recipe for them: 832x480 video (121 frames, 20 UniPC
-# steps on the native flow schedule at flow shift 12), 640x640 images,
-# cover-scale + center-crop image conditioning (the diffusers 0.40 pipeline
-# recipe), action modes at flow shift 10. Applied by ``from_pretrained`` where
-# a field still holds the Nano default, so a yaml overrides any of them.
+# steps on the native flow schedule at flow shift 12), 640x640 images, action
+# modes at flow shift 10. Applied by ``from_pretrained`` where a field still
+# holds the Nano default, so a yaml overrides any of them.
 # Chained windows of 61 frames re-pinning 32 hold the conditioning scene over
 # a 241-frame rollout when the prompt describes the image; 29/8 windows smear
 # more at every boundary.
 EDGE_BACKBONE_TYPE = "cosmos3_edge_nemotron_dense"
 EDGE_RECIPE_DEFAULTS = {
-    "conditioning_resize": "aspect_crop",
     "image_size_default": (640, 640),
     "video_size_default": (832, 480),
     "num_frames_video": 121,
@@ -348,6 +346,12 @@ class Cosmos3Config:
     # stream's first window (fresh or resumed); a stream's windows all go to
     # the decoder copy it was admitted to.
     windowed_decode_context_latents: int = 8
+    # Latents a chained window's head (ChainedWindowHead) decodes behind the
+    # frames it re-encodes, so the causal decoder is warm at them. 1-2 hold a
+    # rollout as well as a whole window does and keep the per-boundary cost
+    # small (the head runs between every two windows); 0 reads as 1, since a
+    # mid-stream latent is not a clip start.
+    chained_head_context_latents: int = 2
     # Keep each live stream's VAE decoder cache (the last frames every causal
     # conv saw) in its request state, so a window decodes only its new latents.
     # Without compile, at windowed_decode_latents_per_call=1 and the contiguous
@@ -441,11 +445,11 @@ class Cosmos3Config:
     flow_shift_image: float | None = 3.0
     flow_shift_video: float | None = None
     # How an image-to-video conditioning frame reaches the generation size:
-    # "stretch" (plain bilinear resize; the diffusers 0.39 pipeline the Nano
-    # checkpoints were validated against) or "aspect_crop" (cover-scale,
-    # antialiased resize, center crop, 8-bit rounding; the diffusers 0.40
-    # recipe, set by the Edge yamls). See components/conditioning.py.
-    conditioning_resize: str = "stretch"
+    # "aspect_crop" (cover-scale, antialiased bilinear resize, center crop,
+    # 8-bit rounding; the cosmos-framework and diffusers >= 0.40 recipe) or
+    # "stretch" (antialiased bilinear resize to the target, aspect ratio not
+    # kept; diffusers 0.39). See components/conditioning.py.
+    conditioning_resize: str = "aspect_crop"
     # ``model_index.json``: the pipeline sets the UniPC schedule from
     # explicitly linspaced flow sigmas (1 - 1/T ... 0) instead of the
     # scheduler's own timestep spacing. Edge checkpoints set it; the karras
@@ -538,7 +542,8 @@ class Cosmos3Config:
             value = getattr(self, name)
             if not isinstance(value, bool):
                 raise ValueError(f"Cosmos3 {name} must be true or false, got {value!r}.")
-        for name in ("windowed_decode_max_warm_streams", "windowed_decode_latents_per_call"):
+        for name in ("windowed_decode_max_warm_streams", "windowed_decode_latents_per_call",
+                     "chained_head_context_latents"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"Cosmos3 {name} must be an integer >= 0, got {value!r}.")
