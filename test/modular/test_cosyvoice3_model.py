@@ -719,7 +719,7 @@ def test_an_upload_write_failure_is_a_500_with_no_path(tmp_path, monkeypatch):
               "ref_text": "w"},
     )
     assert r.status_code == 500
-    assert r.json()["error"]["message"] == "the server could not store ref_audio"
+    assert "internal error (error id " in r.json()["error"]["message"]
     assert str(tmp_path) not in r.text
 
 
