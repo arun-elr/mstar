@@ -33,7 +33,6 @@ from mstar.api_server.openai.protocol import (
     TranscriptionRequest,
     VideoGenerationRequest,
 )
-from mstar.api_server.streaming_response import ReleasingStreamingResponse
 from mstar.utils.client_errors import client_error_text
 
 logger = logging.getLogger(__name__)
@@ -114,18 +113,12 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
     api, model_name, adapter, err = _resolve("supports_chat")
     if err is not None:
         return err
-    request_id = serving_chat.new_request_id()
     try:
-        result = await serving_chat.create_chat_completion(
-            api, model_name, adapter, request, raw_request, request_id=request_id,
-        )
+        result = await serving_chat.create_chat_completion(api, model_name, adapter, request, raw_request)
     except Exception as e:  # noqa: BLE001 — surface as an OpenAI error envelope
         return _exception_error(e, "/v1/chat/completions")
     if request.stream:
-        return ReleasingStreamingResponse(
-            result, release=lambda: api.release_request(request_id),
-            media_type="text/event-stream", headers={"Cache-Control": "no-cache"},
-        )
+        return result  # serving_chat builds the streaming response
     return JSONResponse(result)
 
 
@@ -228,20 +221,12 @@ async def videos_generations(request: VideoGenerationRequest, raw_request: Reque
     api, model_name, adapter, err = _resolve("supports_videos")
     if err is not None:
         return err
-    request_id = serving_videos.new_request_id()
     try:
-        result = await serving_videos.create_videos(
-            api, model_name, adapter, request, raw_request, request_id=request_id,
-        )
+        result = await serving_videos.create_videos(api, model_name, adapter, request, raw_request)
     except Exception as e:  # noqa: BLE001
         return _exception_error(e, "/v1/videos/generations")
     if (request.model_extra or {}).get("stream_video"):
-        # A windowed request delivering each window as it lands: NDJSON lines
-        # (see serving_videos._stream_ndjson) instead of one JSON body.
-        return ReleasingStreamingResponse(
-            result, release=lambda: api.release_request(request_id),
-            media_type="application/x-ndjson", headers={"Cache-Control": "no-cache"},
-        )
+        return result  # serving_videos builds the streaming response
     return JSONResponse(result)
 
 
