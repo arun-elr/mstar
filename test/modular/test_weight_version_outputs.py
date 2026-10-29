@@ -65,23 +65,28 @@ def test_a_result_tokens_frame_keeps_its_metadata():
 # -- the Python runtime ----------------------------------------------------------
 
 
-def _python_frames(version):
+def _python_frames(version, inline):
     from test_delivery_chunk_counts import SHAPES, drive, python_runtime
 
     runtime, put, recorder = python_runtime(SHAPES["plain"][1])
     if version is not None:
         runtime.set_weight_version(version)
-    drive(runtime, put, *SHAPES["plain"])
-    return recorder.chunks()
+    drive(runtime, put, *SHAPES["plain"], inline=inline)
+    chunks = recorder.chunks()
+    # the inline case must really send RESULT_TOKENS frames, or it checks nothing new
+    assert any(isinstance(c, ResultTokens) for c in chunks) == inline
+    return chunks
 
 
-def test_the_python_runtime_stamps_nothing_until_a_version_is_set():
-    chunks = _python_frames(None)
+@pytest.mark.parametrize("inline", [False, True], ids=["tensor", "inline"])
+def test_the_python_runtime_stamps_nothing_until_a_version_is_set(inline):
+    chunks = _python_frames(None, inline)
     assert chunks and [c.metadata for c in chunks] == [{}] * len(chunks)
 
 
-def test_the_python_runtime_stamps_every_frame_once_set():
-    chunks = _python_frames("v2")
+@pytest.mark.parametrize("inline", [False, True], ids=["tensor", "inline"])
+def test_the_python_runtime_stamps_every_frame_once_set(inline):
+    chunks = _python_frames("v2", inline)
     assert chunks and [c.metadata for c in chunks] == [{"weight_version": "v2"}] * len(chunks)
     # the api server keeps each frame's metadata per tensor: no shared dict
     assert len({id(c.metadata) for c in chunks}) == len(chunks)

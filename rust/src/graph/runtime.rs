@@ -1782,10 +1782,6 @@ impl GraphRuntime {
         self.pending_loop_stops.retain(|&(r, _, _)| r != rid);
     }
 
-    /// `(requests, parked_routes, staged_specs)`: requests still registered,
-    /// routing parked between complete_and_route_batch and send_outputs, and
-    /// speculative ingests staged but not settled. All zero means nothing here
-    /// can race a weight reload.
     /// The version stamped on every result frame from now on; the worker
     /// sets it once a reload copies, None until then.
     #[pyo3(signature = (version))]
@@ -1793,6 +1789,10 @@ impl GraphRuntime {
         self.weight_version = version;
     }
 
+    /// `(requests, parked_routes, staged_specs)`: requests still registered,
+    /// routing parked between complete_and_route_batch and send_outputs, and
+    /// speculative ingests staged but not settled. All zero means nothing here
+    /// can race a weight reload.
     fn idle_counts(&self) -> (usize, usize, usize) {
         (
             self.rids.live(),

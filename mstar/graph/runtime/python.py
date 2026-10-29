@@ -1627,7 +1627,7 @@ class PythonGraphRuntime(GraphRuntime):
             if frame is None:
                 frame = frames[(signal, modality)] = ResultTokens(
                     request_ids=[], values=[], loop_indices=[],
-                    signal=signal, modality=modality,
+                    signal=signal, modality=modality, metadata=dict(self._result_metadata),
                 )
             frame.request_ids.append(self.get_rid_string(rid))
             frame.values.append(value)
