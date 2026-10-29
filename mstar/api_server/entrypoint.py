@@ -230,6 +230,14 @@ def _client_text(text: str, key: str, request_id: str | None) -> str:
     return text if request_id is None else text.replace(key, request_id)
 
 
+def _with_weight_version(body: dict, weight_version: str | None) -> dict:
+    """``body`` plus ``weight_version`` once a reload named one; a deployment
+    that never reloads keeps its exact response shape."""
+    if weight_version is not None:
+        body["weight_version"] = weight_version
+    return body
+
+
 def _until_error(chunks: list[ResultChunk]) -> tuple[list[ResultChunk], bool]:
     """``chunks`` up to and including the first error chunk, which ends the
     response, and whether there was one."""
@@ -259,6 +267,9 @@ class PendingRequest:
     consumed_chunks: int = 0
     error: Any | None = None
     error_status: int = 500
+    # The weight version the conductor admitted it under, from its
+    # completion or failure; None until a reload names one.
+    weight_version: str | None = None
     # Set by the streaming handler on its event loop; the message thread wakes
     # it through these when a chunk or the completion lands, so the handler
     # sleeps between chunks instead of polling every millisecond per request.
@@ -772,6 +783,7 @@ class APIServer:
                                         rid, body.values[i],
                                         body.loop_indices[i],
                                         body.signal, body.modality, wake=False,
+                                        metadata=body.metadata,
                                     )
                                     queued = True
                                 elif rid not in self.recently_completed:
@@ -816,6 +828,7 @@ class APIServer:
                                         message.body.error_message, rid, req.request_id,
                                     )
                                     req.error_status = message.body.status
+                                req.weight_version = message.body.weight_version
                                 # Release the waiting client immediately: no
                                 # result is coming, so the alternative is the
                                 # blanket request timeout.
@@ -839,6 +852,7 @@ class APIServer:
                                     )
                                 req = self.pending_requests[rid]
                                 req.output_chunk_counts = message.body.output_chunk_counts
+                                req.weight_version = message.body.weight_version
                                 req.profile.timing.conductor_ingest_time = \
                                     message.body.conductor_ingest_time
                                 req.profile.timing.conductor_finish_time = \
@@ -1082,7 +1096,9 @@ class APIServer:
                             request_id=request_id,
                             modality="error",
                             data=str(finished_req.error).encode("utf-8"),
-                            metadata={"status": finished_req.error_status},
+                            metadata=_with_weight_version(
+                                {"status": finished_req.error_status}, finished_req.weight_version,
+                            ),
                         ))
                     if tail:
                         yield tail
@@ -1176,10 +1192,13 @@ class APIServer:
     # ----------------------------------------------------------
 
     async def collect_results(
-        self, request_id: str, raw_request: Request | None = None
+        self, request_id: str, raw_request: Request | None = None,
+        meta: dict | None = None,
     ) -> list[ResultChunk]:
         """Wait for the request to finish (or the client to disconnect), then
-        return its chunks. Disconnecting or timing out releases engine state."""
+        return its chunks. Disconnecting or timing out releases engine state.
+        ``meta``, if given, gets the request's ``weight_version`` once it
+        finished."""
         start = time.time()
         key = self.submission_key(request_id)
         # Woken by the message thread (PendingRequest.notify) when the request
@@ -1223,6 +1242,8 @@ class APIServer:
             self._retire(key)
         if req is None:
             return []
+        if meta is not None:
+            meta["weight_version"] = req.weight_version
         self._record_end(req, "success")
         if req.error is not None:
             raise HTTPException(
@@ -1910,17 +1931,17 @@ async def generate(
                 headers={"Cache-Control": "no-cache", "Vary": "Accept"},
             )
 
-        chunks = await api_server.collect_results(request_id, request)
+        meta: dict = {}
+        chunks = await api_server.collect_results(request_id, request, meta=meta)
         outputs: dict[str, list[dict]] = {}
         for chunk in chunks:
             outputs.setdefault(chunk.modality, []).append({
                 "data": base64.b64encode(chunk.data).decode("ascii"),
                 "metadata": chunk.metadata,
             })
-        return JSONResponse({
-            "request_id": request_id,
-            "outputs": outputs,
-        })
+        return JSONResponse(_with_weight_version(
+            {"request_id": request_id, "outputs": outputs}, meta.get("weight_version"),
+        ))
 
     except HTTPException:
         raise

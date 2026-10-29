@@ -25,7 +25,7 @@ class _RecordingServer:
             yield b'{"modality": "text"}\n'
         return body()
 
-    async def collect_results(self, request_id, request):
+    async def collect_results(self, request_id, request, meta=None):
         return []
 
 

@@ -191,6 +191,8 @@ pub struct GraphRuntime {
     /// handed back to Python one at a time. None where the worker built the
     /// pyzmq communicator, which has no shareable object.
     communicator: Option<Arc<RawZmqCommunicator>>,
+    /// Stamped on every result frame; see `set_weight_version`.
+    weight_version: Option<String>,
 }
 
  impl GraphRuntime {
@@ -1584,6 +1586,7 @@ impl GraphRuntime {
             combined_walk_of,
             bookkeeping: bookkeeping.share(),
             communicator: communicator.map(|c| c.share()),
+            weight_version: None,
         })
     }
 
@@ -1780,6 +1783,13 @@ impl GraphRuntime {
     /// routing parked between complete_and_route_batch and send_outputs, and
     /// speculative ingests staged but not settled. All zero means nothing here
     /// can race a weight reload.
+    /// The version stamped on every result frame from now on; the worker
+    /// sets it once a reload copies, None until then.
+    #[pyo3(signature = (version))]
+    fn set_weight_version(&mut self, version: Option<String>) {
+        self.weight_version = version;
+    }
+
     fn idle_counts(&self) -> (usize, usize, usize) {
         (
             self.rids.live(),
@@ -3357,6 +3367,7 @@ impl GraphRuntime {
                         signal: &signal,
                         infos,
                         loop_indices,
+                        weight_version: self.weight_version.as_deref(),
                     }
                     .encode(&self.interner, bk.strings())
                 };
@@ -3397,6 +3408,7 @@ impl GraphRuntime {
                         loop_indices: &loop_indices,
                         signal: &signal,
                         modality: &modality,
+                        weight_version: self.weight_version.as_deref(),
                     }
                     .encode(&self.interner);
                     frames.push(("api_server".to_string(), bytes));
