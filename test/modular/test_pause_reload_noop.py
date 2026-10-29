@@ -324,10 +324,12 @@ def serving_worker(monkeypatch, steps: int, inbox=None):
         return SimpleNamespace(
             node_name="llm", graph_walk="decode", tp_seq=-1,
             request_to_worker_graph={1: 0, 2: 0},
+            rids_by_walk=lambda: None,
         )
 
     w.scheduler = SimpleNamespace(
         get_next_batch=next_batch, take_admit_errors=dict, tp_batches_pending_schedule=[],
+        clear_batch_limit=lambda *a, **k: None,
     )
     w.engine_manager = SimpleNamespace(warmup_all=lambda: None)
     w.communicator = SimpleNamespace(

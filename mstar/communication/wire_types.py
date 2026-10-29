@@ -36,6 +36,7 @@ from mstar.engine.resources.sampler.config import SamplingReqConfig
 from mstar.engine.resources.spec import ResourceReqConfig
 from mstar.utils.ipc_format import (
     AbortRequest,
+    ClientStreamInput,
     ConductorMessage,
     ContinueGeneration,
     DrainRequest,
@@ -96,6 +97,7 @@ _TYPES: dict[str, type] = {
     "update_weights_from_disk": UpdateWeightsFromDisk,
     "get_generation_state": GetGenerationState,
     "weight_control_ack": WeightControlAck,
+    "client_stream_input": ClientStreamInput,
     # api-server bodies
     "result_tensors": ResultTensors,
     "result_tokens": ResultTokens,
