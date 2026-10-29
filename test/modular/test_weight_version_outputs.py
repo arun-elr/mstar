@@ -16,6 +16,7 @@ import queue
 import sys
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -24,7 +25,7 @@ sys.path.insert(0, ".")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import mstar.communication.wire_types  # noqa: F401  (registers the tags)
-from mstar.api_server.data_worker import PreprocessWorker
+from mstar.api_server.data_worker import InlineToken, PreprocessWorker
 from mstar.api_server.request_types import (
     APIServerMessage,
     RequestComplete,
@@ -115,6 +116,42 @@ def test_an_inline_token_carries_its_frames_metadata_to_the_chunk():
     assert [c.metadata for c in chunks] == [frame, {}]
     chunks[0].metadata["sample_rate"] = 1
     assert frame == {"weight_version": "v4"}, "a chunk shares the frame's dict"
+
+
+def test_an_error_chunk_carries_the_version_of_the_output_it_replaces():
+    """A postprocess failure, and a read that never delivers, answer with an
+    error chunk; it keeps the failed output's version."""
+    from test_inline_tokens import _thread
+
+    from mstar.communication.tensors import FailedRead
+    from mstar.graph.base import GraphEdge
+
+    class _Broken:
+        def postprocess(self, output, modality, request_kwargs=None):
+            raise RuntimeError("bad bytes")
+
+    worker, stop = _thread()
+    worker.model = _Broken()
+    worker.result_tensor_queue.put(InlineToken("r1", 5, None, "text", {"weight_version": "v6"}))
+    worker.result_tensor_queue.put(InlineToken("r2", 5, None, "text"))
+    thread = threading.Thread(target=worker.run)
+    thread.start()
+    try:
+        chunks = {c.request_id: c for c in (worker.out_queue.get(timeout=5) for _ in range(2))}
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+    assert chunks["r1"].modality == "error"
+    assert chunks["r1"].metadata == {"status": 500, "weight_version": "v6"}
+    assert chunks["r2"].metadata == {"status": 500}, "no version before a reload"
+
+    worker, _ = _thread()
+    info = SimpleNamespace(uuid=31)
+    worker.tensor_uuid_to_metadata_per_request["r3"] = {31: {"weight_version": "v6"}}
+    edge = GraphEdge(next_node="emit_to_client", name="out")
+    edge.tensor_info = [info]
+    worker._fail_unread_outputs(FailedRead(request_id="r3", graph_edges=[edge], error=OSError("gone")))
+    assert worker.out_queue.get_nowait().metadata == {"status": 500, "weight_version": "v6"}
 
 
 def test_the_message_loop_keeps_the_admitted_version():
@@ -218,6 +255,7 @@ class _World:
         self.admitted_under: dict[str, str | None] = {}  # rid -> committed when submitted
         self.finished: dict[str, tuple[str, object]] = {}  # rid -> (kind, body)
         self.committed: str | None = None
+        self.late: list[str] = []  # submitted while not serving
         self.round = 0
         self.submitted = 0
         self.serving = True
@@ -342,34 +380,41 @@ class _World:
         elif body.op_id.startswith("continue"):
             self.serving = True
 
+    def _submit(self, rid, first=False):
+        from mstar.utils.ipc_format import NewRequestConductor
+
+        # ``first``: ahead of this pass's acks, so it lands before the one
+        # that resumes, while still paused
+        self.outbox.insert(0 if first else len(self.outbox), self._msg("NEW_REQUEST", NewRequestConductor(
+            request_id=rid, initial_signals={"text_inputs": [self._ptr(PREPROCESS)]},
+            initial_input_modalities=["text"], initial_output_modalities=["text"],
+            input_metadata={}, model_kwargs={},
+        )))
+
     # the client
     def _client(self):
-        from mstar.utils.ipc_format import NewRequestConductor, PauseGeneration
+        from mstar.utils.ipc_format import PauseGeneration
 
-        if not self.serving or self.round == ROUNDS:
+        if not self.serving:
+            # one arrives on every pass of the pause and the reload, so in
+            # every protocol state: each is refused, never admitted
+            rid = f"late{self.round}-{self.passes}"
+            self.late.append(rid)
+            self._submit(rid, first=True)
+            return
+        if self.round == ROUNDS:
             return
         while self.submitted < PER_ROUND and len(self._in_flight()) < IN_FLIGHT:
             rid = f"r{self.round}-{self.submitted}"
             self.submitted += 1
             self.admitted_under[rid] = self.committed
-            self.outbox.append(self._msg("NEW_REQUEST", NewRequestConductor(
-                request_id=rid, initial_signals={"text_inputs": [self._ptr(PREPROCESS)]},
-                initial_input_modalities=["text"], initial_output_modalities=["text"],
-                input_metadata={}, model_kwargs={},
-            )))
+            self._submit(rid)
         if self.submitted == PER_ROUND:
             self.round += 1
             self.submitted = 0
             self.serving = False
             mode = "abort" if self.round % 3 == 0 else "wait"
             self.outbox.append(self._msg("PAUSE_GENERATION", PauseGeneration(op_id=f"pause{self.round}", mode=mode)))
-            # one arrives while paused: refused, never admitted
-            late = f"late{self.round}"
-            self.outbox.append(self._msg("NEW_REQUEST", NewRequestConductor(
-                request_id=late, initial_signals={"text_inputs": [self._ptr(PREPROCESS)]},
-                initial_input_modalities=["text"], initial_output_modalities=["text"],
-                input_metadata={}, model_kwargs={},
-            )))
 
 
 def test_a_thousand_requests_with_a_reload_every_hundred_never_mix_versions(tmp_path, monkeypatch):
@@ -424,7 +469,7 @@ def test_a_thousand_requests_with_a_reload_every_hundred_never_mix_versions(tmp_
         f"held {world.held}, stages {dict(list(world.stage.items())[:4])}"
     )
 
-    served = {r: v for r, v in world.admitted_under.items() if not r.startswith("late")}
+    served = world.admitted_under
     assert len(served) == ROUNDS * PER_ROUND
     completed = failed = 0
     for rid, version in served.items():
@@ -437,9 +482,11 @@ def test_a_thousand_requests_with_a_reload_every_hundred_never_mix_versions(tmp_
         else:
             failed += 1
             assert (body.status, body.error_message) == (503, "generation was paused, aborting requests in flight")
-    for n in range(1, ROUNDS + 1):
-        kind, body = world.finished[f"late{n}"]
-        assert (kind, body.status, body.weight_version) == ("request_failed", 503, None)
+    assert len(world.late) > 6 * ROUNDS, "too few arrivals during the pauses"
+    for rid in world.late:
+        kind, body = world.finished[rid]
+        assert (kind, body.status, body.weight_version) == ("request_failed", 503, None), rid
+        assert rid not in world.stamps, f"{rid} reached a rank"
     # the abort pauses had requests in flight, the wait pauses let theirs finish
     assert failed > 0 and completed > ROUNDS * PER_ROUND - failed - 1
     assert {v for v in served.values()} == {None, *(f"v{n}" for n in range(1, ROUNDS))}
