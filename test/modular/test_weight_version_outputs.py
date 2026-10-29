@@ -153,6 +153,19 @@ def test_an_error_chunk_carries_the_version_of_the_output_it_replaces():
     worker._fail_unread_outputs(FailedRead(request_id="r3", graph_edges=[edge], error=OSError("gone")))
     assert worker.out_queue.get_nowait().metadata == {"status": 500, "weight_version": "v6"}
 
+    # an image or video encode that fails on the pool
+    import collections
+    import concurrent.futures
+
+    failed = concurrent.futures.Future()
+    failed.set_exception(ValueError("bad frame"))
+    state = object()
+    worker.request_output_state["r4"] = state
+    worker.tensor_manager = SimpleNamespace(dereference=lambda uuid: None)
+    worker._encoded = collections.deque([(failed, "r4", state, None, "image", {"weight_version": "v6"}, 41)])
+    worker._release_encoded()
+    assert worker.out_queue.get_nowait().metadata == {"status": 400, "weight_version": "v6"}
+
 
 def test_the_message_loop_keeps_the_admitted_version():
     """``request_complete`` and ``request_failed`` hand their version to the
@@ -174,10 +187,16 @@ def test_the_message_loop_keeps_the_admitted_version():
     server.log_stats = False
     server.metrics = None
     server.enable_nvtx = False
+    from mstar.api_server.request_types import ResultChunk
+
     worker = PreprocessWorker.__new__(PreprocessWorker)
-    worker.received_chunk_counts = {"ok": {}, "bad": {}}
-    worker.per_request_reading_tensors = {"ok": 0, "bad": 0}
+    worker.received_chunk_counts = {"ok": {}, "bad": {}, "live": {}}
+    worker.per_request_reading_tensors = {"ok": 0, "bad": 0, "live": 0}
     worker.output_queue = queue.Queue()
+    # a live call streams a versioned output, then its input fails: no output
+    # names the error, so it takes the version the request's chunks carried,
+    # also once the stream has handed those chunks out
+    worker.output_queue.put(ResultChunk("live", "text", b"a", {"weight_version": "v6"}))
     worker.profile_queue = queue.Queue()
     worker.reads_done_queue = queue.Queue()
     worker._signal = lambda: None
@@ -185,7 +204,7 @@ def test_the_message_loop_keeps_the_admitted_version():
     reqs = {
         rid: PendingRequest(streaming=False, input_modalities=["text"],
                             output_modalities=["text"], profile=RequestProfile(rid=rid))
-        for rid in ("ok", "bad")
+        for rid in ("ok", "bad", "live")
     }
     server.pending_requests = dict(reqs)
     batches = [[
@@ -196,23 +215,32 @@ def test_the_message_loop_keeps_the_admitted_version():
             request_id="bad", error_message="generation was paused", status=503,
             weight_version="v5")),
     ], []]
-    server.communicator = _ScriptedApiComm(server, batches, reqs["ok"])
+    class _Comm(_ScriptedApiComm):
+        def get_all_new_messages(self):
+            if len(self.released_before) == 1:
+                # the stream handler takes the first pass's chunk
+                assert [c.data for c in reqs["live"].chunks] == [b"a"]
+                reqs["live"].chunks = []
+                worker.output_queue.put(ResultChunk("live", "error", b"stream input failed", {"status": 400}))
+            return super().get_all_new_messages()
+
+    server.communicator = _Comm(server, batches, reqs["ok"])
     server._process_messages()
     assert reqs["ok"].weight_version == "v5" and reqs["bad"].weight_version == "v5"
     assert reqs["bad"].error_status == 503
+    assert [c.metadata for c in reqs["live"].chunks] == [{"status": 400, "weight_version": "v6"}]
 
 
 def test_a_request_with_no_answer_takes_the_version_its_chunks_carry():
     """No completion or failure ever came (the conductor died): the
     synthesized terminal error falls back to the chunks' version."""
     from mstar.api_server.entrypoint import PendingRequest, _request_weight_version
-    from mstar.api_server.request_types import ResultChunk
     from mstar.profile.format import RequestProfile
 
     req = PendingRequest(streaming=True, input_modalities=["text"], output_modalities=["text"],
                          profile=RequestProfile(rid="r1"))
     assert _request_weight_version(req) is None
-    req.chunks.append(ResultChunk("r1", "text", b"a", {"weight_version": "v6"}))
+    req.chunk_weight_version = "v6"  # as the message loop records it
     assert _request_weight_version(req) == "v6"
     req.weight_version = "v7"  # the conductor's answer wins
     assert _request_weight_version(req) == "v7"
