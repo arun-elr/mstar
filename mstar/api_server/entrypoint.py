@@ -230,6 +230,17 @@ def _client_text(text: str, key: str, request_id: str | None) -> str:
     return text if request_id is None else text.replace(key, request_id)
 
 
+def _request_weight_version(req: "PendingRequest") -> str | None:
+    """The conductor's admitted version, else (no completion or failure came,
+    e.g. the conductor died) the one its chunks carry."""
+    if req.weight_version is not None:
+        return req.weight_version
+    for chunk in req.chunks:
+        if "weight_version" in chunk.metadata:
+            return chunk.metadata["weight_version"]
+    return None
+
+
 def _with_weight_version(body: dict, weight_version: str | None) -> dict:
     """``body`` plus ``weight_version`` once a reload named one; a deployment
     that never reloads keeps its exact response shape."""
@@ -1097,7 +1108,7 @@ class APIServer:
                             modality="error",
                             data=str(finished_req.error).encode("utf-8"),
                             metadata=_with_weight_version(
-                                {"status": finished_req.error_status}, finished_req.weight_version,
+                                {"status": finished_req.error_status}, _request_weight_version(finished_req),
                             ),
                         ))
                     if tail:

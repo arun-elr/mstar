@@ -202,6 +202,22 @@ def test_the_message_loop_keeps_the_admitted_version():
     assert reqs["bad"].error_status == 503
 
 
+def test_a_request_with_no_answer_takes_the_version_its_chunks_carry():
+    """No completion or failure ever came (the conductor died): the
+    synthesized terminal error falls back to the chunks' version."""
+    from mstar.api_server.entrypoint import PendingRequest, _request_weight_version
+    from mstar.api_server.request_types import ResultChunk
+    from mstar.profile.format import RequestProfile
+
+    req = PendingRequest(streaming=True, input_modalities=["text"], output_modalities=["text"],
+                         profile=RequestProfile(rid="r1"))
+    assert _request_weight_version(req) is None
+    req.chunks.append(ResultChunk("r1", "text", b"a", {"weight_version": "v6"}))
+    assert _request_weight_version(req) == "v6"
+    req.weight_version = "v7"  # the conductor's answer wins
+    assert _request_weight_version(req) == "v7"
+
+
 def test_generate_adds_the_version_only_once_there_is_one():
     from mstar.api_server.entrypoint import _with_weight_version
 
