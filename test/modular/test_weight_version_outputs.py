@@ -542,3 +542,104 @@ def test_a_thousand_requests_with_a_reload_every_hundred_never_mix_versions(tmp_
     assert failed > 0 and completed > ROUNDS * PER_ROUND - failed - 1
     assert {v for v in served.values()} == {None, *(f"v{n}" for n in range(1, ROUNDS))}
     assert world.committed == f"v{ROUNDS}"
+
+
+# -- one test per stamping site that only a served path reached (#1148) ----------
+
+
+def test_a_read_tensor_that_fails_postprocess_keeps_its_frame_version():
+    """data_worker._process_read_tensors: a tensor read in fine whose
+    postprocess raises answers with an error chunk carrying its frame's
+    version."""
+    from test_output_failure_teardown import _errors, _with_output
+
+    wt = _with_output("result tensor")
+    wt.tensor_uuid_to_metadata_per_request["r1"] = {"u1": {"weight_version": "v6"}, "u2": {"weight_version": "v6"}}
+    wt.run()
+    errors = _errors(wt)
+    assert errors and all(c.metadata == {"status": 500, "weight_version": "v6"} for c in errors)
+
+
+def test_a_read_that_cannot_start_keeps_the_frame_version():
+    """data_worker.run: a ResultTensors whose read never starts fails all its
+    tensors at once, with the version from that frame's metadata."""
+    from test_output_failure_teardown import _edge, _errors, _Model, _TensorManager, _thread
+
+    from mstar.api_server.request_types import ResultTensors
+
+    wt = _thread(_Model(), _TensorManager(read_raises=True))
+    wt.result_tensor_queue.put(ResultTensors(
+        request_id="r1", modality="text", graph_edge=_edge("u1", "u2"), loop_indices=None,
+        metadata={"weight_version": "v6"},
+    ))
+    wt.run()
+    errors = _errors(wt)
+    assert errors and all(c.metadata == {"status": 500, "weight_version": "v6"} for c in errors)
+
+
+def test_a_stream_that_fails_after_it_opened_ends_with_the_admitted_version():
+    """entrypoint's streaming tail: a request that failed in the engine ends
+    its open stream with one error chunk, carrying the version it was
+    admitted under."""
+    import asyncio
+
+    from test_request_id_reuse import TEXT, _api_server, _PreprocessWorker
+
+    pw = _PreprocessWorker()
+    s = _api_server(pw)
+    s.submit_request(text="first", request_id="X", **TEXT)
+    with s.request_lock:
+        req = s.pending_requests[pw.inputs[0].request_id]
+        req.error, req.error_status = "failed in the engine", 500
+        req.weight_version = "v6"
+        req.event.set()
+
+    async def read():
+        return [(c.modality, c.metadata) async for c in s.iter_result_chunks("X")]
+
+    assert asyncio.run(read()) == [("error", {"status": 500, "weight_version": "v6"})]
+
+
+def test_the_ws_error_reply_carries_the_error_chunk_s_version(monkeypatch, tmp_path):
+    """/generate/ws: a request that fails after it was accepted answers with
+    the error and the version of its error chunk."""
+    import json
+
+    from fastapi.testclient import TestClient
+    from test_generate_ws import _FakeServer, _recv_until_finish
+
+    from mstar.api_server import entrypoint
+    from mstar.api_server.request_types import ResultChunk
+
+    class _Versioned(_FakeServer):
+        async def iter_result_chunks(self, request_id):
+            yield ResultChunk(request_id=request_id, modality="action", data=b"a", metadata={"weight_version": "v6"})
+            yield ResultChunk(
+                request_id=request_id, modality="error", data=b"bad domain",
+                metadata={"status": 400, "weight_version": "v6"},
+            )
+
+    monkeypatch.setattr(entrypoint, "api_server", _Versioned(tmp_path))
+    with TestClient(entrypoint.app).websocket_connect("/generate/ws") as ws:
+        ws.send_text(json.dumps({"text": "go", "request_id": "mid"}))
+        msgs = _recv_until_finish(ws, binary=False)
+    assert msgs[-1] == {"request_id": "mid", "error": "bad domain", "status": 400, "weight_version": "v6"}
+
+
+def test_non_streaming_generate_puts_the_version_at_the_top_level(monkeypatch):
+    """/generate with streaming off: the response names the version its
+    chunks carry, once, at the top level."""
+    from fastapi.testclient import TestClient
+    from test_generate_route import _RecordingServer
+
+    from mstar.api_server import entrypoint
+    from mstar.api_server.request_types import ResultChunk
+
+    class _Versioned(_RecordingServer):
+        async def collect_results(self, request_id, request, meta=None):
+            return [ResultChunk(request_id=request_id, modality="text", data=b"a", metadata={"weight_version": "v6"})]
+
+    monkeypatch.setattr(entrypoint, "api_server", _Versioned())
+    response = TestClient(entrypoint.app).post("/generate", data={"text": "hi", "streaming": "false"})
+    assert response.status_code == 200
+    assert response.json()["weight_version"] == "v6"
