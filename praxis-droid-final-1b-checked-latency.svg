@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1450" height="1474" viewBox="0 0 1450 1474" role="img" aria-label="Measured Praxis-1 DROID served latency">
+<rect width="1450" height="1474" fill="#FCFDFD"/>
+<text x="70.0" y="72.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="700" text-anchor="start">Praxis-1 DROID · served latency</text>
+<text x="70.0" y="108.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" text-anchor="start">Measured end-to-end WebSocket round trips; client encoding and server startup excluded</text>
+<rect x="70" y="132" width="1310" height="54" rx="10" fill="#EDF3F6"/>
+<text x="90.0" y="155.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="700" text-anchor="start">Same NVIDIA H200 (GPU UUID verified)</text>
+<text x="90.0" y="176.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" text-anchor="start">Two Euler steps · last-step video decoder skipped · source observation SHA matches within each panel</text>
+<text x="70.0" y="225.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="19" font-weight="700" text-anchor="start">Cold request · 1 frame</text>
+<text x="70.0" y="251.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" text-anchor="start">Observed samples; median and interquartile range</text>
+<line x1="335.0" y1="271.0" x2="335.0" y2="391.0" stroke="#D9E1E7"/>
+<text x="335.0" y="415.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">0</text>
+<line x1="550.0" y1="271.0" x2="550.0" y2="391.0" stroke="#D9E1E7"/>
+<text x="550.0" y="415.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">88</text>
+<line x1="765.0" y1="271.0" x2="765.0" y2="391.0" stroke="#D9E1E7"/>
+<text x="765.0" y="415.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">175</text>
+<line x1="980.0" y1="271.0" x2="980.0" y2="391.0" stroke="#D9E1E7"/>
+<text x="980.0" y="415.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">262</text>
+<line x1="1195.0" y1="271.0" x2="1195.0" y2="391.0" stroke="#D9E1E7"/>
+<text x="1195.0" y="415.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">350</text>
+<text x="1195.0" y="437.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="end">round-trip latency (ms)</text>
+<text x="70.0" y="296.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="600" text-anchor="start">Reference cold (Positronic v1)</text>
+<line x1="626.6" y1="291" x2="629.0" y2="291" stroke="#146C8C" stroke-width="12" stroke-linecap="round" opacity="0.38"/>
+<circle cx="623.6" cy="285.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="624.3" cy="291.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="624.7" cy="297.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="627.3" cy="285.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="627.4" cy="291.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="627.5" cy="297.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="627.7" cy="285.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="628.0" cy="291.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="629.0" cy="297.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="629.1" cy="285.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="629.7" cy="291.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<circle cx="631.6" cy="297.0" r="3.6" fill="#146C8C" opacity="0.83"/>
+<line x1="627.6" y1="278" x2="627.6" y2="304" stroke="#146C8C" stroke-width="3"/>
+<text x="1220.0" y="296.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="700" text-anchor="start">119.1 ms  ·  n=12</text>
+<text x="70.0" y="350.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="600" text-anchor="start">M* E5 cold (openpi)</text>
+<line x1="990.4" y1="345" x2="996.5" y2="345" stroke="#D46B38" stroke-width="12" stroke-linecap="round" opacity="0.38"/>
+<circle cx="983.6" cy="339.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="987.5" cy="345.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="989.7" cy="351.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="990.6" cy="339.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="992.5" cy="345.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="993.1" cy="351.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="993.3" cy="339.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="995.8" cy="345.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="996.2" cy="351.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="997.2" cy="339.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="997.7" cy="345.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<circle cx="1000.8" cy="351.0" r="3.6" fill="#D46B38" opacity="0.83"/>
+<line x1="993.2" y1="332" x2="993.2" y2="358" stroke="#D46B38" stroke-width="3"/>
+<text x="1220.0" y="350.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="700" text-anchor="start">267.9 ms  ·  n=12</text>
+<text x="70.0" y="496.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="19" font-weight="700" text-anchor="start">Observed session · first call · 1 frame</text>
+<text x="70.0" y="522.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" text-anchor="start">Observed samples; median and interquartile range</text>
+<line x1="335.0" y1="542.0" x2="335.0" y2="662.0" stroke="#D9E1E7"/>
+<text x="335.0" y="686.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">0</text>
+<line x1="550.0" y1="542.0" x2="550.0" y2="662.0" stroke="#D9E1E7"/>
+<text x="550.0" y="686.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">88</text>
+<line x1="765.0" y1="542.0" x2="765.0" y2="662.0" stroke="#D9E1E7"/>
+<text x="765.0" y="686.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">175</text>
+<line x1="980.0" y1="542.0" x2="980.0" y2="662.0" stroke="#D9E1E7"/>
+<text x="980.0" y="686.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">262</text>
+<line x1="1195.0" y1="542.0" x2="1195.0" y2="662.0" stroke="#D9E1E7"/>
+<text x="1195.0" y="686.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">350</text>
+<text x="1195.0" y="708.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="end">round-trip latency (ms)</text>
+<text x="70.0" y="567.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="600" text-anchor="start">Reference observed session</text>
+<line x1="620.8" y1="562" x2="622.4" y2="562" stroke="#6B5B95" stroke-width="12" stroke-linecap="round" opacity="0.38"/>
+<circle cx="620.6" cy="556.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="620.9" cy="562.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="622.0" cy="568.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="623.4" cy="556.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<line x1="621.5" y1="549" x2="621.5" y2="575" stroke="#6B5B95" stroke-width="3"/>
+<text x="1220.0" y="567.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="700" text-anchor="start">116.6 ms  ·  n=4</text>
+<text x="70.0" y="621.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="600" text-anchor="start">M* E5 observed session</text>
+<line x1="997.7" y1="616" x2="1000.7" y2="616" stroke="#25816E" stroke-width="12" stroke-linecap="round" opacity="0.38"/>
+<circle cx="996.3" cy="610.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="998.2" cy="616.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="1000.2" cy="622.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="1002.1" cy="610.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<line x1="999.2" y1="603" x2="999.2" y2="629" stroke="#25816E" stroke-width="3"/>
+<text x="1220.0" y="621.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="700" text-anchor="start">270.3 ms  ·  n=4</text>
+<text x="70.0" y="767.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="19" font-weight="700" text-anchor="start">Observed session · second call · 22 frames</text>
+<text x="70.0" y="793.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" text-anchor="start">Observed samples; median and interquartile range</text>
+<line x1="335.0" y1="813.0" x2="335.0" y2="933.0" stroke="#D9E1E7"/>
+<text x="335.0" y="957.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">0</text>
+<line x1="550.0" y1="813.0" x2="550.0" y2="933.0" stroke="#D9E1E7"/>
+<text x="550.0" y="957.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">162</text>
+<line x1="765.0" y1="813.0" x2="765.0" y2="933.0" stroke="#D9E1E7"/>
+<text x="765.0" y="957.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">325</text>
+<line x1="980.0" y1="813.0" x2="980.0" y2="933.0" stroke="#D9E1E7"/>
+<text x="980.0" y="957.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">488</text>
+<line x1="1195.0" y1="813.0" x2="1195.0" y2="933.0" stroke="#D9E1E7"/>
+<text x="1195.0" y="957.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">650</text>
+<text x="1195.0" y="979.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="end">round-trip latency (ms)</text>
+<text x="70.0" y="838.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="600" text-anchor="start">Reference observed session</text>
+<line x1="678.1" y1="833" x2="679.4" y2="833" stroke="#6B5B95" stroke-width="12" stroke-linecap="round" opacity="0.38"/>
+<circle cx="676.8" cy="827.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="678.6" cy="833.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="679.1" cy="839.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="680.1" cy="827.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<line x1="678.8" y1="820" x2="678.8" y2="846" stroke="#6B5B95" stroke-width="3"/>
+<text x="1220.0" y="838.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="700" text-anchor="start">259.9 ms  ·  n=4</text>
+<text x="70.0" y="892.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="600" text-anchor="start">M* E5 observed session</text>
+<line x1="1055.5" y1="887" x2="1057.1" y2="887" stroke="#25816E" stroke-width="12" stroke-linecap="round" opacity="0.38"/>
+<circle cx="1053.6" cy="881.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="1056.1" cy="887.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="1056.2" cy="893.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="1059.6" cy="881.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<line x1="1056.2" y1="874" x2="1056.2" y2="900" stroke="#25816E" stroke-width="3"/>
+<text x="1220.0" y="892.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="700" text-anchor="start">545.1 ms  ·  n=4</text>
+<text x="70.0" y="1038.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="19" font-weight="700" text-anchor="start">Observed session · third call · 25 frames</text>
+<text x="70.0" y="1064.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" text-anchor="start">Observed samples; median and interquartile range</text>
+<line x1="335.0" y1="1084.0" x2="335.0" y2="1204.0" stroke="#D9E1E7"/>
+<text x="335.0" y="1228.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">0</text>
+<line x1="550.0" y1="1084.0" x2="550.0" y2="1204.0" stroke="#D9E1E7"/>
+<text x="550.0" y="1228.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">162</text>
+<line x1="765.0" y1="1084.0" x2="765.0" y2="1204.0" stroke="#D9E1E7"/>
+<text x="765.0" y="1228.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">325</text>
+<line x1="980.0" y1="1084.0" x2="980.0" y2="1204.0" stroke="#D9E1E7"/>
+<text x="980.0" y="1228.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">488</text>
+<line x1="1195.0" y1="1084.0" x2="1195.0" y2="1204.0" stroke="#D9E1E7"/>
+<text x="1195.0" y="1228.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="middle">650</text>
+<text x="1195.0" y="1250.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="end">round-trip latency (ms)</text>
+<text x="70.0" y="1109.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="600" text-anchor="start">Reference observed session</text>
+<line x1="681.2" y1="1104" x2="683.6" y2="1104" stroke="#6B5B95" stroke-width="12" stroke-linecap="round" opacity="0.38"/>
+<circle cx="681.2" cy="1098.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="681.2" cy="1104.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="682.9" cy="1110.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<circle cx="685.9" cy="1098.0" r="3.6" fill="#6B5B95" opacity="0.83"/>
+<line x1="682.0" y1="1091" x2="682.0" y2="1117" stroke="#6B5B95" stroke-width="3"/>
+<text x="1220.0" y="1109.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="700" text-anchor="start">262.3 ms  ·  n=4</text>
+<text x="70.0" y="1163.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="600" text-anchor="start">M* E5 observed session</text>
+<line x1="1050.4" y1="1158" x2="1055.2" y2="1158" stroke="#25816E" stroke-width="12" stroke-linecap="round" opacity="0.38"/>
+<circle cx="1044.6" cy="1152.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="1052.3" cy="1158.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="1054.2" cy="1164.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<circle cx="1058.1" cy="1152.0" r="3.6" fill="#25816E" opacity="0.83"/>
+<line x1="1053.3" y1="1145" x2="1053.3" y2="1171" stroke="#25816E" stroke-width="3"/>
+<text x="1220.0" y="1163.0" fill="#172438" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="700" text-anchor="start">542.9 ms  ·  n=4</text>
+<line x1="70" y1="1344" x2="1380" y2="1344" stroke="#D9E1E7"/>
+<text x="70.0" y="1362.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" text-anchor="start">Each dot is one counted call. Configured warmup sessions are excluded from every run.</text>
+<text x="70.0" y="1386.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" text-anchor="start">Cold comparison uses reference Positronic v1 and M* openpi; semantic observation and seed match, wire envelopes differ.</text>
+<text x="70.0" y="1410.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" text-anchor="start">These samples do not establish model-only speed, numerical parity, or simulation success.</text>
+<text x="70.0" y="1434.0" fill="#536273" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" text-anchor="start">At least one source or client checkout was reported dirty; see provenance JSON for exact versions.</text>
+</svg>
