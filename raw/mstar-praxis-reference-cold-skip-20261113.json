@@ -1,0 +1,251 @@
+{
+  "mode": "reference",
+  "server_meta": {
+    "policy": "praxis",
+    "code_version": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69-dirty",
+    "positronic_wire_ref": "d5f2a47",
+    "arm": "praxis-1-droid",
+    "checkpoint": "/home/bench/praxis/checkpoints/praxis-1-droid",
+    "expert_rope": false,
+    "expert_rope_self": false,
+    "expert_absolute_positions": true,
+    "rope_layout": "contiguous",
+    "rope_n_tiles": null,
+    "tile_embedding": false,
+    "sampler_layout": "window_joint",
+    "backbone_layout": "chunk_causal",
+    "canvas": "tiles",
+    "tile_size": [
+      224,
+      416
+    ],
+    "pose_frame": "flange",
+    "text_uncond": "blank_caption",
+    "exec_horizon": null,
+    "num_steps": 2,
+    "t_shift": 12.5,
+    "solver": "euler",
+    "num_evals": 2,
+    "cfg_scale": 1.0,
+    "cfg_video_scale": 4.0,
+    "cfg_batched": false,
+    "context_mode": "stateless",
+    "max_context_chunks": 0,
+    "carry_mode": "clean",
+    "record_denoised": null,
+    "compile": null,
+    "skip_video_decoder": true,
+    "action_steps": null,
+    "embodiment": "franka_ee",
+    "control_mode": "none",
+    "action_layout": "ee-10d [xyz3 rot6d6 grip1], rel-to-anchor, grip abs",
+    "wire_commands": [
+      "robot_command",
+      "target_grip"
+    ],
+    "wan_pattern": "contiguous-window-144444",
+    "chunk_rows": 24,
+    "action_fps": 15.0,
+    "prompt": "",
+    "prompt_overridable": true,
+    "pad_start": false,
+    "prompt_style": "caption",
+    "prompt_rewritten": null,
+    "sample_seed_base": 0,
+    "seed_source": "session_param",
+    "local_stack": {
+      "seq": [
+        {
+          "name": "stop_on_fault"
+        },
+        {
+          "name": "restrict_image_size",
+          "args": {
+            "width": 416,
+            "height": 234
+          }
+        },
+        {
+          "name": "chunked_schedule"
+        }
+      ]
+    },
+    "compress_images": true,
+    "image_codecs": [
+      "h264",
+      "jpeg"
+    ],
+    "rollout_id": "praxis-b4a5d473d397",
+    "rollout_id_source": "bridge_generated",
+    "session_overrides": {
+      "context_mode": "stateless",
+      "max_context_chunks": "0",
+      "sample_seed": "0",
+      "schedule": "chunked",
+      "skip_video_decoder": "on"
+    }
+  },
+  "client_commit": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "client_dirty": true,
+  "python": "3.12.15",
+  "measured_at_utc": "2026-11-13T22:33:10.919354+00:00",
+  "gpu": "NVIDIA H200, GPU-1b42e8c8-a835-0f3e-cf4b-c1e7b27480e1, 580.173.02",
+  "seed_controlled": true,
+  "observation_sha256": "948b77d4ddd18f0d8c0e61e63adc491dc36ab58d27d3dc61d2b88f93bfb783f1",
+  "observation_format": "raw uint8 1x288x512x3 per view, fixed one-frame calls; openpi uses FR3 hand keys",
+  "sessions": 4,
+  "calls_per_session": 4,
+  "warmup_sessions": 1,
+  "calls": [
+    {
+      "session": 0,
+      "call": 0,
+      "warmup": true,
+      "round_trip_ms": 687.671273,
+      "server_infer_ms": 683.5,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 0,
+      "call": 1,
+      "warmup": true,
+      "round_trip_ms": 119.212094,
+      "server_infer_ms": 117.2,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 0,
+      "call": 2,
+      "warmup": true,
+      "round_trip_ms": 117.149298,
+      "server_infer_ms": 115.4,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 0,
+      "call": 3,
+      "warmup": true,
+      "round_trip_ms": 117.993314,
+      "server_infer_ms": 116.1,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 1,
+      "call": 0,
+      "warmup": false,
+      "round_trip_ms": 119.91788,
+      "server_infer_ms": 117.9,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 1,
+      "call": 1,
+      "warmup": false,
+      "round_trip_ms": 119.643537,
+      "server_infer_ms": 117.8,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 1,
+      "call": 2,
+      "warmup": false,
+      "round_trip_ms": 119.112057,
+      "server_infer_ms": 117.3,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 1,
+      "call": 3,
+      "warmup": false,
+      "round_trip_ms": 117.453652,
+      "server_infer_ms": 115.7,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 2,
+      "call": 0,
+      "warmup": false,
+      "round_trip_ms": 117.72762,
+      "server_infer_ms": 115.8,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 2,
+      "call": 1,
+      "warmup": false,
+      "round_trip_ms": 120.691668,
+      "server_infer_ms": 118.9,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 2,
+      "call": 2,
+      "warmup": false,
+      "round_trip_ms": 119.689414,
+      "server_infer_ms": 117.8,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 2,
+      "call": 3,
+      "warmup": false,
+      "round_trip_ms": 119.039323,
+      "server_infer_ms": 117.3,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 3,
+      "call": 0,
+      "warmup": false,
+      "round_trip_ms": 117.905541,
+      "server_infer_ms": 116.2,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 3,
+      "call": 1,
+      "warmup": false,
+      "round_trip_ms": 119.009429,
+      "server_infer_ms": 117.2,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 3,
+      "call": 2,
+      "warmup": false,
+      "round_trip_ms": 118.951872,
+      "server_infer_ms": 117.3,
+      "rows": 21,
+      "request_bytes": 885064
+    },
+    {
+      "session": 3,
+      "call": 3,
+      "warmup": false,
+      "round_trip_ms": 119.250808,
+      "server_infer_ms": 117.4,
+      "rows": 21,
+      "request_bytes": 885064
+    }
+  ],
+  "summary": {
+    "n": 12,
+    "p50_ms": 119.07569,
+    "p95_ms": 120.2660846,
+    "max_ms": 120.691668
+  }
+}

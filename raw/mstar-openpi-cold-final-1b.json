@@ -1,0 +1,178 @@
+{
+  "mode": "mstar-openpi",
+  "server_meta": {
+    "checkpoint": "runwayml/praxis-1-droid",
+    "rig": "single_arm",
+    "max_context_chunks": 0,
+    "num_steps": 2,
+    "t_shift": 12.5,
+    "cfg_scale": 1.0,
+    "cfg_video_scale": 4.0,
+    "skip_video_decoder": true,
+    "attention_backend": "triton",
+    "code_version": "1b279a1f88"
+  },
+  "client_commit": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "client_dirty": true,
+  "python": "3.12.15",
+  "measured_at_utc": "2026-11-13T23:00:47.622240+00:00",
+  "gpu": "NVIDIA H200, GPU-1b42e8c8-a835-0f3e-cf4b-c1e7b27480e1, 580.173.02",
+  "seed_controlled": true,
+  "observation_sha256": "948b77d4ddd18f0d8c0e61e63adc491dc36ab58d27d3dc61d2b88f93bfb783f1",
+  "observation_format": "raw uint8 1x288x512x3 per view, fixed one-frame calls; openpi uses FR3 hand keys",
+  "sessions": 4,
+  "calls_per_session": 4,
+  "warmup_sessions": 1,
+  "calls": [
+    {
+      "session": 0,
+      "call": 0,
+      "warmup": true,
+      "round_trip_ms": 277.660072,
+      "server_infer_ms": 275.461249,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 0,
+      "call": 1,
+      "warmup": true,
+      "round_trip_ms": 270.217526,
+      "server_infer_ms": 268.46499800000004,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 0,
+      "call": 2,
+      "warmup": true,
+      "round_trip_ms": 267.201011,
+      "server_infer_ms": 265.975499,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 0,
+      "call": 3,
+      "warmup": true,
+      "round_trip_ms": 266.856846,
+      "server_infer_ms": 265.631469,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 1,
+      "call": 0,
+      "warmup": false,
+      "round_trip_ms": 269.107047,
+      "server_infer_ms": 267.420767,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 1,
+      "call": 1,
+      "warmup": false,
+      "round_trip_ms": 269.703319,
+      "server_infer_ms": 267.82165000000003,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 1,
+      "call": 2,
+      "warmup": false,
+      "round_trip_ms": 267.905771,
+      "server_infer_ms": 266.24542299999996,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 1,
+      "call": 3,
+      "warmup": false,
+      "round_trip_ms": 268.917665,
+      "server_infer_ms": 267.261189,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 2,
+      "call": 0,
+      "warmup": false,
+      "round_trip_ms": 270.960675,
+      "server_infer_ms": 268.554303,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 2,
+      "call": 1,
+      "warmup": false,
+      "round_trip_ms": 267.839375,
+      "server_infer_ms": 266.076517,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 2,
+      "call": 2,
+      "warmup": false,
+      "round_trip_ms": 266.803536,
+      "server_infer_ms": 265.765288,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 2,
+      "call": 3,
+      "warmup": false,
+      "round_trip_ms": 267.594696,
+      "server_infer_ms": 266.28741099999996,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 3,
+      "call": 0,
+      "warmup": false,
+      "round_trip_ms": 269.51196,
+      "server_infer_ms": 267.53200100000004,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 3,
+      "call": 1,
+      "warmup": false,
+      "round_trip_ms": 266.449215,
+      "server_infer_ms": 264.85132,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 3,
+      "call": 2,
+      "warmup": false,
+      "round_trip_ms": 263.969246,
+      "server_infer_ms": 262.725095,
+      "rows": 21,
+      "request_bytes": 885118
+    },
+    {
+      "session": 3,
+      "call": 3,
+      "warmup": false,
+      "round_trip_ms": 265.535355,
+      "server_infer_ms": 264.347763,
+      "rows": 21,
+      "request_bytes": 885118
+    }
+  ],
+  "summary": {
+    "n": 12,
+    "p50_ms": 267.872573,
+    "p95_ms": 270.2691292,
+    "max_ms": 270.960675
+  }
+}
