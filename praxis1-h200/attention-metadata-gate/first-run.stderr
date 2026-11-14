@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/home/bench/praxis/mstar-attention-binding-gpu-gate.py", line 336, in <module>
+    main()
+  File "/home/bench/praxis/mstar-attention-binding-gpu-gate.py", line 329, in main
+    "chunk": gpu_case("chunk", make_chunk, "encode"),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/bench/praxis/mstar-attention-binding-gpu-gate.py", line 300, in gpu_case
+    raise AssertionError((name, key, diff, changed, pad_nonzero))
+AssertionError: ('chunk', 'attn', 0.0, 2.697021484375, 512)
