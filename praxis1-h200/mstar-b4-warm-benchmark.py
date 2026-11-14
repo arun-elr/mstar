@@ -5,10 +5,10 @@ client sends an identical synthetic, continuous 46-frame observation trajectory
 to each. It measures served latency, not robot success or numeric model parity.
 
 Examples:
-  PYTHONPATH=/path/to/praxis-reference python /tmp/mstar_praxis_warm_benchmark.py \
-    --mode reference --url ws://127.0.0.1:8000/api/v1/session --out /tmp/ref-warm.json
-  PYTHONPATH=/path/to/praxis-reference python /tmp/mstar_praxis_warm_benchmark.py \
-    --mode mstar --url ws://127.0.0.1:8126/api/v1/session --out /tmp/mstar-warm.json
+  PYTHONPATH=/path/to/praxis-reference python mstar-b4-warm-benchmark.py \
+    --mode reference --url ws://127.0.0.1:8000/api/v1/session --out ref-warm.json
+  PYTHONPATH=/path/to/praxis-reference python mstar-b4-warm-benchmark.py \
+    --mode mstar --url ws://127.0.0.1:8126/api/v1/session --out mstar-warm.json
 """
 
 from __future__ import annotations

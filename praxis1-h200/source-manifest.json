@@ -1,10 +1,13 @@
 {
   "extraction": "The chart inputs retain original summary values and provenance but omit per-call numeric action arrays, local paths, GPU UUID and process IDs.",
   "published_sha256": {
+    "mstar-b4-warm-benchmark.py": "e642f8a327202e8ce73855c2c993767b51b0c44f5a4c1e678d1244fc355918fa",
     "reference-fused-norm-off.patch": "ad5d54a9a1b812e864d1c1c9695f4ef75ea6a355f2e1cffedaf14045d0e929ac"
   },
   "source_sha256": {
+    "attention-resource-h200-5902054c0f.png": "ddf93258581e5b282fa29eab2e7b5f1d9f4865aab52eeab90465c56cb2c4c33e",
     "latency-h200-5902054c0f.png": "aa74ceb3bd5d872ac14a8593881580fa7e42a2f8c2c7836cd31d8499d88b057b",
+    "mstar-590-attention-resource-bench.json": "f91d4a1b3bffabf020e4df86b55a7066cc61258d68fddbc874a4694697356e4e",
     "mstar-590-cold-python.json": "23ae72fcc867d85381ee88be99716683fe58a87b96a098bd370b9818939461bc",
     "mstar-590-cold-rust.json": "0c05847aac15f771f310e855fab3e25a6cce76f4ce5cf3fde82b6c4746415129",
     "mstar-590-sim-summary.json": "1ad602abc52dc5107476253212ab12b90a02606bb7a83411474782b4911829a3",
@@ -12,12 +15,20 @@
     "mstar-590-warm-python.json": "1904d936fd1bc2f2f7a8e00626017cdf4779b192662ffd43fb18bd9a2da6ab75",
     "mstar-590-warm-rust.json": "221364cf16226e6594cf3e80135e2b22c56cfc2edbfefaf066a17217f705b635",
     "mstar-b4-warm-benchmark.py": "65370861d3545910e63275e5b2d4bb63fdb875c958157e83a6c1efdacf75a06c",
+    "mstar-praxis-attention-h200-bench-archive.py": "5d111cab453eea2bc232f3876c4b61d9ebdb58feaba4ccefb17fdd0e427a1733",
+    "mstar-praxis-attention-h200-bench.py": "72f42504abf2a8db4785d37ed3da0fe4fa311960dbebb8e200e8b1e2a412355f",
     "plot.py": "8e4dff56a6c32ce89a8d81dd9215b0aa5de294daa34462eac5cc18564ebeed02",
+    "plot_attention_resource.py": "c35f9f8adef7b69f0718a865a667e870b474c558b35d1149cfc8799568b5f4f9",
     "reference-fused-norm-off.patch": "6abd1f0ec8a0f15cf3cc770fd747aa642db648abe5a7be2fa3d101bba1909335",
     "reference-matched-warm-590-script.json": "5bd4c1edc134ca450b2bedefd108eeff7e461ca843dc79fa9d48d53742745c53",
     "reference-nocache-590-script.json": "7b895000b2786b085c6b5c6d53831bd77639ab1d157eb3d0c0ed5b0f6b523384",
     "reference-nofusednorm-590-script.json": "f19b8cb10f478431c61f44107a75cfcd0176f884f1e7d9b23f901e3fbba5e959",
     "reference-unpaired-590-script.json": "84127e6a85e8a173003ccf16d7369869789d95f49f54303d6e70a76c5249d848",
+    "reference-untracked/benchmark_remote_session.py": "dabb193e2571872e7e986776641dd0fceec3b42a6e0face6265c9f51c5ae3703",
+    "reference-untracked/openpi_sim_client.py": "e20d65f860d67a8a24dca2a9a69ac1f62894c49f8e2a3f908f0206972cd40ce3",
+    "reference-untracked/plot_remote_latency.py": "2da5079b93cad3e3f11d30ad7c20a2052886fd82ff43b131f3bdc4532df11509",
+    "reference-untracked/sim_client.py": "6ca3bbc34ff046464436287becf0932adee4b8dcbeab0fb1c197b5d01f875556",
+    "reference-working-tree.diff": "099d4a341b5db5ad64417db34855e191c848d6f87deb11949df572f5d6462f74",
     "stages-h200-5902054c0f.png": "18a5b781939bf5a47088d096b5e54285652f5b2b0a546d6c4356263c7c173783"
   }
 }

@@ -1,0 +1,329 @@
+diff --git a/praxis/sim/EVAL.md b/praxis/sim/EVAL.md
+index 0a03376..4f852a9 100644
+--- a/praxis/sim/EVAL.md
++++ b/praxis/sim/EVAL.md
+@@ -111,6 +111,119 @@ wait
+ With the same checkpoint, config and packages, a run gives the same episodes
+ on every run.
+ 
++### Check an M* server in the same simulation
++
++`--mstar-url` and `--mstar-client` connect the simulator to an M* Praxis DROID
++server over its Positronic v2 WebSocket. The client module lives in the
++optional server package; local scripted and model runs do not load it. The
++remote run keeps the tasks, scene seeds, camera history and
++result files of this runner. The simulator does not load model weights locally.
++The server must already serve the DROID checkpoint with its Positronic adapter.
++Install the `sim` extra plus `websockets>=12` and `msgpack>=1.0` on the
++simulator host. The server's Positronic config must use
++`observation_format: praxis1` and should put its checkpoint and code revision
++in the ready-frame `meta`, which the runner records with each episode.
++
++```bash
++# One episode, including its MP4 and JSON result.
++MUJOCO_GL=egl python scripts/run_sim_eval.py --suite droid_guard \
++    --mstar-url ws://127.0.0.1:8000/api/v1/session \
++    --mstar-client praxis.serve.sim_client \
++    --tasks lift_cube --sampler-seeds 0 --shard 0/8 \
++    --out outputs/eval/mstar-smoke
++
++# All 56 droid_guard episodes.
++MUJOCO_GL=egl python scripts/run_sim_eval.py --suite droid_guard \
++    --mstar-url ws://127.0.0.1:8000/api/v1/session \
++    --mstar-client praxis.serve.sim_client \
++    --out outputs/eval/mstar-guard
++```
++
++M* Positronic currently chooses the sampler seed for each request. The suite's sampler
++seed still selects the scene schedule and output directory, but it does not
++control M* sampling. A remote run defaults to the suite's first sampler-seed
++label; extra labels requested with `--sampler-seeds` are independent repeats.
++`compare_sim_eval.py` refuses these results because a
++seed-matched paired comparison would be invalid. Use the episode JSON and MP4
++to check closed-loop behavior, and add a shared seed contract before comparing
++M* success rates to the in-process policy as paired episodes. The runner
++records the server meta, command row counts and cold restarts, and refuses to
++resume an output directory made by a different policy or server meta. A local
++`--checkpoint` or `--set model.*`, `sampler.*`, `session.*`, or `policy.*`
++cannot change the server and is refused. If EGL and M* share one GPU, check
++`bad_view_ticks` in each episode JSON for corrupt camera frames.
++
++If Positronic serving is not ready, the benchmark-only openpi adapter can
++smoke-test M*'s 21-row cold mode through the same simulation. It reads the
++root openpi WebSocket, sends the sim pose as an FR3 hand pose, and uses the
++pinned reference conversion to compose relative rows into absolute commands.
++It sends a seed for each call. The runner still marks the result as unpaired
++until the end-to-end seed and recipe parity are checked. The M* deployment
++must use the Praxis DROID openpi schema and `max_context_chunks: 0`.
++
++```bash
++MUJOCO_GL=egl python scripts/run_sim_eval.py --suite droid_guard \
++    --mstar-url ws://127.0.0.1:8000/ \
++    --mstar-client praxis.serve.openpi_sim_client \
++    --tasks lift_cube --sampler-seeds 0 --shard 0/8 \
++    --out outputs/eval/mstar-openpi-cold-smoke
++```
++
++This is a debugging mode. It does not test the 24-row warm session path or
++the production Positronic protocol. A reference cold comparison needs
++`session.max_context_chunks=0`; the ordinary reference suite uses observed
++context instead.
++
++The same cold openpi deployment can be timed once it has a ready metadata
++map with `checkpoint`, `code_version`, `max_context_chunks`, `num_steps`,
++`t_shift`, `cfg_scale` and `cfg_video_scale`. Its request has the same camera
++pixels, pose and prompt as the reference cold request. The openpi adapter
++converts the pose to FR3 hand coordinates and sends the `seed` field. The
++chart labels this as a debugging protocol.
++
++```bash
++python scripts/benchmark_remote_session.py --mode mstar-openpi \
++    --url ws://127.0.0.1:8002/ \
++    --sessions 4 --calls 4 --warmup-sessions 1 \
++    --out outputs/latency/mstar-openpi-cold.json
++python scripts/plot_remote_latency.py outputs/latency/reference-cold.json \
++    outputs/latency/mstar-openpi-cold.json \
++    --out outputs/latency/cold-openpi.svg
++```
++
++### Cold serving latency
++
++`scripts/benchmark_remote_session.py` measures a fixed, raw, one-frame DROID
++observation. It sends sequential calls through the reference's stateless
++chunked server and M*'s cold Positronic server. Each must return 21 command
++rows. The script excludes server startup, handshake and client encoding from
++the round trip time. It requires the ready metadata to identify the checkpoint,
++code version and sampler recipe, and it refuses a warm context. Add those
++values to M*'s `positronic.meta` in the test deployment. The reference server
++receives `context_mode=stateless`, `max_context_chunks=0`, `sample_seed=0` and
++`schedule=chunked` in its URL. M* does not currently accept that seed in its
++Positronic protocol, so these runs measure latency, not output parity.
++
++```bash
++python scripts/benchmark_remote_session.py --mode reference \
++    --url ws://127.0.0.1:8001/api/v1/session \
++    --sessions 4 --calls 4 --warmup-sessions 1 \
++    --out outputs/latency/reference-cold.json
++python scripts/benchmark_remote_session.py --mode mstar \
++    --url ws://127.0.0.1:8002/api/v1/session \
++    --sessions 4 --calls 4 --warmup-sessions 1 \
++    --out outputs/latency/mstar-cold.json
++python scripts/plot_remote_latency.py outputs/latency/reference-cold.json \
++    outputs/latency/mstar-cold.json --out outputs/latency/cold.svg
++```
++
++Run the servers one at a time on the same H200, after each has loaded and
++warmed up. Repeat in reference, M*, M*, reference order in fresh output
++directories to check for drift. Keep the JSON records, the server configs,
++commits and GPU information with the chart. A plot from this client is only
++about cold, sequential, raw-array requests. It says nothing about warm
++episodes, concurrent load or the stock DROID client's JPEG wire.
++
+ ## Compare two checkpoints
+ 
+ ```bash
+diff --git a/scripts/run_sim_eval.py b/scripts/run_sim_eval.py
+index b4ad072..2d53714 100644
+--- a/scripts/run_sim_eval.py
++++ b/scripts/run_sim_eval.py
+@@ -33,6 +33,7 @@ limit of each task, and without the predicted video. See
+ from __future__ import annotations
+ 
+ import argparse
++import importlib
+ import json
+ import math
+ import sys
+@@ -42,13 +43,16 @@ from pathlib import Path
+ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ 
+ # praxis.sim sets the OpenGL backend of MuJoCo. It must load before mujoco.
++# isort: off
+ import praxis.sim  # noqa: F401
+ from praxis.sim.config import load_config
+ from praxis.sim.env import SimEnv
+ from praxis.sim.eval_suites import SUITES, sub_dir
+-from praxis.sim.loop import ModelPolicy, make_policy, run_episode, select_egl_device
++from praxis.sim.loop import make_policy, run_episode, select_egl_device
+ from praxis.sim.scene import CONTROL_HZ
+ from praxis.sim.video import VideoWriter
++from praxis.serve.sim_client import stable_server_meta
++# isort: on
+ 
+ 
+ def finite(value: object) -> float | None:
+@@ -90,12 +94,41 @@ def summarize(records: list[dict], tasks: tuple[str, ...]) -> dict:
+     return out
+ 
+ 
++def check_existing_records(
++    root: Path,
++    policy: str,
++    sampler_seed_controlled: bool,
++    server_meta: dict | None,
++) -> None:
++    """Resume only a run made by the same kind of policy and server build."""
++    for path in root.glob("suite*/*/episode_*.json"):
++        rec = json.loads(path.read_text())
++        if (
++            rec.get("policy") != policy
++            or rec.get("sampler_seed_controlled", True) != sampler_seed_controlled
++            or (server_meta is not None and rec.get("server_meta") != server_meta)
++        ):
++            raise SystemExit(
++                f"{path}: existing episode belongs to another policy or server"
++            )
++
++
+ def main() -> None:
+     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+     ap.add_argument("--suite", required=True, choices=sorted(SUITES))
+     ap.add_argument("--config", default="configs/sim_droid.yaml")
+     ap.add_argument("--policy", default="model", choices=("model", "scripted"))
+     ap.add_argument("--checkpoint", default=None, help="replaces model.checkpoint")
++    ap.add_argument(
++        "--mstar-url",
++        default=None,
++        help="run M* over a Positronic WebSocket instead of loading the model here",
++    )
++    ap.add_argument(
++        "--mstar-client",
++        default=None,
++        help="optional server module that supplies MStarPolicy for --mstar-url",
++    )
+     ap.add_argument("--out", required=True)
+     ap.add_argument(
+         "--sampler-seeds",
+@@ -107,6 +140,23 @@ def main() -> None:
+     ap.add_argument("--no-video", action="store_true")
+     ap.add_argument("--set", action="append", default=[], help="key.sub=value")
+     args = ap.parse_args()
++    if args.mstar_url and args.policy != "model":
++        ap.error("--mstar-url requires --policy model")
++    if bool(args.mstar_url) != bool(args.mstar_client):
++        ap.error("--mstar-url and --mstar-client must be supplied together")
++    if args.mstar_url and args.checkpoint:
++        ap.error("--checkpoint loads a local model and cannot change an M* server")
++    remote_overrides = [
++        item
++        for item in args.set
++        if item.split("=", 1)[0].startswith(
++            ("model.", "sampler.", "session.", "policy.")
++        )
++    ]
++    if args.mstar_url and remote_overrides:
++        ap.error(
++            "--set model/sampler/session/policy settings do not change an M* server"
++        )
+ 
+     suite = SUITES[args.suite]
+     sets = [
+@@ -121,7 +171,7 @@ def main() -> None:
+     seeds = (
+         [int(s) for s in args.sampler_seeds.split(",")]
+         if args.sampler_seeds
+-        else list(suite.sampler_seeds)
++        else list(suite.sampler_seeds[:1] if args.mstar_url else suite.sampler_seeds)
+     )
+     tasks = tuple(args.tasks.split(",")) if args.tasks else suite.tasks
+     unknown = sorted(set(tasks) - set(suite.tasks))
+@@ -133,12 +183,35 @@ def main() -> None:
+     if args.policy == "model" or video:
+         select_egl_device(cfg.render.egl_device)
+     t0 = time.monotonic()
+-    policy = make_policy(cfg, "")
++    if args.mstar_url:
++        MStarPolicy = importlib.import_module(args.mstar_client).MStarPolicy
++        policy = MStarPolicy(args.mstar_url)
++        if hasattr(policy, "seed_stride"):
++            policy.seed_stride = cfg.session.seed_stride
++    else:
++        policy = make_policy(cfg, "")
+     print(f"policy {policy.name} ready in {time.monotonic() - t0:.0f} s", flush=True)
++    server_meta = None
++    if args.mstar_url:
++        # Read the server identity before skipping any completed episode.
++        policy.reset(None, 0)
++        server_meta = stable_server_meta(policy.meta)
++        policy.close()
++        print(
++            "M* receives explicit sampling seeds; model parity has not been verified. "
++            "Model and sampler settings come from the server.",
++            flush=True,
++        )
++    seed_controlled = not args.mstar_url or hasattr(policy, "sampler_seed")
++    check_existing_records(out, policy.name, seed_controlled, server_meta)
+     envs: dict[str, SimEnv] = {}
+     for sampler_seed in seeds:
+         # The model policy reads cfg.session at each reset.
+         cfg.session.seed = sampler_seed
++        if args.mstar_url and hasattr(policy, "sampler_seed"):
++            # The openpi adapter sends per-call seeds; Positronic sends the
++            # base once per session and the conductor counts completed calls.
++            policy.sampler_seed = sampler_seed
+         units = [u for u in suite.units(sampler_seed) if u[0] in tasks]
+         units = units[shard::shards]
+         root = out / sub_dir(sampler_seed)
+@@ -156,7 +229,7 @@ def main() -> None:
+                 env = envs[task]
+                 env.reset(seed)
+                 prompt = env.prompt
+-                if isinstance(policy, ModelPolicy):
++                if args.policy == "model":
+                     policy.prompt = prompt
+                 stem.parent.mkdir(parents=True, exist_ok=True)
+                 writer = (
+@@ -181,6 +254,11 @@ def main() -> None:
+                 finally:
+                     if writer is not None:
+                         writer.close()
++                if args.mstar_url and stable_server_meta(policy.meta) != server_meta:
++                    raise RuntimeError(
++                        "M* server metadata changed during the run; "
++                        "use a new output directory for another server build"
++                    )
+                 rec = {
+                     "suite": suite.name,
+                     "task": task,
+@@ -189,14 +267,22 @@ def main() -> None:
+                     "prompt": prompt,
+                     "policy": policy.name,
+                     "checkpoint": cfg.model.checkpoint
+-                    if args.policy == "model"
++                    if args.policy == "model" and not args.mstar_url
+                     else None,
++                    "server_meta": server_meta,
++                    "sampler_seed_controlled": seed_controlled,
++                    "request_seed_sent": bool(
++                        args.mstar_url and hasattr(policy, "sampler_seed")
++                    ),
++                    "sample_seed_base": policy.meta.get("sample_seed_base") if args.mstar_url else None,
+                     "success": bool(r.success),
+                     "progress": float(r.metrics.get("progress") or 0.0),
+                     "min_reach_m": finite(r.metrics.get("min_reach_m")),
+                     "success_tick": r.success_tick,
+                     "ticks": r.ticks,
+                     "calls": r.calls,
++                    "call_rows": r.call_rows,
++                    "restarts": r.restarts,
+                     "bad_view_ticks": r.bad_view_ticks,
+                     "mean_call_s": round(r.mean_call_s, 3),
+                     "wall_s": round(r.wall_s, 1),
+@@ -214,8 +300,17 @@ def main() -> None:
+         env.close()
+     policy.close()
+     summary = summarize(read_records(out), suite.tasks)
++    summary["_run"] = {
++        "policy": policy.name,
++        "sampler_seed_controlled": seed_controlled,
++        "request_seed_sent": bool(args.mstar_url and hasattr(policy, "sampler_seed")),
++        "server_meta": server_meta,
++        "sampler_seed_labels": seeds,
++    }
+     (out / "summary.json").write_text(json.dumps(summary, indent=1))
+     for task, s in summary.items():
++        if task == "_run":
++            continue
+         print(
+             f"{task:20s} success {s['successes']}/{s['episodes']}, "
+             f"mean progress {s['mean_progress']:.2f}"
