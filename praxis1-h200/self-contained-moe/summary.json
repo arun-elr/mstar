@@ -1,0 +1,253 @@
+{
+  "arms": {
+    "base1": {
+      "calls": {
+        "cold": {
+          "n": 4,
+          "p50_ms": 276.049166,
+          "p95_ms": 291.694687,
+          "round_trip_ms": [
+            294.268348,
+            274.987726,
+            277.110606,
+            274.534095
+          ],
+          "rows": 21
+        },
+        "warm_1": {
+          "n": 4,
+          "p50_ms": 555.275599,
+          "p95_ms": 558.214732,
+          "round_trip_ms": [
+            553.933316,
+            558.496529,
+            556.617881,
+            551.754175
+          ],
+          "rows": 24
+        },
+        "warm_2": {
+          "n": 4,
+          "p50_ms": 545.867698,
+          "p95_ms": 547.277896,
+          "round_trip_ms": [
+            540.980281,
+            546.48061,
+            545.254786,
+            547.418594
+          ],
+          "rows": 24
+        }
+      },
+      "measured_at_utc": "2026-11-14T09:02:20.266373+00:00",
+      "original_report_sha256": "93b0568568d194f5d47760cd43e8799a6c8a9e147c18a01a0d1454726e218a90"
+    },
+    "base2": {
+      "calls": {
+        "cold": {
+          "n": 4,
+          "p50_ms": 271.980641,
+          "p95_ms": 280.17394,
+          "round_trip_ms": [
+            281.495666,
+            270.524471,
+            271.27712,
+            272.684161
+          ],
+          "rows": 21
+        },
+        "warm_1": {
+          "n": 4,
+          "p50_ms": 539.361189,
+          "p95_ms": 545.487783,
+          "round_trip_ms": [
+            546.502203,
+            537.972488,
+            538.982977,
+            539.739401
+          ],
+          "rows": 24
+        },
+        "warm_2": {
+          "n": 4,
+          "p50_ms": 540.603799,
+          "p95_ms": 548.647711,
+          "round_trip_ms": [
+            549.986003,
+            538.037221,
+            540.143542,
+            541.064056
+          ],
+          "rows": 24
+        }
+      },
+      "measured_at_utc": "2026-11-14T09:04:45.980406+00:00",
+      "original_report_sha256": "469299cc2c37a00401255f8e4b469ea4d0a4d2894e334d755c8b0325ab86ba78"
+    },
+    "cand1": {
+      "calls": {
+        "cold": {
+          "n": 4,
+          "p50_ms": 237.240556,
+          "p95_ms": 246.157101,
+          "round_trip_ms": [
+            247.619064,
+            237.872646,
+            235.666378,
+            236.608467
+          ],
+          "rows": 21
+        },
+        "warm_1": {
+          "n": 4,
+          "p50_ms": 468.930847,
+          "p95_ms": 471.276577,
+          "round_trip_ms": [
+            471.361239,
+            470.796827,
+            467.064867,
+            466.296339
+          ],
+          "rows": 24
+        },
+        "warm_2": {
+          "n": 4,
+          "p50_ms": 465.506168,
+          "p95_ms": 468.233939,
+          "round_trip_ms": [
+            467.052734,
+            468.442387,
+            461.792631,
+            463.959601
+          ],
+          "rows": 24
+        }
+      },
+      "measured_at_utc": "2026-11-14T09:03:06.443026+00:00",
+      "original_report_sha256": "d8bdb4ef726d71f1325e5935df3c36bd1becd5c625b3f52be016913bda8795df"
+    },
+    "cand2": {
+      "calls": {
+        "cold": {
+          "n": 4,
+          "p50_ms": 239.750959,
+          "p95_ms": 246.773641,
+          "round_trip_ms": [
+            247.804387,
+            238.569171,
+            238.099423,
+            240.932746
+          ],
+          "rows": 21
+        },
+        "warm_1": {
+          "n": 4,
+          "p50_ms": 465.514663,
+          "p95_ms": 465.829612,
+          "round_trip_ms": [
+            465.880026,
+            465.485395,
+            461.000549,
+            465.543931
+          ],
+          "rows": 24
+        },
+        "warm_2": {
+          "n": 4,
+          "p50_ms": 466.878023,
+          "p95_ms": 470.988864,
+          "round_trip_ms": [
+            471.005169,
+            470.89647,
+            460.632649,
+            462.859576
+          ],
+          "rows": 24
+        }
+      },
+      "measured_at_utc": "2026-11-14T09:04:00.213897+00:00",
+      "original_report_sha256": "2b2a17e46aad53f907fc5c805bcdeb8a892a67a09a8c507a8ea6d786b0005a0f"
+    }
+  },
+  "backend": "triton",
+  "base_revision": "5902054c0f",
+  "candidate_revision": "uncommitted copy of 5902054c0f",
+  "checkpoint": "runwayml/praxis-1-droid",
+  "date_utc": "2026-11-14",
+  "gpu_gate": {
+    "cases": [
+      {
+        "bitwise_eager": true,
+        "capture_replay": true,
+        "channels": 128,
+        "tokens": 31
+      },
+      {
+        "bitwise_eager": true,
+        "capture_replay": true,
+        "channels": 3072,
+        "tokens": 1284
+      },
+      {
+        "bitwise_eager": true,
+        "capture_replay": true,
+        "channels": 3072,
+        "tokens": 3468
+      }
+    ],
+    "focused_tests_log_sha256": "1a8263f9f762819001509bb9f43870f6453e9cdfa02cab3754843855140a8a7d",
+    "focused_tests_passed": 12,
+    "gpu": "NVIDIA H200",
+    "real_dispatch": {
+      "bitwise_eager": true,
+      "channels": 3072,
+      "fallback_forbidden": true,
+      "tokens": 1284
+    }
+  },
+  "hardware": "one NVIDIA H200",
+  "headline": {
+    "cold": {
+      "base_mean_arm_p50_ms": 274.014904,
+      "candidate_mean_arm_p50_ms": 238.495757,
+      "reduction_percent": 12.9625
+    },
+    "warm_1": {
+      "base_mean_arm_p50_ms": 547.318394,
+      "candidate_mean_arm_p50_ms": 467.222755,
+      "reduction_percent": 14.6342
+    },
+    "warm_2": {
+      "base_mean_arm_p50_ms": 543.235748,
+      "candidate_mean_arm_p50_ms": 466.192095,
+      "reduction_percent": 14.1824
+    }
+  },
+  "measurement": {
+    "all_15_command_hashes_identical_across_arms": true,
+    "calls_per_session": 3,
+    "headline_method": "mean of two per-arm p50 values, then candidate/base - 1",
+    "measured_sessions_per_arm": 4,
+    "metric": "client round_trip_ms",
+    "order": [
+      "base1",
+      "cand1",
+      "cand2",
+      "base2"
+    ],
+    "sessions_per_arm": 5,
+    "warmup_sessions_per_arm": 1
+  },
+  "num_euler_steps": 2,
+  "serving": "Python frontend, eager M* -O0, no CUDA graph capture",
+  "source": {
+    "benchmark_script_sha256": "65370861d3545910e63275e5b2d4bb63fdb875c958157e83a6c1efdacf75a06c",
+    "candidate_kernel_sha256": "920e75620c2f1129b06a17210793ddfa290a6cadb1ce4a978c3e39dd7dedb011",
+    "candidate_moe_py_sha256": "24b0115abfa8f9fc89297d0b3e43380d24ca68713420bc675f4b42e61b0c8580",
+    "gpu_gate_script_sha256": "5c5fb8ea1224d2bca1d87424c93dc31150bb5c5b887c1091e4fc5c7ae9e40fac",
+    "post_ready_script_sha256": "ba2ec5a3465819dc57b35ff142ad13b775a82e74d150fc40d8003c1d805c9f50",
+    "run_arm_script_sha256": "2406901282cb3ea276312fd4816b9aa6fba8843db24a312abab47a6f1a744dbd"
+  },
+  "title": "Self-contained Praxis-1 chunked MoE combine, matched served DROID ABBA",
+  "torch": "2.12.1+cu132"
+}
