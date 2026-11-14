@@ -1,0 +1,8 @@
+--- a/praxis/layers.py
++++ b/praxis/layers.py
+@@ -324,4 +324,4 @@
+ # BF16 rounding. Unmodulated stacks can defer a residual add into the next norm.
+ # None selects supported BF16 CUDA inference, including NVFP4 activations.
+ # Explicit booleans override selection. Gradients, autocast and hooks fall back.
+-FUSED_NORM: bool | None = None
++FUSED_NORM: bool | None = False  # diagnostic ablation only
