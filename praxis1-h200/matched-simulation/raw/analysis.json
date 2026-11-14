@@ -1,0 +1,194 @@
+{
+  "source_backend_gates": "pass",
+  "errors": [],
+  "trace": {
+    "status": "complete",
+    "first_observation_fingerprints_equal": {
+      "descriptor": true,
+      "grip": true,
+      "image.exterior": true,
+      "image.wrist": true,
+      "robot_state.ee_pose": true
+    },
+    "first_command_pose_relative_l2": 0.013585847002146819,
+    "first_command_pose_max_abs": 0.023817837238311768,
+    "first_command_grip_max_abs": 0.007233858108520508,
+    "first_cube_height_difference_gt_0_1mm_tick": 71,
+    "reference": {
+      "success": true,
+      "success_tick": 135,
+      "ticks": 150,
+      "calls": 7,
+      "max_lift_m": 0.12119139592630286
+    },
+    "mstar": {
+      "success": false,
+      "success_tick": null,
+      "ticks": 165,
+      "calls": 7,
+      "max_lift_m": 0.06555231370539194
+    },
+    "reference_above_threshold": [
+      [
+        132,
+        1
+      ],
+      [
+        133,
+        2
+      ],
+      [
+        134,
+        3
+      ],
+      [
+        135,
+        4
+      ],
+      [
+        136,
+        5
+      ],
+      [
+        137,
+        6
+      ],
+      [
+        138,
+        7
+      ],
+      [
+        139,
+        8
+      ],
+      [
+        140,
+        9
+      ],
+      [
+        141,
+        10
+      ],
+      [
+        142,
+        11
+      ],
+      [
+        143,
+        12
+      ],
+      [
+        144,
+        13
+      ],
+      [
+        145,
+        14
+      ],
+      [
+        146,
+        15
+      ],
+      [
+        147,
+        16
+      ],
+      [
+        148,
+        17
+      ],
+      [
+        149,
+        18
+      ],
+      [
+        150,
+        19
+      ]
+    ],
+    "mstar_above_threshold": [
+      [
+        163,
+        1
+      ],
+      [
+        164,
+        2
+      ],
+      [
+        165,
+        3
+      ]
+    ]
+  },
+  "seven_task": {
+    "status": "complete",
+    "units": [
+      {
+        "task": "block_in_bowl",
+        "scene_seed": 2,
+        "prompt": "Put the red block in the bowl.",
+        "reference_success": true,
+        "mstar_success": true,
+        "reference_ticks": 158,
+        "mstar_ticks": 154
+      },
+      {
+        "task": "block_out_of_bowl",
+        "scene_seed": 3,
+        "prompt": "Remove the red block from the bowl.",
+        "reference_success": true,
+        "mstar_success": true,
+        "reference_ticks": 164,
+        "mstar_ticks": 168
+      },
+      {
+        "task": "cube_on_plate",
+        "scene_seed": 1,
+        "prompt": "Put the red cube on the blue plate.",
+        "reference_success": true,
+        "mstar_success": true,
+        "reference_ticks": 170,
+        "mstar_ticks": 153
+      },
+      {
+        "task": "lift_cube",
+        "scene_seed": 0,
+        "prompt": "Pick up the red cube.",
+        "reference_success": true,
+        "mstar_success": false,
+        "reference_ticks": 150,
+        "mstar_ticks": 165
+      },
+      {
+        "task": "move_block",
+        "scene_seed": 4,
+        "prompt": "Move the red block to the right.",
+        "reference_success": true,
+        "mstar_success": true,
+        "reference_ticks": 150,
+        "mstar_ticks": 174
+      },
+      {
+        "task": "press_button",
+        "scene_seed": 6,
+        "prompt": "Press the red button.",
+        "reference_success": true,
+        "mstar_success": true,
+        "reference_ticks": 130,
+        "mstar_ticks": 115
+      },
+      {
+        "task": "stack_block",
+        "scene_seed": 5,
+        "prompt": "Put the red block on top of the green block.",
+        "reference_success": true,
+        "mstar_success": true,
+        "reference_ticks": 169,
+        "mstar_ticks": 146
+      }
+    ],
+    "reference_successes": 7,
+    "mstar_successes": 6
+  }
+}

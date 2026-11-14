@@ -1,0 +1,42 @@
+Matched Praxis DROID H200 diagnostic, 2026-11-14 UTC
+Reference commit: 68f4d7a254b4bf41951d2e97f44b07f6cac2bf69
+M* commit: 5902054c0f9fa057a80ae5a7e15e67f19d4bcde2
+Reference encoder/decoder: effective Triton, verified from module inspection.
+M* expert Flex: TRITON, verified from runtime import; ragged backend not observed.
+Original seven units: (lift_cube,0), (cube_on_plate,1), (block_in_bowl,2),
+(block_out_of_bowl,3), (move_block,4), (stack_block,5), (press_button,6).
+Sampler seed 0; M* session seed base = 1000 * scene seed.
+Lift trace: reference succeeds at tick 135 and runs through tick 150; M* fails at tick 165.
+Caveat: one episode per task; these are descriptive outcomes, not an estimated pass rate.
+Caveat: different attention kernels and Torch/CUDA builds prevent strict numeric parity attribution.
+Input SHA256:
+reference-lift-original-scene0/reference-scene0-sample0.jsonl  f0b0eb03fcb05b0c61685284659220aa6bb422c335a8683e27b35c4872dfd913
+mstar-lift-original-scene0/mstar-scene0-sample0.jsonl  d3075094f814266d27b0733de13f40d32aa35f76f7d6cf8b78d5320a1c0cdcd6
+reference-lift-original-scene0/reference-scene0-sample0.npz  536953cc42537630ec4e3c8f707e45bd78b2159fc2a14cbc1edba60e7db526ba
+mstar-lift-original-scene0/mstar-scene0-sample0.npz  dd3d390a0f636c8f4128971786752c737144418d4bfb726efa2111439b16a410
+reference-original/suite/block_in_bowl/episode_002.json  5293fcad3b97abfe04936bccaa4f5cbdfd2c6ee6c7da5b2d7df92883a44aef43
+reference-original/suite/block_out_of_bowl/episode_003.json  a21f555e60ba9d86c900a04e700f1ad638164f56a443168d0c44b270ab718e3d
+reference-original/suite/cube_on_plate/episode_001.json  ef49440f6163b25cb7d8d86bebd3d7b261c388c7cc56afb08c022c4a92f57e16
+reference-original/suite/lift_cube/episode_000.json  5de82b8984410ee4ddef94721edee051e140c7808c9e0850e14c6f9c82e7d662
+reference-original/suite/move_block/episode_004.json  17e0e30bd37e23580bd87b1b5e4edf8886b5b67c66cb372b6556f4cf03bc5032
+reference-original/suite/press_button/episode_006.json  6573a84c6c8f92801163e26ba2ee1559d82a419fb68911b79e03673b5487dc5d
+reference-original/suite/stack_block/episode_005.json  c1540dede8fa4b7863813d0ce20d15f2462e716dbd0779501441d594c1f8fa34
+mstar-original/suite/block_in_bowl/episode_002.json  10e61e752fc9a60f0c15e59b1cbc33b50cf8b70f4e3fd2b9d19db60fc81d5a79
+mstar-original/suite/block_out_of_bowl/episode_003.json  f871c72e526e7b9bb660424c003d695184528fdaf22863bb0a55f1f81b429ec3
+mstar-original/suite/cube_on_plate/episode_001.json  83ba20ca9c03e17eaa8e3959a61ea38a2e710bbeae72c418c4366ce601547ff6
+mstar-original/suite/lift_cube/episode_000.json  0e697f644aa89d397198020985b45e0b268f5a940b2c6cbe04d9cecceda718d1
+mstar-original/suite/move_block/episode_004.json  cee9aa0666d93922819d91a83ca6902805698a82ad309eecc4d7b57efd618a20
+mstar-original/suite/press_button/episode_006.json  e23b8fa5d8d02432a56367b427633f93075f8df932d8aa0064fa6558ed67d40c
+mstar-original/suite/stack_block/episode_005.json  916bbfb7ebb7e5ffe1ab821635d40eabd8046e7fcafe30c31ffa1d9979b36940
+reference-original/summary.json  d75d3e16aa3e3ec0d1ee249a3c8dfae3bf045b92eb28bb5756d35f135a0c2022
+mstar-original/summary.json  1ad602abc52dc5107476253212ab12b90a02606bb7a83411474782b4911829a3
+reference-served.yaml  53d87804c466decd5dbfce811861606cd498c47232b8916dc1669e3cb5a9857c
+mstar-served-original.yaml  95ea012f00a0d10155b10fb4d72dcdbe211328e6fe3e1f3c987ad5ee7fa1df0a
+reference-working-tree.actual.diff  099d4a341b5db5ad64417db34855e191c848d6f87deb11949df572f5d6462f74
+reference-working-tree.actual.status  1cc0d6ce4483ebeaa968063ce40d460f3e776f91a130d0ea626e84c6ebd3a326
+backend-gates.txt  141d010c42f1083627b59066e9fd2ad5a2ddf1105a3d3e9384caab0d1dc28a46
+source-config.sha256  1233ccfbe453675b75da378601f609fbd450318dee8b49ac8a1f5c440bc5e0df
+model-artifacts.sha256  9a933c125317d1b271cbd892e4b62a99235aceb5fda6691afeed37aba93abdd4
+runner-source.sha256  63f1b72e380baa9ec48fa7f3c5e16c5f98f16d456ace868b66f2236c6126d631
+operator-source.sha256  8e02dbeb48bfef84e993d2f82987b1a19b7c2cfa66da5113e29ff03c891431f6
+analysis.json  d6af1c29a96576e7669514a4a8bd4642af2ef2b103c2e6a89186a48ee1c20047

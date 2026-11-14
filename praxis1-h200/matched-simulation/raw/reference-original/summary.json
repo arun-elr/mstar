@@ -1,0 +1,52 @@
+{
+ "lift_cube": {
+  "episodes": 1,
+  "successes": 1,
+  "mean_progress": 1.0
+ },
+ "cube_on_plate": {
+  "episodes": 1,
+  "successes": 1,
+  "mean_progress": 1.0
+ },
+ "block_in_bowl": {
+  "episodes": 1,
+  "successes": 1,
+  "mean_progress": 1.0
+ },
+ "block_out_of_bowl": {
+  "episodes": 1,
+  "successes": 1,
+  "mean_progress": 1.0
+ },
+ "move_block": {
+  "episodes": 1,
+  "successes": 1,
+  "mean_progress": 1.0
+ },
+ "stack_block": {
+  "episodes": 1,
+  "successes": 1,
+  "mean_progress": 1.0
+ },
+ "press_button": {
+  "episodes": 1,
+  "successes": 1,
+  "mean_progress": 1.0
+ },
+ "all": {
+  "episodes": 7,
+  "successes": 7,
+  "success_rate": 1.0,
+  "mean_progress": 1.0
+ },
+ "_run": {
+  "policy": "model",
+  "sampler_seed_controlled": true,
+  "request_seed_sent": false,
+  "server_meta": null,
+  "sampler_seed_labels": [
+   0
+  ]
+ }
+}

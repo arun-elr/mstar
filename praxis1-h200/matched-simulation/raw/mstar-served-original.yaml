@@ -1,0 +1,129 @@
+model: praxis1_droid
+max_seq_len: 16384
+model_kwargs:
+  model_path_hf: /home/bench/praxis/checkpoints/praxis-1-droid
+  vae_weights_hf: /home/bench/praxis/weights/Wan2.2-TI2V-5B-Diffusers
+  text_encoder_hf: /home/bench/praxis/weights/Qwen3.5-2B
+  num_steps: 2
+  t_shift: 12.5
+  cfg_scale: 1.0
+  cfg_video_scale: 4.0
+  max_context_chunks: 1
+  max_text_tokens: 256
+episodes:
+  max_episodes: 4
+  max_calls: 64
+  idle_timeout_s: 600
+resources:
+  executed_observations:
+    max_slots: 5
+  boundary_poses:
+    max_slots: 5
+  text_embeds:
+    max_slots: 9
+openpi:
+  images:
+  - observation/exterior_image_1_left
+  - observation/wrist_image_left
+  state:
+  - observation/cartesian_position
+  - observation/gripper_position
+  action_dims: 10
+  metadata:
+    checkpoint: runwayml/praxis-1-droid
+    rig: single_arm
+    max_context_chunks: 0
+    num_steps: 2
+    t_shift: 12.5
+    cfg_scale: 1.0
+    cfg_video_scale: 4.0
+    skip_video_decoder: true
+    attention_backend: triton
+    code_version: 5902054c0f
+positronic:
+  observation_format: praxis1
+  prompt_key: task
+  control_mode: droid_impedance
+  meta:
+    checkpoint: runwayml/praxis-1-droid
+    rig: single_arm
+    max_context_chunks: 1
+    num_steps: 2
+    t_shift: 12.5
+    cfg_scale: 1.0
+    cfg_video_scale: 4.0
+    skip_video_decoder: true
+    attention_backend: triton
+    chunk_rows: 24
+    action_fps: 15.0
+    pad_start: false
+    prompt: ''
+    prompt_overridable: true
+    prompt_style: caption
+    compress_images: true
+    image_codecs:
+    - h264
+    - jpeg
+    local_stack:
+      seq:
+      - name: stop_on_fault
+        version: 2
+      - name: restrict_image_size
+        args:
+          width: 416
+          height: 234
+      - name: temporal_stack
+        version: 2
+        args:
+          keys:
+          - image.wrist
+          - image.exterior
+          - robot_state.ee_pose
+          - grip
+          offsets_sec:
+          - -1.5666666666666667
+          - -1.5
+          - -1.4333333333333331
+          - -1.3666666666666665
+          - -1.2999999999999998
+          - -1.2333333333333332
+          - -1.1666666666666665
+          - -1.0999999999999999
+          - -1.0333333333333332
+          - -0.9666666666666667
+          - -0.9
+          - -0.8333333333333334
+          - -0.7666666666666667
+          - -0.7
+          - -0.6333333333333333
+          - -0.5666666666666667
+          - -0.5
+          - -0.43333333333333335
+          - -0.3666666666666667
+          - -0.3
+          - -0.23333333333333334
+          - -0.16666666666666669
+          - -0.1
+          - -0.03333333333333333
+          - 0.0
+          pad_start: false
+      - name: chunked_schedule
+        version: 2
+        args:
+          fps: 15.0
+    code_version: 5902054c0f
+node_groups:
+- node_names:
+  - text_encoder
+  ranks:
+  - 0
+- node_names:
+  - vae_encoder
+  ranks:
+  - 0
+- node_names:
+  - backbone
+  - action_expert
+  - action_head
+  ranks:
+  - 0

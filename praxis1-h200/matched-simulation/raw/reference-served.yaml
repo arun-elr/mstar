@@ -1,0 +1,101 @@
+model:
+  checkpoint: /home/bench/praxis/checkpoints/praxis-1-droid
+  vae_weights: /home/bench/praxis/weights/Wan2.2_VAE.pth
+  text_encoder: /home/bench/praxis/weights/Qwen3.5-2B
+  device: cuda
+  vae_norm_block_c: null
+sampler:
+  num_steps: 2
+  cfg_scale: 1.0
+  cfg_video_scale: 4.0
+  cfg_batched: false
+  layout: window_joint
+  t_shift: 12.5
+  solver: euler
+  action_steps: null
+session:
+  exec_horizon: 24
+  control_mode: droid_impedance
+  max_context_chunks: 1
+  seed: 0
+  seed_stride: 1000
+policy:
+  type: model
+  decode_video: true
+task:
+  name: lift_cube
+  prompt: Pick up the red cube.
+  time_limit_s: 20.6
+  cube_size: 0.05
+  cube_mass: 0.1
+  cube_x:
+  - 0.45
+  - 0.62
+  cube_y:
+  - -0.15
+  - 0.15
+  cube_yaw_deg:
+  - -45.0
+  - 45.0
+  lift_height: 0.05
+  hold_s: 0.25
+episodes:
+  seeds:
+  - 0
+  - 1
+  - 2
+  stop_on_success: true
+  after_success_s: 1.0
+scene:
+  assets_dir: null
+  asset_source: null
+  download: true
+  substeps: 34
+  image_width: 512
+  image_height: 288
+  overview_width: 640
+  overview_height: 360
+  shadow_size: 2048
+  msaa_samples: 4
+  exterior:
+    pos:
+    - 0.15
+    - 0.68
+    - 0.48
+    target:
+    - 0.58
+    - 0.0
+    - 0.16
+    fovy: 70.0
+  wrist:
+    pos:
+    - -0.08
+    - 0.03
+    - 0.03
+    tilt_deg: 20.0
+    fovy: 62.0
+robot:
+  frame:
+    yaw_offset_deg: 0.0
+    tcp_offset: 0.0
+    base_offset:
+    - 0.0
+    - 0.0
+    - 0.0
+  home_noise: 0.0
+  settle_s: 0.5
+render:
+  egl_device: null
+output:
+  dir: outputs/sim_droid
+  video: true
+  video_crf: 20
+  save_arrays: true
+viewer:
+  enabled: true
+  host: 127.0.0.1
+  port: 8000
+  max_fps: 15.0
+  jpeg_quality: 80
+  keep_open_s: 600
+  pace_realtime: false

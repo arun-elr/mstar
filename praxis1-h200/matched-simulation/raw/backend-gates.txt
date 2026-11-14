@@ -1,0 +1,8 @@
+reference-lift-original-scene0.log SHA256 2df456de979ed617ed5f0fc3989fc3f8675e77990622efe5958f3b03d0e5c9c2
+reference trace effective Triton modules: 20
+
+reference-original.log SHA256 b67e0b67f0fad589b857aa3aeeabb60a5328c2f7258ee26458afdf929a4c3b71
+reference effective Triton modules: 20
+
+mstar-flex-backend-original.log SHA256 3ea7c0b3fdee26ba559e607e7e933e3986e295f91673e924e396ac9ec262a65c
+M* effective flex backend: TRITON

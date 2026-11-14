@@ -14,6 +14,8 @@ Each column has four measured sessions after one warmup. [The latency chart](lat
 
 The single seven-task simulation guard in `mstar-590-sim-summary.json` completed 6/7 episodes; `lift_cube` missed. One episode per task is not a parity estimate. The serving gate remained off in the committed source; these checks used a disposable serving copy.
 
+[A paired rerun](matched-simulation/README.md) preserves the exact seven task/scene records and Rust `lift_cube` trace. It reproduced reference 7/7 and M\* 6/7, with matching first observations and the reference attention backend checked at runtime.
+
 ## Reproduce the measured requests
 
 The benchmark client used for the three-call session measurements is [`mstar-b4-warm-benchmark.py`](mstar-b4-warm-benchmark.py), with only its example paths changed for publication. It constructs the 46-frame DROID input, applies the same prompt (`Pick up the red cube.`), and checks 21/24/24 command rows. These were the client invocations, after starting each server separately; only the output path is shortened here:
