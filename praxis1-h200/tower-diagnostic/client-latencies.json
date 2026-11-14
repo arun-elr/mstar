@@ -1,0 +1,60 @@
+{
+  "reference-triton": {
+    "source_file": "reference-triton-client.json",
+    "source_sha256": "940c394eb688a090fda8f38ca676ef69691f07c4f677bcc7403694b4e5737626",
+    "gpu": "NVIDIA H200, GPU-39babd10-c6eb-fc40-516e-f5e60c41eb52, 580.173.02",
+    "script_sha256": "65370861d3545910e63275e5b2d4bb63fdb875c958157e83a6c1efdacf75a06c",
+    "sessions": 5,
+    "warmup_sessions": 1,
+    "trajectory": "shared continuous 46-frame DROID synthetic stream, JPEG quality 90, 416x234",
+    "measured_round_trip_ms_by_call": {
+      "0": [
+        120.391752,
+        115.221201,
+        115.738593,
+        115.916686
+      ],
+      "1": [
+        256.078884,
+        255.172248,
+        255.165764,
+        258.450492
+      ],
+      "2": [
+        259.401641,
+        259.894177,
+        260.606041,
+        259.128867
+      ]
+    }
+  },
+  "mstar-triton": {
+    "source_file": "mstar-triton-client.json",
+    "source_sha256": "fdfba4b2d826620beac22c1d40e2d84aab3cc2d13f7d4e48c2e87c003ef78b71",
+    "gpu": "NVIDIA H200, GPU-39babd10-c6eb-fc40-516e-f5e60c41eb52, 580.173.02",
+    "script_sha256": "65370861d3545910e63275e5b2d4bb63fdb875c958157e83a6c1efdacf75a06c",
+    "sessions": 5,
+    "warmup_sessions": 1,
+    "trajectory": "shared continuous 46-frame DROID synthetic stream, JPEG quality 90, 416x234",
+    "measured_round_trip_ms_by_call": {
+      "0": [
+        287.182628,
+        266.34138,
+        269.811515,
+        270.153748
+      ],
+      "1": [
+        536.913155,
+        543.015862,
+        537.939217,
+        543.745848
+      ],
+      "2": [
+        541.4893,
+        542.548106,
+        547.853747,
+        544.481672
+      ]
+    }
+  }
+}

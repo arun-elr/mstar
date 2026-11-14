@@ -1,0 +1,154 @@
+{
+  "log": "/home/bench/praxis/logs/tower-diag/reference-triton-tower.jsonl",
+  "impl": "reference",
+  "source_pin": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "backend": {
+    "decoder": {
+      "count": 6,
+      "effective": [
+        "triton"
+      ],
+      "requested": [
+        "triton"
+      ]
+    },
+    "encoder": {
+      "count": 14,
+      "effective": [
+        "triton"
+      ],
+      "requested": [
+        "triton"
+      ]
+    }
+  },
+  "versions": {
+    "diffusers": null,
+    "flash-attn": null,
+    "flash-attn-4": "4.0.0b36",
+    "gpu": "NVIDIA H200",
+    "python": "3.12.15",
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "triton": "3.7.1"
+  },
+  "probe_file": "/home/bench/praxis/tower-diag/prepared/reference/praxis/tower_probe.py",
+  "source_origin": {
+    "decoder": "/home/bench/praxis/tower-diag/prepared/reference/praxis/backbone.py",
+    "encoder": "/home/bench/praxis/tower-diag/prepared/reference/praxis/backbone.py",
+    "session": "/home/bench/praxis/tower-diag/prepared/reference/praxis/pipeline.py"
+  },
+  "requests_total": 15,
+  "requests_measured": 12,
+  "events_total": 60,
+  "tower_medians": [
+    {
+      "call": 0,
+      "euler_step": 0,
+      "tower": "decoder",
+      "kind": "solo",
+      "branch": "cond",
+      "n": 4,
+      "median_cuda_ms": 21.7706
+    },
+    {
+      "call": 0,
+      "euler_step": 0,
+      "tower": "decoder",
+      "kind": "solo",
+      "branch": "uncond",
+      "n": 4,
+      "median_cuda_ms": 21.7871
+    },
+    {
+      "call": 0,
+      "euler_step": 0,
+      "tower": "encoder",
+      "kind": "pair",
+      "branch": "paired",
+      "n": 4,
+      "median_cuda_ms": 36.5823
+    },
+    {
+      "call": 0,
+      "euler_step": 1,
+      "tower": "encoder",
+      "kind": "solo",
+      "branch": "cond",
+      "n": 4,
+      "median_cuda_ms": 21.354
+    },
+    {
+      "call": 1,
+      "euler_step": 0,
+      "tower": "decoder",
+      "kind": "solo",
+      "branch": "cond",
+      "n": 4,
+      "median_cuda_ms": 41.1399
+    },
+    {
+      "call": 1,
+      "euler_step": 0,
+      "tower": "decoder",
+      "kind": "solo",
+      "branch": "uncond",
+      "n": 4,
+      "median_cuda_ms": 40.5594
+    },
+    {
+      "call": 1,
+      "euler_step": 0,
+      "tower": "encoder",
+      "kind": "pair",
+      "branch": "paired",
+      "n": 4,
+      "median_cuda_ms": 67.1052
+    },
+    {
+      "call": 1,
+      "euler_step": 1,
+      "tower": "encoder",
+      "kind": "solo",
+      "branch": "cond",
+      "n": 4,
+      "median_cuda_ms": 32.0001
+    },
+    {
+      "call": 2,
+      "euler_step": 0,
+      "tower": "decoder",
+      "kind": "solo",
+      "branch": "cond",
+      "n": 4,
+      "median_cuda_ms": 41.5804
+    },
+    {
+      "call": 2,
+      "euler_step": 0,
+      "tower": "decoder",
+      "kind": "solo",
+      "branch": "uncond",
+      "n": 4,
+      "median_cuda_ms": 40.587
+    },
+    {
+      "call": 2,
+      "euler_step": 0,
+      "tower": "encoder",
+      "kind": "pair",
+      "branch": "paired",
+      "n": 4,
+      "median_cuda_ms": 67.1025
+    },
+    {
+      "call": 2,
+      "euler_step": 1,
+      "tower": "encoder",
+      "kind": "solo",
+      "branch": "cond",
+      "n": 4,
+      "median_cuda_ms": 31.8805
+    }
+  ]
+}
