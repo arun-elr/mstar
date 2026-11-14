@@ -19,7 +19,7 @@ The single seven-task simulation guard in `mstar-590-sim-summary.json` completed
 The benchmark client used for the three-call session measurements is [`mstar-b4-warm-benchmark.py`](mstar-b4-warm-benchmark.py), with only its example paths changed for publication. It constructs the 46-frame DROID input, applies the same prompt (`Pick up the red cube.`), and checks 21/24/24 command rows. These were the client invocations, after starting each server separately; only the output path is shortened here:
 
 ```sh
-# Reference server, port 8133; the same invocation was used for both ablations.
+# Reference server, port 8133; the same invocation was used for all three ablations.
 python mstar-b4-warm-benchmark.py --mode reference \
   --url ws://127.0.0.1:8133/api/v1/session \
   --sessions 5 --warmup-sessions 1 --out reference-matched-warm-590-script.json
