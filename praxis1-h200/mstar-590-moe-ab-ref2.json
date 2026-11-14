@@ -1,0 +1,154 @@
+{
+  "arm": "ref2",
+  "client_dirty": true,
+  "command_hashes": [
+    {
+      "call": 0,
+      "command_sha256": "9e6e6a99d4dfd7877aa4371f74ee827c296f98a9adf8ff675943664aaf4c9a0b",
+      "rows": 21,
+      "session": 0
+    },
+    {
+      "call": 1,
+      "command_sha256": "bb3dd6b056ebb2a078d4c24417d9398098edfd68d13573a9522b88b6242d187b",
+      "rows": 24,
+      "session": 0
+    },
+    {
+      "call": 2,
+      "command_sha256": "9c756df4b8f55911b88c1500d12720532ffeb06d4f984e627b7113e1fc113641",
+      "rows": 24,
+      "session": 0
+    },
+    {
+      "call": 0,
+      "command_sha256": "9e6e6a99d4dfd7877aa4371f74ee827c296f98a9adf8ff675943664aaf4c9a0b",
+      "rows": 21,
+      "session": 1
+    },
+    {
+      "call": 1,
+      "command_sha256": "bb3dd6b056ebb2a078d4c24417d9398098edfd68d13573a9522b88b6242d187b",
+      "rows": 24,
+      "session": 1
+    },
+    {
+      "call": 2,
+      "command_sha256": "9c756df4b8f55911b88c1500d12720532ffeb06d4f984e627b7113e1fc113641",
+      "rows": 24,
+      "session": 1
+    },
+    {
+      "call": 0,
+      "command_sha256": "9e6e6a99d4dfd7877aa4371f74ee827c296f98a9adf8ff675943664aaf4c9a0b",
+      "rows": 21,
+      "session": 2
+    },
+    {
+      "call": 1,
+      "command_sha256": "bb3dd6b056ebb2a078d4c24417d9398098edfd68d13573a9522b88b6242d187b",
+      "rows": 24,
+      "session": 2
+    },
+    {
+      "call": 2,
+      "command_sha256": "9c756df4b8f55911b88c1500d12720532ffeb06d4f984e627b7113e1fc113641",
+      "rows": 24,
+      "session": 2
+    },
+    {
+      "call": 0,
+      "command_sha256": "9e6e6a99d4dfd7877aa4371f74ee827c296f98a9adf8ff675943664aaf4c9a0b",
+      "rows": 21,
+      "session": 3
+    },
+    {
+      "call": 1,
+      "command_sha256": "bb3dd6b056ebb2a078d4c24417d9398098edfd68d13573a9522b88b6242d187b",
+      "rows": 24,
+      "session": 3
+    },
+    {
+      "call": 2,
+      "command_sha256": "9c756df4b8f55911b88c1500d12720532ffeb06d4f984e627b7113e1fc113641",
+      "rows": 24,
+      "session": 3
+    },
+    {
+      "call": 0,
+      "command_sha256": "9e6e6a99d4dfd7877aa4371f74ee827c296f98a9adf8ff675943664aaf4c9a0b",
+      "rows": 21,
+      "session": 4
+    },
+    {
+      "call": 1,
+      "command_sha256": "bb3dd6b056ebb2a078d4c24417d9398098edfd68d13573a9522b88b6242d187b",
+      "rows": 24,
+      "session": 4
+    },
+    {
+      "call": 2,
+      "command_sha256": "9c756df4b8f55911b88c1500d12720532ffeb06d4f984e627b7113e1fc113641",
+      "rows": 24,
+      "session": 4
+    }
+  ],
+  "diagnostic_mode": "reference",
+  "gpu": "NVIDIA H200, driver 580.173.02",
+  "measured_at_utc": "2026-11-14T08:37:49.379371+00:00",
+  "mode": "mstar",
+  "observation_sha256": [
+    "af343cb057197f90762e9b61176ea4c454b90dbe1f3e625cd136a9b1ea74abc6",
+    "4b6d83e21519c350f9ad478584482341b8eab399a90e23ca642c7f3fc92ae264",
+    "4947d3690c61a459680d0dd137288b81f1505b1a6a2c02233641527b58450ce6"
+  ],
+  "python": "3.12.15",
+  "reference_client_commit": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "script_sha256": "65370861d3545910e63275e5b2d4bb63fdb875c958157e83a6c1efdacf75a06c",
+  "server_fused_launches": 600,
+  "server_log_sha256": "647a11bbc4390267c6c0d824ae13f284a913858072e3c40de08987225a2ad21d",
+  "server_meta": {
+    "action_fps": 15.0,
+    "attention_backend": "triton",
+    "cfg_scale": 1.0,
+    "cfg_video_scale": 4.0,
+    "checkpoint": "runwayml/praxis-1-droid (local path omitted)",
+    "chunk_rows": 24,
+    "code_version": "5902054c0f",
+    "max_context_chunks": 1,
+    "num_steps": 2,
+    "rig": "single_arm",
+    "sample_seed_base": 0,
+    "seed_source": "session_param",
+    "skip_video_decoder": true,
+    "t_shift": 12.5
+  },
+  "sessions": 5,
+  "source_call_count": 15,
+  "source_sha256": "cdc2183f2776f31cdb5f5c71fdad4d7dd554c53ba6c0cd63096e2c00023df638",
+  "summary": {
+    "0": {
+      "max_ms": 243.451812,
+      "n": 4,
+      "p50_ms": 237.124111,
+      "p95_ms": 242.51304359999997,
+      "rows": 21
+    },
+    "1": {
+      "max_ms": 468.576116,
+      "n": 4,
+      "p50_ms": 463.152107,
+      "p95_ms": 468.0477842,
+      "rows": 24
+    },
+    "2": {
+      "max_ms": 471.232876,
+      "n": 4,
+      "p50_ms": 464.7615095,
+      "p95_ms": 470.27267365,
+      "rows": 24
+    }
+  },
+  "trajectory": "shared continuous 46-frame DROID synthetic stream, JPEG quality 90, 416x234",
+  "warmup_sessions": 1
+}

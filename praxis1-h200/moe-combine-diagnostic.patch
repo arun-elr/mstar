@@ -1,0 +1,108 @@
+diff --git a/mstar/model/praxis1/components/moe.py b/mstar/model/praxis1/components/moe.py
+index a9c400896c..f7d60bc5ba 100644
+--- a/mstar/model/praxis1/components/moe.py
++++ b/mstar/model/praxis1/components/moe.py
+@@ -132,6 +132,11 @@ tests, matter for anyone reading a bf16-only result:
+ 
+ from __future__ import annotations
+ 
++import hashlib
++import os
++import sys
++from pathlib import Path
++
+ import torch
+ import torch.nn.functional as F
+ from torch import nn
+@@ -143,6 +148,69 @@ from torch import nn
+ # and exists to keep the shapes the reference hands the GEMM.
+ ROUTER_CHUNK_ROWS = 65536
+ 
++# Diagnostic only. Do not ship the reference-package dependency.
++_COMBINE_AB_VALUE = os.environ.get("MSTAR_PRAXIS_MOE_COMBINE_AB", "off")
++if _COMBINE_AB_VALUE not in ("off", "reference"):
++    raise ValueError(f"unknown MSTAR_PRAXIS_MOE_COMBINE_AB={_COMBINE_AB_VALUE!r}")
++_REFERENCE_COMBINE_AB = _COMBINE_AB_VALUE == "reference"
++_REFERENCE_KERNEL_SHA256 = "5b6e83b305f7f10ab9c8c1d103c84a449e6a30dd401adcabf6f7753a44c3178f"
++_REFERENCE_COMBINE_FN = None
++_REFERENCE_FAST_COMBINES = 0
++if _REFERENCE_COMBINE_AB:
++    from praxis.kernels import layers_triton as _reference_kernels
++
++    _reference_file = Path(_reference_kernels.__file__).resolve()
++    _reference_sha = hashlib.sha256(_reference_file.read_bytes()).hexdigest()
++    if (
++        _reference_file.name != "layers_triton.py"
++        or _reference_file.parent.name != "kernels"
++        or _reference_file.parent.parent.name != "praxis"
++        or _reference_sha != _REFERENCE_KERNEL_SHA256
++    ):
++        raise RuntimeError(
++            f"experimental reference kernel is not pinned 68f4d7a: "
++            f"{_reference_file} sha256={_reference_sha}"
++        )
++    _REFERENCE_COMBINE_FN = _reference_kernels.moe_chunked_combine
++if "MSTAR_PRAXIS_MOE_COMBINE_AB" in os.environ:
++    _self_file = Path(__file__).resolve()
++    _self_sha = hashlib.sha256(_self_file.read_bytes()).hexdigest()
++    print(
++        f"praxis_moe_combine_ab mode={_COMBINE_AB_VALUE} "
++        f"module={_self_file} sha256={_self_sha} "
++        f"reference_kernel={_reference_file if _REFERENCE_COMBINE_AB else 'none'}",
++        file=sys.stderr, flush=True,
++    )
++
++
++def _require_reference_fast_combine(
++    expert_output: torch.Tensor, sorted_gate: torch.Tensor,
++    inverse: torch.Tensor, top_k: int,
++) -> None:
++    """Mirror the pinned reference's fast guard, with no eager fallback."""
++    eligible = (
++        expert_output.is_cuda
++        and sorted_gate.device == expert_output.device
++        and inverse.device == expert_output.device
++        and inverse.dtype == torch.int64
++        and expert_output.dtype in (torch.bfloat16, torch.float16)
++        and sorted_gate.dtype == expert_output.dtype
++        and top_k == 8
++        and expert_output.shape[1] >= 128
++        and all(t.is_contiguous() for t in (expert_output, sorted_gate, inverse))
++        and not torch.is_autocast_enabled()
++        and not (
++            torch.is_grad_enabled()
++            and any(t.requires_grad for t in (expert_output, sorted_gate))
++        )
++        and expert_output.numel() > 0
++    )
++    if not eligible:
++        raise RuntimeError(
++            "experimental Praxis MoE combine requires the pinned fused CUDA "
++            "path; refusing the reference's eager fallback"
++        )
++
+ 
+ class SwiGLUProjection(nn.Module):
+     """The two bias-free input projections of a SwiGLU, kept apart.
+@@ -489,6 +557,21 @@ class MoEFeedForward(nn.Module):
+         out = torch._grouped_mm(
+             expert_swiglu(gate_up), self.routed.down_weight, offsets
+         )
++        if _REFERENCE_COMBINE_AB:
++            _require_reference_fast_combine(out, sorted_gate, inverse, self.top_k)
++            assert _REFERENCE_COMBINE_FN is not None
++            combined = _REFERENCE_COMBINE_FN(
++                out, sorted_gate, inverse, self.top_k,
++                float(self.routed_scaling_factor),
++            )
++            global _REFERENCE_FAST_COMBINES
++            _REFERENCE_FAST_COMBINES += 1
++            if _REFERENCE_FAST_COMBINES == 1 or _REFERENCE_FAST_COMBINES % 100 == 0:
++                print(
++                    f"praxis_moe_combine_ab fused_launches={_REFERENCE_FAST_COMBINES}",
++                    file=sys.stderr, flush=True,
++                )
++            return combined
+         return chunked_combine(
+             out, sorted_gate, inverse, self.top_k, float(self.routed_scaling_factor)
+         )

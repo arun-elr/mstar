@@ -7,9 +7,16 @@
   "source_sha256": {
     "attention-resource-h200-5902054c0f.png": "ddf93258581e5b282fa29eab2e7b5f1d9f4865aab52eeab90465c56cb2c4c33e",
     "latency-h200-5902054c0f.png": "aa74ceb3bd5d872ac14a8593881580fa7e42a2f8c2c7836cd31d8499d88b057b",
+    "moe-combine-ab-h200-5902054c0f.png": "ba6f46f910422cf76ab1ccb0963c36cbdaa8fb8fc6c21d30830e36663885cc67",
+    "moe-combine-diagnostic.patch": "419c36228a8fc9727ca9118b6aac17f74c4083bb9e62c5bc9cdd372f34ad082f",
     "mstar-590-attention-resource-bench.json": "f91d4a1b3bffabf020e4df86b55a7066cc61258d68fddbc874a4694697356e4e",
     "mstar-590-cold-python.json": "23ae72fcc867d85381ee88be99716683fe58a87b96a098bd370b9818939461bc",
     "mstar-590-cold-rust.json": "0c05847aac15f771f310e855fab3e25a6cce76f4ce5cf3fde82b6c4746415129",
+    "mstar-590-moe-ab-off1.json": "936d96aac2d51ba6f6857d60b632cb4279f37a54555527309ca97d365a67e909",
+    "mstar-590-moe-ab-off2.json": "703b2a4704e1f67a1a8b779d1ee33ee32e53b16507e45d8abfcb942d61a4f5d7",
+    "mstar-590-moe-ab-ref1.json": "a78dfee4cf9eae95677c1aba94dcf5b6026c92411be288e2f6c783d7b8eb5028",
+    "mstar-590-moe-ab-ref2.json": "cdc2183f2776f31cdb5f5c71fdad4d7dd554c53ba6c0cd63096e2c00023df638",
+    "mstar-590-moe-layer-probe.json": "133c05c0d26e2b92b8a42826255edfdc30fb0f255f0b25bff4e1471b35a34109",
     "mstar-590-sim-summary.json": "1ad602abc52dc5107476253212ab12b90a02606bb7a83411474782b4911829a3",
     "mstar-590-stage-bench.jsonl": "4743324a1ae81f379f0594c50b690175decefad702e3f931db6fb0530d22f3ff",
     "mstar-590-warm-python.json": "1904d936fd1bc2f2f7a8e00626017cdf4779b192662ffd43fb18bd9a2da6ab75",
@@ -19,6 +26,7 @@
     "mstar-praxis-attention-h200-bench.py": "72f42504abf2a8db4785d37ed3da0fe4fa311960dbebb8e200e8b1e2a412355f",
     "plot.py": "8e4dff56a6c32ce89a8d81dd9215b0aa5de294daa34462eac5cc18564ebeed02",
     "plot_attention_resource.py": "c35f9f8adef7b69f0718a865a667e870b474c558b35d1149cfc8799568b5f4f9",
+    "plot_moe_combine_ab.py": "da15a1f69c89d6a0b84f844ad545257d00ec5c7e780c66680a3a8db88c8cac55",
     "reference-fused-norm-off.patch": "6abd1f0ec8a0f15cf3cc770fd747aa642db648abe5a7be2fa3d101bba1909335",
     "reference-matched-warm-590-script.json": "5bd4c1edc134ca450b2bedefd108eeff7e461ca843dc79fa9d48d53742745c53",
     "reference-nocache-590-script.json": "7b895000b2786b085c6b5c6d53831bd77639ab1d157eb3d0c0ed5b0f6b523384",
@@ -30,5 +38,11 @@
     "reference-untracked/sim_client.py": "6ca3bbc34ff046464436287becf0932adee4b8dcbeab0fb1c197b5d01f875556",
     "reference-working-tree.diff": "099d4a341b5db5ad64417db34855e191c848d6f87deb11949df572f5d6462f74",
     "stages-h200-5902054c0f.png": "18a5b781939bf5a47088d096b5e54285652f5b2b0a546d6c4356263c7c173783"
+  },
+  "unpublished_source_sha256": {
+    "mstar-590-moe-ab-off1-server.log": "1d57be42a6f249945c1ece5f9413e6b81d3da6167a81a5636b7f453ddcc9672f",
+    "mstar-590-moe-ab-off2-server.log": "21a36500763ffdf1802734ff5b15400e7234e34871d83f3feb545fab48d18283",
+    "mstar-590-moe-ab-ref1-server.log": "ba5f0fa58b88d56b4ee04b6f9a5413f080ae60f125fb8472b07bacbaa69bcd63",
+    "mstar-590-moe-ab-ref2-server.log": "647a11bbc4390267c6c0d824ae13f284a913858072e3c40de08987225a2ad21d"
   }
 }

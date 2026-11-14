@@ -1,0 +1,91 @@
+{
+  "chronological_arms": [
+    "off1",
+    "ref1",
+    "off2",
+    "ref2"
+  ],
+  "diagnostic_moe_module_sha256": "1234e73af8592c9958ba3dba4cf7c412c655dc6cee5db748a923a0cee808367b",
+  "gpu_hours_this_run": 0.26,
+  "gpu_hours_total_three_runs": 1.03,
+  "kind": "local diagnostic; reference runtime dependency, not production port",
+  "latency": {
+    "0": {
+      "off_arm_p50_ms": [
+        268.848457,
+        271.1118495
+      ],
+      "off_mean_of_arm_medians_ms": 269.98015325,
+      "reduction_percent": 13.434941536762757,
+      "reference_arm_p50_ms": [
+        230.292844,
+        237.124111
+      ],
+      "reference_mean_of_arm_medians_ms": 233.70847750000001,
+      "rows": 21
+    },
+    "1": {
+      "off_arm_p50_ms": [
+        539.0977359999999,
+        538.778703
+      ],
+      "off_mean_of_arm_medians_ms": 538.9382195,
+      "reduction_percent": 14.809334885183434,
+      "reference_arm_p50_ms": [
+        455.0980005,
+        463.152107
+      ],
+      "reference_mean_of_arm_medians_ms": 459.12505375,
+      "rows": 24
+    },
+    "2": {
+      "off_arm_p50_ms": [
+        533.4488954999999,
+        543.096745
+      ],
+      "off_mean_of_arm_medians_ms": 538.27282025,
+      "reduction_percent": 14.516800739392345,
+      "reference_arm_p50_ms": [
+        455.5041455,
+        464.7615095
+      ],
+      "reference_mean_of_arm_medians_ms": 460.13282749999996,
+      "rows": 24
+    }
+  },
+  "limits": [
+    "four fresh-server runs on one H200",
+    "four measured sessions per arm after one warmup",
+    "sequential Python frontend, -O0, no graph capture",
+    "synthetic 46-frame DROID trajectory",
+    "not a production port or throughput benchmark",
+    "closed-loop simulation was not rerun"
+  ],
+  "mstar_base_revision": "5902054c0f9fa057a80ae5a7e15e67f19d4bcde2",
+  "parity_vs_off1": {
+    "off1": {
+      "all_15_command_hashes_equal_to_off1": true,
+      "max_abs_numeric_command_difference_to_off1": 0.0
+    },
+    "off2": {
+      "all_15_command_hashes_equal_to_off1": true,
+      "max_abs_numeric_command_difference_to_off1": 0.0
+    },
+    "ref1": {
+      "all_15_command_hashes_equal_to_off1": true,
+      "max_abs_numeric_command_difference_to_off1": 0.0
+    },
+    "ref2": {
+      "all_15_command_hashes_equal_to_off1": true,
+      "max_abs_numeric_command_difference_to_off1": 0.0
+    }
+  },
+  "reference_base_revision": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "reference_kernel_sha256": "5b6e83b305f7f10ab9c8c1d103c84a449e6a30dd401adcabf6f7753a44c3178f",
+  "same_observation_sha256": [
+    "af343cb057197f90762e9b61176ea4c454b90dbe1f3e625cd136a9b1ea74abc6",
+    "4b6d83e21519c350f9ad478584482341b8eab399a90e23ca642c7f3fc92ae264",
+    "4947d3690c61a459680d0dd137288b81f1505b1a6a2c02233641527b58450ce6"
+  ],
+  "same_script_sha256": "65370861d3545910e63275e5b2d4bb63fdb875c958157e83a6c1efdacf75a06c"
+}

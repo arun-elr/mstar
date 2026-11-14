@@ -1,0 +1,91 @@
+{
+  "cases": [
+    {
+      "combine_inputs": [
+        {
+          "autocast_enabled": false,
+          "gate_contiguous": true,
+          "gate_dtype": "torch.bfloat16",
+          "grad_enabled": false,
+          "inverse_contiguous": true,
+          "inverse_dtype": "torch.int64",
+          "out_contiguous": true,
+          "out_dtype": "torch.bfloat16",
+          "out_shape": [
+            10272,
+            3072
+          ],
+          "scale": 2.5,
+          "top_k": 8
+        }
+      ],
+      "default_p50_ms": 2.160367965698242,
+      "dtype": "torch.bfloat16",
+      "exact": true,
+      "fast_path": true,
+      "finite": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "reference_combine_calls": 8,
+      "reference_combine_p50_ms": 1.5826719999313354,
+      "relative_l2": 0.0,
+      "shape": [
+        1284,
+        3072
+      ],
+      "tokens": 1284,
+      "triton_kernel_launches": 8
+    },
+    {
+      "combine_inputs": [
+        {
+          "autocast_enabled": false,
+          "gate_contiguous": true,
+          "gate_dtype": "torch.bfloat16",
+          "grad_enabled": false,
+          "inverse_contiguous": true,
+          "inverse_dtype": "torch.int64",
+          "out_contiguous": true,
+          "out_dtype": "torch.bfloat16",
+          "out_shape": [
+            27744,
+            3072
+          ],
+          "scale": 2.5,
+          "top_k": 8
+        }
+      ],
+      "default_p50_ms": 3.387727975845337,
+      "dtype": "torch.bfloat16",
+      "exact": true,
+      "fast_path": true,
+      "finite": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "reference_combine_calls": 8,
+      "reference_combine_p50_ms": 2.0121920108795166,
+      "relative_l2": 0.0,
+      "shape": [
+        3468,
+        3072
+      ],
+      "tokens": 3468,
+      "triton_kernel_launches": 8
+    }
+  ],
+  "config": {
+    "dim": 3072,
+    "dispatch_chunk_size": 16384,
+    "hidden": 1280,
+    "num_experts": 128,
+    "routed_scaling_factor": 2.5,
+    "top_k": 8
+  },
+  "gpu": "NVIDIA H200",
+  "mstar_source": "5902054c0f9fa057a80ae5a7e15e67f19d4bcde2 plus disposable toggle",
+  "pass_exact_and_fast": true,
+  "reference_source": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "source": "synthetic BF16 DROID-sized one-layer MoE; identical weights and inputs",
+  "source_sha256": "133c05c0d26e2b92b8a42826255edfdc30fb0f255f0b25bff4e1471b35a34109",
+  "torch": "2.12.1+cu132"
+}

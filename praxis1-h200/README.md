@@ -71,10 +71,26 @@ MSTAR_FLEX_BACKEND=TRITON python mstar-praxis-attention-h200-bench.py \
   --samples 100 --warmups 20 --output attention-resource-report.json
 ```
 
+## MoE combine diagnostic
+
+The [MoE A/B chart](moe-combine-ab-h200-5902054c0f.png) compares the existing Praxis chunked combine with a local, fail-closed call to the pinned reference's fused Triton combine. This was a diagnostic source copy of M* `5902054c0f`, with the [exact module patch](moe-combine-diagnostic.patch) and reference kernel SHA-256 recorded in the [compact parity report](moe-combine-ab-summary.json). The committed #1520 serving gate stayed off; only the disposable server copy enabled it. This mode imports the reference package at runtime and is not a production port.
+
+The chronological order was **off1, ref1, off2, ref2**. Off arms set `MSTAR_PRAXIS_MOE_COMBINE_AB=off`; ref arms set it to `reference`, which checks the imported kernel's pinned SHA-256 and refuses fallback. Each arm started a fresh Python frontend on one H200, used `-O0` without graph capture, and ran one warmup plus four measured sessions on the same 46-frame trajectory. Each session had cold/warm/warm calls with two Euler steps. The table averages the two per-arm p50 values for each mode. The [parity summary](moe-combine-ab-summary.json) gives the calculation; curated arm reports for [off1](mstar-590-moe-ab-off1.json), [ref1](mstar-590-moe-ab-ref1.json), [off2](mstar-590-moe-ab-off2.json), and [ref2](mstar-590-moe-ab-ref2.json) retain individual p50 values, input and command hashes, run metadata, launch counts, and source-report SHA-256.
+
+| Call | Existing combine | Reference fused combine | Lower latency |
+|---|---:|---:|---:|
+| Cold, 21 rows | 269.98 ms | 233.71 ms | 13.43% |
+| Warm 1, 24 rows | 538.94 ms | 459.13 ms | 14.81% |
+| Warm 2, 24 rows | 538.27 ms | 460.13 ms | 14.52% |
+
+All 15 command hashes and numeric command rows matched across the four arms. Each reference arm logged 600 fused combines; the off arms logged none. The [one-layer probe](mstar-590-moe-layer-probe.json) also found exact BF16 outputs and eight Triton launches at each of two DROID-sized token shapes. The [plot script](plot_moe_combine_ab.py) regenerates the chart from the curated arm summaries.
+
+The server used the same DROID checkpoint and sampler recipe as the earlier matched run. The session client was `mstar-b4-warm-benchmark.py` with `--mode mstar --expect-code-version 5902054c0f --sessions 5 --warmup-sessions 1` and `--url ws://127.0.0.1:${SERVER_PORT}/api/v1/session`. The four output files are `mstar-590-moe-ab-{off1,ref1,off2,ref2}.json`. The arm order here was not ABBA. These are two small fresh-server runs per mode, not concurrent throughput or a stock-main regression. The fused mode remains about 1.8 times the pinned reference's warm latency; the 6/7 closed-loop simulation was not rerun under this toggle.
+
 ## Reference checkout provenance
 
 The matched reference run used base commit `68f4d7a254b4bf41951d2e97f44b07f6cac2bf69` plus the [tracked checkout diff](reference-working-tree.diff) and four [untracked simulation/benchmark source files](reference-untracked/). The tracked diff changes the simulator evaluator and its documentation; it does not change `praxis` model files. The untracked files are provided to make that dirty checkout inspectable. Virtual environments and unrelated untracked files were excluded. `source-manifest.json` records the original SHA-256 of each source artifact.
 
-The first H200 serving/ablation session used 0.54 GPU-hours; the separate attention-resource session used 0.23 GPU-hours, for 0.77 GPU-hours total. These are GPU usage durations, not a cost estimate.
+The first H200 serving/ablation session used 0.54 GPU-hours, the attention-resource session used 0.23, and the MoE diagnostic used 0.26, for 1.03 GPU-hours total. These are GPU usage durations, not a cost estimate.
 
 The JSON files keep the original summaries and run identifiers but omit per-call numeric action arrays, local checkpoint paths, GPU UUID, and process IDs. `source-manifest.json` gives SHA-256 hashes of the full source reports and charts. The reference checkout and benchmark client were dirty during the matched run, so their commit IDs alone cannot reproduce it bit for bit. The served numbers describe the eager bring-up setup, not tuned throughput or full-request graph capture parity.
