@@ -1,0 +1,53 @@
+{
+  "_run": {
+    "mstar_code_version": "5902054c0f",
+    "policy": "mstar",
+    "request_seed_sent": true,
+    "sampler_seed_controlled": true,
+    "sampler_seed_labels": [
+      0
+    ]
+  },
+  "all": {
+    "episodes": 7,
+    "mean_progress": 1.0,
+    "success_rate": 0.8571428571428571,
+    "successes": 6
+  },
+  "block_in_bowl": {
+    "episodes": 1,
+    "mean_progress": 1.0,
+    "successes": 1
+  },
+  "block_out_of_bowl": {
+    "episodes": 1,
+    "mean_progress": 1.0,
+    "successes": 1
+  },
+  "cube_on_plate": {
+    "episodes": 1,
+    "mean_progress": 1.0,
+    "successes": 1
+  },
+  "lift_cube": {
+    "episodes": 1,
+    "mean_progress": 1.0,
+    "successes": 0
+  },
+  "move_block": {
+    "episodes": 1,
+    "mean_progress": 1.0,
+    "successes": 1
+  },
+  "press_button": {
+    "episodes": 1,
+    "mean_progress": 1.0,
+    "successes": 1
+  },
+  "source_sha256": "1ad602abc52dc5107476253212ab12b90a02606bb7a83411474782b4911829a3",
+  "stack_block": {
+    "episodes": 1,
+    "mean_progress": 1.0,
+    "successes": 1
+  }
+}

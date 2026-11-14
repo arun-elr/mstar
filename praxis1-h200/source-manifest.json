@@ -1,0 +1,15 @@
+{
+  "extraction": "The chart inputs retain original summary values and provenance but omit per-call numeric action arrays, local paths, GPU UUID and process IDs.",
+  "source_sha256": {
+    "latency-h200-5902054c0f.png": "aa74ceb3bd5d872ac14a8593881580fa7e42a2f8c2c7836cd31d8499d88b057b",
+    "mstar-590-cold-python.json": "23ae72fcc867d85381ee88be99716683fe58a87b96a098bd370b9818939461bc",
+    "mstar-590-cold-rust.json": "0c05847aac15f771f310e855fab3e25a6cce76f4ce5cf3fde82b6c4746415129",
+    "mstar-590-sim-summary.json": "1ad602abc52dc5107476253212ab12b90a02606bb7a83411474782b4911829a3",
+    "mstar-590-stage-bench.jsonl": "4743324a1ae81f379f0594c50b690175decefad702e3f931db6fb0530d22f3ff",
+    "mstar-590-warm-python.json": "1904d936fd1bc2f2f7a8e00626017cdf4779b192662ffd43fb18bd9a2da6ab75",
+    "mstar-590-warm-rust.json": "221364cf16226e6594cf3e80135e2b22c56cfc2edbfefaf066a17217f705b635",
+    "plot.py": "8e4dff56a6c32ce89a8d81dd9215b0aa5de294daa34462eac5cc18564ebeed02",
+    "reference-matched-warm-590-script.json": "5bd4c1edc134ca450b2bedefd108eeff7e461ca843dc79fa9d48d53742745c53",
+    "stages-h200-5902054c0f.png": "18a5b781939bf5a47088d096b5e54285652f5b2b0a546d6c4356263c7c173783"
+  }
+}

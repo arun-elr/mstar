@@ -1,0 +1,55 @@
+{
+  "client_dirty": true,
+  "gpu": "NVIDIA H200, driver 580.173.02",
+  "measured_at_utc": "2026-11-14T07:32:01.634346+00:00",
+  "mode": "mstar",
+  "observation_sha256": [
+    "af343cb057197f90762e9b61176ea4c454b90dbe1f3e625cd136a9b1ea74abc6",
+    "4b6d83e21519c350f9ad478584482341b8eab399a90e23ca642c7f3fc92ae264",
+    "4947d3690c61a459680d0dd137288b81f1505b1a6a2c02233641527b58450ce6"
+  ],
+  "python": "3.12.15",
+  "reference_client_commit": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "script_sha256": "65370861d3545910e63275e5b2d4bb63fdb875c958157e83a6c1efdacf75a06c",
+  "server_meta": {
+    "action_fps": 15.0,
+    "attention_backend": "triton",
+    "cfg_scale": 1.0,
+    "cfg_video_scale": 4.0,
+    "checkpoint": "runwayml/praxis-1-droid",
+    "chunk_rows": 24,
+    "code_version": "5902054c0f",
+    "max_context_chunks": 1,
+    "num_steps": 2,
+    "skip_video_decoder": true,
+    "t_shift": 12.5
+  },
+  "sessions": 5,
+  "source_call_count": 15,
+  "source_sha256": "1904d936fd1bc2f2f7a8e00626017cdf4779b192662ffd43fb18bd9a2da6ab75",
+  "summary": {
+    "0": {
+      "max_ms": 273.740829,
+      "n": 4,
+      "p50_ms": 268.03926049999995,
+      "p95_ms": 273.1616043,
+      "rows": 21
+    },
+    "1": {
+      "max_ms": 537.249712,
+      "n": 4,
+      "p50_ms": 535.260705,
+      "p95_ms": 537.1414885,
+      "rows": 24
+    },
+    "2": {
+      "max_ms": 545.258412,
+      "n": 4,
+      "p50_ms": 542.9550395,
+      "p95_ms": 545.1265965,
+      "rows": 24
+    }
+  },
+  "trajectory": "shared continuous 46-frame DROID synthetic stream, JPEG quality 90, 416x234",
+  "warmup_sessions": 1
+}

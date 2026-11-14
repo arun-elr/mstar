@@ -1,0 +1,32 @@
+{
+  "calls_per_session": 4,
+  "client_dirty": false,
+  "gpu": "NVIDIA H200, driver 580.173.02",
+  "measured_at_utc": "2026-11-14T07:32:08.361351+00:00",
+  "mode": "mstar-openpi",
+  "observation_format": "raw uint8 1x288x512x3 per view, fixed one-frame calls; openpi uses FR3 hand keys",
+  "observation_sha256": "948b77d4ddd18f0d8c0e61e63adc491dc36ab58d27d3dc61d2b88f93bfb783f1",
+  "python": "3.12.15",
+  "seed_controlled": true,
+  "server_meta": {
+    "attention_backend": "triton",
+    "cfg_scale": 1.0,
+    "cfg_video_scale": 4.0,
+    "checkpoint": "runwayml/praxis-1-droid",
+    "code_version": "5902054c0f",
+    "max_context_chunks": 0,
+    "num_steps": 2,
+    "skip_video_decoder": true,
+    "t_shift": 12.5
+  },
+  "sessions": 5,
+  "source_call_count": 20,
+  "source_sha256": "23ae72fcc867d85381ee88be99716683fe58a87b96a098bd370b9818939461bc",
+  "summary": {
+    "max_ms": 266.484662,
+    "n": 16,
+    "p50_ms": 263.485156,
+    "p95_ms": 265.679252
+  },
+  "warmup_sessions": 1
+}
