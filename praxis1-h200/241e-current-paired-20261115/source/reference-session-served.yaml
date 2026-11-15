@@ -1,0 +1,28 @@
+model:
+  checkpoint: /home/bench/praxis/checkpoints/praxis-1-droid
+  vae_weights: /home/bench/praxis/weights/Wan2.2_VAE.pth
+  text_encoder: /home/bench/praxis/weights/Qwen3.5-2B
+  embodiment: single_arm
+  device: cuda
+  vae_norm_block_c: null
+  action_cuda_graphs: false
+  nvfp4_moe_cuda_graphs: false
+sampler:
+  num_steps: 2
+  cfg_scale: 1.0
+  cfg_video_scale: 4.0
+  cfg_batched: false
+  layout: window_joint
+  t_shift: 12.5
+  solver: euler
+  action_steps: null
+session:
+  exec_horizon: 24
+  control_mode: droid_impedance
+  context_mode: observed
+  max_context_chunks: 1
+  carry_mode: clean
+  skip_video_decoder: true
+  prompt: ''
+  schedule: chunked
+  precompute: true

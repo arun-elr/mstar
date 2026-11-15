@@ -1,0 +1,264 @@
+{
+  "same_observation_bytes": true,
+  "command_key_differences": [
+    {
+      "session": 0,
+      "call": 0,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 0,
+      "call": 1,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 0,
+      "call": 2,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 1,
+      "call": 0,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 1,
+      "call": 1,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 1,
+      "call": 2,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 2,
+      "call": 0,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 2,
+      "call": 1,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 2,
+      "call": 2,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 3,
+      "call": 0,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 3,
+      "call": 1,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 3,
+      "call": 2,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 4,
+      "call": 0,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 4,
+      "call": 1,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    },
+    {
+      "session": 4,
+      "call": 2,
+      "reference": [
+        "robot_command",
+        "target_grip",
+        "timestamp"
+      ],
+      "mstar": [
+        "robot_command",
+        "target_grip"
+      ]
+    }
+  ],
+  "compared_command_values": 4485,
+  "max_abs": 0.09107348322868347,
+  "p95_abs": 0.05420929193496704,
+  "by_call": {
+    "0": {
+      "max_abs": 0.07876923680305481,
+      "p95_abs": 0.0368923544883728
+    },
+    "1": {
+      "max_abs": 0.09107348322868347,
+      "p95_abs": 0.041105449199676514
+    },
+    "2": {
+      "max_abs": 0.0840519443154335,
+      "p95_abs": 0.06422603130340576
+    }
+  },
+  "reference_summary": {
+    "0": {
+      "n": 4,
+      "rows": 21,
+      "p50_ms": 129.130957,
+      "p95_ms": 130.21474794999997,
+      "max_ms": 130.227727
+    },
+    "1": {
+      "n": 4,
+      "rows": 24,
+      "p50_ms": 249.11410899999998,
+      "p95_ms": 251.3810682,
+      "max_ms": 251.748651
+    },
+    "2": {
+      "n": 4,
+      "rows": 24,
+      "p50_ms": 251.5799795,
+      "p95_ms": 253.80463215,
+      "max_ms": 254.128143
+    }
+  },
+  "mstar_summary": {
+    "0": {
+      "n": 4,
+      "rows": 21,
+      "p50_ms": 268.171941,
+      "p95_ms": 307.35940835,
+      "max_ms": 314.179046
+    },
+    "1": {
+      "n": 4,
+      "rows": 24,
+      "p50_ms": 536.2378000000001,
+      "p95_ms": 539.4150243500001,
+      "max_ms": 539.702117
+    },
+    "2": {
+      "n": 4,
+      "rows": 24,
+      "p50_ms": 540.263853,
+      "p95_ms": 541.2283457999999,
+      "max_ms": 541.3248
+    }
+  },
+  "note": "Composed commands only; no internal VAE/denoiser stage comparison. No numerical acceptance threshold is inferred."
+}

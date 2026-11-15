@@ -1,0 +1,80 @@
+{
+  "arms": "M* then fresh reference, sequential on one H200",
+  "gpu": "NVIDIA H200, GPU-f803b40c-0da0-e430-5025-76d7dbbbcfed, 580.173.02",
+  "limits": [
+    "Bring-up settings, not optimized production latency",
+    "different VAE implementations; no internal numerical parity claim",
+    "4 measured matched sessions in one run"
+  ],
+  "matched_sessions": {
+    "command_max_abs": 0.09107348322868347,
+    "command_p95_abs": 0.05420929193496704,
+    "command_values": 4485,
+    "mstar_p50_ms": {
+      "0": 268.171941,
+      "1": 536.2378000000001,
+      "2": 540.263853
+    },
+    "observation_sha256": [
+      "af343cb057197f90762e9b61176ea4c454b90dbe1f3e625cd136a9b1ea74abc6",
+      "4b6d83e21519c350f9ad478584482341b8eab399a90e23ca642c7f3fc92ae264",
+      "4947d3690c61a459680d0dd137288b81f1505b1a6a2c02233641527b58450ce6"
+    ],
+    "reference_p50_ms": {
+      "0": 129.130957,
+      "1": 249.11410899999998,
+      "2": 251.5799795
+    },
+    "script_sha256": "95d188f0583fc12df88ed0017af01fc97671b5e37845662629bba4588dcd185c",
+    "sessions": 5,
+    "warmup_sessions": 1
+  },
+  "mstar_source_commit": "241e8cedb175adc2b0117a4cbde8522d795b4e03",
+  "reference_source_commit": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "serve_gate": "committed DROID startup gate; YAM gated",
+  "simulation": {
+    "discordant": [
+      {
+        "mstar_success": false,
+        "reference_success": true,
+        "scene_seed": 6,
+        "task": "lift_cube"
+      },
+      {
+        "mstar_success": false,
+        "reference_success": true,
+        "scene_seed": 1,
+        "task": "block_out_of_bowl"
+      },
+      {
+        "mstar_success": true,
+        "reference_success": false,
+        "scene_seed": 0,
+        "task": "stack_block"
+      }
+    ],
+    "mstar_successes": 54,
+    "reference_successes": 55,
+    "scenes": 56
+  },
+  "source_sha256": {
+    "source/check-results.log": "aaef3692376740d709e0105e58c419a06f688d4337aaaf5f2088401b0664a426",
+    "source/complete.txt": "6c2ffe4a529273aa9183df0923201231e4697a8209d23b8a7b609d30728a4514",
+    "source/gpu.txt": "bd11372037f7363687ef7eab7280c091eab7322d7b83646568dc2980857fa2d1",
+    "source/input-hashes.sha256": "a8217ac7e10f6fa3823539eb9d03dd07b2843d0df26acd636a7e316ad5b52311",
+    "source/model-files-verified.log": "979a2f13d76f2a96e676aadf3127796cc06ac692eecf7f318fc9320edf7b90c0",
+    "source/mstar-episodes.jsonl": "c38db381bf8489d4067279759f38c35240bd22c73f57964b7cdb93a8342727ee",
+    "source/mstar-matched.json": "90d954e55aac1d90df16b7c81500e5b5c7af6a779bd05dc65e92e6dc0db2fbb9",
+    "source/mstar-served.yaml": "dfed0b944c5aa30600fd9bbc2c4119577f28b4a7a5c6c6081cc5c4b9e0ec67fe",
+    "source/paired-56-report.json": "aaef3692376740d709e0105e58c419a06f688d4337aaaf5f2088401b0664a426",
+    "source/paired-commands.json": "c9fd121fe6936c94d40b7258524646a488f014e242c8408b1f90e9edea934fc3",
+    "source/reference-episodes.jsonl": "ed1b8de9076f9e02f420b138e6dc101b028e5cdadac42d509216489330a52ee3",
+    "source/reference-matched.json": "87fe4ec135853a29594158a1cbbe4f24af66c43ff62dd2baa8c81e4175536616",
+    "source/reference-session-served.yaml": "5f918aef42c48b6a4004c0ad5b729851f7ba6bf5f6f5ec64f01f4ceaf5c650e4",
+    "source/reference-sim-served.yaml": "53d87804c466decd5dbfce811861606cd498c47232b8916dc1669e3cb5a9857c",
+    "source/reference-working-tree.actual.diff": "099d4a341b5db5ad64417db34855e191c848d6f87deb11949df572f5d6462f74",
+    "source/reference-working-tree.actual.status": "1cc0d6ce4483ebeaa968063ce40d460f3e776f91a130d0ea626e84c6ebd3a326",
+    "source/runner-and-config-hashes.sha256": "3de8daa4bc952b437b3fa198dc04cd60411c7bb7cc664d1012d88dafcc8b8b47",
+    "source/source-match.log": "f2fc44e3593a6354439bf9e7af37ac231ab26c6f9e335225a8096869aec32aa6"
+  }
+}
