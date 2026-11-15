@@ -1,0 +1,88 @@
+{
+  "arms": "M* then fresh reference, sequential on one VM",
+  "gpu": "NVIDIA H200, GPU-2bcc350f-a4e8-3265-2377-002c13c24d4d, 580.173.02",
+  "limits": [
+    "Bring-up settings, not optimized production latency",
+    "different VAE implementations",
+    "no internal numerical parity claim",
+    "5 sessions in one run",
+    "no exact current-head 532e validation"
+  ],
+  "matched_sessions": {
+    "command_max_abs": 0.09107348322868347,
+    "command_p95_abs": 0.05420929193496704,
+    "command_values": 4485,
+    "mstar_p50_ms": {
+      "0": 271.650836,
+      "1": 546.25423,
+      "2": 542.3152565
+    },
+    "reference_p50_ms": {
+      "0": 137.8255115,
+      "1": 263.1247785,
+      "2": 266.94194100000004
+    },
+    "same_observation_bytes": true,
+    "script_sha256": "95d188f0583fc12df88ed0017af01fc97671b5e37845662629bba4588dcd185c",
+    "sessions": 5,
+    "warmup_sessions": 1
+  },
+  "mstar_rust_extension_and_server_source_matched": true,
+  "mstar_serve_gate": "enabled only in a disposable source copy; production _SERVABLE remains false",
+  "mstar_source_commit": "f574af84969a3e5191b5e781cd30e12bd029165f",
+  "reference_checkout": "tracked simulator patch and untracked client, exact status and diff saved in source/",
+  "reference_source_commit": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "simulation": {
+    "discordant": [
+      {
+        "mstar_success": false,
+        "reference_success": true,
+        "scene_seed": 6,
+        "task": "lift_cube"
+      },
+      {
+        "mstar_success": false,
+        "reference_success": true,
+        "scene_seed": 1,
+        "task": "block_out_of_bowl"
+      },
+      {
+        "mstar_success": true,
+        "reference_success": false,
+        "scene_seed": 0,
+        "task": "stack_block"
+      }
+    ],
+    "mstar_successes": 54,
+    "reference_successes": 55,
+    "scenes": 56
+  },
+  "source_sha256": {
+    "source/bundle-hashes.log": "2ab6a595d771877b2075d8b7a785b1819e924acdfef182f34da1091c6a8e8b0a",
+    "source/check-results.log": "4ab70ce3aada3466d34a3d969bdd29820da78840b765e41eaa43d891b7578d81",
+    "source/check_results.py": "c4ca364f64c920006d2085de8823558b5d414aaf83d0f29c114ada44fec4c692",
+    "source/compare_commands.py": "aa3adac21573b5b9f4e0925a59908e8e14f4949a30a82e0f1ffd9f0169d24c3e",
+    "source/gpu.txt": "85fef76bf79f4ec333fe2a8c8322fd207102b4ea3d1736409387211b4739ff7c",
+    "source/input-hashes.sha256": "c7d0e749726f701e7d9134e0950482bb42582d0fd243a53d65a755218102711b",
+    "source/matched_droid_bench.py": "95d188f0583fc12df88ed0017af01fc97671b5e37845662629bba4588dcd185c",
+    "source/model-files-verified.log": "0f351acbcbc7ce45f370da08f9ad7fa17c02cdeac7cbf8297c2ef85d30f8df1a",
+    "source/model-files.sha256": "e9758085354adc60c5814e901bb8e2d2cf5eaaf8cb6ce084d4788af42074ba3a",
+    "source/mstar-episodes.jsonl": "dc75d1e156f7089d1d7b9c231080517d25bb13739d3fbd53a1cbf44ad1f8537e",
+    "source/mstar-matched.json": "dd6f19d3e48eb62a801710055d623fc26aa2212b0bd26b083b5e4a458b1b53f1",
+    "source/mstar-served.sha256": "8b4d461cf22d41a2b37c6c7a4103e2f07bb751300d865010bcd163d328194cad",
+    "source/mstar-served.yaml": "6ac9c37e4ca3ee2581c42081cbf090be571754405e22bec0e37d4d7178e24a3f",
+    "source/paired-56-report.json": "4ab70ce3aada3466d34a3d969bdd29820da78840b765e41eaa43d891b7578d81",
+    "source/paired-commands.json": "728250da5684a53b408eed3932a86c134594882a9eeb23f2df3871656a90c3ab",
+    "source/prepare.py": "a7e82247e2eabb47636280e167a7e4c4b281337fb373a3c073f4ed54836b1d42",
+    "source/reference-episodes.jsonl": "08ea7340207b23d350cced669926045f8983343d5074ac56024516e61d5c85fc",
+    "source/reference-matched.json": "eff34d6ae5c4113ff982ef28439d3173b38cbe5bf651577572e37955e43e3f31",
+    "source/reference-session-served.yaml": "5f918aef42c48b6a4004c0ad5b729851f7ba6bf5f6f5ec64f01f4ceaf5c650e4",
+    "source/reference-sim-served.yaml": "53d87804c466decd5dbfce811861606cd498c47232b8916dc1669e3cb5a9857c",
+    "source/reference-working-tree.actual.diff": "099d4a341b5db5ad64417db34855e191c848d6f87deb11949df572f5d6462f74",
+    "source/reference-working-tree.actual.status": "1cc0d6ce4483ebeaa968063ce40d460f3e776f91a130d0ea626e84c6ebd3a326",
+    "source/runner-and-config-hashes.sha256": "f2a45bd296685d5387d6b9ff9c9efed78ad93c5acf5926ed684f73793ee3a6a6",
+    "source/sim_client.py": "6ca3bbc34ff046464436287becf0932adee4b8dcbeab0fb1c197b5d01f875556",
+    "source/source-match.log": "fd89f97817655a6cd45c0bd96400027cf1dff5857040fea810974a0d0e80e829"
+  },
+  "weights": "DROID and Qwen checkpoint files hash-verified; reference .pth VAE and M* Diffusers VAE separately verified, not asserted equivalent"
+}

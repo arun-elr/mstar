@@ -1,0 +1,7 @@
+ M praxis/sim/EVAL.md
+ M scripts/run_sim_eval.py
+?? .venv
+?? praxis/serve/openpi_sim_client.py
+?? praxis/serve/sim_client.py
+?? scripts/benchmark_remote_session.py
+?? scripts/plot_remote_latency.py

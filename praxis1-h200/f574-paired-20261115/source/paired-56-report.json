@@ -1,0 +1,104 @@
+{
+  "units": 56,
+  "per_task": {
+    "lift_cube": {
+      "episodes": 8,
+      "reference_successes": 8,
+      "mstar_successes": 7,
+      "reference_calls": 46,
+      "mstar_calls": 49,
+      "reference_call_p50_ms": 370.67434949995004,
+      "reference_call_p95_ms": 389.9021715000117,
+      "mstar_call_p50_ms": 647.1814889999905,
+      "mstar_call_p95_ms": 700.6662670000195
+    },
+    "cube_on_plate": {
+      "episodes": 8,
+      "reference_successes": 8,
+      "mstar_successes": 8,
+      "reference_calls": 56,
+      "mstar_calls": 61,
+      "reference_call_p50_ms": 370.6457929999942,
+      "reference_call_p95_ms": 384.6461582501206,
+      "mstar_call_p50_ms": 649.5511739999529,
+      "mstar_call_p95_ms": 693.3246479999298
+    },
+    "block_in_bowl": {
+      "episodes": 8,
+      "reference_successes": 8,
+      "mstar_successes": 8,
+      "reference_calls": 63,
+      "mstar_calls": 59,
+      "reference_call_p50_ms": 370.80107499991755,
+      "reference_call_p95_ms": 376.56242399996245,
+      "mstar_call_p50_ms": 655.4475650000313,
+      "mstar_call_p95_ms": 731.2329943999998
+    },
+    "block_out_of_bowl": {
+      "episodes": 8,
+      "reference_successes": 8,
+      "mstar_successes": 7,
+      "reference_calls": 61,
+      "mstar_calls": 70,
+      "reference_call_p50_ms": 370.9138179999627,
+      "reference_call_p95_ms": 384.22613499983527,
+      "mstar_call_p50_ms": 650.4979159999493,
+      "mstar_call_p95_ms": 679.1452190999735
+    },
+    "move_block": {
+      "episodes": 8,
+      "reference_successes": 8,
+      "mstar_successes": 8,
+      "reference_calls": 59,
+      "mstar_calls": 57,
+      "reference_call_p50_ms": 369.90730299999086,
+      "reference_call_p95_ms": 375.0666132000333,
+      "mstar_call_p50_ms": 651.4788910000107,
+      "mstar_call_p95_ms": 680.409856999904
+    },
+    "stack_block": {
+      "episodes": 8,
+      "reference_successes": 7,
+      "mstar_successes": 8,
+      "reference_calls": 70,
+      "mstar_calls": 67,
+      "reference_call_p50_ms": 371.0767960000112,
+      "reference_call_p95_ms": 381.02879295000776,
+      "mstar_call_p50_ms": 649.769904999971,
+      "mstar_call_p95_ms": 699.3962778999844
+    },
+    "press_button": {
+      "episodes": 8,
+      "reference_successes": 8,
+      "mstar_successes": 8,
+      "reference_calls": 38,
+      "mstar_calls": 38,
+      "reference_call_p50_ms": 369.8094470000797,
+      "reference_call_p95_ms": 399.29450910012736,
+      "mstar_call_p50_ms": 646.5419560000214,
+      "mstar_call_p95_ms": 685.6507596999165
+    }
+  },
+  "discordant": [
+    {
+      "task": "lift_cube",
+      "scene_seed": 6,
+      "reference_success": true,
+      "mstar_success": false
+    },
+    {
+      "task": "block_out_of_bowl",
+      "scene_seed": 1,
+      "reference_success": true,
+      "mstar_success": false
+    },
+    {
+      "task": "stack_block",
+      "scene_seed": 0,
+      "reference_success": false,
+      "mstar_success": true
+    }
+  ],
+  "total_reference_successes": 55,
+  "total_mstar_successes": 54
+}
