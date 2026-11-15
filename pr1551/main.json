@@ -1,0 +1,1 @@
+{"arm": "main", "runs": [{"plain_chat_ms": 2034.9, "remote_upstream_hits": 48, "remote_busy_refusals": 0, "remote_400s": 48}, {"plain_chat_ms": 2038.1, "remote_upstream_hits": 48, "remote_busy_refusals": 0, "remote_400s": 48}, {"plain_chat_ms": 2036.6, "remote_upstream_hits": 48, "remote_busy_refusals": 0, "remote_400s": 48}]}
