@@ -1,0 +1,16 @@
+model: qwen3_5_2b
+max_seq_len: 32768
+knobs:
+  gc_gen0_threshold: 50000
+node_groups:
+- node_names:
+  - LLM
+  - vision_encoder
+  ranks:
+  - 0
+resources:
+  gdn_state:
+    max_slots: 129
+    prefix_slots: 128
+model_kwargs:
+  model_path_hf: /home/bench/praxis/weights/Qwen3.5-2B
