@@ -1,0 +1,84 @@
+{
+  "commands": {
+    "includes_warmup_session": true,
+    "max_abs": 0.080512136220932,
+    "p95_abs": 0.03564923256635666,
+    "reference_metadata_timestamp_excluded": true,
+    "sessions_counted": 5,
+    "values_compared": 4485
+  },
+  "generator_sha256": "1ddba1327ab4c9e60e0d1f79824574a67e07cc5ee33065c87d8358677f09f944",
+  "hardware": "NVIDIA H200, GPU-605dfc41-abd6-8e99-4530-6a76a6b602d3, 580.173.02",
+  "input_files_sha256": {
+    "diagnostic.patch": "401954c3e30578f1a39a826ec19792c6aa066e5118bad194a61f25c70bdb940d",
+    "e5-droid-openpi-rust-server-8127.log": "86e5793d27d68d0a34982677c8123671f62391bf05c8906159360ddbdb81377b",
+    "mstar-56/suite/episodes.jsonl": "299b5def47d95d428fccab74ea972aa16acc04edb353fdcebdd98b611fa08098",
+    "mstar-matched.json": "3e10d3ee37896eb59aecafdd6a973040d428c905d81924459e86a46bc98a6375",
+    "mstar_serve_wrapper.sh": "b24dbcea2a5582f1b56d54a37732ca803ae60d3bc6a192cf31ea4a254932fd6c",
+    "paired-commands.json": "fab87833bff49946ba8bac08d69619baf291cd04a70667bc1b6fea19807a94d7",
+    "prior-reference-56-episodes.tar.gz": "b184ebfc5cf2014eedc12312b515322fc450bfe48e2f7236b6d1e66ee7d90500",
+    "prior-weight-comparison.json": "8c1c83eb4894d3e52dcf3b71f058f2cd6d57be862b114537fca401bbf09529f5",
+    "ref_serve.yaml": "5f918aef42c48b6a4004c0ad5b729851f7ba6bf5f6f5ec64f01f4ceaf5c650e4",
+    "reference-56-provenance.txt": "245398464f09b7164fc873e626a2995442cd6633375cea7759e05ae5d4e1cd23",
+    "reference-head.txt": "04f533656c1f78e890a7772938e99b0c2d7932e0e2815eea9da345c4c645ec7d",
+    "reference-matched.json": "3fcfc021e80006eae1a38ef197e96c9d9266921c3e4cbf6e4b7eb1dc60818d92",
+    "reference-served-candidate.yaml": "53d87804c466decd5dbfce811861606cd498c47232b8916dc1669e3cb5a9857c",
+    "reference-status.txt": "1cc0d6ce4483ebeaa968063ce40d460f3e776f91a130d0ea626e84c6ebd3a326",
+    "sim_droid.yaml": "53d87804c466decd5dbfce811861606cd498c47232b8916dc1669e3cb5a9857c"
+  },
+  "matched_observation_sha256": [
+    "af343cb057197f90762e9b61176ea4c454b90dbe1f3e625cd136a9b1ea74abc6",
+    "4b6d83e21519c350f9ad478584482341b8eab399a90e23ca642c7f3fc92ae264",
+    "4947d3690c61a459680d0dd137288b81f1505b1a6a2c02233641527b58450ce6"
+  ],
+  "mstar_commit": "ccff51938b81ec3d02ecd473c69e9c2323e5f6da",
+  "paired_session_mode": "same H200 and observation bytes, sequential arms, 5 sessions with first as warmup",
+  "paired_session_script_sha256": "e8bb563c340b31a537a9644b3c3cd181c82409b9226e62f49287e2d4e5fd4644",
+  "png_render": "rsvg-convert version 2.58.0; rsvg-convert input.svg -o output.png",
+  "raw_inputs_in_asset_commit": false,
+  "reference_commit": "68f4d7a254b4bf41951d2e97f44b07f6cac2bf69",
+  "reference_worktree_dirty": true,
+  "reference_worktree_status_file": "/tmp/mstar-e5-3h/results-partial/e5-3h-ccff519-attempt2/reference-status.txt",
+  "session_p50_ms": {
+    "0": {
+      "mstar": 267.7454935,
+      "reference": 156.220038
+    },
+    "1": {
+      "mstar": 536.1500005,
+      "reference": 244.072122
+    },
+    "2": {
+      "mstar": 535.7507165,
+      "reference": 248.0764595
+    }
+  },
+  "simulation": {
+    "discordant": [
+      {
+        "mstar_success": false,
+        "reference_success": true,
+        "scene_seed": 1,
+        "task": "block_out_of_bowl"
+      },
+      {
+        "mstar_success": false,
+        "reference_success": true,
+        "scene_seed": 6,
+        "task": "lift_cube"
+      },
+      {
+        "mstar_success": true,
+        "reference_success": false,
+        "scene_seed": 0,
+        "task": "stack_block"
+      }
+    ],
+    "mstar_success": 54,
+    "reference_outcome_source": "prior audited reference arm, exact source/checkpoint/config/input recipe hash match",
+    "reference_simulation_latency_reused": false,
+    "reference_success": 55,
+    "sampler_seed": 0,
+    "scenes": 56
+  }
+}
