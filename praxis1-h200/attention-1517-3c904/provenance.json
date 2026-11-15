@@ -38,5 +38,6 @@
     "not a checkpoint run",
     "not whole-engine capture",
     "not serving latency"
-  ]
+  ],
+  "small_gate_json_sha256": "0e4e0695c4d153e3f12cdaab74ca627f67a863e6659396a131dc2af6dd537039"
 }
