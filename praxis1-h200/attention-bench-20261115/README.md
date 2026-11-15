@@ -2,7 +2,7 @@
 
 These scripts reproduce the H200 wrapper timings reported on #1491, #1492 and #1517. They run synthetic BF16 Q/K/V through the pinned M* resource code. They do not load a Praxis checkpoint, capture the whole engine or measure served latency. The measured environment used one H200, PyTorch 2.12.1+cu132 and the Triton Flex backend. Each script verifies the exact source archive and resource file hashes before importing M*.
 
-Run from a checkout with the recorded commits and a Python environment with that PyTorch build and M*'s dependencies. Each `git archive` command below regenerates the SHA checked by its script:
+Run from a checkout with the recorded commits and a Python environment with that PyTorch build and M*'s dependencies. These `git archive` commands regenerated the checked SHA values with Git 2.43.0 on the measured machine. A different Git or gzip build may emit different compressed bytes; the scripts fail closed in that case.
 
 ```bash
 git archive --format=tar.gz --output=pr1491.tar.gz 5ef239f4b6ef1f4c1557203758d96d8c423631c1
