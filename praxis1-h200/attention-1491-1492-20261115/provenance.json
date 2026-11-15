@@ -1,0 +1,34 @@
+{
+  "1491": {
+    "source_revision": "5ef239f4b6ef1f4c1557203758d96d8c423631c1",
+    "raw_sha256": "14ca14bfac22f15920324f61529764ec56d76ad1b6d8c631679f06f2535611c4",
+    "gpu": "NVIDIA H200",
+    "torch": "2.12.1+cu132",
+    "dtype": "bfloat16",
+    "flex_backend": "TRITON",
+    "samples": 20,
+    "warmups": 5,
+    "metric": "warm GPU p50 ms",
+    "limits": [
+      "not a checkpoint run",
+      "not whole-engine capture",
+      "not serving latency"
+    ]
+  },
+  "1492": {
+    "source_revision": "9c55a0e2691689d15e9611baa8fcda7cd73e3af0",
+    "raw_sha256": "1ace35140dcfa31832f74715ff731c24054130b89609c0396c3ded623e00033f",
+    "gpu": "NVIDIA H200",
+    "torch": "2.12.1+cu132",
+    "dtype": "bfloat16",
+    "flex_backend": "TRITON",
+    "samples": 20,
+    "warmups": 5,
+    "metric": "warm GPU p50 ms",
+    "limits": [
+      "not a checkpoint run",
+      "not whole-engine capture",
+      "not serving latency"
+    ]
+  }
+}
