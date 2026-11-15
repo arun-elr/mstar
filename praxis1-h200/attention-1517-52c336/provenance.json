@@ -1,0 +1,42 @@
+{
+  "source_revision": "52c336af9f19cee9c3a2cfebfe2c45078a6ec7af",
+  "source_json_sha256": "87496cd0130cf0c02866c0c34939c04ce0591fb9dc1cd41d7bb5799498e99a2d",
+  "gpu": "NVIDIA H200",
+  "torch": "2.12.1+cu132",
+  "dtype": "bfloat16",
+  "flex_backend": "TRITON",
+  "samples": 20,
+  "warmups": 5,
+  "metric": "warm GPU p50 ms",
+  "modes": [
+    "eager wrapper",
+    "captured replay"
+  ],
+  "values": {
+    "encoder_cond": {
+      "eager_wrapper": 0.49937599897384644,
+      "captured_replay": 0.41340799629688263
+    },
+    "encoder_blank": {
+      "eager_wrapper": 0.5130079984664917,
+      "captured_replay": 0.41759999096393585
+    },
+    "decoder": {
+      "eager_wrapper": 2.326256036758423,
+      "captured_replay": 2.090000033378601
+    },
+    "expert_cross": {
+      "eager_wrapper": 0.130560003221035,
+      "captured_replay": 0.6745280027389526
+    },
+    "expert_self": {
+      "eager_wrapper": 0.1348479986190796,
+      "captured_replay": 0.014271999709308147
+    }
+  },
+  "limits": [
+    "not a checkpoint run",
+    "not whole-engine capture",
+    "not serving latency"
+  ]
+}
