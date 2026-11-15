@@ -1,0 +1,1255 @@
+{
+  "label": "main",
+  "model": "Qwen3.5-2B",
+  "max_tokens": 32,
+  "rows": [
+    {
+      "concurrency": 1,
+      "requests": 50,
+      "wall_s": 3.1331567360000463,
+      "throughput_tok_s": 510.66707950354396,
+      "ttft_ms": {
+        "p50": 9.288695500003996,
+        "p95": 9.45469900000262
+      },
+      "total_ms": {
+        "p50": 62.572831500062875,
+        "p95": 62.935624000033386
+      },
+      "samples": [
+        {
+          "ttft_ms": 9.999612000001434,
+          "total_ms": 63.2958780000763,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.22417399999631,
+          "total_ms": 62.500862999968376,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.256242000105885,
+          "total_ms": 62.51457400003346,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.374089000061758,
+          "total_ms": 62.637134000055994,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.454369999957635,
+          "total_ms": 62.66743399999086,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.374853000053918,
+          "total_ms": 62.54574199999752,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.17968299995664,
+          "total_ms": 62.28682400001162,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.313521000080982,
+          "total_ms": 62.57488000005651,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.299875000010616,
+          "total_ms": 62.70186899996588,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.267614000009416,
+          "total_ms": 62.58733900006064,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.31763099993077,
+          "total_ms": 62.60228099995402,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.343166999997266,
+          "total_ms": 62.61334499993154,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.212172000047758,
+          "total_ms": 62.563567000097464,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.58087199990132,
+          "total_ms": 63.00827199993364,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.45469900000262,
+          "total_ms": 62.84082100000887,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.395460000064304,
+          "total_ms": 62.90188399998442,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.350530999995499,
+          "total_ms": 62.935624000033386,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.239529000069524,
+          "total_ms": 62.66828299999361,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.291701000051944,
+          "total_ms": 62.75845400000435,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.238640000035048,
+          "total_ms": 62.555609000014556,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.357629999954042,
+          "total_ms": 62.71147299992208,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.30951800000912,
+          "total_ms": 62.64827299992248,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.197043999961352,
+          "total_ms": 62.472941000009996,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.253699999931086,
+          "total_ms": 62.58324599991738,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.299843000007968,
+          "total_ms": 62.618870000051174,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.399514000051568,
+          "total_ms": 62.585807000004934,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.278019000021231,
+          "total_ms": 62.435396999944714,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.279773999992358,
+          "total_ms": 62.435178999976415,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.296180999967874,
+          "total_ms": 62.47532299994418,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.387559000060719,
+          "total_ms": 62.5103320001017,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.339255999975649,
+          "total_ms": 62.42270899997493,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.247870999956831,
+          "total_ms": 62.30996600004346,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.18667500002357,
+          "total_ms": 62.50739999995858,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.444434999977602,
+          "total_ms": 62.79160799999772,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.258859000055963,
+          "total_ms": 62.52162199996292,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.39604200004851,
+          "total_ms": 62.69849299997077,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.158504999959405,
+          "total_ms": 62.48576600000888,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.191841999950157,
+          "total_ms": 62.47531600001821,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.19294400000581,
+          "total_ms": 62.5955000000431,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.241794999979902,
+          "total_ms": 62.5292619999982,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.285689999956048,
+          "total_ms": 62.80805199992301,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.158761999970011,
+          "total_ms": 62.55253599999833,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.261296999966362,
+          "total_ms": 62.3878970000078,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.34181799993894,
+          "total_ms": 62.59535100002722,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.307562999993024,
+          "total_ms": 62.388028999976086,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.228603999986262,
+          "total_ms": 62.53011499995864,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 9.140916999967885,
+          "total_ms": 62.237266000011005,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 9.142258999986552,
+          "total_ms": 62.26828299998033,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 9.179302999996253,
+          "total_ms": 62.57696299996951,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 9.401846000059777,
+          "total_ms": 62.57078300006924,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        }
+      ]
+    },
+    {
+      "concurrency": 4,
+      "requests": 50,
+      "wall_s": 1.000752585999976,
+      "throughput_tok_s": 1598.7967679356448,
+      "ttft_ms": {
+        "p50": 14.268060500000956,
+        "p95": 17.904837999935808
+      },
+      "total_ms": {
+        "p50": 77.33163199992532,
+        "p95": 79.49072500002785
+      },
+      "samples": [
+        {
+          "ttft_ms": 14.576670999986163,
+          "total_ms": 73.78375799999048,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 17.6563539999961,
+          "total_ms": 76.35312800005067,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 17.221126000094955,
+          "total_ms": 74.86162000009244,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 16.032137000024704,
+          "total_ms": 74.85825000003388,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 10.452079000060621,
+          "total_ms": 72.56946000006792,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 18.446788000005654,
+          "total_ms": 79.0810019999526,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 17.904837999935808,
+          "total_ms": 76.95509699999548,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 16.603115000066282,
+          "total_ms": 76.35378500003753,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 11.398967000104676,
+          "total_ms": 73.07901900003344,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 17.57390900002065,
+          "total_ms": 78.59329699999762,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 16.792316000078245,
+          "total_ms": 77.90706500009037,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 15.751873999988675,
+          "total_ms": 77.30117200003406,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 11.843507999969916,
+          "total_ms": 77.62788099989848,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 18.48792299995239,
+          "total_ms": 82.24058299992976,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 16.055436999977246,
+          "total_ms": 79.49072500002785,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 15.198835999967741,
+          "total_ms": 78.83140899991758,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 11.532892999980504,
+          "total_ms": 78.16152399993825,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 17.228499999987434,
+          "total_ms": 80.51809000005505,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 13.687232000052063,
+          "total_ms": 77.55649499995343,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 14.777150999975674,
+          "total_ms": 78.43989000002694,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 11.821203000067726,
+          "total_ms": 78.5140489999776,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 14.609568999958356,
+          "total_ms": 77.61068100001012,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 15.1434929999823,
+          "total_ms": 78.19404199995006,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 14.185171999997692,
+          "total_ms": 76.98112200000651,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 10.938274999944042,
+          "total_ms": 77.05805199998395,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 14.222733999986303,
+          "total_ms": 77.47506999999132,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 14.654281000048286,
+          "total_ms": 78.48764599998503,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 13.754518999917309,
+          "total_ms": 77.09979399999156,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 11.207657999989351,
+          "total_ms": 77.91354800008321,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 14.55202600004668,
+          "total_ms": 77.52593300006083,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 14.406153999971139,
+          "total_ms": 77.84154099999796,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 13.943018000077245,
+          "total_ms": 76.46385099997133,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 10.901596999929097,
+          "total_ms": 76.76207999998041,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 13.894421000031798,
+          "total_ms": 76.80227000003015,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 14.535693000084393,
+          "total_ms": 76.8270000000939,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 13.527128999953675,
+          "total_ms": 76.01328700002341,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 10.977603000014824,
+          "total_ms": 76.90832999992381,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 13.737450999997236,
+          "total_ms": 77.20717699999113,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 14.31338700001561,
+          "total_ms": 77.35626599992429,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 13.428953000016008,
+          "total_ms": 76.64194500000576,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 11.177912999983164,
+          "total_ms": 77.30699799992635,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 14.000233000047047,
+          "total_ms": 77.4358010000924,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 14.36353400004009,
+          "total_ms": 77.23772299993925,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 13.556354000002102,
+          "total_ms": 77.60995800003911,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 11.339333000023544,
+          "total_ms": 77.7815679999776,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 14.39296099999865,
+          "total_ms": 77.54216900002575,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 14.7164720000319,
+          "total_ms": 77.77705499995591,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 13.564302999952815,
+          "total_ms": 76.87878299998374,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 11.144661000002998,
+          "total_ms": 71.69455799999014,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 11.34991000003538,
+          "total_ms": 66.80573400001322,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        }
+      ]
+    },
+    {
+      "concurrency": 16,
+      "requests": 50,
+      "wall_s": 0.3896155080000199,
+      "throughput_tok_s": 4106.612717273868,
+      "ttft_ms": {
+        "p50": 29.67090449999432,
+        "p95": 32.818539999993845
+      },
+      "total_ms": {
+        "p50": 105.60569699998723,
+        "p95": 110.78781699995943
+      },
+      "samples": [
+        {
+          "ttft_ms": 16.245320000052743,
+          "total_ms": 102.63777199998003,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 22.864108000021588,
+          "total_ms": 105.48842799994418,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 22.478891999980988,
+          "total_ms": 105.79524699994636,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 32.21891499993035,
+          "total_ms": 109.12923599994429,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 32.05805999994027,
+          "total_ms": 107.26274099999955,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 30.17224300003818,
+          "total_ms": 104.8017970000501,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 29.436372999953164,
+          "total_ms": 105.68075200001203,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 29.932229999985793,
+          "total_ms": 104.77074799996444,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 28.74625799995556,
+          "total_ms": 104.4977359999848,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 27.569696000000476,
+          "total_ms": 102.45639599997958,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 31.971558999998706,
+          "total_ms": 106.23214999998254,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 31.065303000104905,
+          "total_ms": 107.37863900010325,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 29.571988000043348,
+          "total_ms": 106.4799780000385,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 29.160830000023452,
+          "total_ms": 104.81953500004693,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 32.4966119999317,
+          "total_ms": 110.78781699995943,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 31.94951900002252,
+          "total_ms": 109.88533400006872,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 18.514987999992627,
+          "total_ms": 105.44761400001335,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 23.634151000010206,
+          "total_ms": 106.0835110000653,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 22.35675600002196,
+          "total_ms": 104.13362799999959,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 32.05834899995352,
+          "total_ms": 107.91125399998691,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 30.130524000014702,
+          "total_ms": 105.4238220000343,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 30.670004999933553,
+          "total_ms": 102.95140699997773,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 34.45975600004658,
+          "total_ms": 111.83331699999144,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 28.92361899989737,
+          "total_ms": 104.59878599999684,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 28.708819000030417,
+          "total_ms": 103.295231000061,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 27.912850000006983,
+          "total_ms": 102.10339700006443,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 31.150377000017215,
+          "total_ms": 106.96007100000315,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 29.570007999950576,
+          "total_ms": 105.13912999999775,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 28.794990999926995,
+          "total_ms": 105.01453500000935,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 32.03535499994814,
+          "total_ms": 109.58028499999273,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 27.155446000051597,
+          "total_ms": 105.14092700009314,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 26.83844400007729,
+          "total_ms": 103.26537500009181,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 16.95481900003415,
+          "total_ms": 105.55119200000718,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 28.459514000019226,
+          "total_ms": 107.34994300003109,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 35.69357999992917,
+          "total_ms": 111.26568700001371,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 17.966356999977506,
+          "total_ms": 103.54244400002699,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 25.229524999986097,
+          "total_ms": 104.41601800005174,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "75639ecb1991773f0189ae6dbb35b0f0b4fc7e8541a066c73a1a16781f331144",
+          "output_text": "This is a technical question about GPU architecture, specifically about how GPUs schedule matrix multiplication tiles using warps. Let me break down the key concepts:\n\n1."
+        },
+        {
+          "ttft_ms": 24.466829999937545,
+          "total_ms": 103.54243500000848,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 31.764002000045366,
+          "total_ms": 107.64801200002694,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 31.21316699991894,
+          "total_ms": 107.15879800000039,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 29.769820999945296,
+          "total_ms": 105.76853299994582,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 32.818539999993845,
+          "total_ms": 109.66613300001882,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 32.19485199997507,
+          "total_ms": 108.6765300000252,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 31.100476999995408,
+          "total_ms": 108.41894399993635,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 30.05245700001069,
+          "total_ms": 107.55116100006035,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 30.849531999933788,
+          "total_ms": 106.5655950000064,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        },
+        {
+          "ttft_ms": 30.761122999933832,
+          "total_ms": 105.66020199996728,
+          "tokens": 32,
+          "prompt_index": 2,
+          "output_sha256": "e00134b1bace3c7e5458581f319a28816edf2ee292e021fd49138a71c2a5f675",
+          "output_text": "Here's a thinking process that leads to the suggested causes of numerical drift in bfloat16 inference:\n\n1.  **Analyze the Request:**\n"
+        },
+        {
+          "ttft_ms": 29.842550000012125,
+          "total_ms": 104.99831399999948,
+          "tokens": 32,
+          "prompt_index": 3,
+          "output_sha256": "db8ab55115009058f763eca539cce2382082bc8c8aefc083c156a14e24187041",
+          "output_text": "Here's a thinking process that leads to the explanation of why a cached KV tensor needs a stable position index:\n\n1.  **Deconstruct the Request:**"
+        },
+        {
+          "ttft_ms": 16.274199000008593,
+          "total_ms": 72.92352299998583,
+          "tokens": 32,
+          "prompt_index": 0,
+          "output_sha256": "429334023c11062659286103b3cb0c542d0b6da0b78a8f291de92055a3567ebe",
+          "output_text": "This is a technical question about GPU architecture, specifically about how warps schedule matrix multiplication tiles. Let me break down the key concepts:\n\n1. **GPU"
+        },
+        {
+          "ttft_ms": 15.412510000032853,
+          "total_ms": 71.68301800004429,
+          "tokens": 32,
+          "prompt_index": 1,
+          "output_sha256": "52bc987ff741fe22be3d38381be6dc777e75cbb916822f90a67cfe6e8a4ab59f",
+          "output_text": "This is a great question about distributed systems design. I need to describe a reliable retry protocol for a distributed task queue. This is a complex topic that involves several"
+        }
+      ]
+    }
+  ]
+}

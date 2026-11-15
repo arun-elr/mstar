@@ -1,0 +1,53 @@
+{
+  "source": "six fresh server logs; raw logs retained outside this asset",
+  "runs": [
+    {
+      "run": 1,
+      "arm": "main",
+      "capture_mib": [
+        760
+      ],
+      "server_log_sha256": "d1526fa8edd2aa6665832e51b3c6f100d5a6e2f11f07c6362f617ffadd42e6a1"
+    },
+    {
+      "run": 2,
+      "arm": "e5",
+      "capture_mib": [
+        764
+      ],
+      "server_log_sha256": "66129f9289edf739a4441a6fd9d295aa825a6be707f997ac8e96cf855669eb3f"
+    },
+    {
+      "run": 3,
+      "arm": "e5",
+      "capture_mib": [
+        764
+      ],
+      "server_log_sha256": "8b4240530609a943335b71599eca24d4202b303b68573a2d81acc3a522bdfc99"
+    },
+    {
+      "run": 4,
+      "arm": "main",
+      "capture_mib": [
+        760
+      ],
+      "server_log_sha256": "a67cc141f068d96f55e9313fadd9439a94c1a2665f6c23ceff2f045041003399"
+    },
+    {
+      "run": 5,
+      "arm": "main",
+      "capture_mib": [
+        760
+      ],
+      "server_log_sha256": "7fd3bdfecf71be44f34c8652acfdfff241780f9d65d9422620b2bbd23c7c0396"
+    },
+    {
+      "run": 6,
+      "arm": "e5",
+      "capture_mib": [
+        764
+      ],
+      "server_log_sha256": "5a52d2e3b054d0c095437e134c3e0ff5574cdf5ba68e6343a1617e4584f79b74"
+    }
+  ]
+}
