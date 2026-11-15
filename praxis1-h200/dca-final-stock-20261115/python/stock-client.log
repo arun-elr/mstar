@@ -1,0 +1,244 @@
+{
+  "contract": "pass",
+  "protocol_version": 2,
+  "mstar_source_pin": "dca4991c1e3f5a859c76183ed4990f571ac1279b",
+  "positronic_source_pin": "62b6fbd54e1786c938ec3e457581ca902bb3b2aa",
+  "ready_meta": {
+    "checkpoint": "/home/bench/praxis/checkpoints/praxis-1-droid",
+    "rig": "single_arm",
+    "max_context_chunks": 1,
+    "num_steps": 2,
+    "t_shift": 12.5,
+    "cfg_scale": 1.0,
+    "cfg_video_scale": 4.0,
+    "skip_video_decoder": true,
+    "attention_backend": "triton",
+    "chunk_rows": 24,
+    "action_fps": 15.0,
+    "pad_start": false,
+    "prompt": "",
+    "prompt_overridable": true,
+    "prompt_style": "caption",
+    "compress_images": true,
+    "image_codecs": [
+      "h264",
+      "jpeg"
+    ],
+    "local_stack": {
+      "seq": [
+        {
+          "name": "stop_on_fault",
+          "version": 2
+        },
+        {
+          "name": "restrict_image_size",
+          "args": {
+            "width": 416,
+            "height": 234
+          }
+        },
+        {
+          "name": "temporal_stack",
+          "version": 2,
+          "args": {
+            "keys": [
+              "image.wrist",
+              "image.exterior",
+              "robot_state.ee_pose",
+              "grip"
+            ],
+            "offsets_sec": [
+              -1.5666666666666667,
+              -1.5,
+              -1.4333333333333331,
+              -1.3666666666666665,
+              -1.2999999999999998,
+              -1.2333333333333332,
+              -1.1666666666666665,
+              -1.0999999999999999,
+              -1.0333333333333332,
+              -0.9666666666666667,
+              -0.9,
+              -0.8333333333333334,
+              -0.7666666666666667,
+              -0.7,
+              -0.6333333333333333,
+              -0.5666666666666667,
+              -0.5,
+              -0.43333333333333335,
+              -0.3666666666666667,
+              -0.3,
+              -0.23333333333333334,
+              -0.16666666666666669,
+              -0.1,
+              -0.03333333333333333,
+              0.0
+            ],
+            "pad_start": false
+          }
+        },
+        {
+          "name": "chunked_schedule",
+          "version": 2,
+          "args": {
+            "fps": 15.0
+          }
+        }
+      ]
+    },
+    "code_version": "dca4991c1e3f5a859c76183ed4990f571ac1279b",
+    "sample_seed_base": 0,
+    "seed_source": "session_param"
+  },
+  "session_count": 1,
+  "rows": [
+    21,
+    24,
+    21
+  ],
+  "prepared": [
+    {
+      "event": "prepared",
+      "image_shapes": {
+        "image.wrist": [
+          1,
+          234,
+          416,
+          3
+        ],
+        "image.exterior": [
+          1,
+          234,
+          416,
+          3
+        ]
+      },
+      "pose_shape": [
+        1,
+        7
+      ],
+      "grip_shape": [
+        1
+      ],
+      "compress_images": true,
+      "jpeg_counts": {
+        "image.wrist": 1,
+        "image.exterior": 1
+      }
+    },
+    {
+      "event": "prepared",
+      "image_shapes": {
+        "image.wrist": [
+          22,
+          234,
+          416,
+          3
+        ],
+        "image.exterior": [
+          22,
+          234,
+          416,
+          3
+        ]
+      },
+      "pose_shape": [
+        22,
+        7
+      ],
+      "grip_shape": [
+        22
+      ],
+      "compress_images": true,
+      "jpeg_counts": {
+        "image.wrist": 22,
+        "image.exterior": 22
+      }
+    },
+    {
+      "event": "prepared",
+      "image_shapes": {
+        "image.wrist": [
+          1,
+          234,
+          416,
+          3
+        ],
+        "image.exterior": [
+          1,
+          234,
+          416,
+          3
+        ]
+      },
+      "pose_shape": [
+        1,
+        7
+      ],
+      "grip_shape": [
+        1
+      ],
+      "compress_images": true,
+      "jpeg_counts": {
+        "image.wrist": 1,
+        "image.exterior": 1
+      }
+    }
+  ],
+  "command_keys": [
+    "robot_command",
+    "target_grip"
+  ],
+  "ticks": 27,
+  "reset_context": 1,
+  "answers": [
+    {
+      "event": "answer",
+      "rows": 21,
+      "command_keys": [
+        "robot_command",
+        "target_grip"
+      ],
+      "session_id": "434f11848d424fa618fd666b1def91f0",
+      "round_trip_ms": 664.8,
+      "served_timing": {
+        "served_ms": 663.0,
+        "decode_ms": 0.0,
+        "infer_ms": 663.0,
+        "queued_ms": 0.0
+      }
+    },
+    {
+      "event": "answer",
+      "rows": 24,
+      "command_keys": [
+        "robot_command",
+        "target_grip"
+      ],
+      "session_id": "434f11848d424fa618fd666b1def91f0",
+      "round_trip_ms": 1491.9,
+      "served_timing": {
+        "served_ms": 1490.0,
+        "decode_ms": 0.1,
+        "infer_ms": 1489.9,
+        "queued_ms": 0.0
+      }
+    },
+    {
+      "event": "answer",
+      "rows": 21,
+      "command_keys": [
+        "robot_command",
+        "target_grip"
+      ],
+      "session_id": "434f11848d424fa618fd666b1def91f0",
+      "round_trip_ms": 274.4,
+      "served_timing": {
+        "served_ms": 272.7,
+        "decode_ms": 0.0,
+        "infer_ms": 272.6,
+        "queued_ms": 0.0
+      }
+    }
+  ]
+}

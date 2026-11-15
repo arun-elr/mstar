@@ -1,0 +1,1 @@
+rust frontend stock client and wire checks complete

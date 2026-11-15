@@ -1,0 +1,13 @@
+{
+  "mode": "metadata_reuse",
+  "manifest_sha256": "e9758085354adc60c5814e901bb8e2d2cf5eaaf8cb6ce084d4788af42074ba3a",
+  "file_count": 39,
+  "reasons": [],
+  "prior_run": "/home/bench/praxis/logs/e5-current-d1d25b2746-20261115T065815Z",
+  "source_match_mtime_ns": 1794726618993289509,
+  "bundle_verified_mtime_ns": 1794726000114131746,
+  "metadata_cutoff_ns": 1794726000114131746,
+  "prior_model_log_mtime_ns": 1794726612333268064,
+  "newer_targets": [],
+  "missing_targets": []
+}
