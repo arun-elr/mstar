@@ -15,3 +15,12 @@ python attention-perf-pr1517.py --source-archive pr1517.tar.gz --text-tokens 6 -
 ```
 
 The #1517 run uses a corrected dense-oracle constructor in the disposable benchmark. Its captured expert-cross case uses one 3,584-token ceiling for both Q and KV, padding a warm Q=30 to 3,584. Eager wrapper and captured replay therefore do different work. The chart and its summarized values are in `../attention-1517-52c336/`.
+
+The final #1517 resource-sharing head was measured separately with the same synthetic recipe. Its pinned archive SHA is `d9cee2fd77c5263e1d4d59fa51ddc3c9bc0788e4e1220f8cc3833fc64109c5b5`:
+
+```bash
+git archive --format=tar.gz --output=pr1517-final.tar.gz 3c904e6ab6ae72af9762f3338f6b416b6da15a47
+python attention-perf-pr1517-final.py --source-archive pr1517-final.tar.gz --text-tokens 6 --blank-tokens 1 --text-source 'Qwen3.5-2B AutoProcessor on Pick up the red cube. / blank, same padding and mask as #1520' --samples 20 --warmups 5 --output pr1517-final.json
+```
+
+The final chart and summarized values are in `../attention-1517-3c904/`. The script measures resource wrappers; the distinct-label `build_specs` regression is covered by the PR's CPU suite, not by this synthetic timing.
