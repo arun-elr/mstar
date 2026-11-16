@@ -1,0 +1,335 @@
+{
+  "source_head": "5b42f8e906edd29aa16970d95da5ee4a2ad162b7",
+  "frontend": "python",
+  "model": "qwen3_5_0.8b",
+  "checkpoint_revision": "2fc06364715b967f1860aea9cf38778875588b17",
+  "checkpoint_safetensors_sha256": "04b1c301231dd422b8860db31311ab2721511346a32cb1e079c4c4e5f1fe4696",
+  "rows": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "status": 200,
+      "elapsed_s": 0.004,
+      "body": null,
+      "response": {
+        "status": "healthy"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/is_paused",
+      "status": 401,
+      "elapsed_s": 0.001,
+      "body": null,
+      "response": {
+        "error": {
+          "message": "missing or invalid API key; send 'Authorization: Bearer <key>'",
+          "type": "invalid_request_error",
+          "code": 401
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/is_paused",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body": null,
+      "response": {
+        "op_id": "generation-061fb662df1140a1b468f41ab41ecf47",
+        "status": 200,
+        "state": "serving",
+        "paused": false,
+        "weight_version": null,
+        "error_message": null,
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {}
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 409,
+      "elapsed_s": 0.001,
+      "body": {
+        "mode": "checksum"
+      },
+      "response": {
+        "op_id": "generation-66810b7d33944d869f581902b519a10a",
+        "status": 409,
+        "state": "serving",
+        "paused": false,
+        "weight_version": null,
+        "error_message": "weight checker requires every rank paused and idle",
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {}
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/pause_generation",
+      "status": 200,
+      "elapsed_s": 0.002,
+      "body": {
+        "mode": "wait"
+      },
+      "response": {
+        "op_id": "generation-a9e423786e5646718156b0ca5a0ddd16",
+        "status": 200,
+        "state": "paused",
+        "paused": true,
+        "weight_version": null,
+        "error_message": null,
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {}
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/is_paused",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body": null,
+      "response": {
+        "op_id": "generation-a017c40b2df54e76a1c91a7108c073d8",
+        "status": 200,
+        "state": "paused",
+        "paused": true,
+        "weight_version": null,
+        "error_message": null,
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {}
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 200,
+      "elapsed_s": 1.474,
+      "body": {
+        "mode": "checksum"
+      },
+      "response": {
+        "op_id": "generation-aa9a41cddc9841ef87ebc86ed3483004",
+        "status": 200,
+        "state": "paused",
+        "paused": true,
+        "weight_version": null,
+        "error_message": null,
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {
+          "worker_0": "fa8542e0c338a4d6ca87a72dbaeb82d2ab2cd63f11f7ca1973ff017ece186bd0"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 200,
+      "elapsed_s": 1.493,
+      "body": {
+        "mode": "compare",
+        "checksums": {
+          "worker_0": "fa8542e0c338a4d6ca87a72dbaeb82d2ab2cd63f11f7ca1973ff017ece186bd0"
+        }
+      },
+      "response": {
+        "op_id": "generation-56270042d4424592a8a44aa44eb3fc23",
+        "status": 200,
+        "state": "paused",
+        "paused": true,
+        "weight_version": null,
+        "error_message": null,
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {
+          "worker_0": "fa8542e0c338a4d6ca87a72dbaeb82d2ab2cd63f11f7ca1973ff017ece186bd0"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 409,
+      "elapsed_s": 1.494,
+      "body": {
+        "mode": "compare",
+        "checksums": {
+          "worker_0": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "response": {
+        "op_id": "generation-92df2bc2841347b594f04d3d4484b4eb",
+        "status": 409,
+        "state": "paused",
+        "paused": true,
+        "weight_version": null,
+        "error_message": "weight checksum mismatch: worker_0: expected 0000000000000000000000000000000000000000000000000000000000000000, got fa8542e0c338a4d6ca87a72dbaeb82d2ab2cd63f11f7ca1973ff017ece186bd0",
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {
+          "worker_0": "fa8542e0c338a4d6ca87a72dbaeb82d2ab2cd63f11f7ca1973ff017ece186bd0"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/update_weights_from_disk",
+      "status": 400,
+      "elapsed_s": 0.001,
+      "body": {
+        "model_path": "<outside-reload-root>",
+        "weight_version": "bad"
+      },
+      "response": {
+        "detail": "model_path is not an allowed checkpoint directory"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/update_weights_from_disk",
+      "status": 400,
+      "elapsed_s": 0.002,
+      "body": {
+        "model_path": "<qwen-checkpoint>",
+        "weight_version": "v2"
+      },
+      "response": {
+        "op_id": "generation-6988c54af8994d38a990a4204068862d",
+        "status": 400,
+        "state": "paused",
+        "paused": true,
+        "weight_version": null,
+        "error_message": "checkpoint refused, weights unchanged: worker_0: WeightReloadRefusedError: Qwen3_5DenseModel does not support reloading weights in place",
+        "ranks": {
+          "worker_0": "WeightReloadRefusedError: Qwen3_5DenseModel does not support reloading weights in place"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {}
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 200,
+      "elapsed_s": 1.503,
+      "body": {
+        "mode": "checksum"
+      },
+      "response": {
+        "op_id": "generation-1187ffdd700440cebc5e699b6a325b12",
+        "status": 200,
+        "state": "paused",
+        "paused": true,
+        "weight_version": null,
+        "error_message": null,
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {
+          "worker_0": "fa8542e0c338a4d6ca87a72dbaeb82d2ab2cd63f11f7ca1973ff017ece186bd0"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/continue_generation",
+      "status": 200,
+      "elapsed_s": 0.002,
+      "body": {},
+      "response": {
+        "op_id": "generation-f0d97f84ccd04be89c513bf57967e618",
+        "status": 200,
+        "state": "serving",
+        "paused": false,
+        "weight_version": null,
+        "error_message": null,
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {}
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/is_paused",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body": null,
+      "response": {
+        "op_id": "generation-f5b43ad7d78f44c28baa9832ef8db2f1",
+        "status": 200,
+        "state": "serving",
+        "paused": false,
+        "weight_version": null,
+        "error_message": null,
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "rank_checksums": {}
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body": null,
+      "response": {
+        "object": "list",
+        "data": [
+          {
+            "id": "qwen3_5_0.8b",
+            "object": "model",
+            "created": 1794811720,
+            "owned_by": "mstar"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+2026-11-16 06:49:02,416 INFO [api_server] mstar.communication.communicator: control mesh transport: rust 0.1.1 from <current-head-rust-extension>
+2026-11-16 06:49:02,504 INFO [api_server] mstar.communication.communicator: control mesh transport: rust 0.1.1 from <current-head-rust-extension>
+2026-11-16 06:49:10,475 INFO [conductor] mstar.communication.communicator: control mesh transport: rust 0.1.1 from <current-head-rust-extension>
+2026-11-16 06:49:11,634 INFO [worker_0] mstar.communication.communicator: control mesh transport: rust 0.1.1 from <current-head-rust-extension>
+2026-11-16 06:50:42,410 INFO [api_server] __main__: Starting mstar API server (mstar-server) on port 8611
+mstar-server (Rust frontend) for model "qwen3_5_0.8b" on <local-server>
+2026-11-16 06:50:43,853 INFO [conductor] mstar.conductor.generation_control: Pausing generation (mode wait)
+2026-11-16 06:50:43,855 INFO [conductor] mstar.conductor.generation_control: Generation paused; every rank is idle
+2026-11-16 06:50:48,291 INFO [conductor] mstar.conductor.generation_control: Updating weights to version 'v2' from <qwen-checkpoint>
+2026-11-16 06:50:49,853 INFO [conductor] mstar.conductor.generation_control: Resuming generation on weight version None

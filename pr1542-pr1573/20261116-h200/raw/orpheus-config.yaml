@@ -1,0 +1,19 @@
+max_seq_len: 4096
+model: orpheus
+model_kwargs:
+  model_path_hf: <orpheus-checkpoint>
+node_groups:
+- graph_walks:
+  - prefill
+  - decode
+  node_names:
+  - LLM
+  ranks:
+  - 0
+- graph_walks:
+  - snac_chunk
+  node_names:
+  - snac_decoder
+  ranks:
+  - 0
+warmup_requests: []

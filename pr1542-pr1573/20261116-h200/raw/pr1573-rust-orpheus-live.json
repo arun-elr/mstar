@@ -1,0 +1,339 @@
+{
+  "source_head": "5b42f8e906edd29aa16970d95da5ee4a2ad162b7",
+  "frontend": "rust",
+  "model": "orpheus",
+  "checkpoint_revision": "4206a56e5a68cf6cf96900a8a78acd3370c02eb6",
+  "checkpoint_shard_sha256": {
+    "1": "8feb9137e2a243d33827c2196ec81270179ec6e7acf8972a37f84b5eb6852450",
+    "2": "69df9510f4b3e8d883b51e5d19f5f5b669d99ba9990f9e0e16f4fedd3d73709e",
+    "3": "d24f6a0f618bd4aa09a23216fe55d086a6db92ee896f98740972702f265f026b",
+    "4": "a1deaa1b3f38d5b9efe22f012dbb5c3f29e15f31b15dcf95e471a85bb03d2d21"
+  },
+  "rows": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "status": 200,
+      "elapsed_s": 0.003,
+      "body": null,
+      "response": {
+        "status": "healthy"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/is_paused",
+      "status": 401,
+      "elapsed_s": 0.0,
+      "body": null,
+      "response": {
+        "error": {
+          "code": 401,
+          "message": "missing or invalid API key; send 'Authorization: Bearer <key>'",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/is_paused",
+      "status": 200,
+      "elapsed_s": 0.002,
+      "body": null,
+      "response": {
+        "error_message": null,
+        "op_id": "generation-f59796d6d0c242199b3949f450fd2823",
+        "paused": false,
+        "rank_checksums": {},
+        "rank_versions": {},
+        "ranks": {},
+        "state": "serving",
+        "status": 200,
+        "weight_version": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 409,
+      "elapsed_s": 0.002,
+      "body": {
+        "mode": "checksum"
+      },
+      "response": {
+        "error_message": "weight checker requires every rank paused and idle",
+        "op_id": "generation-6ed8019aabf54633acfe5791451b5fd5",
+        "paused": false,
+        "rank_checksums": {},
+        "rank_versions": {},
+        "ranks": {},
+        "state": "serving",
+        "status": 409,
+        "weight_version": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/pause_generation",
+      "status": 200,
+      "elapsed_s": 0.002,
+      "body": {
+        "mode": "wait"
+      },
+      "response": {
+        "error_message": null,
+        "op_id": "generation-342f18b93f704164afe187fd4681f451",
+        "paused": true,
+        "rank_checksums": {},
+        "rank_versions": {
+          "worker_0": null
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "paused",
+        "status": 200,
+        "weight_version": null
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/is_paused",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body": null,
+      "response": {
+        "error_message": null,
+        "op_id": "generation-10f39bf6045643e3857a2ce3706b1794",
+        "paused": true,
+        "rank_checksums": {},
+        "rank_versions": {
+          "worker_0": null
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "paused",
+        "status": 200,
+        "weight_version": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 200,
+      "elapsed_s": 8.02,
+      "body": {
+        "mode": "checksum"
+      },
+      "response": {
+        "error_message": null,
+        "op_id": "generation-04eec28e1c4c4b0292a1966a25c6aeda",
+        "paused": true,
+        "rank_checksums": {
+          "worker_0": "72881a7dbce35f73ca54fb1a7e1e90d68cd2beb5c4908819b8f804ff3b324a48"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "paused",
+        "status": 200,
+        "weight_version": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 200,
+      "elapsed_s": 7.864,
+      "body": {
+        "mode": "compare",
+        "checksums": {
+          "worker_0": "72881a7dbce35f73ca54fb1a7e1e90d68cd2beb5c4908819b8f804ff3b324a48"
+        }
+      },
+      "response": {
+        "error_message": null,
+        "op_id": "generation-129889048b8740efaaa752d28a29a3da",
+        "paused": true,
+        "rank_checksums": {
+          "worker_0": "72881a7dbce35f73ca54fb1a7e1e90d68cd2beb5c4908819b8f804ff3b324a48"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "paused",
+        "status": 200,
+        "weight_version": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 409,
+      "elapsed_s": 7.885,
+      "body": {
+        "mode": "compare",
+        "checksums": {
+          "worker_0": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "response": {
+        "error_message": "weight checksum mismatch: worker_0: expected 0000000000000000000000000000000000000000000000000000000000000000, got 72881a7dbce35f73ca54fb1a7e1e90d68cd2beb5c4908819b8f804ff3b324a48",
+        "op_id": "generation-8e1e5770558541ca9c71279f4237b384",
+        "paused": true,
+        "rank_checksums": {
+          "worker_0": "72881a7dbce35f73ca54fb1a7e1e90d68cd2beb5c4908819b8f804ff3b324a48"
+        },
+        "rank_versions": {
+          "worker_0": null
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "paused",
+        "status": 409,
+        "weight_version": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/update_weights_from_disk",
+      "status": 400,
+      "elapsed_s": 0.001,
+      "body": {
+        "model_path": "<outside-reload-root>",
+        "weight_version": "bad"
+      },
+      "response": {
+        "detail": "model_path is not an allowed checkpoint directory"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/update_weights_from_disk",
+      "status": 200,
+      "elapsed_s": 3.972,
+      "body": {
+        "model_path": "<orpheus-checkpoint>",
+        "weight_version": "v2"
+      },
+      "response": {
+        "error_message": null,
+        "op_id": "generation-68d2fe0220eb425c87ad0b42531685c5",
+        "paused": true,
+        "rank_checksums": {},
+        "rank_versions": {
+          "worker_0": "v2"
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "paused",
+        "status": 200,
+        "weight_version": "v2"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/weight_checker",
+      "status": 200,
+      "elapsed_s": 7.834,
+      "body": {
+        "mode": "checksum"
+      },
+      "response": {
+        "error_message": null,
+        "op_id": "generation-7b7a704081ef4976a34809c54106a9d3",
+        "paused": true,
+        "rank_checksums": {
+          "worker_0": "72881a7dbce35f73ca54fb1a7e1e90d68cd2beb5c4908819b8f804ff3b324a48"
+        },
+        "rank_versions": {
+          "worker_0": "v2"
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "paused",
+        "status": 200,
+        "weight_version": "v2"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/continue_generation",
+      "status": 200,
+      "elapsed_s": 0.002,
+      "body": {},
+      "response": {
+        "error_message": null,
+        "op_id": "generation-11e0b51be2e742459c2cb028f73cc9d7",
+        "paused": false,
+        "rank_checksums": {},
+        "rank_versions": {
+          "worker_0": "v2"
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "serving",
+        "status": 200,
+        "weight_version": "v2"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/is_paused",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body": null,
+      "response": {
+        "error_message": null,
+        "op_id": "generation-5cfb69dbb21846b6aab03f4e3abfe7e9",
+        "paused": false,
+        "rank_checksums": {},
+        "rank_versions": {
+          "worker_0": "v2"
+        },
+        "ranks": {
+          "worker_0": "ok"
+        },
+        "state": "serving",
+        "status": 200,
+        "weight_version": "v2"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models",
+      "status": 200,
+      "elapsed_s": 0.0,
+      "body": null,
+      "response": {
+        "data": [
+          {
+            "created": 1794812414,
+            "id": "orpheus",
+            "object": "model",
+            "owned_by": "mstar"
+          }
+        ],
+        "object": "list"
+      }
+    }
+  ],
+  "speech_after_reload": {
+    "status": 200,
+    "elapsed_s": 0.46,
+    "size_bytes": 102444,
+    "sha256": "54e46dc24a9862ae63ce1465b0ab8c924ec539873bbc3c7696c2491ddf48cd43",
+    "riff_wave": true
+  }
+}
