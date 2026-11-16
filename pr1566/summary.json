@@ -1,0 +1,278 @@
+{
+  "measurement": "One H200, official Fun-CosyVoice3-0.5B-2512; Python frontend; Rust graph and SHM; MSTAR_COMPILE_LEVEL=0; default graph capture.",
+  "heads": {
+    "main": "2c8ffde8f7fd321c29aad3d1aad3e8cc8e8dc175",
+    "pr": "e6701a1c75866f3331a9b8f39149bc89fcda5eb9"
+  },
+  "arms": [
+    "main1",
+    "pr1",
+    "pr2",
+    "main2"
+  ],
+  "same_pcm_mismatch_count_by_cell_and_arm": {
+    "parity": {
+      "main1": 0,
+      "pr1": 0,
+      "pr2": 0,
+      "main2": 0
+    },
+    "c1": {
+      "main1": 0,
+      "pr1": 0,
+      "pr2": 0,
+      "main2": 0
+    },
+    "c4": {
+      "main1": 0,
+      "pr1": 70,
+      "pr2": 62,
+      "main2": 89
+    }
+  },
+  "rows": [
+    {
+      "arm": "main1",
+      "source": "main",
+      "concurrency": 1,
+      "requests": 160,
+      "warmup_requests": 2,
+      "wall_s": 18.44726701799999,
+      "client_cpu_s": 0.33355369,
+      "client_cpu_pct_wall": 1.8081469177766754,
+      "requests_per_s": 8.673371499630779,
+      "audio_s_total": 195.68,
+      "audio_s_per_s": 10.607533344048443,
+      "latency_p50_ms": 113.4541105000153,
+      "latency_p95_ms": 121.34628899997324
+    },
+    {
+      "arm": "main1",
+      "source": "main",
+      "concurrency": 4,
+      "requests": 256,
+      "warmup_requests": 8,
+      "wall_s": 15.99169247499998,
+      "client_cpu_s": 0.4887872849999999,
+      "client_cpu_pct_wall": 3.056507532045951,
+      "requests_per_s": 16.008311840676534,
+      "audio_s_total": 313.08,
+      "audio_s_per_s": 19.57766512140238,
+      "latency_p50_ms": 201.6525075000004,
+      "latency_p95_ms": 248.18113300000277
+    },
+    {
+      "arm": "pr1",
+      "source": "pr",
+      "concurrency": 1,
+      "requests": 160,
+      "warmup_requests": 2,
+      "wall_s": 17.94518102400002,
+      "client_cpu_s": 0.32086922500000004,
+      "client_cpu_pct_wall": 1.7880523165013886,
+      "requests_per_s": 8.916042684997983,
+      "audio_s_total": 195.68,
+      "audio_s_per_s": 10.904320203752533,
+      "latency_p50_ms": 111.6399819999856,
+      "latency_p95_ms": 115.65282899994145
+    },
+    {
+      "arm": "pr1",
+      "source": "pr",
+      "concurrency": 4,
+      "requests": 256,
+      "warmup_requests": 8,
+      "wall_s": 15.946281429999999,
+      "client_cpu_s": 0.4973461279999998,
+      "client_cpu_pct_wall": 3.1188846765512017,
+      "requests_per_s": 16.05389953286432,
+      "audio_s_total": 313.04,
+      "audio_s_per_s": 19.630909022530656,
+      "latency_p50_ms": 222.21935400000348,
+      "latency_p95_ms": 249.14472500006468
+    },
+    {
+      "arm": "pr2",
+      "source": "pr",
+      "concurrency": 1,
+      "requests": 160,
+      "warmup_requests": 2,
+      "wall_s": 17.938435105000053,
+      "client_cpu_s": 0.33839894000000026,
+      "client_cpu_pct_wall": 1.886446270364336,
+      "requests_per_s": 8.919395647583693,
+      "audio_s_total": 195.68,
+      "audio_s_per_s": 10.908420876994857,
+      "latency_p50_ms": 111.52426800003923,
+      "latency_p95_ms": 115.23931099998208
+    },
+    {
+      "arm": "pr2",
+      "source": "pr",
+      "concurrency": 4,
+      "requests": 256,
+      "warmup_requests": 8,
+      "wall_s": 15.95155536499999,
+      "client_cpu_s": 0.5091938379999998,
+      "client_cpu_pct_wall": 3.1921265754262715,
+      "requests_per_s": 16.048591760631748,
+      "audio_s_total": 313.08,
+      "audio_s_per_s": 19.626926204760107,
+      "latency_p50_ms": 205.6388990000073,
+      "latency_p95_ms": 248.54729399999087
+    },
+    {
+      "arm": "main2",
+      "source": "main",
+      "concurrency": 1,
+      "requests": 160,
+      "warmup_requests": 2,
+      "wall_s": 18.321516390999932,
+      "client_cpu_s": 0.32678511899999974,
+      "client_cpu_pct_wall": 1.7836139325264924,
+      "requests_per_s": 8.732901610621964,
+      "audio_s_total": 195.68,
+      "audio_s_per_s": 10.680338669790661,
+      "latency_p50_ms": 112.97215700005836,
+      "latency_p95_ms": 121.49842899998475
+    },
+    {
+      "arm": "main2",
+      "source": "main",
+      "concurrency": 4,
+      "requests": 256,
+      "warmup_requests": 8,
+      "wall_s": 16.33077073000004,
+      "client_cpu_s": 0.527091967,
+      "client_cpu_pct_wall": 3.227600066858564,
+      "requests_per_s": 15.675928848215444,
+      "audio_s_total": 313.08,
+      "audio_s_per_s": 19.17117110859098,
+      "latency_p50_ms": 203.29216050004106,
+      "latency_p95_ms": 253.64350099994226
+    }
+  ],
+  "comparisons": [
+    {
+      "concurrency": 1,
+      "metric": "requests_per_s",
+      "main_values": [
+        8.673371499630779,
+        8.732901610621964
+      ],
+      "pr_values": [
+        8.916042684997983,
+        8.919395647583693
+      ],
+      "main_mean": 8.70313655512637,
+      "pr_mean": 8.917719166290837,
+      "delta_pct": 2.4655778960295915
+    },
+    {
+      "concurrency": 1,
+      "metric": "audio_s_per_s",
+      "main_values": [
+        10.607533344048443,
+        10.680338669790661
+      ],
+      "pr_values": [
+        10.904320203752533,
+        10.908420876994857
+      ],
+      "main_mean": 10.643936006919553,
+      "pr_mean": 10.906370540373695,
+      "delta_pct": 2.4655778960295693
+    },
+    {
+      "concurrency": 1,
+      "metric": "latency_p50_ms",
+      "main_values": [
+        113.4541105000153,
+        112.97215700005836
+      ],
+      "pr_values": [
+        111.6399819999856,
+        111.52426800003923
+      ],
+      "main_mean": 113.21313375003683,
+      "pr_mean": 111.58212500001241,
+      "delta_pct": -1.4406533023151868
+    },
+    {
+      "concurrency": 1,
+      "metric": "latency_p95_ms",
+      "main_values": [
+        121.34628899997324,
+        121.49842899998475
+      ],
+      "pr_values": [
+        115.65282899994145,
+        115.23931099998208
+      ],
+      "main_mean": 121.422358999979,
+      "pr_mean": 115.44606999996176,
+      "delta_pct": -4.92190157499598
+    },
+    {
+      "concurrency": 4,
+      "metric": "requests_per_s",
+      "main_values": [
+        16.008311840676534,
+        15.675928848215444
+      ],
+      "pr_values": [
+        16.05389953286432,
+        16.048591760631748
+      ],
+      "main_mean": 15.842120344445988,
+      "pr_mean": 16.051245646748036,
+      "delta_pct": 1.320058791090828
+    },
+    {
+      "concurrency": 4,
+      "metric": "audio_s_per_s",
+      "main_values": [
+        19.57766512140238,
+        19.17117110859098
+      ],
+      "pr_values": [
+        19.630909022530656,
+        19.626926204760107
+      ],
+      "main_mean": 19.37441811499668,
+      "pr_mean": 19.62891761364538,
+      "delta_pct": 1.3135852500866019
+    },
+    {
+      "concurrency": 4,
+      "metric": "latency_p50_ms",
+      "main_values": [
+        201.6525075000004,
+        203.29216050004106
+      ],
+      "pr_values": [
+        222.21935400000348,
+        205.6388990000073
+      ],
+      "main_mean": 202.47233400002074,
+      "pr_mean": 213.9291265000054,
+      "delta_pct": 5.658448378425618
+    },
+    {
+      "concurrency": 4,
+      "metric": "latency_p95_ms",
+      "main_values": [
+        248.18113300000277,
+        253.64350099994226
+      ],
+      "pr_values": [
+        249.14472500006468,
+        248.54729399999087
+      ],
+      "main_mean": 250.91231699997252,
+      "pr_mean": 248.84600950002778,
+      "delta_pct": -0.8235177629581925
+    }
+  ],
+  "limits": "Two boots per source at most; no statistical confidence interval. Client uses repeated data-URL reference audio. Throughput excludes warmup waves. Audio duration and PCM hashes audited across matched seeds."
+}

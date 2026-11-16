@@ -1,0 +1,245 @@
+{
+  "device": "NVIDIA H200",
+  "torch": "2.12.1+cu132",
+  "cuda": "13.2",
+  "eager_reference": {
+    "matched": true,
+    "runs": [
+      {
+        "noise_seed": 345,
+        "rows": [
+          {
+            "batch": [
+              "a"
+            ],
+            "tokens": [
+              6
+            ]
+          },
+          {
+            "batch": [
+              "a",
+              "b"
+            ],
+            "tokens": [
+              1,
+              1
+            ]
+          },
+          {
+            "batch": [
+              "b",
+              "a",
+              "c"
+            ],
+            "tokens": [
+              2,
+              0,
+              9
+            ]
+          },
+          {
+            "batch": [
+              "c",
+              "b",
+              "a"
+            ],
+            "tokens": [
+              9,
+              7,
+              10
+            ]
+          },
+          {
+            "batch": [
+              "a",
+              "c"
+            ],
+            "tokens": [
+              4,
+              9
+            ]
+          }
+        ]
+      },
+      {
+        "noise_seed": 346,
+        "rows": [
+          {
+            "batch": [
+              "a"
+            ],
+            "tokens": [
+              5
+            ]
+          },
+          {
+            "batch": [
+              "a",
+              "b"
+            ],
+            "tokens": [
+              7,
+              1
+            ]
+          },
+          {
+            "batch": [
+              "b",
+              "a",
+              "c"
+            ],
+            "tokens": [
+              3,
+              4,
+              9
+            ]
+          },
+          {
+            "batch": [
+              "c",
+              "b",
+              "a"
+            ],
+            "tokens": [
+              9,
+              9,
+              8
+            ]
+          },
+          {
+            "batch": [
+              "a",
+              "c"
+            ],
+            "tokens": [
+              2,
+              9
+            ]
+          }
+        ]
+      },
+      {
+        "noise_seed": 347,
+        "rows": [
+          {
+            "batch": [
+              "a"
+            ],
+            "tokens": [
+              6
+            ]
+          },
+          {
+            "batch": [
+              "a",
+              "b"
+            ],
+            "tokens": [
+              3,
+              8
+            ]
+          },
+          {
+            "batch": [
+              "b",
+              "a",
+              "c"
+            ],
+            "tokens": [
+              9,
+              0,
+              9
+            ]
+          },
+          {
+            "batch": [
+              "c",
+              "b",
+              "a"
+            ],
+            "tokens": [
+              9,
+              0,
+              9
+            ]
+          },
+          {
+            "batch": [
+              "a",
+              "c"
+            ],
+            "tokens": [
+              8,
+              9
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "captured_replay": {
+    "matched": true,
+    "rows": [
+      {
+        "batch": [
+          "a"
+        ],
+        "tokens": [
+          14
+        ]
+      },
+      {
+        "batch": [
+          "b",
+          "a"
+        ],
+        "tokens": [
+          9,
+          4
+        ]
+      },
+      {
+        "batch": [
+          "a",
+          "b"
+        ],
+        "tokens": [
+          12,
+          2
+        ]
+      },
+      {
+        "batch": [
+          "b"
+        ],
+        "tokens": [
+          11
+        ]
+      }
+    ],
+    "actual_cuda_graph": true
+  },
+  "threshold_regression": {
+    "tokens": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    "redraw_at_step": 15
+  },
+  "elapsed_s": 3.6215046430000015
+}

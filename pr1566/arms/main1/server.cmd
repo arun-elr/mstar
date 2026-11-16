@@ -1,0 +1,1 @@
+/home/bench/praxis/mstar-venv/bin/python -m mstar.api_server.entrypoint --python-frontend --config /dev/shm/pr1566-cosy.yaml --host 127.0.0.1 --port 8760 --mooncake-port 9760 --socket-path-prefix /dev/shm/pr1566sock/ --upload-dir /dev/shm/pr1566-upload --tensor-comm-protocol SHM
