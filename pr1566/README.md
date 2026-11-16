@@ -18,7 +18,7 @@ This is a bounded H200 comparison of upstream main `2c8ffde8f7fd321c29aad3d1aad3
 | c1 p50 end-to-end latency | 113.2 ms | 111.6 ms |
 | c4 p50 end-to-end latency | 202.5 ms | 213.9 ms |
 
-The 3 fixed parity samples and all 160 c1 PCM outputs matched bit for bit across all four arms. At c4, PCM hashes varied even between two boots of the **same** source: main1/main2 matched 167/256 and PR1/PR2 matched 200/256. Main1/PR1 matched 186/256. Audio sample counts matched in all 256 main1/main2 cases and 255/256 PR1/PR2 cases. This evidence does not isolate a RAS-caused c4 PCM difference; batch scheduling can change output. All responses contained nonempty PCM. The two boots per source are too few for a statistical non-regression claim, and c4 median latency was higher on PR in one boot.
+The 3 fixed parity samples and all 160 c1 PCM outputs matched bit for bit across all four arms. At c4, PCM hashes varied even between two boots of the **same** source: main1/main2 matched 167/256 and PR1/PR2 matched 200/256. Main1/PR1 matched 186/256. Audio sample counts matched in all 256 main1/main2 cases and 255/256 PR1/PR2 cases. This evidence does not isolate a RAS-caused c4 PCM difference; batch scheduling can change output. All responses contained nonempty PCM. The two boots per source are too few for a statistical non-regression claim. The c4 median latencies were 201.7/203.3 ms on main1/main2 and 222.2/205.6 ms on PR1/PR2.
 
 ![Matched throughput and latency](served_performance.png)
 
