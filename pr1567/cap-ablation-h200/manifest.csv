@@ -1,0 +1,5 @@
+order,cap,rep,burst,sweep_dir
+1,16,1,cap16-1/burst.json,cap16-1/sweep
+2,32,1,cap32-1/burst.json,cap32-1/sweep
+3,32,2,cap32-2/burst.json,cap32-2/sweep
+4,16,2,cap16-2/burst.json,cap16-2/sweep

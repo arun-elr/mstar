@@ -1,0 +1,132 @@
+
+  ✓ mstar serving 'chatterbox' on http://localhost:8487
+
+  Python SDK:
+    from mstar import MStarClient
+    client = MStarClient("http://localhost:8487")
+    client.tts("Hello there", voice="default", cfg_weight=0.5).to_wav("out.wav")
+    # clone a voice: client.generate(text="Hello", audio="ref.wav",
+    #     input_modalities=("text","audio"), output_modalities=("audio",))
+
+2026-11-16 01:32:39,023 INFO [api_server] mstar.api_server.entrypoint: API server: result threads not pinned (not pinned: sysfs lists no idle state on CPUs 0-15, under the 100 µs from which pinning could pay (step_thread_core always pins anyway))
+2026-11-16 01:32:39,025 INFO [api_server] mstar.communication.tensors: SHM: swept 0 entries of dead deployment namespace 8e9c4574ba08
+2026-11-16 01:32:39,025 INFO [api_server] mstar.communication.arena: ARENA: /dev/shm has 100645 MiB free for 2 arenas and their spill files; each arena grows to 32 segments of 256 MiB (MSTAR_SHM_ARENA_MAX_SEGMENTS and _SEGMENT_MB override)
+2026-11-16 01:32:39,034 INFO [api_server] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 01:32:39,109 INFO [api_server] mstar.communication.arena: ARENA: grew to 1 segments (256 MiB total, 256 MiB free, largest free block 256 MiB, 0 MiB pinned)
+2026-11-16 01:32:39,110 INFO [api_server] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 01:32:39,112 INFO [api_server] mstar.api_server.entrypoint: Conductor process started (pid=48975, model=chatterbox)
+2026-11-16 01:32:39,112 INFO [api_server] mstar.api_server.entrypoint: Waiting for workers to finish setup (loading weights, capturing accelerator graphs)...
+2026-11-16 01:32:41,678 INFO [conductor] mstar.api_server.entrypoint: yaml model_kwargs from /home/bench/praxis/issue-bench/chatterbox-perf.yaml: {'model_path_hf': '/home/bench/praxis/checkpoints/chatterbox', 'max_new_tokens_limit': 1000} (forwarded to chatterbox.__init__)
+2026-11-16 01:32:41,737 INFO [conductor] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='t3_kv', nodes={'T3'}, config=PagedKVConfig(num_layers=30, num_kv_heads=16, head_dim=64, num_qo_heads=16, max_seq_len=4642, max_num_pages=1536, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), AttentionSpec(resource_key='t3_attn', nodes={'T3'}, config=AttentionConfig(kv_cache='t3_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=False, sliding_window=None, layers=None)), PositionSpec(resource_key='t3_pos', nodes={'T3'}, config=PositionConfig(kv_cache='t3_kv', backend=<PosBackend.ROPE: 'rope'>, scheme=<PosScheme.SEQUENTIAL: 'sequential'>, block_step=1, rotary_dim=None, interleave=False, rope_scale=8.0, rope_theta=500000.0, rope_dtype=None, rope_table_dtype=None, low_freq_factor=1.0, high_freq_factor=4.0, old_context_len=8192, longrope=None)), RecurrentStateSpec(resource_key='s3gen_stream', nodes={'s3gen'}, config=RecurrentStateConfig(num_layers=1, blocks={'hift_mel': RecurrentBlockConfig(shape=(80, 8), dtype=torch.float32, shard_dims=(), per_layer=True), 'hift_source': RecurrentBlockConfig(shape=(1, 3840), dtype=torch.float32, shard_dims=(), per_layer=True), 'hift_speech': RecurrentBlockConfig(shape=(3840,), dtype=torch.float32, shard_dims=(), per_layer=True), 'ref_tokens': RecurrentBlockConfig(shape=(250,), dtype=torch.int64, shard_dims=(), per_layer=True), 'ref_feat': RecurrentBlockConfig(shape=(500, 80), dtype=torch.float32, shard_dims=(), per_layer=True), 'ref_embedding': RecurrentBlockConfig(shape=(192,), dtype=torch.float32, shard_dims=(), per_layer=True)}, max_slots=256, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None)), SamplerSpec(resource_key='t3_sampler', nodes={'T3'}, vocab_size=8194, enable_repetition_penalty=True, enable_min_p=True, loopback_state={}, max_repetition_window=0, min_tokens_stop_ids=(), enable_top_p_first=False, enable_logprobs=False, enable_processed_logprobs=False, greedy_capture=None)]
+2026-11-16 01:32:41,766 INFO [conductor] mstar.conductor.conductor: Detected worker device type: cuda
+2026-11-16 01:32:41,766 INFO [conductor] mstar.conductor.conductor: Compile caches: Inductor /home/bench/.cache/mstar/torchinductor, Triton /home/bench/.cache/mstar/torchinductor/triton
+2026-11-16 01:32:41,767 INFO [conductor] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='t3_kv', nodes={'T3'}, config=PagedKVConfig(num_layers=30, num_kv_heads=16, head_dim=64, num_qo_heads=16, max_seq_len=4642, max_num_pages=1536, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), AttentionSpec(resource_key='t3_attn', nodes={'T3'}, config=AttentionConfig(kv_cache='t3_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=False, sliding_window=None, layers=None)), PositionSpec(resource_key='t3_pos', nodes={'T3'}, config=PositionConfig(kv_cache='t3_kv', backend=<PosBackend.ROPE: 'rope'>, scheme=<PosScheme.SEQUENTIAL: 'sequential'>, block_step=1, rotary_dim=None, interleave=False, rope_scale=8.0, rope_theta=500000.0, rope_dtype=None, rope_table_dtype=None, low_freq_factor=1.0, high_freq_factor=4.0, old_context_len=8192, longrope=None)), RecurrentStateSpec(resource_key='s3gen_stream', nodes={'s3gen'}, config=RecurrentStateConfig(num_layers=1, blocks={'hift_mel': RecurrentBlockConfig(shape=(80, 8), dtype=torch.float32, shard_dims=(), per_layer=True), 'hift_source': RecurrentBlockConfig(shape=(1, 3840), dtype=torch.float32, shard_dims=(), per_layer=True), 'hift_speech': RecurrentBlockConfig(shape=(3840,), dtype=torch.float32, shard_dims=(), per_layer=True), 'ref_tokens': RecurrentBlockConfig(shape=(250,), dtype=torch.int64, shard_dims=(), per_layer=True), 'ref_feat': RecurrentBlockConfig(shape=(500, 80), dtype=torch.float32, shard_dims=(), per_layer=True), 'ref_embedding': RecurrentBlockConfig(shape=(192,), dtype=torch.float32, shard_dims=(), per_layer=True)}, max_slots=256, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None)), SamplerSpec(resource_key='t3_sampler', nodes={'T3'}, vocab_size=8194, enable_repetition_penalty=True, enable_min_p=True, loopback_state={}, max_repetition_window=0, min_tokens_stop_ids=(), enable_top_p_first=False, enable_logprobs=False, enable_processed_logprobs=False, greedy_capture=None)]
+2026-11-16 01:32:41,789 INFO [conductor] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 01:32:41,790 INFO [conductor] mstar.conductor.conductor: Conductor waiting for 1 worker(s) to finish setup
+2026-11-16 01:32:44,355 INFO [worker_0] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 01:32:44,597 INFO [worker_0] mstar.communication.arena: ARENA: grew to 1 segments (256 MiB total, 256 MiB free, largest free block 256 MiB, 256 MiB pinned)
+2026-11-16 01:32:44,604 INFO [worker_0] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='t3_kv', nodes={'T3'}, config=PagedKVConfig(num_layers=30, num_kv_heads=16, head_dim=64, num_qo_heads=16, max_seq_len=4642, max_num_pages=1536, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), AttentionSpec(resource_key='t3_attn', nodes={'T3'}, config=AttentionConfig(kv_cache='t3_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=False, sliding_window=None, layers=None)), PositionSpec(resource_key='t3_pos', nodes={'T3'}, config=PositionConfig(kv_cache='t3_kv', backend=<PosBackend.ROPE: 'rope'>, scheme=<PosScheme.SEQUENTIAL: 'sequential'>, block_step=1, rotary_dim=None, interleave=False, rope_scale=8.0, rope_theta=500000.0, rope_dtype=None, rope_table_dtype=None, low_freq_factor=1.0, high_freq_factor=4.0, old_context_len=8192, longrope=None)), RecurrentStateSpec(resource_key='s3gen_stream', nodes={'s3gen'}, config=RecurrentStateConfig(num_layers=1, blocks={'hift_mel': RecurrentBlockConfig(shape=(80, 8), dtype=torch.float32, shard_dims=(), per_layer=True), 'hift_source': RecurrentBlockConfig(shape=(1, 3840), dtype=torch.float32, shard_dims=(), per_layer=True), 'hift_speech': RecurrentBlockConfig(shape=(3840,), dtype=torch.float32, shard_dims=(), per_layer=True), 'ref_tokens': RecurrentBlockConfig(shape=(250,), dtype=torch.int64, shard_dims=(), per_layer=True), 'ref_feat': RecurrentBlockConfig(shape=(500, 80), dtype=torch.float32, shard_dims=(), per_layer=True), 'ref_embedding': RecurrentBlockConfig(shape=(192,), dtype=torch.float32, shard_dims=(), per_layer=True)}, max_slots=256, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None)), SamplerSpec(resource_key='t3_sampler', nodes={'T3'}, vocab_size=8194, enable_repetition_penalty=True, enable_min_p=True, loopback_state={}, max_repetition_window=0, min_tokens_stop_ids=(), enable_top_p_first=False, enable_logprobs=False, enable_processed_logprobs=False, greedy_capture=None)]
+2026-11-16 01:32:44,968 INFO [worker_0] mstar.model.chatterbox.loader: T3 (llama): loaded 200 parameters
+2026-11-16 01:32:44,971 INFO [worker_0] mstar.model.chatterbox.chatterbox_model: Loaded Chatterbox submodule T3 on cuda:0
+2026-11-16 01:32:46,344 INFO [worker_0] mstar.model.chatterbox.loader: S3Gen: loaded 2182 parameters
+2026-11-16 01:32:55,011 INFO [worker_0] mstar.model.chatterbox.chatterbox_model: S3Gen: captured 16 flow-solve graphs for [448, 512, 576, 832] frames x rows [1, 2, 4, 8]
+2026-11-16 01:32:55,746 INFO [worker_0] mstar.model.chatterbox.loader: S3 tokenizer: loaded 102 parameters
+2026-11-16 01:32:55,746 WARNING [worker_0] mstar.model.chatterbox.components.watermark: resemble-perth is not installed: Chatterbox audio will not be watermarked (pip install resemble-perth)
+2026-11-16 01:32:55,747 INFO [worker_0] mstar.model.chatterbox.chatterbox_model: Loaded Chatterbox submodule s3gen on cuda:0
+2026-11-16 01:32:55,775 INFO [worker_0] mstar.model.chatterbox.loader: Chatterbox voice encoder: loaded 14 parameters
+2026-11-16 01:32:55,775 INFO [worker_0] mstar.model.chatterbox.chatterbox_model: Loaded Chatterbox submodule voice_encoder on cuda:0
+2026-11-16 01:32:55,802 INFO [worker_0] mstar.engine.resources.kv.manager: KV t3_kv: 11.25 GiB on this rank, 1536 pages of 64 slots
+2026-11-16 01:32:55,804 INFO [worker_0] mstar.engine.resources.recurrent.pool: recurrent state pool: 255 usable slots (+1 sink, +0 snapshot) x 1 layers, 47.86 MiB (191.45 KiB/slot), blocks={'hift_mel': (80, 8), 'hift_source': (1, 3840), 'hift_speech': (3840,), 'ref_tokens': (250,), 'ref_feat': (500, 80), 'ref_embedding': (192,)}
+2026-11-16 01:32:55,827 INFO [worker_0] mstar.worker.engine_manager: Engine loaded on device cuda:0 for nodes ['T3', 's3gen', 'voice_encoder']
+2026-11-16 01:32:58,763 INFO [worker_0] mstar.engine.accelerator_graph_runner: T3 decode[bs=32,tokens=64,key=True] slot=0: graph executable memory, 3620 bytes a node, 14 MiB held for the walk's graphs
+2026-11-16 01:32:58,950 INFO [worker_0] mstar.engine.accelerator_graph_runner: T3 decode[bs=32,tokens=32,key=False] slot=0: graph executable memory, 4007 bytes a node, 14 MiB held for the walk's graphs
+2026-11-16 01:32:59,429 INFO [worker_0] mstar.engine.accelerator_graph_runner: T3 prefill[bs=8,tokens=4096,key=True] slot=0: graph executable memory, 2869 bytes a node, 14 MiB held for the walk's graphs
+2026-11-16 01:32:59,714 INFO [worker_0] mstar.engine.accelerator_graph_runner: T3 prefill[bs=8,tokens=2048,key=False] slot=0: graph executable memory, 3325 bytes a node, 14 MiB held for the walk's graphs
+2026-11-16 01:33:03,610 INFO [worker_0] mstar.engine.accelerator_graph_runner: T3 decode[bs=32,tokens=64,key=True,lean=t3_sampler] slot=0: graph executable memory, 3249 bytes a node, 17 MiB held for the walk's graphs
+2026-11-16 01:33:03,771 INFO [worker_0] mstar.engine.accelerator_graph_runner: T3 decode[bs=32,tokens=32,key=False,lean=t3_sampler] slot=0: graph executable memory, 3170 bytes a node, 14 MiB held for the walk's graphs
+2026-11-16 01:33:04,813 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0]: 124827 MiB free, 152 for the largest eager step
+2026-11-16 01:33:04,813 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] T3: 56 of 56 buckets (12 of 12 lean twins), 450 MiB predicted, 167 outside the allocator
+2026-11-16 01:33:04,813 INFO [worker_0] mstar.engine.resources.attn.workspace: FlashInfer workspaces of t3_kv: 4, 2048 MiB in all
+2026-11-16 01:33:04,897 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=8,tokens=4096,key=True] (2 slots)
+2026-11-16 01:33:04,941 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=8,tokens=1024,key=True] (2 slots)
+2026-11-16 01:33:04,988 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=8,tokens=512,key=True] (2 slots)
+2026-11-16 01:33:05,034 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=4,tokens=4096,key=True] (2 slots)
+2026-11-16 01:33:05,078 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=4,tokens=2048,key=True] (2 slots)
+2026-11-16 01:33:05,122 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=4,tokens=1024,key=True] (2 slots)
+2026-11-16 01:33:05,167 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=4,tokens=512,key=True] (2 slots)
+2026-11-16 01:33:05,213 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=2,tokens=4096,key=True] (2 slots)
+2026-11-16 01:33:05,259 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=2,tokens=2048,key=True] (2 slots)
+2026-11-16 01:33:05,304 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=2,tokens=1024,key=True] (2 slots)
+2026-11-16 01:33:05,350 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=2,tokens=512,key=True] (2 slots)
+2026-11-16 01:33:05,395 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=1,tokens=4096,key=True] (2 slots)
+2026-11-16 01:33:05,439 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=1,tokens=2048,key=True] (2 slots)
+2026-11-16 01:33:05,485 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=1,tokens=1024,key=True] (2 slots)
+2026-11-16 01:33:05,530 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=1,tokens=512,key=True] (2 slots)
+2026-11-16 01:33:05,575 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=8,tokens=2048,key=True] (2 slots)
+2026-11-16 01:33:05,621 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=8,tokens=2048,key=False] (2 slots)
+2026-11-16 01:33:05,665 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=8,tokens=512,key=False] (2 slots)
+2026-11-16 01:33:05,707 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=8,tokens=256,key=False] (2 slots)
+2026-11-16 01:33:05,751 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=4,tokens=2048,key=False] (2 slots)
+2026-11-16 01:33:05,794 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=4,tokens=1024,key=False] (2 slots)
+2026-11-16 01:33:05,836 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=4,tokens=512,key=False] (2 slots)
+2026-11-16 01:33:05,879 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=4,tokens=256,key=False] (2 slots)
+2026-11-16 01:33:05,923 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=2,tokens=2048,key=False] (2 slots)
+2026-11-16 01:33:05,966 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=2,tokens=1024,key=False] (2 slots)
+2026-11-16 01:33:06,009 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=2,tokens=512,key=False] (2 slots)
+2026-11-16 01:33:06,052 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=2,tokens=256,key=False] (2 slots)
+2026-11-16 01:33:06,095 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=1,tokens=2048,key=False] (2 slots)
+2026-11-16 01:33:06,138 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=1,tokens=1024,key=False] (2 slots)
+2026-11-16 01:33:06,180 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=1,tokens=512,key=False] (2 slots)
+2026-11-16 01:33:06,222 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=1,tokens=256,key=False] (2 slots)
+2026-11-16 01:33:06,265 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: prefill[bs=8,tokens=1024,key=False] (2 slots)
+2026-11-16 01:33:06,311 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=16,tokens=32,key=True] (2 slots)
+2026-11-16 01:33:06,359 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=32,tokens=32,key=False] (2 slots)
+2026-11-16 01:33:06,403 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=8,tokens=8,key=False] (2 slots)
+2026-11-16 01:33:06,447 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=4,tokens=4,key=False] (2 slots)
+2026-11-16 01:33:06,490 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=2,tokens=2,key=False] (2 slots)
+2026-11-16 01:33:06,533 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=1,tokens=1,key=False] (2 slots)
+2026-11-16 01:33:06,577 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=16,tokens=16,key=False] (2 slots)
+2026-11-16 01:33:06,622 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=8,tokens=16,key=True] (2 slots)
+2026-11-16 01:33:06,665 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=4,tokens=8,key=True] (2 slots)
+2026-11-16 01:33:06,709 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=2,tokens=4,key=True] (2 slots)
+2026-11-16 01:33:06,753 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=1,tokens=2,key=True] (2 slots)
+2026-11-16 01:33:06,802 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=32,tokens=64,key=True] (2 slots)
+2026-11-16 01:33:06,850 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=32,tokens=64,key=True,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:06,897 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=8,tokens=16,key=True,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:06,942 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=4,tokens=8,key=True,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:06,987 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=2,tokens=4,key=True,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,036 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=1,tokens=2,key=True,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,082 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=32,tokens=32,key=False,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,129 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=16,tokens=32,key=True,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,177 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=8,tokens=8,key=False,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,222 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=4,tokens=4,key=False,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,266 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=2,tokens=2,key=False,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,309 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=1,tokens=1,key=False,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,359 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for T3: decode[bs=16,tokens=16,key=False,lean=t3_sampler] (2 slots)
+2026-11-16 01:33:07,365 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[T3]: warmup_and_capture done. shared_static_buffers: 8 entries, 12.19 MB resident (would have been 362.96 MB with per-capture clones — saved 350.77 MB). Total accelerator alloc delta during warmup: 32.78 MB.
+2026-11-16 01:33:07,365 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] T3: capture took 232 MiB, 450 predicted
+2026-11-16 01:33:07,366 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] T3 piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 01:33:07,366 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[s3gen]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 01:33:07,366 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] s3gen: capture took 0 MiB, 0 predicted
+2026-11-16 01:33:07,366 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] s3gen piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 01:33:07,366 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[voice_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 01:33:07,366 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] voice_encoder: capture took 0 MiB, 0 predicted
+2026-11-16 01:33:07,367 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] voice_encoder piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 01:33:07,367 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0]: 124559 MiB free after capture, 152 for the largest eager step
+2026-11-16 01:33:07,367 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for T3 (submodule opt-out)
+2026-11-16 01:33:07,367 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for s3gen (submodule opt-out)
+2026-11-16 01:33:07,367 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for voice_encoder (submodule opt-out)
+2026-11-16 01:33:07,809 INFO [worker_0] mstar.worker.worker: Worker worker_0: gc.freeze() after warmup — 638691 objects moved to the permanent generation
+2026-11-16 01:33:07,810 INFO [worker_0] mstar.worker.step_executor: Worker worker_0: engine runs on dedicated GPU thread
+2026-11-16 01:33:07,811 INFO [worker_0] mstar.worker.step_executor: Worker worker_0: plan_executor enabled — speculative plan() pre-runs on a dedicated thread
+2026-11-16 01:33:07,817 INFO [conductor] mstar.conductor.conductor: Conductor: all 1 worker(s) ready
+2026-11-16 01:33:07,976 INFO [conductor] mstar.utils.gc_freeze: Conductor: gc.freeze() after setup, 381033 objects in the permanent generation
+2026-11-16 01:33:07,983 INFO [api_server] mstar.api_server.entrypoint: All workers ready
+2026-11-16 01:33:08,161 INFO [api_server] mstar.utils.gc_freeze: API server: gc.freeze() after setup, 379434 objects in the permanent generation
+2026-11-16 01:33:08,179 INFO [api_server] mstar.api_server.rust_frontend: Rust frontend started (pid=49525, port=8487)
+2026-11-16 01:33:08,179 INFO [api_server] mstar.api_server.entrypoint: Starting mstar API server (mstar-server) on port 8487
+2026-11-16 01:33:08,180 INFO [api_server] mstar.api_server.rust_frontend: Rust-frontend bridge serving
+bridging to conductor at /tmp/mstar_rust_frontend_f2877mx5
+compressed speech output (mp3, flac, opus) through /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/_soundfile_data/libsndfile_x86_64.so
+WARNING: no API key set (--api-key or MSTAR_API_KEY): any client that can reach 0.0.0.0:8487 can run requests. Set a key, or bind --host 127.0.0.1, unless a gateway in front of this server authenticates clients.
+mstar-server (Rust frontend) for model "chatterbox" on http://0.0.0.0:8487
