@@ -1,0 +1,11 @@
+--- /dev/shm/pr1540-wan-model-original.py	2026-11-16 06:36:04.774882030 +0000
++++ mstar/model/wan22/wan22_model.py	2026-11-16 06:36:31.986900298 +0000
+@@ -676,7 +676,7 @@
+             transformer = build_wan22_dit(
+                 self.config, self.model_path_hf, device=device, cache_dir=self.cache_dir,
+             )
+-            apply_linear_dtype(transformer, self.linear_dtype, QUANTIZABLE_LINEARS, what="Wan2.2 DiT")
++            apply_linear_dtype(transformer, self.linear_dtype, QUANTIZABLE_LINEARS, keep=("blocks.0.*.*", "blocks.29.*.*"), what="Wan2.2 DiT")
+             return Wan22DitSubmodule(transformer, self.config, cfg_group=cfg_group)
+         logger.warning("Wan2.2 has no submodule for node %r; running it dummy.", node_name)
+         return None

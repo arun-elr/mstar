@@ -1,0 +1,113 @@
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 2026.82it/s]
+Loading checkpoint shards:   0%|          | 0/5 [00:00<?, ?it/s]Loading checkpoint shards:  20%|██        | 1/5 [00:00<00:01,  3.90it/s]Loading checkpoint shards:  40%|████      | 2/5 [00:00<00:00,  3.95it/s]Loading checkpoint shards:  60%|██████    | 3/5 [00:00<00:00,  4.05it/s]Loading checkpoint shards:  80%|████████  | 4/5 [00:00<00:00,  4.12it/s]Loading checkpoint shards: 100%|██████████| 5/5 [00:01<00:00,  4.96it/s]
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files: 100%|██████████| 7/7 [00:00<00:00, 2176.28it/s]
+parameters: 825 compared, fp32 islands: 95
+.rope freqs_cos: max_abs=0.000e+00
+rope freqs_sin: max_abs=0.000e+00
+.
+per-stage max-abs diff (wrapped vs native):
+  patchify    max_abs=0.000000e+00
+  block_00    max_abs=0.000000e+00
+  block_01    max_abs=0.000000e+00
+  block_02    max_abs=0.000000e+00
+  block_03    max_abs=0.000000e+00
+  block_04    max_abs=0.000000e+00
+  block_05    max_abs=0.000000e+00
+  block_06    max_abs=0.000000e+00
+  block_07    max_abs=0.000000e+00
+  block_08    max_abs=0.000000e+00
+  block_09    max_abs=0.000000e+00
+  block_10    max_abs=0.000000e+00
+  block_11    max_abs=0.000000e+00
+  block_12    max_abs=0.000000e+00
+  block_13    max_abs=0.000000e+00
+  block_14    max_abs=0.000000e+00
+  block_15    max_abs=0.000000e+00
+  block_16    max_abs=0.000000e+00
+  block_17    max_abs=0.000000e+00
+  block_18    max_abs=0.000000e+00
+  block_19    max_abs=0.000000e+00
+  block_20    max_abs=0.000000e+00
+  block_21    max_abs=0.000000e+00
+  block_22    max_abs=0.000000e+00
+  block_23    max_abs=0.000000e+00
+  block_24    max_abs=0.000000e+00
+  block_25    max_abs=0.000000e+00
+  block_26    max_abs=0.000000e+00
+  block_27    max_abs=0.000000e+00
+  block_28    max_abs=0.000000e+00
+  block_29    max_abs=0.000000e+00
+  head_out    max_abs=0.000000e+00
+.condition_embedder temb: max_abs=0.000e+00
+condition_embedder timestep_proj: max_abs=0.000e+00
+condition_embedder text_proj: max_abs=0.000e+00
+.
+=============================== warnings summary ===============================
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/fused_moe/cute_dsl/blackwell/blockscaled_contiguous_gather_grouped_gemm_act_fusion.py:3459: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/fused_moe/cute_dsl/blackwell/moe_w4a16_kernel.py:2386: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/fused_moe/cute_dsl/hopper/utils.py:29: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    a_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/fused_moe/cute_dsl/hopper/utils.py:31: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    b_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/fused_moe/cute_dsl/hopper/utils.py:34: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/fused_moe/cute_dsl/hopper/contiguous_grouped_gemm_finalize_fusion.py:968: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    a_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/fused_moe/cute_dsl/hopper/contiguous_grouped_gemm_finalize_fusion.py:970: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    b_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/gemm/kernels/grouped_gemm_masked_blackwell.py:427: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    epi_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/gemm/kernels/grouped_gemm_masked_blackwell.py:2391: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/gemm/kernels/cute_dsl/low_latency_blockscaled_gemm.py:102: DeprecationWarning: cutlass.utils.smem_allocator.get_smem_capacity_in_bytes is deprecated; use cutlass.memory.get_smem_capacity_in_bytes instead. It will be removed in a future release.
+    _SMEM_CAPACITY_BYTES = cutlass.utils.get_smem_capacity_in_bytes("sm_100")
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/gemm/kernels/grouped_gemm_masked_rubin.py:218: DeprecationWarning: cutlass.utils.LayoutEnum is deprecated; use cutlass.tensor_utils.LayoutEnum instead. It will be removed in a future release.
+    c_layout: utils.LayoutEnum,
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/gdn_kernels/blackwell/gated_delta_net_chunked.py:95: DeprecationWarning: cutlass.utils.TensorMapUpdateMode is deprecated; use cutlass.tensor_utils.TensorMapUpdateMode instead. It will be removed in a future release.
+    from cutlass.utils import TensorMapManager, TensorMapUpdateMode
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/gdn_kernels/delta_rule_dsl/collective_store_tma.py:6: DeprecationWarning: cutlass.utils.tensormap_manager.TensorMapUpdateMode is deprecated; use cutlass.tensor_utils.TensorMapUpdateMode instead. It will be removed in a future release.
+    from cutlass.utils.tensormap_manager import TensorMapManager, TensorMapUpdateMode
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/gdn_kernels/blackwell/gated_delta_net_cp_prefill.py:55: DeprecationWarning: cutlass.utils.TensorMapUpdateMode is deprecated; use cutlass.tensor_utils.TensorMapUpdateMode instead. It will be removed in a future release.
+    from cutlass.utils import TensorMapManager, TensorMapUpdateMode
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/cute_dsl/availability.py:136: DeprecationWarning: Arch from arch.py is deprecated. Use Arch from enums.py instead.
+    from cutlass.base_dsl.arch import Arch
+
+test/modular/test_wan22_native_dit_equivalence.py::test_loaded_parameters_bitwise_identical
+  /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/huggingface_hub/utils/_validators.py:205: UserWarning: The `local_dir_use_symlinks` argument is deprecated and ignored in `hf_hub_download`. Downloading to a local directory does not use symlinks anymore.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 18 warnings in 12.70s

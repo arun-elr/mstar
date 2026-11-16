@@ -1,0 +1,45 @@
+============================================================
+ Request profile: vid-7e3c12f9c1334fa3b0e017e5000abd2b
+============================================================
+ Inputs:
+   text         x1          23 B
+ Outputs:
+   video        x1     248.5 KiB
+------------------------------------------------------------
+ Timeline:
+   recv → preprocess done                     1918.7 ms
+   preprocess done → conductor ingest            0.8 ms
+   conductor ingest → conductor done          5627.1 ms
+   conductor done → first chunk                226.6 ms
+   first chunk → last chunk                      0.0 ms
+   last chunk → finish                           0.7 ms
+   total                                      7773.9 ms
+   worker span (same-host clocks)             5556.9 ms
+   last chunk after last output read           220.5 ms
+   output postprocess (sum)                    218.6 ms
+------------------------------------------------------------
+ Graph timings (CPU, ms) — total over request (avg per exec):
+                                all                 fwd                 pre                post*        
+   dit
+     video_gen   n=20       5685.9 (  284.3)    5640.5 (  282.0)      28.7 (   1.44)      16.7 (   0.83)
+   text_encoder
+     encode_text n=1         346.1 (  346.1)     341.8 (  341.8)      0.13 (   0.13)      4.14 (   4.14)
+   vae_decoder
+     video_gen   n=1         860.9 (  860.9)     833.7 (  833.7)      0.10 (   0.10)      27.2 (   27.2)
+
+   * post overlaps the next step / another in-flight batch under
+     speculative scheduling, so it is not necessarily additive.
+------------------------------------------------------------
+ Tensor transfer   size / transport-time / count:
+   rx (received over the wire), by source → dest:
+     api_server_preprocess_worker → worker_0
+       text_inputs                  48 B      65.3 ms  (x2)
+     worker_0 → api_server_preprocess_worker
+       video_output             37.7 MiB      4.94 ms  (x1)
+
+   tx (registered/written for send), by source:
+     api_server_preprocess_worker
+       text_inputs                  48 B      0.36 ms  (x2)
+     worker_0
+       video_output             37.7 MiB      4.82 ms  (x1)
+============================================================

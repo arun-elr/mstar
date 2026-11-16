@@ -1,0 +1,87 @@
+[wan22] launching server
+  devices:     0     port: 8603     protocol: SHM
+  config:      /dev/shm/mstar-pr1540-wan-dense_fp8.yaml
+  stats file:  /dev/shm/pr1540-ablate/wan22_stats.txt
+/dev/shm/mstar-pr1540-src/mstar/api_server/entrypoint.py:3019: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+2026-11-16 06:36:53,785 INFO [api_server] __main__: API server: result threads not pinned (not pinned: sysfs lists no idle state on CPUs 0-15, under the 100 µs from which pinning could pay (step_thread_core always pins anyway))
+2026-11-16 06:36:53,786 INFO [api_server] mstar.communication.tensors: SHM: swept 0 entries of dead deployment namespace ccae4909a03b
+2026-11-16 06:36:53,786 INFO [api_server] mstar.communication.arena: ARENA: /dev/shm has 67977 MiB free for 2 arenas and their spill files; each arena grows to 32 segments of 256 MiB (MSTAR_SHM_ARENA_MAX_SEGMENTS and _SEGMENT_MB override)
+2026-11-16 06:36:53,794 INFO [api_server] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 06:36:53,867 INFO [api_server] mstar.communication.arena: ARENA: grew to 1 segments (256 MiB total, 256 MiB free, largest free block 256 MiB, 0 MiB pinned)
+2026-11-16 06:36:53,867 INFO [api_server] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 06:36:53,869 INFO [api_server] __main__: Conductor process started (pid=12215, model=wan22)
+2026-11-16 06:36:53,869 INFO [api_server] __main__: Waiting for workers to finish setup (loading weights, capturing accelerator graphs)...
+2026-11-16 06:36:56,268 INFO [conductor] __mp_main__: yaml model_kwargs from /dev/shm/mstar-pr1540-wan-dense_fp8.yaml: {'vae_decode_fast_sizes': ['1280x704', '832x480'], 'model_path_hf': '/dev/shm/mstar-pr1540-wan', 'linear_dtype': 'dense_fp8', 'vae_decode_fast': False} (forwarded to wan22.__init__)
+2026-11-16 06:36:56,371 INFO [conductor] mstar.conductor.conductor: Detected worker device type: cuda
+2026-11-16 06:36:56,371 INFO [conductor] mstar.conductor.conductor: Compile caches: Inductor /home/bench/.cache/mstar/torchinductor, Triton /home/bench/.cache/mstar/torchinductor/triton
+2026-11-16 06:36:56,393 INFO [conductor] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 06:36:56,393 INFO [conductor] mstar.conductor.conductor: Conductor waiting for 1 worker(s) to finish setup
+2026-11-16 06:36:58,827 INFO [worker_0] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 06:36:59,058 INFO [worker_0] mstar.communication.arena: ARENA: grew to 1 segments (256 MiB total, 256 MiB free, largest free block 256 MiB, 256 MiB pinned)
+2026-11-16 06:37:04,677 INFO [worker_0] mstar.model.components.quant_linear: Wan2.2 DiT: linear_keep_bf16 'blocks.0.*.*' keeps 10 linears bf16: blocks.0.self_attn.q_proj, blocks.0.self_attn.k_proj, blocks.0.self_attn.v_proj, blocks.0.self_attn.o_proj, blocks.0.cross_attn.q_proj, blocks.0.cross_attn.k_proj, blocks.0.cross_attn.v_proj, blocks.0.cross_attn.o_proj, blocks.0.ffn.linear_in, blocks.0.ffn.linear_out
+2026-11-16 06:37:04,678 INFO [worker_0] mstar.model.components.quant_linear: Wan2.2 DiT: linear_keep_bf16 'blocks.29.*.*' keeps 10 linears bf16: blocks.29.self_attn.q_proj, blocks.29.self_attn.k_proj, blocks.29.self_attn.v_proj, blocks.29.self_attn.o_proj, blocks.29.cross_attn.q_proj, blocks.29.cross_attn.k_proj, blocks.29.cross_attn.v_proj, blocks.29.cross_attn.o_proj, blocks.29.ffn.linear_in, blocks.29.ffn.linear_out
+sh: 1: nvcc: not found
+[TensorRT-LLM][ERROR] Warning: Failed to copy kernel files to cache: filesystem error: cannot rename: No such file or directory [/home/bench/.tensorrt_llm/tmp/gemm_128_128_64_16_128_1_81_8_1_Normal_1794811025822_226731/nvcc_kernel.cubin] [/home/bench/.tensorrt_llm/cache/gemm_128_128_64_16_128_1_81_8_1_Normal/nvcc_kernel.cubin]
+2026-11-16 06:37:06,298 INFO [worker_0] mstar.model.components.quant_linear: linear_dtype dense_fp8: 280 linears
+2026-11-16 06:37:06,875 INFO [worker_0] mstar.model.wan22.submodules: Wan2.2 DiT: torch.compile enabled on the transformer region (fullgraph=False, dynamic=False) for latent (frames, height, width) [(21, 44, 80)]; other shapes and the UniPC solver run eager.
+2026-11-16 06:37:06,876 INFO [worker_0] mstar.model.wan22.wan22_model: Loaded Wan2.2 submodule for node dit
+Loading weights:   0%|          | 0/242 [00:00<?, ?it/s]Loading weights: 100%|██████████| 242/242 [00:00<00:00, 10167.70it/s]
+2026-11-16 06:37:08,084 INFO [worker_0] mstar.model.wan22.wan22_model: Loaded Wan2.2 submodule for node text_encoder
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-11-16 06:37:10,315 INFO [worker_0] mstar.model.wan22.submodules: Wan2.2 VAE decode dtype = torch.bfloat16 (cuDNN 92000)
+There are modules in AutoencoderKLWan that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+2026-11-16 06:37:10,503 INFO [worker_0] mstar.model.wan22.wan22_model: Loaded Wan2.2 submodule for node vae_decoder
+The config attributes {'clip_output': False} were passed to AutoencoderKLWan, but are not expected and will be ignored. Please verify your config.json configuration file.
+2026-11-16 06:37:10,935 INFO [worker_0] mstar.model.wan22.wan22_model: Loaded Wan2.2 submodule for node vae_encoder
+2026-11-16 06:37:11,168 INFO [worker_0] mstar.kernels.registry: kernel table: no ragged_attention bfloat16 num_qo_heads=24,num_kv_heads=24,head_dim=128 entry for NVIDIA H200; built-in configs. To tune it: python -m benchmark.kernels.sweep ragged_attention --dtype bfloat16 --shape num_qo_heads=24,num_kv_heads=24,head_dim=128
+2026-11-16 06:37:11,178 INFO [worker_0] mstar.worker.engine_manager: Engine loaded on device cuda:0 for nodes ['dit', 'text_encoder', 'vae_decoder', 'vae_encoder']
+2026-11-16 06:37:11,179 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0]: 123625 MiB free, 0 for the largest eager step
+2026-11-16 06:37:11,180 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[dit]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 06:37:11,180 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] dit: capture took 0 MiB, 0 predicted
+2026-11-16 06:37:11,180 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] dit piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 06:37:11,180 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[text_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 06:37:11,180 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] text_encoder: capture took 0 MiB, 0 predicted
+2026-11-16 06:37:11,181 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] text_encoder piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 06:37:11,181 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[vae_decoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 06:37:11,181 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] vae_decoder: capture took 0 MiB, 0 predicted
+2026-11-16 06:37:11,181 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] vae_decoder piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 06:37:11,181 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[vae_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 06:37:11,182 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] vae_encoder: capture took 0 MiB, 0 predicted
+2026-11-16 06:37:11,182 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] vae_encoder piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 06:37:11,182 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0]: 123625 MiB free after capture, 0 for the largest eager step
+2026-11-16 06:37:11,182 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for dit (submodule opt-out)
+2026-11-16 06:37:11,182 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for text_encoder (submodule opt-out)
+2026-11-16 06:37:11,182 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_decoder (submodule opt-out)
+2026-11-16 06:37:11,182 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for vae_encoder (submodule opt-out)
+2026-11-16 06:37:11,662 INFO [worker_0] mstar.worker.worker: Worker worker_0: gc.freeze() after warmup — 853060 objects moved to the permanent generation
+2026-11-16 06:37:11,663 INFO [worker_0] mstar.worker.step_executor: Worker worker_0: engine runs on dedicated GPU thread
+2026-11-16 06:37:11,664 INFO [worker_0] mstar.worker.step_executor: Worker worker_0: plan_executor enabled — speculative plan() pre-runs on a dedicated thread
+2026-11-16 06:37:11,670 INFO [conductor] mstar.conductor.conductor: Conductor: all 1 worker(s) ready
+2026-11-16 06:37:11,777 INFO [conductor] mstar.utils.gc_freeze: Conductor: gc.freeze() after setup, 375608 objects in the permanent generation
+2026-11-16 06:37:11,783 INFO [api_server] __main__: All workers ready
+2026-11-16 06:37:11,898 INFO [api_server] mstar.utils.gc_freeze: API server: gc.freeze() after setup, 376283 objects in the permanent generation
+2026-11-16 06:37:11,903 INFO [api_server] mstar.api_server.rust_frontend: Rust frontend started (pid=12371, port=8603)
+2026-11-16 06:37:11,903 INFO [api_server] __main__: Starting mstar API server (mstar-server) on port 8603
+2026-11-16 06:37:11,904 INFO [api_server] mstar.api_server.rust_frontend: Rust-frontend bridge serving
+bridging to conductor at /tmp/mstar_rust_frontend_kotodhyl
+compressed speech output (mp3, flac, opus) through /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/_soundfile_data/libsndfile_x86_64.so
+WARNING: no API key set (--api-key or MSTAR_API_KEY): any client that can reach 0.0.0.0:8603 can run requests. Set a key, or bind --host 127.0.0.1, unless a gateway in front of this server authenticates clients.
+mstar-server (Rust frontend) for model "wan22" on http://0.0.0.0:8603
+2026-11-16 06:37:30,056 WARNING [api_server] __main__: Ignoring model_kwargs this model does not read: ['flow_shift']
+2026-11-16 06:37:31,835 INFO [api_server] mstar.communication.arena: ARENA stats: {'segments': 1, 'total_bytes': 268435456, 'free_bytes': 268435456, 'largest_free_block': 268435456, 'pinned_bytes': 0, 'live_slots': 0, 'spill_files': 0}
+2026-11-16 06:37:31,837 INFO [conductor] mstar.model.wan22.wan22_model: Wan2.2 request: height=480 width=832 frames=33 steps=20 guidance=5.0 seed=41 negative_prompt=absent fps=24.0 decode=auto compile=on
+2026-11-16 06:37:32,441 INFO [worker_0] mstar.kernels.registry: kernel table: no fp8_linear float8_e4m3fn N=3072,K=3072,glu=0 entry for NVIDIA H200; built-in configs. To tune it: python -m benchmark.kernels.sweep fp8_linear --dtype float8_e4m3fn --shape N=3072,K=3072,glu=0
+2026-11-16 06:37:32,453 INFO [worker_0] mstar.kernels.registry: kernel table: no fp8_linear float8_e4m3fn N=14336,K=3072,glu=0 entry for NVIDIA H200; built-in configs. To tune it: python -m benchmark.kernels.sweep fp8_linear --dtype float8_e4m3fn --shape N=14336,K=3072,glu=0
+2026-11-16 06:37:32,454 INFO [worker_0] mstar.kernels.registry: kernel table: no fp8_linear float8_e4m3fn N=3072,K=14336,glu=0 entry for NVIDIA H200; built-in configs. To tune it: python -m benchmark.kernels.sweep fp8_linear --dtype float8_e4m3fn --shape N=3072,K=14336,glu=0
+2026-11-16 06:37:36,462 INFO [worker_0] mstar.model.wan22.submodules: Wan2.2 VAE decode: untiled (480x832 x33f, est untiled peak 4.4 GiB, free 118.6 GiB, margin 1.30, mode=auto)
+2026-11-16 06:37:37,311 INFO [worker_0] mstar.communication.arena: ARENA stats: {'segments': 1, 'total_bytes': 268435456, 'free_bytes': 268435456, 'largest_free_block': 268435456, 'pinned_bytes': 536870912, 'live_slots': 0, 'spill_files': 0}
+2026-11-16 06:38:11,671 INFO [conductor] mstar.conductor.conductor: Last 60 s: 1 requests done, 0 queued for admission; 0 running, 0 waiting
+mstar-server: shutting down (draining in-flight, 30s cap)
+2026-11-16 06:38:32,386 INFO [conductor] mstar.conductor.conductor: Shutting down conductor...
+Assertion failed: /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/flashinfer/data/csrc/nv_internal/tensorrt_llm/deep_gemm/runtime.cuh:63, condition: !cubin.empty() || isPathValid(path_)
