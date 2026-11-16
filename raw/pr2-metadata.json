@@ -1,0 +1,27 @@
+{
+  "arm": "pr2",
+  "source_head": "258b81371bc4626797177a5c93a14dad23405961",
+  "source_digests": {
+    "mstar/api_server/entrypoint.py": "822ab876802caf8385437c5235a60827cb7d7a2ee3e698d08e2f6aad4396bfd4",
+    "mstar/conductor/conductor.py": "1ef1d51c966720696e85d968aeeac478c070d8f508ec83deffb0b65699d49dd3",
+    "mstar/graph/runtime/rust.py": "b4f9e27e4f385128345de5e07abdd68fa69ad9870ecf1c4b34165777113fed21",
+    "rust/src/graph/frames.rs": "46bc1f9c2f584ff4a9ec0f23e48bbfdc00aee37d6c6b2c4dda26a7807b814e89"
+  },
+  "wheel_sha256": "f2c546863ca4f6179588218b4c448612213cb58bfbc17ffce93e1a3669af3ead",
+  "config_sha256": "2996ac0f7465790f6b3055ed2649ba32f5d3ade3d3dc24a0f76f4041224235d6",
+  "prompts_sha256": "58d7b2e78620ee2ab55da06a917f037626ca6b8858df05f75525555c8d2d8d81",
+  "benchmark_script_sha256": "d26ce1bd8902877100be0b7cbe1360108acd37d14949d418f8d174b6d8bfad11",
+  "checkpoint_revision": "2fc06364715b967f1860aea9cf38778875588b17",
+  "checkpoint_safetensors_sha256": "04b1c301231dd422b8860db31311ab2721511346a32cb1e079c4c4e5f1fe4696",
+  "launch_cmd": "/home/bench/praxis/mstar-venv/bin/python -m mstar.api_server.entrypoint --python-frontend --config /dev/shm/pr582-qwen.yaml --host 127.0.0.1 --port 8620 --mooncake-port 9620 --socket-path-prefix /dev/shm/pr582sock/ --upload-dir /dev/shm/pr582-upload --tensor-comm-protocol SHM",
+  "launch_env": {
+    "PATH": "/home/bench/praxis/mstar-venv/bin:$PATH",
+    "PYTHONPATH": "/dev/shm/mstar-pr582-pr-pylib:/dev/shm/mstar-pr582-pr-src",
+    "MSTAR_COMPILE_LEVEL": "0",
+    "MSTAR_RUST_GRAPH": "1",
+    "MSTAR_RUST_ZMQ": "1",
+    "SERVER_STATE_DIR": "/dev/shm/pr582-serverstate"
+  },
+  "hardware": "NVIDIA H200, 580.173.02, 143771 MiB",
+  "captured_at_utc": "2026-11-16T07:29:38Z"
+}
