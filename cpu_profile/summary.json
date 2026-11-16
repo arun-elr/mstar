@@ -1,0 +1,582 @@
+{
+  "workload": {
+    "model": "Qwen3.5-0.8B",
+    "output_tokens_per_request": 64,
+    "warmup_waves": 2,
+    "order": [
+      "main1",
+      "pr1",
+      "pr2",
+      "main2"
+    ],
+    "phase_flush_interval": 100,
+    "frontend": "Python",
+    "rust_graph": true
+  },
+  "selection": "Per client window, drop first 3 phase flushes; segment by 15% stable actual batch; select longest segment (min 3 records).",
+  "units": "cpu_us_per_request_step is microseconds of measured thread CPU for 1 output request-step. Different thread phases are not added. runtime_add.mean_cpu_ms_per_phase_call is cost per new request, not per output step.",
+  "rows": [
+    {
+      "arm": "main1",
+      "source_head": "2c8ffde8f7fd321c29aad3d1aad3e8cc8e8dc175",
+      "concurrency": 16,
+      "window_start_epoch": 1794815265.7749252,
+      "window_end_epoch": 1794815302.7938023,
+      "window_record_count": 111,
+      "steady_record_count": 108,
+      "steady_bs_mean": 14.829166666666666,
+      "steady_bs_range": [
+        13.53,
+        15.34
+      ],
+      "request_steps": 160155.0,
+      "segments": [
+        {
+          "record_count": 108,
+          "bs_mean": 14.829166666666666,
+          "bs_range": [
+            13.53,
+            15.34
+          ]
+        }
+      ],
+      "completed": 2560,
+      "tokens_total": 163840,
+      "request_throughput": 85.03695990154608,
+      "metrics": {
+        "iter_total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.138111111111111,
+          "cpu_us_per_request_step": 76.74815022946521,
+          "samples": 10800,
+          "off_batch": false
+        },
+        "worker.gpu_thread.total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.1417105950382396,
+          "cpu_us_per_request_step": 76.4348350035903,
+          "samples": 10722,
+          "off_batch": false
+        },
+        "worker.plan_thread.pre_plan.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.46457468879668057,
+          "cpu_us_per_request_step": 27.963535325153764,
+          "samples": 9640,
+          "off_batch": false
+        },
+        "worker.msg.new_request.runtime_add.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.05438661858974361,
+          "cpu_us_per_request_step": 0.8476101276888017,
+          "samples": 2496,
+          "off_batch": false
+        }
+      }
+    },
+    {
+      "arm": "main1",
+      "source_head": "2c8ffde8f7fd321c29aad3d1aad3e8cc8e8dc175",
+      "concurrency": 64,
+      "window_start_epoch": 1794815302.822632,
+      "window_end_epoch": 1794815341.0982008,
+      "window_record_count": 58,
+      "steady_record_count": 53,
+      "steady_bs_mean": 58.768490566037734,
+      "steady_bs_range": [
+        55.48,
+        60.85
+      ],
+      "request_steps": 311473.0,
+      "segments": [
+        {
+          "record_count": 53,
+          "bs_mean": 58.768490566037734,
+          "bs_range": [
+            55.48,
+            60.85
+          ]
+        }
+      ],
+      "completed": 5120,
+      "tokens_total": 327680,
+      "request_throughput": 169.72011119806567,
+      "metrics": {
+        "iter_total.cpu": {
+          "mean_cpu_ms_per_phase_call": 2.6486603773584907,
+          "cpu_us_per_request_step": 45.06939606322218,
+          "samples": 5300,
+          "off_batch": false
+        },
+        "worker.gpu_thread.total.cpu": {
+          "mean_cpu_ms_per_phase_call": 2.3166923659784047,
+          "cpu_us_per_request_step": 39.26445951976576,
+          "samples": 5279,
+          "off_batch": false
+        },
+        "worker.plan_thread.pre_plan.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.690557398805574,
+          "cpu_us_per_request_step": 6.682248541607138,
+          "samples": 3014,
+          "off_batch": false
+        },
+        "worker.msg.new_request.runtime_add.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.05235751081805068,
+          "cpu_us_per_request_step": 0.8157721536056093,
+          "samples": 4853,
+          "off_batch": false
+        }
+      }
+    },
+    {
+      "arm": "pr1",
+      "source_head": "258b81371bc4626797177a5c93a14dad23405961",
+      "concurrency": 16,
+      "window_start_epoch": 1794815475.7056205,
+      "window_end_epoch": 1794815510.4581144,
+      "window_record_count": 111,
+      "steady_record_count": 108,
+      "steady_bs_mean": 14.832129629629629,
+      "steady_bs_range": [
+        14.04,
+        15.31
+      ],
+      "request_steps": 160187.0,
+      "segments": [
+        {
+          "record_count": 108,
+          "bs_mean": 14.832129629629629,
+          "bs_range": [
+            14.04,
+            15.31
+          ]
+        }
+      ],
+      "completed": 2560,
+      "tokens_total": 163840,
+      "request_throughput": 87.57238999510119,
+      "metrics": {
+        "iter_total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.0853796296296299,
+          "cpu_us_per_request_step": 73.17759868154096,
+          "samples": 10800,
+          "off_batch": false
+        },
+        "worker.gpu_thread.total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.1191490393583288,
+          "cpu_us_per_request_step": 74.9094246099871,
+          "samples": 10722,
+          "off_batch": false
+        },
+        "worker.plan_thread.pre_plan.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.46230178975519465,
+          "cpu_us_per_request_step": 28.05781992296505,
+          "samples": 9722,
+          "off_batch": false
+        },
+        "worker.msg.new_request.runtime_add.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.051859375,
+          "cpu_us_per_request_step": 0.8080618277388303,
+          "samples": 2496,
+          "off_batch": false
+        }
+      }
+    },
+    {
+      "arm": "pr1",
+      "source_head": "258b81371bc4626797177a5c93a14dad23405961",
+      "concurrency": 64,
+      "window_start_epoch": 1794815510.4864156,
+      "window_end_epoch": 1794815546.1646633,
+      "window_record_count": 58,
+      "steady_record_count": 55,
+      "steady_bs_mean": 58.643818181818176,
+      "steady_bs_range": [
+        51.12,
+        60.97
+      ],
+      "request_steps": 322541.0,
+      "segments": [
+        {
+          "record_count": 55,
+          "bs_mean": 58.643818181818176,
+          "bs_range": [
+            51.12,
+            60.97
+          ]
+        }
+      ],
+      "completed": 5120,
+      "tokens_total": 327680,
+      "request_throughput": 185.20667364078255,
+      "metrics": {
+        "iter_total.cpu": {
+          "mean_cpu_ms_per_phase_call": 2.5464181818181815,
+          "cpu_us_per_request_step": 43.42176653510715,
+          "samples": 5500,
+          "off_batch": false
+        },
+        "worker.gpu_thread.total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.9848923611111111,
+          "cpu_us_per_request_step": 33.674264667127595,
+          "samples": 5472,
+          "off_batch": false
+        },
+        "worker.plan_thread.pre_plan.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.5940711991434691,
+          "cpu_us_per_request_step": 6.881140692191071,
+          "samples": 3736,
+          "off_batch": false
+        },
+        "worker.msg.new_request.runtime_add.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.05458544303797467,
+          "cpu_us_per_request_step": 0.8556555600683322,
+          "samples": 5056,
+          "off_batch": false
+        }
+      }
+    },
+    {
+      "arm": "pr2",
+      "source_head": "258b81371bc4626797177a5c93a14dad23405961",
+      "concurrency": 16,
+      "window_start_epoch": 1794815669.2062807,
+      "window_end_epoch": 1794815703.505099,
+      "window_record_count": 111,
+      "steady_record_count": 108,
+      "steady_bs_mean": 14.832685185185186,
+      "steady_bs_range": [
+        13.88,
+        15.32
+      ],
+      "request_steps": 160193.0,
+      "segments": [
+        {
+          "record_count": 108,
+          "bs_mean": 14.832685185185186,
+          "bs_range": [
+            13.88,
+            15.32
+          ]
+        }
+      ],
+      "completed": 2560,
+      "tokens_total": 163840,
+      "request_throughput": 88.9280988902479,
+      "metrics": {
+        "iter_total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.0598333333333336,
+          "cpu_us_per_request_step": 71.45256034907895,
+          "samples": 10800,
+          "off_batch": false
+        },
+        "worker.gpu_thread.total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.0630736940298504,
+          "cpu_us_per_request_step": 71.14012472455099,
+          "samples": 10720,
+          "off_batch": false
+        },
+        "worker.plan_thread.pre_plan.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.4868696412048937,
+          "cpu_us_per_request_step": 29.562970916332183,
+          "samples": 9727,
+          "off_batch": false
+        },
+        "worker.msg.new_request.runtime_add.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.051451522435897436,
+          "cpu_us_per_request_step": 0.8016767274475164,
+          "samples": 2496,
+          "off_batch": false
+        }
+      }
+    },
+    {
+      "arm": "pr2",
+      "source_head": "258b81371bc4626797177a5c93a14dad23405961",
+      "concurrency": 64,
+      "window_start_epoch": 1794815703.5334036,
+      "window_end_epoch": 1794815740.821727,
+      "window_record_count": 58,
+      "steady_record_count": 55,
+      "steady_bs_mean": 58.57672727272727,
+      "steady_bs_range": [
+        53.49,
+        60.79
+      ],
+      "request_steps": 322172.0,
+      "segments": [
+        {
+          "record_count": 55,
+          "bs_mean": 58.57672727272727,
+          "bs_range": [
+            53.49,
+            60.79
+          ]
+        }
+      ],
+      "completed": 5120,
+      "tokens_total": 327680,
+      "request_throughput": 176.05458741660297,
+      "metrics": {
+        "iter_total.cpu": {
+          "mean_cpu_ms_per_phase_call": 2.6542363636363633,
+          "cpu_us_per_request_step": 45.31213140806774,
+          "samples": 5500,
+          "off_batch": false
+        },
+        "worker.gpu_thread.total.cpu": {
+          "mean_cpu_ms_per_phase_call": 2.0471797773316296,
+          "cpu_us_per_request_step": 34.81524775585712,
+          "samples": 5479,
+          "off_batch": false
+        },
+        "worker.plan_thread.pre_plan.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.6636269208878769,
+          "cpu_us_per_request_step": 7.238323007586008,
+          "samples": 3514,
+          "off_batch": false
+        },
+        "worker.msg.new_request.runtime_add.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.05414775882586277,
+          "cpu_us_per_request_step": 0.8474138038066626,
+          "samples": 5042,
+          "off_batch": false
+        }
+      }
+    },
+    {
+      "arm": "main2",
+      "source_head": "2c8ffde8f7fd321c29aad3d1aad3e8cc8e8dc175",
+      "concurrency": 16,
+      "window_start_epoch": 1794815866.4201694,
+      "window_end_epoch": 1794815900.971897,
+      "window_record_count": 111,
+      "steady_record_count": 108,
+      "steady_bs_mean": 14.834166666666667,
+      "steady_bs_range": [
+        14.03,
+        15.33
+      ],
+      "request_steps": 160209.0,
+      "segments": [
+        {
+          "record_count": 108,
+          "bs_mean": 14.834166666666667,
+          "bs_range": [
+            14.03,
+            15.33
+          ]
+        }
+      ],
+      "completed": 2560,
+      "tokens_total": 163840,
+      "request_throughput": 88.20995079072003,
+      "metrics": {
+        "iter_total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.0796018518518515,
+          "cpu_us_per_request_step": 72.77805866087422,
+          "samples": 10800,
+          "off_batch": false
+        },
+        "worker.gpu_thread.total.cpu": {
+          "mean_cpu_ms_per_phase_call": 1.0683311876107837,
+          "cpu_us_per_request_step": 71.47814417417243,
+          "samples": 10719,
+          "off_batch": false
+        },
+        "worker.plan_thread.pre_plan.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.4891646247297435,
+          "cpu_us_per_request_step": 29.65661105181356,
+          "samples": 9713,
+          "off_batch": false
+        },
+        "worker.msg.new_request.runtime_add.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.050907051282051266,
+          "cpu_us_per_request_step": 0.7931139948442344,
+          "samples": 2496,
+          "off_batch": false
+        }
+      }
+    },
+    {
+      "arm": "main2",
+      "source_head": "2c8ffde8f7fd321c29aad3d1aad3e8cc8e8dc175",
+      "concurrency": 64,
+      "window_start_epoch": 1794815901.000759,
+      "window_end_epoch": 1794815936.7270901,
+      "window_record_count": 58,
+      "steady_record_count": 55,
+      "steady_bs_mean": 58.65181818181818,
+      "steady_bs_range": [
+        54.71,
+        60.83
+      ],
+      "request_steps": 322585.0,
+      "segments": [
+        {
+          "record_count": 55,
+          "bs_mean": 58.65181818181818,
+          "bs_range": [
+            54.71,
+            60.83
+          ]
+        }
+      ],
+      "completed": 5120,
+      "tokens_total": 327680,
+      "request_throughput": 187.29420157028568,
+      "metrics": {
+        "iter_total.cpu": {
+          "mean_cpu_ms_per_phase_call": 2.4664363636363635,
+          "cpu_us_per_request_step": 42.052172295674005,
+          "samples": 5500,
+          "off_batch": false
+        },
+        "worker.gpu_thread.total.cpu": {
+          "mean_cpu_ms_per_phase_call": 2.017039290935673,
+          "cpu_us_per_request_step": 34.21497899778355,
+          "samples": 5472,
+          "off_batch": false
+        },
+        "worker.plan_thread.pre_plan.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.5956528054685275,
+          "cpu_us_per_request_step": 6.483057178728088,
+          "samples": 3511,
+          "off_batch": false
+        },
+        "worker.msg.new_request.runtime_add.cpu": {
+          "mean_cpu_ms_per_phase_call": 0.050829905063291145,
+          "cpu_us_per_request_step": 0.7966768448625944,
+          "samples": 5056,
+          "off_batch": false
+        }
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "concurrency": 16,
+      "phase": "iter_total.cpu",
+      "field": "cpu_us_per_request_step",
+      "main_values": [
+        76.74815022946521,
+        72.77805866087422
+      ],
+      "pr_values": [
+        73.17759868154096,
+        71.45256034907895
+      ],
+      "main_mean": 74.76310444516972,
+      "pr_mean": 72.31507951530995,
+      "delta_pct": -3.2743757071445834
+    },
+    {
+      "concurrency": 16,
+      "phase": "worker.gpu_thread.total.cpu",
+      "field": "cpu_us_per_request_step",
+      "main_values": [
+        76.4348350035903,
+        71.47814417417243
+      ],
+      "pr_values": [
+        74.9094246099871,
+        71.14012472455099
+      ],
+      "main_mean": 73.95648958888137,
+      "pr_mean": 73.02477466726904,
+      "delta_pct": -1.25981496254306
+    },
+    {
+      "concurrency": 16,
+      "phase": "worker.plan_thread.pre_plan.cpu",
+      "field": "cpu_us_per_request_step",
+      "main_values": [
+        27.963535325153764,
+        29.65661105181356
+      ],
+      "pr_values": [
+        28.05781992296505,
+        29.562970916332183
+      ],
+      "main_mean": 28.810073188483663,
+      "pr_mean": 28.810395419648614,
+      "delta_pct": 0.001118467012717339
+    },
+    {
+      "concurrency": 16,
+      "phase": "worker.msg.new_request.runtime_add.cpu",
+      "field": "mean_cpu_ms_per_phase_call",
+      "main_values": [
+        0.05438661858974361,
+        0.050907051282051266
+      ],
+      "pr_values": [
+        0.051859375,
+        0.051451522435897436
+      ],
+      "main_mean": 0.05264683493589744,
+      "pr_mean": 0.05165544871794872,
+      "delta_pct": -1.8830879751001617
+    },
+    {
+      "concurrency": 64,
+      "phase": "iter_total.cpu",
+      "field": "cpu_us_per_request_step",
+      "main_values": [
+        45.06939606322218,
+        42.052172295674005
+      ],
+      "pr_values": [
+        43.42176653510715,
+        45.31213140806774
+      ],
+      "main_mean": 43.56078417944809,
+      "pr_mean": 44.36694897158745,
+      "delta_pct": 1.8506663902522202
+    },
+    {
+      "concurrency": 64,
+      "phase": "worker.gpu_thread.total.cpu",
+      "field": "cpu_us_per_request_step",
+      "main_values": [
+        39.26445951976576,
+        34.21497899778355
+      ],
+      "pr_values": [
+        33.674264667127595,
+        34.81524775585712
+      ],
+      "main_mean": 36.739719258774656,
+      "pr_mean": 34.24475621149236,
+      "delta_pct": -6.790914839901552
+    },
+    {
+      "concurrency": 64,
+      "phase": "worker.plan_thread.pre_plan.cpu",
+      "field": "cpu_us_per_request_step",
+      "main_values": [
+        6.682248541607138,
+        6.483057178728088
+      ],
+      "pr_values": [
+        6.881140692191071,
+        7.238323007586008
+      ],
+      "main_mean": 6.582652860167613,
+      "pr_mean": 7.059731849888539,
+      "delta_pct": 7.247518589469992
+    },
+    {
+      "concurrency": 64,
+      "phase": "worker.msg.new_request.runtime_add.cpu",
+      "field": "mean_cpu_ms_per_phase_call",
+      "main_values": [
+        0.05235751081805068,
+        0.050829905063291145
+      ],
+      "pr_values": [
+        0.05458544303797467,
+        0.05414775882586277
+      ],
+      "main_mean": 0.05159370794067091,
+      "pr_mean": 0.054366600931918724,
+      "delta_pct": 5.374478985763997
+    }
+  ]
+}

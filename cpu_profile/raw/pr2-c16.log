@@ -1,0 +1,30 @@
+
+--- Benchmark Results (wall time: 28.79s) ---
+Closed-Loop Benchmark Results (2560 requests, max_concurrency=16)
+──────────────────────────────────────────────────
+Request type breakdown: text_to_text=2560
+Requests : 2560/2560 succeeded
+TTFT (text)  : mean=0.027s  p50=0.027s  p95=0.037s  p99=0.041s
+E2E          : mean=0.180s  p50=0.180s  p95=0.192s  p99=0.199s
+ITL  (text)  : mean=0.002s  p50=0.002s  p95=0.005s  p99=0.011s
+Text tokens: 163840 total (64.0 avg/req)
+Output bytes (text): 601616 total (163840 chunks)
+Throughput: 88.93 req/s (successful only)
+Throughput: 5691.40 text tok/s
+Total wall time: 28.79s
+{
+  "arm": "pr2",
+  "head": "258b81371bc4626797177a5c93a14dad23405961",
+  "concurrency": 16,
+  "requested": 2560,
+  "completed": 2560,
+  "errors": [],
+  "tokens_total": 163840,
+  "matched_exactly_64_tokens": true,
+  "request_throughput": 88.9280988902479,
+  "text_token_throughput": 5691.398328975865,
+  "latency_p50_s": 0.17990348050000193,
+  "latency_p95_s": 0.1922555192500397,
+  "wall_with_warmup_s": 33.67573550899999,
+  "dataset_sha256": "58d7b2e78620ee2ab55da06a917f037626ca6b8858df05f75525555c8d2d8d81"
+}
