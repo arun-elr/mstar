@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 430" role="img" aria-label="Same-checkpoint Orpheus reload wall time on one H200">
+<rect width="680" height="430" fill="white"/>
+<text x="65" y="37" font-family="Arial,sans-serif" font-size="21" fill="#17212c">Same-checkpoint Orpheus reload</text>
+<text x="65" y="59" font-family="Arial,sans-serif" font-size="13" fill="#526274">One H200, one rank, one call per frontend</text>
+<line x1="65" x2="645" y1="344.0" y2="344.0" stroke="#dce3ea"/>
+<text x="53" y="349.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#526274">0</text>
+<line x1="65" x2="645" y1="295.0" y2="295.0" stroke="#dce3ea"/>
+<text x="53" y="300.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#526274">1</text>
+<line x1="65" x2="645" y1="246.0" y2="246.0" stroke="#dce3ea"/>
+<text x="53" y="251.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#526274">2</text>
+<line x1="65" x2="645" y1="197.0" y2="197.0" stroke="#dce3ea"/>
+<text x="53" y="202.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#526274">3</text>
+<line x1="65" x2="645" y1="148.0" y2="148.0" stroke="#dce3ea"/>
+<text x="53" y="153.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#526274">4</text>
+<line x1="65" x2="645" y1="99.0" y2="99.0" stroke="#dce3ea"/>
+<text x="53" y="104.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#526274">5</text>
+<text x="19" y="222" transform="rotate(-90 19 222)" font-family="Arial,sans-serif" font-size="13" fill="#34465a">Seconds</text>
+<rect x="194" y="149.0" width="76" height="195.0" fill="#2f6db3" rx="2"/>
+<text x="232" y="141.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#17212c">3.980</text>
+<text x="232" y="369" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#34465a">Python</text>
+<rect x="425" y="149.4" width="76" height="194.6" fill="#d07831" rx="2"/>
+<text x="463" y="141.4" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#17212c">3.972</text>
+<text x="463" y="369" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#34465a">Rust</text>
+<text x="65" y="409" font-family="Arial,sans-serif" font-size="11" fill="#69798a">Functional probe at 5b42f8e906; same weights before/after, no repeated timing or throughput.</text>
+</svg>
