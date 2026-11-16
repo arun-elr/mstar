@@ -1,0 +1,9 @@
+block,arm,path
+1,off,results/off-1/results.json
+1,full,results/full-1/results.json
+2,full,results/full-2/results.json
+2,off,results/off-2/results.json
+3,off,results/off-3/results.json
+3,full,results/full-3/results.json
+4,full,results/full-4/results.json
+4,off,results/off-4/results.json

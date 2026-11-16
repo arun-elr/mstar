@@ -1,0 +1,16 @@
+knobs:
+  gc_gen0_threshold: 50000
+max_seq_len: 32768
+model: qwen3_5_0.8b
+model_kwargs:
+  model_path_hf: /home/bench/praxis/checkpoints/qwen3.5-0.8b
+node_groups:
+- node_names:
+  - LLM
+  - vision_encoder
+  ranks:
+  - 0
+resources:
+  gdn_state:
+    max_slots: 129
+    prefix_slots: 128

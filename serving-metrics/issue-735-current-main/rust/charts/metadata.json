@@ -1,0 +1,14 @@
+{
+  "mode": "preliminary",
+  "frontend": "rust",
+  "source_commit": "2c8ffde8f7",
+  "abba_order": true,
+  "starts": 8,
+  "blocks": 4,
+  "request_type": "text_to_text",
+  "profiling_type": "closed_loop",
+  "max_concurrency": 64,
+  "measured_requests_per_start": 2600,
+  "output_tokens_per_request": 256,
+  "limitations": "Prompt file, server flags, scrape cadence, and hardware are not encoded in results.json; verify run logs separately."
+}

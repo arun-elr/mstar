@@ -1,0 +1,18 @@
+started 'issues735' pid 7043, log /tmp/servers_bench/issues735.log
+'issues735' ready on 8000 after 69s (listener pid 7043)
+/home/bench/praxis/issue-bench/results735/full-2/results.json 2600 0 17472.05950747593
+started 'issues735' pid 8065, log /tmp/servers_bench/issues735.log
+'issues735' ready on 8000 after 66s (listener pid 8065)
+/home/bench/praxis/issue-bench/results735/off-2/results.json 2600 0 17619.793054586033
+started 'issues735' pid 9334, log /tmp/servers_bench/issues735.log
+'issues735' ready on 8000 after 72s (listener pid 9334)
+/home/bench/praxis/issue-bench/results735/off-3/results.json 2600 0 17649.704434704407
+started 'issues735' pid 10092, log /tmp/servers_bench/issues735.log
+'issues735' ready on 8000 after 72s (listener pid 10092)
+/home/bench/praxis/issue-bench/results735/full-3/results.json 2600 0 17433.085403978206
+started 'issues735' pid 11072, log /tmp/servers_bench/issues735.log
+'issues735' ready on 8000 after 72s (listener pid 11072)
+/home/bench/praxis/issue-bench/results735/full-4/results.json 2600 0 17324.537747629925
+started 'issues735' pid 12007, log /tmp/servers_bench/issues735.log
+'issues735' ready on 8000 after 72s (listener pid 12007)
+/home/bench/praxis/issue-bench/results735/off-4/results.json 2600 0 17542.03076692759
