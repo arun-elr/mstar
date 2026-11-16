@@ -1,0 +1,48 @@
+started 'issue631' pid 26131, log /tmp/servers_bench/issue631.log
+'issue631' ready on 18800 after 244s (listener pid 27751)
+warmup: 8 requests
+repeat 0: 27 req, 0 errors, TTFA p50 150 ms p95 172 ms, RTF 0.066, 15.9 audio-s/s, wall 23.9 s
+| main-c1 | c=1 | TTFA p50 150 ms / p95 172 ms | RTF 0.066 | 15.9 audio-s/s | e2e p50 0.73 s | errors 0 |
+warmup: 16 requests
+repeat 0: 79 req, 0 errors, TTFA p50 554 ms p95 721 ms, RTF 0.230, 35.5 audio-s/s, wall 32.7 s
+| main-c8 | c=8 | TTFA p50 554 ms / p95 721 ms | RTF 0.230 | 35.5 audio-s/s | e2e p50 3.01 s | errors 0 |
+started 'issue631' pid 28314, log /tmp/servers_bench/issue631.log
+'issue631' ready on 18800 after 195s (listener pid 29473)
+warmup: 8 requests
+repeat 0: 27 req, 0 errors, TTFA p50 148 ms p95 174 ms, RTF 0.066, 16.1 audio-s/s, wall 22.1 s
+| pr-c1 | c=1 | TTFA p50 148 ms / p95 174 ms | RTF 0.066 | 16.1 audio-s/s | e2e p50 0.73 s | errors 0 |
+warmup: 16 requests
+repeat 0: 79 req, 0 errors, TTFA p50 514 ms p95 753 ms, RTF 0.226, 36.0 audio-s/s, wall 30.1 s
+| pr-c8 | c=8 | TTFA p50 514 ms / p95 753 ms | RTF 0.226 | 36.0 audio-s/s | e2e p50 2.79 s | errors 0 |
+started 'issue631' pid 29993, log /tmp/servers_bench/issue631.log
+'issue631' ready on 18800 after 195s (listener pid 32357)
+warmup: 8 requests
+repeat 0: 27 req, 0 errors, TTFA p50 152 ms p95 171 ms, RTF 0.067, 15.9 audio-s/s, wall 22.3 s
+| pr-c1 | c=1 | TTFA p50 152 ms / p95 171 ms | RTF 0.067 | 15.9 audio-s/s | e2e p50 0.77 s | errors 0 |
+warmup: 16 requests
+repeat 0: 79 req, 0 errors, TTFA p50 531 ms p95 692 ms, RTF 0.228, 36.1 audio-s/s, wall 30.6 s
+| pr-c8 | c=8 | TTFA p50 531 ms / p95 692 ms | RTF 0.228 | 36.1 audio-s/s | e2e p50 3.06 s | errors 0 |
+started 'issue631' pid 33003, log /tmp/servers_bench/issue631.log
+'issue631' ready on 18800 after 195s (listener pid 34010)
+warmup: 8 requests
+repeat 0: 27 req, 0 errors, TTFA p50 154 ms p95 180 ms, RTF 0.068, 15.6 audio-s/s, wall 24.4 s
+| main-c1 | c=1 | TTFA p50 154 ms / p95 180 ms | RTF 0.068 | 15.6 audio-s/s | e2e p50 0.75 s | errors 0 |
+warmup: 16 requests
+repeat 0: 79 req, 0 errors, TTFA p50 554 ms p95 721 ms, RTF 0.237, 35.0 audio-s/s, wall 32.4 s
+| main-c8 | c=8 | TTFA p50 554 ms / p95 721 ms | RTF 0.237 | 35.0 audio-s/s | e2e p50 2.91 s | errors 0 |
+started 'issue631' pid 34452, log /tmp/servers_bench/issue631.log
+'issue631' ready on 18800 after 198s (listener pid 35307)
+warmup: 8 requests
+repeat 0: 27 req, 0 errors, TTFA p50 148 ms p95 170 ms, RTF 0.066, 15.9 audio-s/s, wall 23.9 s
+| main-c1 | c=1 | TTFA p50 148 ms / p95 170 ms | RTF 0.066 | 15.9 audio-s/s | e2e p50 0.78 s | errors 0 |
+warmup: 16 requests
+repeat 0: 79 req, 0 errors, TTFA p50 557 ms p95 711 ms, RTF 0.229, 35.9 audio-s/s, wall 32.5 s
+| main-c8 | c=8 | TTFA p50 557 ms / p95 711 ms | RTF 0.229 | 35.9 audio-s/s | e2e p50 2.96 s | errors 0 |
+started 'issue631' pid 35647, log /tmp/servers_bench/issue631.log
+'issue631' ready on 18800 after 198s (listener pid 36545)
+warmup: 8 requests
+repeat 0: 27 req, 0 errors, TTFA p50 148 ms p95 172 ms, RTF 0.065, 16.3 audio-s/s, wall 21.8 s
+| pr-c1 | c=1 | TTFA p50 148 ms / p95 172 ms | RTF 0.065 | 16.3 audio-s/s | e2e p50 0.73 s | errors 0 |
+warmup: 16 requests
+repeat 0: 79 req, 0 errors, TTFA p50 511 ms p95 653 ms, RTF 0.229, 35.6 audio-s/s, wall 29.9 s
+| pr-c8 | c=8 | TTFA p50 511 ms / p95 653 ms | RTF 0.229 | 35.6 audio-s/s | e2e p50 2.68 s | errors 0 |

@@ -1,0 +1,27 @@
+max_concurrent_requests: 32
+max_seq_len: 3312
+model: cosyvoice3
+model_kwargs:
+  model_path_hf: /home/bench/praxis/checkpoints/cosyvoice3
+  voices_dir: /home/bench/praxis/issue-bench/voices
+node_groups:
+- graph_walks:
+  - prefill
+  - prefill_voice
+  - decode
+  node_names:
+  - speaker_encoder
+  - llm
+  ranks:
+  - 0
+- graph_walks:
+  - token2wav
+  node_names:
+  - flow
+  - hift
+  ranks:
+  - 0
+resources:
+  lm_kv:
+    max_num_pages: 1792
+    page_size: 64

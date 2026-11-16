@@ -1,0 +1,350 @@
+
+  ✓ mstar serving 'cosyvoice3' on http://localhost:18801
+
+  Python SDK:
+    from mstar import MStarClient
+    client = MStarClient("http://localhost:18801")
+
+2026-11-16 01:13:51,206 INFO [api_server] mstar.api_server.entrypoint: API server: result threads not pinned (not pinned: sysfs lists no idle state on CPUs 0-15, under the 100 µs from which pinning could pay (step_thread_core always pins anyway))
+2026-11-16 01:13:51,208 INFO [api_server] mstar.communication.tensors: SHM: swept 0 entries of dead deployment namespace 820e9cac0086
+2026-11-16 01:13:51,208 INFO [api_server] mstar.communication.arena: ARENA: /dev/shm has 100645 MiB free for 2 arenas and their spill files; each arena grows to 32 segments of 256 MiB (MSTAR_SHM_ARENA_MAX_SEGMENTS and _SEGMENT_MB override)
+2026-11-16 01:13:51,208 INFO [api_server] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 01:13:51,292 INFO [api_server] mstar.communication.arena: ARENA: grew to 1 segments (256 MiB total, 256 MiB free, largest free block 256 MiB, 0 MiB pinned)
+2026-11-16 01:13:51,293 INFO [api_server] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 01:13:51,295 INFO [api_server] mstar.api_server.entrypoint: Conductor process started (pid=39827, model=cosyvoice3)
+2026-11-16 01:13:51,295 INFO [api_server] mstar.api_server.entrypoint: Waiting for workers to finish setup (loading weights, capturing accelerator graphs)...
+2026-11-16 01:13:53,932 INFO [conductor] mstar.api_server.entrypoint: yaml model_kwargs from /home/bench/praxis/issue-bench/cosyvoice3-perf.yaml: {'model_path_hf': '/home/bench/praxis/checkpoints/cosyvoice3', 'voices_dir': '/home/bench/praxis/issue-bench/voices'} (forwarded to cosyvoice3.__init__)
+2026-11-16 01:13:55,094 INFO [conductor] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='lm_kv', nodes={'llm'}, config=PagedKVConfig(num_layers=24, num_kv_heads=2, head_dim=64, num_qo_heads=14, max_seq_len=3312, max_num_pages=1792, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), AttentionSpec(resource_key='lm_attn', nodes={'llm'}, config=AttentionConfig(kv_cache='lm_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=True, sliding_window=None, layers=None)), PositionSpec(resource_key='lm_pos', nodes={'llm'}, config=PositionConfig(kv_cache='lm_kv', backend=<PosBackend.ROPE: 'rope'>, scheme=<PosScheme.SEQUENTIAL: 'sequential'>, block_step=1, rotary_dim=None, interleave=False, rope_scale=1.0, rope_theta=1000000.0, rope_dtype=None, rope_table_dtype=None, low_freq_factor=None, high_freq_factor=None, old_context_len=None, longrope=None)), RecurrentStateSpec(resource_key='hift_state', nodes={'hift'}, config=RecurrentStateConfig(num_layers=1, blocks={'mel_tail': RecurrentBlockConfig(shape=(80, 80), dtype=torch.float32, shard_dims=(), per_layer=False), 'phase_carry': RecurrentBlockConfig(shape=(9,), dtype=torch.float32, shard_dims=(), per_layer=False)}, max_slots=129, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None)), KVSpec(resource_key='flow_kv', nodes={'flow'}, config=PagedKVConfig(num_layers=220, num_kv_heads=16, head_dim=64, num_qo_heads=16, max_seq_len=768, max_num_pages=769, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=False, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), BlockCausalAttentionSpec(resource_key='flow_attn', nodes={'flow'}, config=AttentionConfig(kv_cache='flow_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=False, sliding_window=None, layers=None), block_size=50), RecurrentStateSpec(resource_key='flow_tails', nodes={'flow'}, config=RecurrentStateConfig(num_layers=1, blocks={'tails': RecurrentBlockConfig(shape=(40, 30, 1024), dtype=None, shard_dims=(), per_layer=False)}, max_slots=64, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None))]
+2026-11-16 01:13:55,122 INFO [conductor] mstar.conductor.conductor: Detected worker device type: cuda
+2026-11-16 01:13:55,122 INFO [conductor] mstar.conductor.conductor: Compile caches: Inductor /home/bench/.cache/mstar/torchinductor, Triton /home/bench/.cache/mstar/torchinductor/triton
+2026-11-16 01:13:55,123 INFO [conductor] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='lm_kv', nodes={'llm'}, config=PagedKVConfig(num_layers=24, num_kv_heads=2, head_dim=64, num_qo_heads=14, max_seq_len=3312, max_num_pages=1792, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), AttentionSpec(resource_key='lm_attn', nodes={'llm'}, config=AttentionConfig(kv_cache='lm_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=True, sliding_window=None, layers=None)), PositionSpec(resource_key='lm_pos', nodes={'llm'}, config=PositionConfig(kv_cache='lm_kv', backend=<PosBackend.ROPE: 'rope'>, scheme=<PosScheme.SEQUENTIAL: 'sequential'>, block_step=1, rotary_dim=None, interleave=False, rope_scale=1.0, rope_theta=1000000.0, rope_dtype=None, rope_table_dtype=None, low_freq_factor=None, high_freq_factor=None, old_context_len=None, longrope=None)), RecurrentStateSpec(resource_key='hift_state', nodes={'hift'}, config=RecurrentStateConfig(num_layers=1, blocks={'mel_tail': RecurrentBlockConfig(shape=(80, 80), dtype=torch.float32, shard_dims=(), per_layer=False), 'phase_carry': RecurrentBlockConfig(shape=(9,), dtype=torch.float32, shard_dims=(), per_layer=False)}, max_slots=129, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None)), KVSpec(resource_key='flow_kv', nodes={'flow'}, config=PagedKVConfig(num_layers=220, num_kv_heads=16, head_dim=64, num_qo_heads=16, max_seq_len=768, max_num_pages=769, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=False, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), BlockCausalAttentionSpec(resource_key='flow_attn', nodes={'flow'}, config=AttentionConfig(kv_cache='flow_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=False, sliding_window=None, layers=None), block_size=50), RecurrentStateSpec(resource_key='flow_tails', nodes={'flow'}, config=RecurrentStateConfig(num_layers=1, blocks={'tails': RecurrentBlockConfig(shape=(40, 30, 1024), dtype=None, shard_dims=(), per_layer=False)}, max_slots=64, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None))]
+2026-11-16 01:13:58,700 INFO [conductor] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 01:13:58,701 INFO [conductor] mstar.conductor.conductor: Conductor waiting for 1 worker(s) to finish setup
+2026-11-16 01:13:59,091 INFO [worker_0] mstar.communication.communicator: control mesh transport: rust 0.1.1 from /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/mstar_rust/__init__.py
+2026-11-16 01:13:59,339 INFO [worker_0] mstar.communication.arena: ARENA: grew to 1 segments (256 MiB total, 256 MiB free, largest free block 256 MiB, 256 MiB pinned)
+2026-11-16 01:13:59,343 INFO [worker_0] mstar.engine.resources.spec: Resource specs after YAML overrides: [KVSpec(resource_key='lm_kv', nodes={'llm'}, config=PagedKVConfig(num_layers=24, num_kv_heads=2, head_dim=64, num_qo_heads=14, max_seq_len=3312, max_num_pages=1792, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=True, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), AttentionSpec(resource_key='lm_attn', nodes={'llm'}, config=AttentionConfig(kv_cache='lm_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=True, sliding_window=None, layers=None)), PositionSpec(resource_key='lm_pos', nodes={'llm'}, config=PositionConfig(kv_cache='lm_kv', backend=<PosBackend.ROPE: 'rope'>, scheme=<PosScheme.SEQUENTIAL: 'sequential'>, block_step=1, rotary_dim=None, interleave=False, rope_scale=1.0, rope_theta=1000000.0, rope_dtype=None, rope_table_dtype=None, low_freq_factor=None, high_freq_factor=None, old_context_len=None, longrope=None)), RecurrentStateSpec(resource_key='hift_state', nodes={'hift'}, config=RecurrentStateConfig(num_layers=1, blocks={'mel_tail': RecurrentBlockConfig(shape=(80, 80), dtype=torch.float32, shard_dims=(), per_layer=False), 'phase_carry': RecurrentBlockConfig(shape=(9,), dtype=torch.float32, shard_dims=(), per_layer=False)}, max_slots=129, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None)), KVSpec(resource_key='flow_kv', nodes={'flow'}, config=PagedKVConfig(num_layers=220, num_kv_heads=16, head_dim=64, num_qo_heads=16, max_seq_len=768, max_num_pages=769, page_size=64, layout=<KVLayout.NHD: 'NHD'>, cpu_offload_pages=0, prefix_cache_salt='', prefix_cache=False, prefix_cache_tp=False, context_parallel=False, kv_lora_rank=None, qk_rope_head_dim=None), leader=None), BlockCausalAttentionSpec(resource_key='flow_attn', nodes={'flow'}, config=AttentionConfig(kv_cache='flow_kv', backend=<AttnBackend.AUTO: 'auto'>, flashinfer_backend='auto', sm_scale=None, splits=(), decode_tensor_cores=True, decode_fmha=False, sliding_window=None, layers=None), block_size=50), RecurrentStateSpec(resource_key='flow_tails', nodes={'flow'}, config=RecurrentStateConfig(num_layers=1, blocks={'tails': RecurrentBlockConfig(shape=(40, 30, 1024), dtype=None, shard_dims=(), per_layer=False)}, max_slots=64, labels=('main',), disable_sink_slot=False, prefix_slots=0, kv_cache=None))]
+2026-11-16 01:14:01,391 INFO [worker_0] mstar.model.chatterbox.loader: CosyVoice3 flow: loaded 329 parameters
+2026-11-16 01:14:04,348 INFO [worker_0] mstar.model.cosyvoice3.cosyvoice3_model: Loaded CosyVoice3 submodule flow on cuda:0
+2026-11-16 01:14:04,737 INFO [worker_0] mstar.model.chatterbox.loader: CosyVoice3 HiFT: loaded 246 parameters
+2026-11-16 01:14:04,738 INFO [worker_0] mstar.model.cosyvoice3.cosyvoice3_model: Loaded CosyVoice3 submodule hift on cuda:0
+2026-11-16 01:14:05,159 INFO [worker_0] mstar.model.chatterbox.loader: CosyVoice3 LM: loaded 172 parameters
+2026-11-16 01:14:05,161 INFO [worker_0] mstar.model.cosyvoice3.cosyvoice3_model: Loaded CosyVoice3 submodule llm on cuda:0
+2026-11-16 01:14:05,162 INFO [worker_0] mstar.model.cosyvoice3.cosyvoice3_model: Loaded CosyVoice3 submodule speaker_encoder on cuda:0
+2026-11-16 01:14:05,183 INFO [worker_0] mstar.engine.resources.kv.manager: KV lm_kv: 1.31 GiB on this rank, 1792 pages of 64 slots
+2026-11-16 01:14:05,185 INFO [worker_0] mstar.engine.resources.recurrent.pool: recurrent state pool: 128 usable slots (+1 sink, +0 snapshot) x 1 layers, 3.15 MiB (25.04 KiB/slot), blocks={'mel_tail': (80, 80), 'phase_carry': (9,)}
+2026-11-16 01:14:05,187 INFO [worker_0] mstar.engine.resources.kv.manager: KV flow_kv: 41.30 GiB on this rank, 769 pages of 64 slots
+2026-11-16 01:14:05,188 INFO [worker_0] mstar.engine.resources.recurrent.pool: recurrent state pool: 63 usable slots (+1 sink, +0 snapshot) x 1 layers, 150.00 MiB (2400.00 KiB/slot), blocks={'tails': (40, 30, 1024)}
+2026-11-16 01:14:05,198 INFO [worker_0] mstar.worker.engine_manager: Engine loaded on device cuda:0 for nodes ['flow', 'hift', 'llm', 'speaker_encoder']
+2026-11-16 01:14:05,278 INFO [worker_0] mstar.engine.resources.resident: resident planning on llm: 64 slots of 54 cells, 0.0 MiB, walks ['decode']
+2026-11-16 01:14:07,464 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_new_frames bs=8 total_tokens=6400: graph executable memory, 3176 bytes a node, 24 MiB held for the walk's graphs
+2026-11-16 01:15:06,725 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F4200 bs=1 total_tokens=4200: graph executable memory, 3442 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:08,070 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F3400 bs=2 total_tokens=6800: graph executable memory, 3318 bytes a node, 76 MiB held for the walk's graphs
+2026-11-16 01:15:09,971 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F2800 bs=2 total_tokens=5600: graph executable memory, 3167 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:11,947 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F2400 bs=3 total_tokens=7200: graph executable memory, 3318 bytes a node, 76 MiB held for the walk's graphs
+2026-11-16 01:15:14,636 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F2000 bs=4 total_tokens=8000: graph executable memory, 3167 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:17,799 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F1700 bs=4 total_tokens=6800: graph executable memory, 3017 bytes a node, 68 MiB held for the walk's graphs
+2026-11-16 01:15:20,589 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F1400 bs=4 total_tokens=5600: graph executable memory, 3167 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:23,333 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F1200 bs=6 total_tokens=7200: graph executable memory, 3167 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:26,625 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F1000 bs=8 total_tokens=8000: graph executable memory, 3017 bytes a node, 68 MiB held for the walk's graphs
+2026-11-16 01:15:30,319 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F850 bs=8 total_tokens=6800: graph executable memory, 3167 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:33,679 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F700 bs=8 total_tokens=5600: graph executable memory, 3167 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:36,769 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F600 bs=8 total_tokens=4800: graph executable memory, 3167 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:39,683 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F500 bs=8 total_tokens=4000: graph executable memory, 3606 bytes a node, 76 MiB held for the walk's graphs
+2026-11-16 01:15:42,418 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F400 bs=8 total_tokens=3200: graph executable memory, 3167 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:45,063 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F350 bs=8 total_tokens=2800: graph executable memory, 3442 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:47,749 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F300 bs=8 total_tokens=2400: graph executable memory, 3278 bytes a node, 68 MiB held for the walk's graphs
+2026-11-16 01:15:50,439 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F250 bs=8 total_tokens=2000: graph executable memory, 3336 bytes a node, 68 MiB held for the walk's graphs
+2026-11-16 01:15:53,117 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F200 bs=8 total_tokens=1600: graph executable memory, 3442 bytes a node, 72 MiB held for the walk's graphs
+2026-11-16 01:15:55,777 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F150 bs=8 total_tokens=1200: graph executable memory, 3669 bytes a node, 76 MiB held for the walk's graphs
+2026-11-16 01:15:58,401 INFO [worker_0] mstar.engine.accelerator_graph_runner: flow_solve_F100 bs=8 total_tokens=800: graph executable memory, 3669 bytes a node, 76 MiB held for the walk's graphs
+2026-11-16 01:16:00,636 INFO [worker_0] mstar.engine.accelerator_graph_runner: hift_vocode_F400 bs=8 total_tokens=3200: graph executable memory, 4699 bytes a node, 16 MiB held for the walk's graphs
+2026-11-16 01:16:01,104 INFO [worker_0] mstar.engine.accelerator_graph_runner: hift_vocode_F320 bs=8 total_tokens=2560: graph executable memory, 4695 bytes a node, 16 MiB held for the walk's graphs
+2026-11-16 01:16:01,520 INFO [worker_0] mstar.engine.accelerator_graph_runner: hift_vocode_F256 bs=8 total_tokens=2048: graph executable memory, 4699 bytes a node, 16 MiB held for the walk's graphs
+2026-11-16 01:16:01,934 INFO [worker_0] mstar.engine.accelerator_graph_runner: hift_vocode_F192 bs=8 total_tokens=1536: graph executable memory, 4702 bytes a node, 16 MiB held for the walk's graphs
+2026-11-16 01:16:02,336 INFO [worker_0] mstar.engine.accelerator_graph_runner: hift_vocode_F128 bs=8 total_tokens=1024: graph executable memory, 4699 bytes a node, 22 MiB held for the walk's graphs
+2026-11-16 01:16:03,297 INFO [worker_0] mstar.engine.accelerator_graph_runner: llm decode[bs=32,tokens=32] slot=0: graph executable memory, 3223 bytes a node, 14 MiB held for the walk's graphs
+2026-11-16 01:16:03,601 INFO [worker_0] mstar.engine.accelerator_graph_runner: llm prefill_voice[bs=8,tokens=1024] slot=0: graph executable memory, 3490 bytes a node, 26 MiB held for the walk's graphs
+2026-11-16 01:16:06,598 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0]: 88401 MiB free, 1003 for the largest eager step
+2026-11-16 01:16:06,598 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] flow piecewise: 189 of 189 buckets, 1386 MiB predicted, 7363 outside the allocator
+2026-11-16 01:16:06,598 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] hift piecewise: 20 of 20 buckets, 1672 MiB predicted, 120 outside the allocator
+2026-11-16 01:16:06,598 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] llm: 38 of 38 buckets, 270 MiB predicted, 86 outside the allocator
+2026-11-16 01:16:06,598 INFO [worker_0] mstar.engine.resources.attn.workspace: FlashInfer workspaces of lm_kv: 2, 1024 MiB in all
+2026-11-16 01:16:06,598 INFO [worker_0] mstar.engine.resources.attn.workspace: FlashInfer workspaces of flow_kv: 2, 1024 MiB in all
+2026-11-16 01:16:06,598 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[flow]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 01:16:06,599 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] flow: capture took 0 MiB, 0 predicted
+2026-11-16 01:16:06,943 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=6400 (2 slots)
+2026-11-16 01:16:07,301 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=6400 (2 slots)
+2026-11-16 01:16:07,658 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=6400 (2 slots)
+2026-11-16 01:16:08,016 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=6400 (2 slots)
+2026-11-16 01:16:08,370 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=5120 (2 slots)
+2026-11-16 01:16:08,732 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=5120 (2 slots)
+2026-11-16 01:16:09,099 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=5120 (2 slots)
+2026-11-16 01:16:09,462 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=4608 (2 slots)
+2026-11-16 01:16:09,829 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=4608 (2 slots)
+2026-11-16 01:16:10,197 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=4608 (2 slots)
+2026-11-16 01:16:10,568 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=4608 (2 slots)
+2026-11-16 01:16:10,941 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=4096 (2 slots)
+2026-11-16 01:16:11,311 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=4096 (2 slots)
+2026-11-16 01:16:11,678 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=4096 (2 slots)
+2026-11-16 01:16:12,048 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=4096 (2 slots)
+2026-11-16 01:16:12,417 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=3584 (2 slots)
+2026-11-16 01:16:12,787 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=3584 (2 slots)
+2026-11-16 01:16:13,158 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=3584 (2 slots)
+2026-11-16 01:16:13,529 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=3584 (2 slots)
+2026-11-16 01:16:13,892 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=3072 (2 slots)
+2026-11-16 01:16:14,256 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=3072 (2 slots)
+2026-11-16 01:16:14,618 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=3072 (2 slots)
+2026-11-16 01:16:14,981 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=3072 (2 slots)
+2026-11-16 01:16:15,343 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=2816 (2 slots)
+2026-11-16 01:16:15,708 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=2816 (2 slots)
+2026-11-16 01:16:16,077 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=2816 (2 slots)
+2026-11-16 01:16:16,449 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=2816 (2 slots)
+2026-11-16 01:16:16,820 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=2560 (2 slots)
+2026-11-16 01:16:17,190 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=2560 (2 slots)
+2026-11-16 01:16:17,560 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=2560 (2 slots)
+2026-11-16 01:16:17,934 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=2560 (2 slots)
+2026-11-16 01:16:18,311 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=2304 (2 slots)
+2026-11-16 01:16:18,688 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=2304 (2 slots)
+2026-11-16 01:16:19,067 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=2304 (2 slots)
+2026-11-16 01:16:19,441 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=2304 (2 slots)
+2026-11-16 01:16:19,814 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=2048 (2 slots)
+2026-11-16 01:16:20,188 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=2048 (2 slots)
+2026-11-16 01:16:20,563 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=2048 (2 slots)
+2026-11-16 01:16:20,943 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=2048 (2 slots)
+2026-11-16 01:16:21,317 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=1792 (2 slots)
+2026-11-16 01:16:21,696 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=1792 (2 slots)
+2026-11-16 01:16:22,074 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=1792 (2 slots)
+2026-11-16 01:16:22,450 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=1792 (2 slots)
+2026-11-16 01:16:22,828 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=1536 (2 slots)
+2026-11-16 01:16:23,205 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=1536 (2 slots)
+2026-11-16 01:16:23,580 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=1536 (2 slots)
+2026-11-16 01:16:23,952 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=1536 (2 slots)
+2026-11-16 01:16:24,323 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=1408 (2 slots)
+2026-11-16 01:16:24,695 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=1408 (2 slots)
+2026-11-16 01:16:25,068 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=1408 (2 slots)
+2026-11-16 01:16:25,440 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=1408 (2 slots)
+2026-11-16 01:16:25,819 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=1280 (2 slots)
+2026-11-16 01:16:26,187 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=1280 (2 slots)
+2026-11-16 01:16:26,555 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=1280 (2 slots)
+2026-11-16 01:16:26,920 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=1280 (2 slots)
+2026-11-16 01:16:27,292 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=1152 (2 slots)
+2026-11-16 01:16:27,660 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=1152 (2 slots)
+2026-11-16 01:16:28,032 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=1152 (2 slots)
+2026-11-16 01:16:28,399 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=1152 (2 slots)
+2026-11-16 01:16:28,768 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=1024 (2 slots)
+2026-11-16 01:16:29,143 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=1024 (2 slots)
+2026-11-16 01:16:29,517 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=1024 (2 slots)
+2026-11-16 01:16:29,893 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=1024 (2 slots)
+2026-11-16 01:16:30,269 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=896 (2 slots)
+2026-11-16 01:16:30,648 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=896 (2 slots)
+2026-11-16 01:16:31,029 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=896 (2 slots)
+2026-11-16 01:16:31,413 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=896 (2 slots)
+2026-11-16 01:16:31,805 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=768 (2 slots)
+2026-11-16 01:16:32,180 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=768 (2 slots)
+2026-11-16 01:16:32,553 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=768 (2 slots)
+2026-11-16 01:16:32,931 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=768 (2 slots)
+2026-11-16 01:16:33,305 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=640 (2 slots)
+2026-11-16 01:16:33,678 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=640 (2 slots)
+2026-11-16 01:16:34,049 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=640 (2 slots)
+2026-11-16 01:16:34,421 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=640 (2 slots)
+2026-11-16 01:16:34,796 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=512 (2 slots)
+2026-11-16 01:16:35,171 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=512 (2 slots)
+2026-11-16 01:16:35,548 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=512 (2 slots)
+2026-11-16 01:16:35,925 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=512 (2 slots)
+2026-11-16 01:16:36,305 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=384 (2 slots)
+2026-11-16 01:16:36,691 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=384 (2 slots)
+2026-11-16 01:16:37,076 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=384 (2 slots)
+2026-11-16 01:16:37,467 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=384 (2 slots)
+2026-11-16 01:16:37,866 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=256 (2 slots)
+2026-11-16 01:16:38,260 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=256 (2 slots)
+2026-11-16 01:16:38,640 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=256 (2 slots)
+2026-11-16 01:16:39,019 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=256 (2 slots)
+2026-11-16 01:16:39,398 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=128 (2 slots)
+2026-11-16 01:16:39,780 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=4 total_tokens=128 (2 slots)
+2026-11-16 01:16:40,156 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=2 total_tokens=128 (2 slots)
+2026-11-16 01:16:40,536 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=1 total_tokens=128 (2 slots)
+2026-11-16 01:16:40,969 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_new_frames]: captured bs=8 total_tokens=5120 (2 slots)
+2026-11-16 01:16:41,223 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F4200]: captured bs=1 total_tokens=4200 (1 slots)
+2026-11-16 01:16:41,473 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F3400]: captured bs=2 total_tokens=6800 (1 slots)
+2026-11-16 01:16:41,668 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F3400]: captured bs=1 total_tokens=3400 (1 slots)
+2026-11-16 01:16:41,889 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2800]: captured bs=2 total_tokens=5600 (1 slots)
+2026-11-16 01:16:42,083 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2800]: captured bs=1 total_tokens=2800 (1 slots)
+2026-11-16 01:16:42,301 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2400]: captured bs=3 total_tokens=7200 (1 slots)
+2026-11-16 01:16:42,493 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2400]: captured bs=1 total_tokens=2400 (1 slots)
+2026-11-16 01:16:42,696 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2400]: captured bs=2 total_tokens=4800 (1 slots)
+2026-11-16 01:16:42,917 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2000]: captured bs=4 total_tokens=8000 (1 slots)
+2026-11-16 01:16:43,109 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2000]: captured bs=2 total_tokens=4000 (1 slots)
+2026-11-16 01:16:43,336 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2000]: captured bs=1 total_tokens=2000 (1 slots)
+2026-11-16 01:16:43,572 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F2000]: captured bs=3 total_tokens=6000 (1 slots)
+2026-11-16 01:16:43,790 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1700]: captured bs=4 total_tokens=6800 (1 slots)
+2026-11-16 01:16:43,987 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1700]: captured bs=2 total_tokens=3400 (1 slots)
+2026-11-16 01:16:44,214 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1700]: captured bs=1 total_tokens=1700 (1 slots)
+2026-11-16 01:16:44,457 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1700]: captured bs=3 total_tokens=5100 (1 slots)
+2026-11-16 01:16:44,672 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1400]: captured bs=4 total_tokens=5600 (1 slots)
+2026-11-16 01:16:44,868 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1400]: captured bs=2 total_tokens=2800 (1 slots)
+2026-11-16 01:16:45,093 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1400]: captured bs=1 total_tokens=1400 (1 slots)
+2026-11-16 01:16:45,326 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1400]: captured bs=3 total_tokens=4200 (1 slots)
+2026-11-16 01:16:45,545 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1200]: captured bs=6 total_tokens=7200 (1 slots)
+2026-11-16 01:16:45,742 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1200]: captured bs=3 total_tokens=3600 (1 slots)
+2026-11-16 01:16:45,974 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1200]: captured bs=2 total_tokens=2400 (1 slots)
+2026-11-16 01:16:46,208 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1200]: captured bs=1 total_tokens=1200 (1 slots)
+2026-11-16 01:16:46,451 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1200]: captured bs=4 total_tokens=4800 (1 slots)
+2026-11-16 01:16:46,673 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1000]: captured bs=8 total_tokens=8000 (1 slots)
+2026-11-16 01:16:46,865 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1000]: captured bs=4 total_tokens=4000 (1 slots)
+2026-11-16 01:16:47,096 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1000]: captured bs=3 total_tokens=3000 (1 slots)
+2026-11-16 01:16:47,329 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1000]: captured bs=2 total_tokens=2000 (1 slots)
+2026-11-16 01:16:47,559 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1000]: captured bs=1 total_tokens=1000 (1 slots)
+2026-11-16 01:16:47,805 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F1000]: captured bs=6 total_tokens=6000 (1 slots)
+2026-11-16 01:16:48,024 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F850]: captured bs=8 total_tokens=6800 (1 slots)
+2026-11-16 01:16:48,222 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F850]: captured bs=4 total_tokens=3400 (1 slots)
+2026-11-16 01:16:48,455 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F850]: captured bs=3 total_tokens=2550 (1 slots)
+2026-11-16 01:16:48,690 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F850]: captured bs=2 total_tokens=1700 (1 slots)
+2026-11-16 01:16:48,925 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F850]: captured bs=1 total_tokens=850 (1 slots)
+2026-11-16 01:16:49,168 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F850]: captured bs=6 total_tokens=5100 (1 slots)
+2026-11-16 01:16:49,392 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F700]: captured bs=8 total_tokens=5600 (1 slots)
+2026-11-16 01:16:49,593 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F700]: captured bs=4 total_tokens=2800 (1 slots)
+2026-11-16 01:16:49,831 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F700]: captured bs=3 total_tokens=2100 (1 slots)
+2026-11-16 01:16:50,067 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F700]: captured bs=2 total_tokens=1400 (1 slots)
+2026-11-16 01:16:50,306 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F700]: captured bs=1 total_tokens=700 (1 slots)
+2026-11-16 01:16:50,547 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F700]: captured bs=6 total_tokens=4200 (1 slots)
+2026-11-16 01:16:50,770 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F600]: captured bs=8 total_tokens=4800 (1 slots)
+2026-11-16 01:16:50,971 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F600]: captured bs=4 total_tokens=2400 (1 slots)
+2026-11-16 01:16:51,209 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F600]: captured bs=3 total_tokens=1800 (1 slots)
+2026-11-16 01:16:51,449 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F600]: captured bs=2 total_tokens=1200 (1 slots)
+2026-11-16 01:16:51,686 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F600]: captured bs=1 total_tokens=600 (1 slots)
+2026-11-16 01:16:51,923 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F600]: captured bs=6 total_tokens=3600 (1 slots)
+2026-11-16 01:16:52,136 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F500]: captured bs=8 total_tokens=4000 (1 slots)
+2026-11-16 01:16:52,336 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F500]: captured bs=4 total_tokens=2000 (1 slots)
+2026-11-16 01:16:52,572 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F500]: captured bs=3 total_tokens=1500 (1 slots)
+2026-11-16 01:16:52,811 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F500]: captured bs=2 total_tokens=1000 (1 slots)
+2026-11-16 01:16:53,045 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F500]: captured bs=1 total_tokens=500 (1 slots)
+2026-11-16 01:16:53,286 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F500]: captured bs=6 total_tokens=3000 (1 slots)
+2026-11-16 01:16:53,510 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F400]: captured bs=8 total_tokens=3200 (1 slots)
+2026-11-16 01:16:53,710 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F400]: captured bs=4 total_tokens=1600 (1 slots)
+2026-11-16 01:16:53,951 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F400]: captured bs=3 total_tokens=1200 (1 slots)
+2026-11-16 01:16:54,191 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F400]: captured bs=2 total_tokens=800 (1 slots)
+2026-11-16 01:16:54,431 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F400]: captured bs=1 total_tokens=400 (1 slots)
+2026-11-16 01:16:54,674 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F400]: captured bs=6 total_tokens=2400 (1 slots)
+2026-11-16 01:16:54,899 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F350]: captured bs=8 total_tokens=2800 (1 slots)
+2026-11-16 01:16:55,100 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F350]: captured bs=4 total_tokens=1400 (1 slots)
+2026-11-16 01:16:55,343 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F350]: captured bs=3 total_tokens=1050 (1 slots)
+2026-11-16 01:16:55,582 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F350]: captured bs=2 total_tokens=700 (1 slots)
+2026-11-16 01:16:55,823 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F350]: captured bs=1 total_tokens=350 (1 slots)
+2026-11-16 01:16:56,064 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F350]: captured bs=6 total_tokens=2100 (1 slots)
+2026-11-16 01:16:56,282 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F300]: captured bs=8 total_tokens=2400 (1 slots)
+2026-11-16 01:16:56,481 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F300]: captured bs=4 total_tokens=1200 (1 slots)
+2026-11-16 01:16:56,719 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F300]: captured bs=3 total_tokens=900 (1 slots)
+2026-11-16 01:16:56,960 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F300]: captured bs=2 total_tokens=600 (1 slots)
+2026-11-16 01:16:57,198 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F300]: captured bs=1 total_tokens=300 (1 slots)
+2026-11-16 01:16:57,440 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F300]: captured bs=6 total_tokens=1800 (1 slots)
+2026-11-16 01:16:57,658 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F250]: captured bs=8 total_tokens=2000 (1 slots)
+2026-11-16 01:16:57,856 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F250]: captured bs=4 total_tokens=1000 (1 slots)
+2026-11-16 01:16:58,093 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F250]: captured bs=3 total_tokens=750 (1 slots)
+2026-11-16 01:16:58,333 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F250]: captured bs=2 total_tokens=500 (1 slots)
+2026-11-16 01:16:58,574 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F250]: captured bs=1 total_tokens=250 (1 slots)
+2026-11-16 01:16:58,810 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F250]: captured bs=6 total_tokens=1500 (1 slots)
+2026-11-16 01:16:59,029 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F200]: captured bs=8 total_tokens=1600 (1 slots)
+2026-11-16 01:16:59,225 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F200]: captured bs=4 total_tokens=800 (1 slots)
+2026-11-16 01:16:59,467 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F200]: captured bs=3 total_tokens=600 (1 slots)
+2026-11-16 01:16:59,704 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F200]: captured bs=2 total_tokens=400 (1 slots)
+2026-11-16 01:16:59,942 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F200]: captured bs=1 total_tokens=200 (1 slots)
+2026-11-16 01:17:00,181 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F200]: captured bs=6 total_tokens=1200 (1 slots)
+2026-11-16 01:17:00,400 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F150]: captured bs=8 total_tokens=1200 (1 slots)
+2026-11-16 01:17:00,600 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F150]: captured bs=4 total_tokens=600 (1 slots)
+2026-11-16 01:17:00,839 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F150]: captured bs=3 total_tokens=450 (1 slots)
+2026-11-16 01:17:01,079 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F150]: captured bs=2 total_tokens=300 (1 slots)
+2026-11-16 01:17:01,319 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F150]: captured bs=1 total_tokens=150 (1 slots)
+2026-11-16 01:17:01,563 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F150]: captured bs=6 total_tokens=900 (1 slots)
+2026-11-16 01:17:01,783 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F100]: captured bs=8 total_tokens=800 (1 slots)
+2026-11-16 01:17:01,979 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F100]: captured bs=4 total_tokens=400 (1 slots)
+2026-11-16 01:17:02,222 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F100]: captured bs=3 total_tokens=300 (1 slots)
+2026-11-16 01:17:02,464 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F100]: captured bs=2 total_tokens=200 (1 slots)
+2026-11-16 01:17:02,708 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F100]: captured bs=1 total_tokens=100 (1 slots)
+2026-11-16 01:17:02,951 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[flow_solve_F100]: captured bs=6 total_tokens=600 (1 slots)
+2026-11-16 01:17:02,952 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] flow piecewise: capture took 1252 MiB, 1386 predicted
+2026-11-16 01:17:02,952 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[hift]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 01:17:02,952 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] hift: capture took 0 MiB, 0 predicted
+2026-11-16 01:17:02,978 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F400]: captured bs=8 total_tokens=3200 (1 slots)
+2026-11-16 01:17:02,995 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F400]: captured bs=2 total_tokens=800 (1 slots)
+2026-11-16 01:17:03,030 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F400]: captured bs=1 total_tokens=400 (1 slots)
+2026-11-16 01:17:03,065 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F400]: captured bs=4 total_tokens=1600 (1 slots)
+2026-11-16 01:17:03,088 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F320]: captured bs=8 total_tokens=2560 (1 slots)
+2026-11-16 01:17:03,105 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F320]: captured bs=2 total_tokens=640 (1 slots)
+2026-11-16 01:17:03,139 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F320]: captured bs=1 total_tokens=320 (1 slots)
+2026-11-16 01:17:03,173 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F320]: captured bs=4 total_tokens=1280 (1 slots)
+2026-11-16 01:17:03,194 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F256]: captured bs=8 total_tokens=2048 (1 slots)
+2026-11-16 01:17:03,212 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F256]: captured bs=2 total_tokens=512 (1 slots)
+2026-11-16 01:17:03,244 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F256]: captured bs=1 total_tokens=256 (1 slots)
+2026-11-16 01:17:03,262 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F256]: captured bs=4 total_tokens=1024 (1 slots)
+2026-11-16 01:17:03,299 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F192]: captured bs=8 total_tokens=1536 (1 slots)
+2026-11-16 01:17:03,333 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F192]: captured bs=2 total_tokens=384 (1 slots)
+2026-11-16 01:17:03,350 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F192]: captured bs=1 total_tokens=192 (1 slots)
+2026-11-16 01:17:03,367 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F192]: captured bs=4 total_tokens=768 (1 slots)
+2026-11-16 01:17:03,406 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F128]: captured bs=8 total_tokens=1024 (1 slots)
+2026-11-16 01:17:03,423 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F128]: captured bs=2 total_tokens=256 (1 slots)
+2026-11-16 01:17:03,455 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F128]: captured bs=1 total_tokens=128 (1 slots)
+2026-11-16 01:17:03,471 INFO [worker_0] mstar.engine.accelerator_graph_runner: PiecewiseAcceleratorGraphRunner[hift_vocode_F128]: captured bs=4 total_tokens=512 (1 slots)
+2026-11-16 01:17:03,472 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] hift piecewise: capture took 1610 MiB, 1672 predicted
+2026-11-16 01:17:03,530 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=8,tokens=1024] (2 slots)
+2026-11-16 01:17:03,571 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=8,tokens=512] (2 slots)
+2026-11-16 01:17:03,627 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=8,tokens=384] (2 slots)
+2026-11-16 01:17:03,684 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=8,tokens=256] (2 slots)
+2026-11-16 01:17:03,724 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=8,tokens=192] (2 slots)
+2026-11-16 01:17:03,763 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=8,tokens=128] (2 slots)
+2026-11-16 01:17:03,803 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=8,tokens=64] (2 slots)
+2026-11-16 01:17:03,844 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=4,tokens=1024] (2 slots)
+2026-11-16 01:17:03,898 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=4,tokens=768] (2 slots)
+2026-11-16 01:17:03,936 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=4,tokens=512] (2 slots)
+2026-11-16 01:17:03,975 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=4,tokens=384] (2 slots)
+2026-11-16 01:17:04,016 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=4,tokens=256] (2 slots)
+2026-11-16 01:17:04,054 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=4,tokens=192] (2 slots)
+2026-11-16 01:17:04,109 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=4,tokens=128] (2 slots)
+2026-11-16 01:17:04,149 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=4,tokens=64] (2 slots)
+2026-11-16 01:17:04,187 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=2,tokens=1024] (2 slots)
+2026-11-16 01:17:04,225 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=2,tokens=768] (2 slots)
+2026-11-16 01:17:04,263 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=2,tokens=512] (2 slots)
+2026-11-16 01:17:04,318 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=2,tokens=384] (2 slots)
+2026-11-16 01:17:04,359 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=2,tokens=256] (2 slots)
+2026-11-16 01:17:04,399 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=2,tokens=192] (2 slots)
+2026-11-16 01:17:04,440 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=2,tokens=128] (2 slots)
+2026-11-16 01:17:04,480 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=2,tokens=64] (2 slots)
+2026-11-16 01:17:04,536 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=1,tokens=1024] (2 slots)
+2026-11-16 01:17:04,577 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=1,tokens=768] (2 slots)
+2026-11-16 01:17:04,617 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=1,tokens=512] (2 slots)
+2026-11-16 01:17:04,657 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=1,tokens=384] (2 slots)
+2026-11-16 01:17:04,699 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=1,tokens=256] (2 slots)
+2026-11-16 01:17:04,756 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=1,tokens=192] (2 slots)
+2026-11-16 01:17:04,811 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=1,tokens=128] (2 slots)
+2026-11-16 01:17:04,869 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=1,tokens=64] (2 slots)
+2026-11-16 01:17:04,908 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: prefill_voice[bs=8,tokens=768] (2 slots)
+2026-11-16 01:17:04,950 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: decode[bs=32,tokens=32] (2 slots)
+2026-11-16 01:17:05,026 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: decode[bs=8,tokens=8] (2 slots)
+2026-11-16 01:17:05,064 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: decode[bs=4,tokens=4] (2 slots)
+2026-11-16 01:17:05,103 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: decode[bs=2,tokens=2] (2 slots)
+2026-11-16 01:17:05,142 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: decode[bs=1,tokens=1] (2 slots)
+2026-11-16 01:17:05,183 INFO [worker_0] mstar.engine.accelerator_graph_runner: Captured accelerator graph for llm: decode[bs=16,tokens=16] (2 slots)
+2026-11-16 01:17:05,186 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[llm]: warmup_and_capture done. shared_static_buffers: 24 entries, 1.81 MB resident (would have been 91.52 MB with per-capture clones — saved 89.71 MB). Total accelerator alloc delta during warmup: 0.27 MB.
+2026-11-16 01:17:05,186 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] llm: capture took 90 MiB, 270 predicted
+2026-11-16 01:17:05,186 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] llm piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 01:17:05,187 INFO [worker_0] mstar.engine.accelerator_graph_runner: AcceleratorGraphRunner[speaker_encoder]: warmup_and_capture done. shared_static_buffers: 0 entries, 0.00 MB resident (would have been 0.00 MB with per-capture clones — saved 0.00 MB). Total accelerator alloc delta during warmup: 0.00 MB.
+2026-11-16 01:17:05,187 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] speaker_encoder: capture took 0 MiB, 0 predicted
+2026-11-16 01:17:05,187 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0] speaker_encoder piecewise: capture took 0 MiB, 0 predicted
+2026-11-16 01:17:05,187 INFO [worker_0] mstar.engine.engine: CapturePlan[cuda:0]: 80203 MiB free after capture, 1003 for the largest eager step
+2026-11-16 01:17:05,187 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for flow (submodule opt-out)
+2026-11-16 01:17:05,188 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for hift (submodule opt-out)
+2026-11-16 01:17:05,188 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for llm (submodule opt-out)
+2026-11-16 01:17:05,188 INFO [worker_0] mstar.engine.engine: Engine: torch.compile disabled for speaker_encoder (submodule opt-out)
+2026-11-16 01:17:05,699 INFO [worker_0] mstar.worker.worker: Worker worker_0: gc.freeze() after warmup — 679726 objects moved to the permanent generation
+2026-11-16 01:17:05,701 INFO [worker_0] mstar.worker.step_executor: Worker worker_0: engine runs on dedicated GPU thread
+2026-11-16 01:17:05,701 INFO [worker_0] mstar.worker.step_executor: Worker worker_0: plan_executor enabled — speculative plan() pre-runs on a dedicated thread
+2026-11-16 01:17:05,705 INFO [conductor] mstar.conductor.conductor: Conductor: all 1 worker(s) ready
+2026-11-16 01:17:05,899 INFO [conductor] mstar.utils.gc_freeze: Conductor: gc.freeze() after setup, 419591 objects in the permanent generation
+2026-11-16 01:17:05,908 INFO [api_server] mstar.api_server.entrypoint: All workers ready
+2026-11-16 01:17:06,111 INFO [api_server] mstar.utils.gc_freeze: API server: gc.freeze() after setup, 419263 objects in the permanent generation
+2026-11-16 01:17:06,116 INFO [api_server] mstar.api_server.rust_frontend: Rust frontend started (pid=41402, port=18801)
+2026-11-16 01:17:06,116 INFO [api_server] mstar.api_server.entrypoint: Starting mstar API server (mstar-server) on port 18801
+2026-11-16 01:17:06,117 INFO [api_server] mstar.api_server.rust_frontend: Rust-frontend bridge serving
+bridging to conductor at /tmp/mstar_rust_frontend_byf84nhy
+compressed speech output (mp3, flac, opus) through /home/bench/praxis/mstar-venv/lib/python3.12/site-packages/_soundfile_data/libsndfile_x86_64.so
+WARNING: no API key set (--api-key or MSTAR_API_KEY): any client that can reach 0.0.0.0:18801 can run requests. Set a key, or bind --host 127.0.0.1, unless a gateway in front of this server authenticates clients.
+mstar-server (Rust frontend) for model "cosyvoice3" on http://0.0.0.0:18801

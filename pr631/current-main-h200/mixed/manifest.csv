@@ -1,0 +1,7 @@
+pair,order,arm,c1,c8
+1,1,main,main-1/c1.json,main-1/c8.json
+1,2,pr,pr-1/c1.json,pr-1/c8.json
+2,3,pr,pr-2/c1.json,pr-2/c8.json
+2,4,main,main-2/c1.json,main-2/c8.json
+3,5,main,main-3/c1.json,main-3/c8.json
+3,6,pr,pr-3/c1.json,pr-3/c8.json

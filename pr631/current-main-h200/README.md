@@ -1,0 +1,11 @@
+# CosyVoice3 #631 current-head H200 checks
+
+Compared upstream main `2c8ffde8f7fd321c29aad3d1aad3e8cc8e8dc175` with PR head `f6edfa83a5f3737534d3b408c8d598a552514e19` on one NVIDIA H200 (driver 580.173.02). The Rust frontend binaries had source hashes `5651ef713b0c03f5 a9e6eb590375b03c` and `5651ef713b0c03f5 9efe4d345ce3664a`, respectively. The Python source trees were checked against those commits. Both arms used the same checkpoint, config, seed 7, `zero_shot` voice, and environment. Torch was `2.12.1+cu132`; the installed TorchAudio wheel metadata was `2.11.0+cu132` from PyTorch's test wheel index, although its runtime `__version__` reported `2.11.0+cu130`. `TORCHDYNAMO_DISABLE=1` and `MSTAR_SHM_ARENA=1` were set for both arms.
+
+`mixed/` has six fresh-server starts in main, PR, PR, main, main, PR order. The c1 set has 27 prompts. The c8 set has 79 nonblank prompts, including 33 with digits. The PR changes spoken text for numbers, so generated audio duration and c8 queue load can differ. See the plot and `summary.md` for paired TTFA, throughput, total audio duration, and wall time. This is an end-to-end comparison, not an isolated measure of frontend overhead.
+
+`digitfree/` has a separate four-start c8 ABBA comparison with 46 prompts containing no digits. A CPU check found the normalized text and chunk lists identical between the two branches for all 46. Its `chart.py` records per-request PCM byte counts and audio durations; differences mean the measured latency cannot be read as isolated frontend overhead. The raw comparison CSV makes those differences visible.
+
+All measured requests completed without errors. In the digit-free runs, 10 of 92 matched main/PR request lengths differed, and 13 of 92 lengths differed between repeat starts of the same arm. The chart reports these counts and the corresponding latency measurements without attributing them to frontend cost.
+
+Each directory contains the exact input text, server config, run and chart scripts, manifest, raw per-request JSON, and server logs. To regenerate a figure, install Matplotlib and run the directory's `chart.py --help` for its required arguments. The JSON reports and CSVs retain all measured requests and pairs; the PNG/SVG files are for reading the comparison quickly.

@@ -1,0 +1,20 @@
+started 'issue631plain' pid 37103, log /tmp/servers_bench/issue631plain.log
+'issue631plain' ready on 18801 after 199s (listener pid 38143)
+warmup: 16 requests
+repeat 0: 46 req, 0 errors, TTFA p50 504 ms p95 818 ms, RTF 0.239, 34.8 audio-s/s, wall 15.4 s
+| main-c8-plain | c=8 | TTFA p50 504 ms / p95 818 ms | RTF 0.239 | 34.8 audio-s/s | e2e p50 2.19 s | errors 0 |
+started 'issue631plain' pid 38543, log /tmp/servers_bench/issue631plain.log
+'issue631plain' ready on 18801 after 198s (listener pid 39517)
+warmup: 16 requests
+repeat 0: 46 req, 0 errors, TTFA p50 507 ms p95 734 ms, RTF 0.238, 35.1 audio-s/s, wall 15.3 s
+| pr-c8-plain | c=8 | TTFA p50 507 ms / p95 734 ms | RTF 0.238 | 35.1 audio-s/s | e2e p50 2.23 s | errors 0 |
+started 'issue631plain' pid 39683, log /tmp/servers_bench/issue631plain.log
+'issue631plain' ready on 18801 after 201s (listener pid 41402)
+warmup: 16 requests
+repeat 0: 46 req, 0 errors, TTFA p50 506 ms p95 730 ms, RTF 0.240, 33.8 audio-s/s, wall 14.8 s
+| pr-c8-plain | c=8 | TTFA p50 506 ms / p95 730 ms | RTF 0.240 | 33.8 audio-s/s | e2e p50 2.14 s | errors 0 |
+started 'issue631plain' pid 41552, log /tmp/servers_bench/issue631plain.log
+'issue631plain' ready on 18801 after 205s (listener pid 42510)
+warmup: 16 requests
+repeat 0: 46 req, 0 errors, TTFA p50 503 ms p95 722 ms, RTF 0.235, 34.9 audio-s/s, wall 15.3 s
+| main-c8-plain | c=8 | TTFA p50 503 ms / p95 722 ms | RTF 0.235 | 34.9 audio-s/s | e2e p50 2.28 s | errors 0 |
