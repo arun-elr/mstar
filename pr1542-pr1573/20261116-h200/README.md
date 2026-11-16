@@ -15,6 +15,10 @@ The tokenizer used `canopylabs/orpheus-3b-0.1-pretrained@bf0cce99761b2f5857b3d85
 
 Both frontends returned 401 without a key, 200 for pause, 409 when checking weights while running, 200 for a paused checksum and matching compare, 409 for a deliberately wrong digest, and 400 for a checkpoint outside the allowlist. In-place reload of the **same** published checkpoint to version `v2` returned 200, then a second checksum matched the first; resume and the reported version were 200. One reload sample took 3.980 s on Python and 3.972 s on Rust. `/v1/audio/speech` returned a valid 24 kHz WAV before and after reload on both frontends; the files are in `audio/`. The deterministic request produced equal lengths and near-identical, non-byte-identical samples. No audio quality judgment is inferred from this check.
 
+The three successful weight-checker calls per frontend took 7.672-8.020 s each. [This chart](weight-checker-latency.svg) plots those individual calls from the raw JSON; `plot_checker_latency.py` regenerates it. These are functional-probe wall times, not a repeated benchmark or serving-throughput result.
+
+The live script wrote a before-reload speech result to JSON, then overwrote that field on subsequent requests. The four original WAV files are intact. `audio_artifacts.json` records their hashes, sizes, sample rates and durations computed after the run; it does not reconstruct an HTTP status or timing from a file.
+
 Qwen3.5-0.8B at Hub revision `2fc06364715b967f1860aea9cf38778875588b17` was also tested for auth, pause, checksum, comparison and resume on both frontends. Reload returned 400 with `Qwen3_5DenseModel does not support reloading weights in place`, as expected for that model.
 
 The tested head emitted a Python logging `TypeError` while reporting the number of KV pages freed because it formatted a returned list with `%d`. The reload itself committed version `v2` and served after this logging error. The follow-up #845 fix was not included in this GPU run.

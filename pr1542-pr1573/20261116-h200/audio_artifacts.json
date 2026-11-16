@@ -1,0 +1,37 @@
+{
+  "derivation": "Calculated after the live run from the four saved WAV files; the live JSON accidentally omitted the before-reload speech fields. No HTTP timing is inferred from these files.",
+  "files": {
+    "pr1573-python-orpheus-after.wav": {
+      "sha256": "c29e42d8575d1709339aa942331129b005e40a1f5fc64f9af8fc6f7ac79bb765",
+      "bytes": 102444,
+      "channels": 1,
+      "sample_rate_hz": 24000,
+      "frames": 51200,
+      "duration_s": 2.133333
+    },
+    "pr1573-python-orpheus-before.wav": {
+      "sha256": "1cee94d98aca67fd7d23363ce95f68e8985e4321a2228e69ce2d187ff7219251",
+      "bytes": 102444,
+      "channels": 1,
+      "sample_rate_hz": 24000,
+      "frames": 51200,
+      "duration_s": 2.133333
+    },
+    "pr1573-rust-orpheus-after.wav": {
+      "sha256": "54e46dc24a9862ae63ce1465b0ab8c924ec539873bbc3c7696c2491ddf48cd43",
+      "bytes": 102444,
+      "channels": 1,
+      "sample_rate_hz": 24000,
+      "frames": 51200,
+      "duration_s": 2.133333
+    },
+    "pr1573-rust-orpheus-before.wav": {
+      "sha256": "dba19562e67c5d4b33d7fcd7cc41bdbbc69fe07777e61f894106fc17e0fae503",
+      "bytes": 102444,
+      "channels": 1,
+      "sample_rate_hz": 24000,
+      "frames": 51200,
+      "duration_s": 2.133333
+    }
+  }
+}
