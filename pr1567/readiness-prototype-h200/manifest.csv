@@ -1,0 +1,5 @@
+pair,order,arm,burst,sweep_dir
+1,1,pr,pr-1/burst.json,pr-1/sweep
+1,2,proto,proto-1/burst.json,proto-1/sweep
+2,3,proto,proto-2/burst.json,proto-2/sweep
+2,4,pr,pr-2/burst.json,pr-2/sweep

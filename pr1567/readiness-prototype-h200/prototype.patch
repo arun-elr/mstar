@@ -1,0 +1,92 @@
+diff --git a/mstar/worker/speculation.py b/mstar/worker/speculation.py
+index fe59caa930..3a6699095c 100644
+--- a/mstar/worker/speculation.py
++++ b/mstar/worker/speculation.py
+@@ -1182 +1182,7 @@ class Speculator:
+-            must_yield_away = self._since_other >= self._max_consecutive or other_ready
++            at_cap = self._since_other >= self._max_consecutive
++            # With the peek disabled, check readiness at the cap. Keep the
++            # count saturated so a newly ready key gets the next turn.
++            cap_yields = at_cap and (
++                self._peek or self.scheduler.has_ready_excluding(chain_key)
++            )
++            must_yield_away = other_ready or cap_yields
+diff --git a/test/modular/test_spec_chain_key.py b/test/modular/test_spec_chain_key.py
+index 9afce3d8d3..a5b2f91c14 100644
+--- a/test/modular/test_spec_chain_key.py
++++ b/test/modular/test_spec_chain_key.py
+@@ -215,0 +216,74 @@ def test_another_capture_group_keeps_the_default_peek_cadence():
++
++
++def test_the_cap_keeps_speculating_when_no_other_key_is_ready():
++    target = SpeculationTarget(SimpleNamespace(node_name="LLM", graph_walk="decode"), [0, 1])
++    step = _chain_step()
++    speculator, peeked, excluded = _speculator(
++        target, other_ready=False, speculation=step, peek=False,
++    )
++    speculator._since_other = speculator._max_consecutive
++
++    launched, yielded_from = speculator.build(_pending())
++
++    assert launched is step and yielded_from is None
++    assert peeked == [("LLM", "decode")]
++    assert excluded == []
++
++
++def test_the_saturated_cap_yields_when_another_key_becomes_ready():
++    target = SpeculationTarget(SimpleNamespace(node_name="LLM", graph_walk="decode"), [0, 1])
++    step = _chain_step()
++    speculator, peeked, excluded = _speculator(
++        target, other_ready=False, speculation=step, peek=False,
++    )
++    ready = [False]
++    speculator.scheduler.has_ready_excluding = (
++        lambda key, among=None: peeked.append(key) or ready[0]
++    )
++    speculator._since_other = speculator._max_consecutive
++
++    launched, yielded_from = speculator.build(_pending())
++    assert launched is step and yielded_from is None
++    speculator.note_launched(launched)
++    assert speculator._since_other > speculator._max_consecutive
++
++    ready[0] = True
++    launched, yielded_from = speculator.build(_pending())
++    assert launched is None and yielded_from == ("LLM", "decode")
++    assert peeked == [("LLM", "decode"), ("LLM", "decode")]
++    assert excluded == [("LLM", "decode")]
++
++
++def test_a_same_key_capture_group_still_runs_at_the_cap():
++    target = SpeculationTarget(SimpleNamespace(node_name="LLM", graph_walk="decode"), [0, 1])
++    speculator, peeked, excluded = _speculator(target, other_ready=False, peek=False)
++    speculator._since_other = speculator._max_consecutive
++    batch = SimpleNamespace(node_name="LLM", graph_walk="decode", tp_seq=-1)
++    same_group = SimpleNamespace(
++        is_yield_away=True, gave_way=False, scheduled_batch=batch,
++        node_batch=SimpleNamespace(),
++    )
++    speculator.scheduler.next_batch = (
++        lambda exclude_target: excluded.append(exclude_target) or batch
++    )
++    speculator._yield_away_speculation = lambda picked: same_group
++    speculator.lockstep.broadcast = lambda node_batch: -1
++
++    launched, yielded_from = speculator.build(_pending())
++    assert launched is same_group and yielded_from is None
++    assert peeked == [("LLM", "decode")]
++    assert excluded == [None]
++    speculator.note_launched(launched)
++    assert speculator._since_other > speculator._max_consecutive
++
++
++def test_the_default_peek_still_yields_unconditionally_at_the_cap():
++    target = SpeculationTarget(SimpleNamespace(node_name="LLM", graph_walk="decode"), [0, 1])
++    speculator, peeked, excluded = _speculator(target, other_ready=False, peek=True)
++    speculator._since_other = speculator._max_consecutive
++
++    launched, yielded_from = speculator.build(_pending())
++
++    assert launched is None and yielded_from == ("LLM", "decode")
++    assert peeked == []
++    assert excluded == [("LLM", "decode")]

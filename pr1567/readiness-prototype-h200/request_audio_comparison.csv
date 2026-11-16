@@ -1,0 +1,613 @@
+comparison,cell,request_id,first_arm,first_order,second_arm,second_order,first_audio_s,second_audio_s,delta_audio_s,equal
+"pair 1, PR vs prototype",burst,long,pr,1,proto,2,36.72,36.72,0.0,True
+"pair 1, PR vs prototype",burst,short-0,pr,1,proto,2,2.24,2.24,0.0,True
+"pair 1, PR vs prototype",burst,short-1,pr,1,proto,2,2.8,2.36,-0.43999999999999995,False
+"pair 1, PR vs prototype",burst,short-2,pr,1,proto,2,3.0,2.92,-0.08000000000000007,False
+"pair 1, PR vs prototype",burst,short-3,pr,1,proto,2,1.76,1.84,0.08000000000000007,False
+"pair 1, PR vs prototype",burst,short-4,pr,1,proto,2,2.48,2.16,-0.31999999999999984,False
+"pair 1, PR vs prototype",burst,short-5,pr,1,proto,2,2.2,2.04,-0.16000000000000014,False
+"pair 1, PR vs prototype",burst,short-6,pr,1,proto,2,2.6,2.52,-0.08000000000000007,False
+"pair 1, PR vs prototype",burst,short-7,pr,1,proto,2,2.36,2.52,0.16000000000000014,False
+"pair 1, PR vs prototype",c8,0,pr,1,proto,2,5.4,5.56,0.15999999999999925,False
+"pair 1, PR vs prototype",c8,1,pr,1,proto,2,3.0,2.92,-0.08000000000000007,False
+"pair 1, PR vs prototype",c8,2,pr,1,proto,2,5.68,5.4,-0.27999999999999936,False
+"pair 1, PR vs prototype",c8,3,pr,1,proto,2,3.56,3.44,-0.1200000000000001,False
+"pair 1, PR vs prototype",c8,4,pr,1,proto,2,4.88,4.88,0.0,True
+"pair 1, PR vs prototype",c8,5,pr,1,proto,2,3.92,3.84,-0.08000000000000007,False
+"pair 1, PR vs prototype",c8,6,pr,1,proto,2,5.12,5.64,0.5199999999999996,False
+"pair 1, PR vs prototype",c8,7,pr,1,proto,2,4.84,5.48,0.6400000000000006,False
+"pair 1, PR vs prototype",c8,8,pr,1,proto,2,4.96,4.96,0.0,True
+"pair 1, PR vs prototype",c8,9,pr,1,proto,2,4.68,4.08,-0.5999999999999996,False
+"pair 1, PR vs prototype",c8,10,pr,1,proto,2,5.36,5.6,0.23999999999999932,False
+"pair 1, PR vs prototype",c8,11,pr,1,proto,2,4.24,4.24,0.0,True
+"pair 1, PR vs prototype",c8,12,pr,1,proto,2,3.88,3.84,-0.040000000000000036,False
+"pair 1, PR vs prototype",c8,13,pr,1,proto,2,5.0,5.08,0.08000000000000007,False
+"pair 1, PR vs prototype",c8,14,pr,1,proto,2,3.92,4.28,0.3600000000000003,False
+"pair 1, PR vs prototype",c8,15,pr,1,proto,2,4.32,4.44,0.1200000000000001,False
+"pair 1, PR vs prototype",c8,16,pr,1,proto,2,5.32,5.4,0.08000000000000007,False
+"pair 1, PR vs prototype",c8,17,pr,1,proto,2,2.96,2.88,-0.08000000000000007,False
+"pair 1, PR vs prototype",c8,18,pr,1,proto,2,5.72,5.72,0.0,True
+"pair 1, PR vs prototype",c8,19,pr,1,proto,2,3.28,3.4,0.1200000000000001,False
+"pair 1, PR vs prototype",c8,20,pr,1,proto,2,4.44,4.96,0.5199999999999996,False
+"pair 1, PR vs prototype",c8,21,pr,1,proto,2,3.88,3.72,-0.1599999999999997,False
+"pair 1, PR vs prototype",c8,22,pr,1,proto,2,5.52,5.72,0.20000000000000018,False
+"pair 1, PR vs prototype",c8,23,pr,1,proto,2,5.52,5.88,0.3600000000000003,False
+"pair 1, PR vs prototype",c8,24,pr,1,proto,2,5.16,5.12,-0.040000000000000036,False
+"pair 1, PR vs prototype",c8,25,pr,1,proto,2,4.24,4.08,-0.16000000000000014,False
+"pair 1, PR vs prototype",c8,26,pr,1,proto,2,5.88,5.96,0.08000000000000007,False
+"pair 1, PR vs prototype",c8,27,pr,1,proto,2,4.12,4.4,0.28000000000000025,False
+"pair 1, PR vs prototype",c8,28,pr,1,proto,2,4.0,3.76,-0.2400000000000002,False
+"pair 1, PR vs prototype",c8,29,pr,1,proto,2,4.88,4.88,0.0,True
+"pair 1, PR vs prototype",c8,30,pr,1,proto,2,4.12,4.2,0.08000000000000007,False
+"pair 1, PR vs prototype",c8,31,pr,1,proto,2,4.44,4.48,0.040000000000000036,False
+"pair 1, PR vs prototype",c8,32,pr,1,proto,2,5.44,5.8,0.35999999999999943,False
+"pair 1, PR vs prototype",c8,33,pr,1,proto,2,3.2,2.92,-0.28000000000000025,False
+"pair 1, PR vs prototype",c8,34,pr,1,proto,2,6.2,5.68,-0.5200000000000005,False
+"pair 1, PR vs prototype",c8,35,pr,1,proto,2,3.28,3.32,0.040000000000000036,False
+"pair 1, PR vs prototype",c8,36,pr,1,proto,2,4.96,4.64,-0.3200000000000003,False
+"pair 1, PR vs prototype",c8,37,pr,1,proto,2,3.88,4.08,0.20000000000000018,False
+"pair 1, PR vs prototype",c8,38,pr,1,proto,2,5.8,5.28,-0.5199999999999996,False
+"pair 1, PR vs prototype",c8,39,pr,1,proto,2,5.32,5.24,-0.08000000000000007,False
+"pair 1, PR vs prototype",c8,40,pr,1,proto,2,4.76,5.0,0.2400000000000002,False
+"pair 1, PR vs prototype",c8,41,pr,1,proto,2,4.28,4.28,0.0,True
+"pair 1, PR vs prototype",c8,42,pr,1,proto,2,6.92,5.96,-0.96,False
+"pair 1, PR vs prototype",c8,43,pr,1,proto,2,4.0,4.2,0.20000000000000018,False
+"pair 1, PR vs prototype",c8,44,pr,1,proto,2,3.76,3.64,-0.11999999999999966,False
+"pair 1, PR vs prototype",c8,45,pr,1,proto,2,4.68,4.8,0.1200000000000001,False
+"pair 1, PR vs prototype",c8,46,pr,1,proto,2,4.24,4.48,0.2400000000000002,False
+"pair 1, PR vs prototype",c8,47,pr,1,proto,2,4.08,4.0,-0.08000000000000007,False
+"pair 1, PR vs prototype",c16,0,pr,1,proto,2,5.2,5.44,0.2400000000000002,False
+"pair 1, PR vs prototype",c16,1,pr,1,proto,2,2.6,2.6,0.0,True
+"pair 1, PR vs prototype",c16,2,pr,1,proto,2,5.76,5.48,-0.27999999999999936,False
+"pair 1, PR vs prototype",c16,3,pr,1,proto,2,3.56,3.56,0.0,True
+"pair 1, PR vs prototype",c16,4,pr,1,proto,2,4.72,4.8,0.08000000000000007,False
+"pair 1, PR vs prototype",c16,5,pr,1,proto,2,4.2,4.2,0.0,True
+"pair 1, PR vs prototype",c16,6,pr,1,proto,2,5.44,5.2,-0.2400000000000002,False
+"pair 1, PR vs prototype",c16,7,pr,1,proto,2,5.0,5.0,0.0,True
+"pair 1, PR vs prototype",c16,8,pr,1,proto,2,4.76,4.76,0.0,True
+"pair 1, PR vs prototype",c16,9,pr,1,proto,2,4.2,4.24,0.040000000000000036,False
+"pair 1, PR vs prototype",c16,10,pr,1,proto,2,6.16,6.04,-0.1200000000000001,False
+"pair 1, PR vs prototype",c16,11,pr,1,proto,2,4.52,4.28,-0.23999999999999932,False
+"pair 1, PR vs prototype",c16,12,pr,1,proto,2,3.52,3.56,0.040000000000000036,False
+"pair 1, PR vs prototype",c16,13,pr,1,proto,2,4.8,5.48,0.6800000000000006,False
+"pair 1, PR vs prototype",c16,14,pr,1,proto,2,4.12,4.16,0.040000000000000036,False
+"pair 1, PR vs prototype",c16,15,pr,1,proto,2,4.44,4.36,-0.08000000000000007,False
+"pair 1, PR vs prototype",c16,16,pr,1,proto,2,5.96,5.56,-0.40000000000000036,False
+"pair 1, PR vs prototype",c16,17,pr,1,proto,2,3.08,2.88,-0.20000000000000018,False
+"pair 1, PR vs prototype",c16,18,pr,1,proto,2,5.84,6.48,0.6400000000000006,False
+"pair 1, PR vs prototype",c16,19,pr,1,proto,2,4.08,3.64,-0.43999999999999995,False
+"pair 1, PR vs prototype",c16,20,pr,1,proto,2,4.68,5.48,0.8000000000000007,False
+"pair 1, PR vs prototype",c16,21,pr,1,proto,2,3.72,3.88,0.1599999999999997,False
+"pair 1, PR vs prototype",c16,22,pr,1,proto,2,5.72,5.24,-0.47999999999999954,False
+"pair 1, PR vs prototype",c16,23,pr,1,proto,2,5.88,5.76,-0.1200000000000001,False
+"pair 1, PR vs prototype",c16,24,pr,1,proto,2,5.28,4.44,-0.8399999999999999,False
+"pair 1, PR vs prototype",c16,25,pr,1,proto,2,4.08,4.08,0.0,True
+"pair 1, PR vs prototype",c16,26,pr,1,proto,2,5.6,5.56,-0.040000000000000036,False
+"pair 1, PR vs prototype",c16,27,pr,1,proto,2,4.24,4.56,0.3199999999999994,False
+"pair 1, PR vs prototype",c16,28,pr,1,proto,2,3.96,3.52,-0.43999999999999995,False
+"pair 1, PR vs prototype",c16,29,pr,1,proto,2,5.0,5.12,0.1200000000000001,False
+"pair 1, PR vs prototype",c16,30,pr,1,proto,2,3.8,4.52,0.7199999999999998,False
+"pair 1, PR vs prototype",c16,31,pr,1,proto,2,4.36,4.32,-0.040000000000000036,False
+"pair 1, PR vs prototype",c16,32,pr,1,proto,2,5.64,5.64,0.0,True
+"pair 1, PR vs prototype",c16,33,pr,1,proto,2,2.96,2.88,-0.08000000000000007,False
+"pair 1, PR vs prototype",c16,34,pr,1,proto,2,6.04,6.68,0.6399999999999997,False
+"pair 1, PR vs prototype",c16,35,pr,1,proto,2,3.84,3.88,0.040000000000000036,False
+"pair 1, PR vs prototype",c16,36,pr,1,proto,2,4.52,4.88,0.3600000000000003,False
+"pair 1, PR vs prototype",c16,37,pr,1,proto,2,3.88,3.96,0.08000000000000007,False
+"pair 1, PR vs prototype",c16,38,pr,1,proto,2,5.48,5.56,0.07999999999999918,False
+"pair 1, PR vs prototype",c16,39,pr,1,proto,2,5.48,5.32,-0.16000000000000014,False
+"pair 1, PR vs prototype",c16,40,pr,1,proto,2,4.68,4.32,-0.35999999999999943,False
+"pair 1, PR vs prototype",c16,41,pr,1,proto,2,4.16,4.44,0.28000000000000025,False
+"pair 1, PR vs prototype",c16,42,pr,1,proto,2,5.36,5.76,0.39999999999999947,False
+"pair 1, PR vs prototype",c16,43,pr,1,proto,2,4.44,4.44,0.0,True
+"pair 1, PR vs prototype",c16,44,pr,1,proto,2,3.4,4.2,0.8000000000000003,False
+"pair 1, PR vs prototype",c16,45,pr,1,proto,2,4.28,4.68,0.39999999999999947,False
+"pair 1, PR vs prototype",c16,46,pr,1,proto,2,4.52,4.04,-0.47999999999999954,False
+"pair 1, PR vs prototype",c16,47,pr,1,proto,2,4.6,4.08,-0.5199999999999996,False
+"pair 1, PR vs prototype",c16,48,pr,1,proto,2,5.32,5.6,0.27999999999999936,False
+"pair 1, PR vs prototype",c16,49,pr,1,proto,2,3.04,2.96,-0.08000000000000007,False
+"pair 1, PR vs prototype",c16,50,pr,1,proto,2,5.16,5.68,0.5199999999999996,False
+"pair 1, PR vs prototype",c16,51,pr,1,proto,2,3.36,3.08,-0.2799999999999998,False
+"pair 1, PR vs prototype",c16,52,pr,1,proto,2,4.4,4.4,0.0,True
+"pair 1, PR vs prototype",c16,53,pr,1,proto,2,4.12,3.8,-0.3200000000000003,False
+"pair 1, PR vs prototype",c16,54,pr,1,proto,2,5.52,5.36,-0.15999999999999925,False
+"pair 1, PR vs prototype",c16,55,pr,1,proto,2,5.36,5.2,-0.16000000000000014,False
+"pair 1, PR vs prototype",c16,56,pr,1,proto,2,5.12,4.72,-0.40000000000000036,False
+"pair 1, PR vs prototype",c16,57,pr,1,proto,2,4.16,4.16,0.0,True
+"pair 1, PR vs prototype",c16,58,pr,1,proto,2,5.84,5.56,-0.28000000000000025,False
+"pair 1, PR vs prototype",c16,59,pr,1,proto,2,4.52,4.52,0.0,True
+"pair 1, PR vs prototype",c16,60,pr,1,proto,2,3.84,3.6,-0.23999999999999977,False
+"pair 1, PR vs prototype",c16,61,pr,1,proto,2,4.92,4.84,-0.08000000000000007,False
+"pair 1, PR vs prototype",c16,62,pr,1,proto,2,4.44,5.2,0.7599999999999998,False
+"pair 1, PR vs prototype",c16,63,pr,1,proto,2,4.6,4.28,-0.3199999999999994,False
+"pair 1, PR vs prototype",c16,64,pr,1,proto,2,5.72,5.6,-0.1200000000000001,False
+"pair 1, PR vs prototype",c16,65,pr,1,proto,2,2.84,3.08,0.2400000000000002,False
+"pair 1, PR vs prototype",c16,66,pr,1,proto,2,6.52,6.16,-0.35999999999999943,False
+"pair 1, PR vs prototype",c16,67,pr,1,proto,2,3.72,3.52,-0.20000000000000018,False
+"pair 1, PR vs prototype",c16,68,pr,1,proto,2,5.16,5.0,-0.16000000000000014,False
+"pair 1, PR vs prototype",c16,69,pr,1,proto,2,3.72,3.76,0.03999999999999959,False
+"pair 1, PR vs prototype",c16,70,pr,1,proto,2,5.56,5.48,-0.07999999999999918,False
+"pair 1, PR vs prototype",c16,71,pr,1,proto,2,4.88,5.16,0.28000000000000025,False
+"pair 1, PR vs prototype",c16,72,pr,1,proto,2,4.84,4.88,0.040000000000000036,False
+"pair 1, PR vs prototype",c16,73,pr,1,proto,2,3.8,4.52,0.7199999999999998,False
+"pair 1, PR vs prototype",c16,74,pr,1,proto,2,5.72,5.48,-0.23999999999999932,False
+"pair 1, PR vs prototype",c16,75,pr,1,proto,2,4.2,4.24,0.040000000000000036,False
+"pair 1, PR vs prototype",c16,76,pr,1,proto,2,3.92,3.32,-0.6000000000000001,False
+"pair 1, PR vs prototype",c16,77,pr,1,proto,2,5.08,4.96,-0.1200000000000001,False
+"pair 1, PR vs prototype",c16,78,pr,1,proto,2,4.2,4.28,0.08000000000000007,False
+"pair 1, PR vs prototype",c16,79,pr,1,proto,2,4.48,4.68,0.1999999999999993,False
+"pair 1, PR vs prototype",c16,80,pr,1,proto,2,5.68,5.44,-0.23999999999999932,False
+"pair 1, PR vs prototype",c16,81,pr,1,proto,2,2.76,2.96,0.20000000000000018,False
+"pair 1, PR vs prototype",c16,82,pr,1,proto,2,6.24,5.4,-0.8399999999999999,False
+"pair 1, PR vs prototype",c16,83,pr,1,proto,2,3.52,3.76,0.23999999999999977,False
+"pair 1, PR vs prototype",c16,84,pr,1,proto,2,4.08,5.56,1.4799999999999995,False
+"pair 1, PR vs prototype",c16,85,pr,1,proto,2,3.88,3.8,-0.08000000000000007,False
+"pair 1, PR vs prototype",c16,86,pr,1,proto,2,5.68,5.76,0.08000000000000007,False
+"pair 1, PR vs prototype",c16,87,pr,1,proto,2,5.44,5.08,-0.3600000000000003,False
+"pair 1, PR vs prototype",c16,88,pr,1,proto,2,4.52,4.64,0.1200000000000001,False
+"pair 1, PR vs prototype",c16,89,pr,1,proto,2,3.84,3.84,0.0,True
+"pair 1, PR vs prototype",c16,90,pr,1,proto,2,5.44,5.56,0.11999999999999922,False
+"pair 1, PR vs prototype",c16,91,pr,1,proto,2,4.64,4.4,-0.23999999999999932,False
+"pair 1, PR vs prototype",c16,92,pr,1,proto,2,3.48,3.88,0.3999999999999999,False
+"pair 1, PR vs prototype",c16,93,pr,1,proto,2,4.76,5.12,0.3600000000000003,False
+"pair 1, PR vs prototype",c16,94,pr,1,proto,2,4.16,4.76,0.5999999999999996,False
+"pair 1, PR vs prototype",c16,95,pr,1,proto,2,4.2,4.32,0.1200000000000001,False
+"pair 2, PR vs prototype",burst,long,pr,4,proto,3,36.72,36.72,0.0,True
+"pair 2, PR vs prototype",burst,short-0,pr,4,proto,3,2.72,2.68,-0.040000000000000036,False
+"pair 2, PR vs prototype",burst,short-1,pr,4,proto,3,2.76,2.84,0.08000000000000007,False
+"pair 2, PR vs prototype",burst,short-2,pr,4,proto,3,2.4,2.68,0.28000000000000025,False
+"pair 2, PR vs prototype",burst,short-3,pr,4,proto,3,1.76,1.88,0.11999999999999988,False
+"pair 2, PR vs prototype",burst,short-4,pr,4,proto,3,2.16,2.4,0.23999999999999977,False
+"pair 2, PR vs prototype",burst,short-5,pr,4,proto,3,2.08,2.24,0.16000000000000014,False
+"pair 2, PR vs prototype",burst,short-6,pr,4,proto,3,2.6,2.16,-0.43999999999999995,False
+"pair 2, PR vs prototype",burst,short-7,pr,4,proto,3,2.36,2.56,0.20000000000000018,False
+"pair 2, PR vs prototype",c8,0,pr,4,proto,3,6.0,5.88,-0.1200000000000001,False
+"pair 2, PR vs prototype",c8,1,pr,4,proto,3,2.6,2.6,0.0,True
+"pair 2, PR vs prototype",c8,2,pr,4,proto,3,6.08,4.52,-1.5600000000000005,False
+"pair 2, PR vs prototype",c8,3,pr,4,proto,3,3.36,3.32,-0.040000000000000036,False
+"pair 2, PR vs prototype",c8,4,pr,4,proto,3,4.76,4.56,-0.20000000000000018,False
+"pair 2, PR vs prototype",c8,5,pr,4,proto,3,3.84,4.2,0.3600000000000003,False
+"pair 2, PR vs prototype",c8,6,pr,4,proto,3,5.76,5.36,-0.39999999999999947,False
+"pair 2, PR vs prototype",c8,7,pr,4,proto,3,5.56,5.72,0.16000000000000014,False
+"pair 2, PR vs prototype",c8,8,pr,4,proto,3,5.0,4.76,-0.2400000000000002,False
+"pair 2, PR vs prototype",c8,9,pr,4,proto,3,4.08,4.44,0.3600000000000003,False
+"pair 2, PR vs prototype",c8,10,pr,4,proto,3,5.56,5.56,0.0,True
+"pair 2, PR vs prototype",c8,11,pr,4,proto,3,4.32,4.32,0.0,True
+"pair 2, PR vs prototype",c8,12,pr,4,proto,3,3.52,3.88,0.3599999999999999,False
+"pair 2, PR vs prototype",c8,13,pr,4,proto,3,4.92,5.08,0.16000000000000014,False
+"pair 2, PR vs prototype",c8,14,pr,4,proto,3,4.44,3.88,-0.5600000000000005,False
+"pair 2, PR vs prototype",c8,15,pr,4,proto,3,4.32,4.36,0.040000000000000036,False
+"pair 2, PR vs prototype",c8,16,pr,4,proto,3,5.56,6.0,0.4400000000000004,False
+"pair 2, PR vs prototype",c8,17,pr,4,proto,3,3.0,2.92,-0.08000000000000007,False
+"pair 2, PR vs prototype",c8,18,pr,4,proto,3,6.24,5.32,-0.9199999999999999,False
+"pair 2, PR vs prototype",c8,19,pr,4,proto,3,3.6,3.52,-0.08000000000000007,False
+"pair 2, PR vs prototype",c8,20,pr,4,proto,3,4.32,4.6,0.27999999999999936,False
+"pair 2, PR vs prototype",c8,21,pr,4,proto,3,3.96,3.88,-0.08000000000000007,False
+"pair 2, PR vs prototype",c8,22,pr,4,proto,3,6.2,5.28,-0.9199999999999999,False
+"pair 2, PR vs prototype",c8,23,pr,4,proto,3,5.72,5.48,-0.23999999999999932,False
+"pair 2, PR vs prototype",c8,24,pr,4,proto,3,4.64,5.0,0.3600000000000003,False
+"pair 2, PR vs prototype",c8,25,pr,4,proto,3,4.08,4.36,0.28000000000000025,False
+"pair 2, PR vs prototype",c8,26,pr,4,proto,3,5.52,5.52,0.0,True
+"pair 2, PR vs prototype",c8,27,pr,4,proto,3,4.32,4.12,-0.20000000000000018,False
+"pair 2, PR vs prototype",c8,28,pr,4,proto,3,4.28,4.16,-0.1200000000000001,False
+"pair 2, PR vs prototype",c8,29,pr,4,proto,3,5.4,4.56,-0.8400000000000007,False
+"pair 2, PR vs prototype",c8,30,pr,4,proto,3,4.2,4.2,0.0,True
+"pair 2, PR vs prototype",c8,31,pr,4,proto,3,4.4,4.44,0.040000000000000036,False
+"pair 2, PR vs prototype",c8,32,pr,4,proto,3,5.32,5.32,0.0,True
+"pair 2, PR vs prototype",c8,33,pr,4,proto,3,3.0,3.08,0.08000000000000007,False
+"pair 2, PR vs prototype",c8,34,pr,4,proto,3,5.6,5.88,0.28000000000000025,False
+"pair 2, PR vs prototype",c8,35,pr,4,proto,3,3.28,3.44,0.16000000000000014,False
+"pair 2, PR vs prototype",c8,36,pr,4,proto,3,5.0,5.44,0.4400000000000004,False
+"pair 2, PR vs prototype",c8,37,pr,4,proto,3,4.08,3.56,-0.52,False
+"pair 2, PR vs prototype",c8,38,pr,4,proto,3,5.12,5.44,0.3200000000000003,False
+"pair 2, PR vs prototype",c8,39,pr,4,proto,3,5.72,5.44,-0.27999999999999936,False
+"pair 2, PR vs prototype",c8,40,pr,4,proto,3,4.48,4.76,0.27999999999999936,False
+"pair 2, PR vs prototype",c8,41,pr,4,proto,3,3.88,4.32,0.4400000000000004,False
+"pair 2, PR vs prototype",c8,42,pr,4,proto,3,5.96,5.96,0.0,True
+"pair 2, PR vs prototype",c8,43,pr,4,proto,3,4.48,4.36,-0.1200000000000001,False
+"pair 2, PR vs prototype",c8,44,pr,4,proto,3,3.76,4.24,0.4800000000000004,False
+"pair 2, PR vs prototype",c8,45,pr,4,proto,3,4.64,4.44,-0.1999999999999993,False
+"pair 2, PR vs prototype",c8,46,pr,4,proto,3,4.2,3.88,-0.3200000000000003,False
+"pair 2, PR vs prototype",c8,47,pr,4,proto,3,4.08,4.68,0.5999999999999996,False
+"pair 2, PR vs prototype",c16,0,pr,4,proto,3,5.56,5.24,-0.3199999999999994,False
+"pair 2, PR vs prototype",c16,1,pr,4,proto,3,2.92,2.6,-0.31999999999999984,False
+"pair 2, PR vs prototype",c16,2,pr,4,proto,3,4.76,5.64,0.8799999999999999,False
+"pair 2, PR vs prototype",c16,3,pr,4,proto,3,3.44,3.32,-0.1200000000000001,False
+"pair 2, PR vs prototype",c16,4,pr,4,proto,3,4.72,4.6,-0.1200000000000001,False
+"pair 2, PR vs prototype",c16,5,pr,4,proto,3,3.84,3.76,-0.08000000000000007,False
+"pair 2, PR vs prototype",c16,6,pr,4,proto,3,5.52,5.24,-0.27999999999999936,False
+"pair 2, PR vs prototype",c16,7,pr,4,proto,3,5.56,5.56,0.0,True
+"pair 2, PR vs prototype",c16,8,pr,4,proto,3,4.72,4.92,0.20000000000000018,False
+"pair 2, PR vs prototype",c16,9,pr,4,proto,3,4.2,4.2,0.0,True
+"pair 2, PR vs prototype",c16,10,pr,4,proto,3,6.2,6.0,-0.20000000000000018,False
+"pair 2, PR vs prototype",c16,11,pr,4,proto,3,4.76,4.44,-0.3199999999999994,False
+"pair 2, PR vs prototype",c16,12,pr,4,proto,3,3.64,3.56,-0.08000000000000007,False
+"pair 2, PR vs prototype",c16,13,pr,4,proto,3,5.0,5.08,0.08000000000000007,False
+"pair 2, PR vs prototype",c16,14,pr,4,proto,3,4.56,4.2,-0.35999999999999943,False
+"pair 2, PR vs prototype",c16,15,pr,4,proto,3,4.44,4.32,-0.1200000000000001,False
+"pair 2, PR vs prototype",c16,16,pr,4,proto,3,5.56,6.04,0.4800000000000004,False
+"pair 2, PR vs prototype",c16,17,pr,4,proto,3,2.96,3.08,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,18,pr,4,proto,3,5.96,6.32,0.3600000000000003,False
+"pair 2, PR vs prototype",c16,19,pr,4,proto,3,3.64,3.6,-0.040000000000000036,False
+"pair 2, PR vs prototype",c16,20,pr,4,proto,3,4.96,5.08,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,21,pr,4,proto,3,4.44,4.44,0.0,True
+"pair 2, PR vs prototype",c16,22,pr,4,proto,3,5.8,5.64,-0.16000000000000014,False
+"pair 2, PR vs prototype",c16,23,pr,4,proto,3,5.64,5.56,-0.08000000000000007,False
+"pair 2, PR vs prototype",c16,24,pr,4,proto,3,4.52,5.0,0.4800000000000004,False
+"pair 2, PR vs prototype",c16,25,pr,4,proto,3,4.44,3.88,-0.5600000000000005,False
+"pair 2, PR vs prototype",c16,26,pr,4,proto,3,5.84,5.68,-0.16000000000000014,False
+"pair 2, PR vs prototype",c16,27,pr,4,proto,3,3.76,4.4,0.6400000000000006,False
+"pair 2, PR vs prototype",c16,28,pr,4,proto,3,3.88,4.0,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,29,pr,4,proto,3,4.8,4.84,0.040000000000000036,False
+"pair 2, PR vs prototype",c16,30,pr,4,proto,3,4.56,5.16,0.6000000000000005,False
+"pair 2, PR vs prototype",c16,31,pr,4,proto,3,4.24,4.4,0.16000000000000014,False
+"pair 2, PR vs prototype",c16,32,pr,4,proto,3,5.64,5.48,-0.15999999999999925,False
+"pair 2, PR vs prototype",c16,33,pr,4,proto,3,3.08,2.92,-0.16000000000000014,False
+"pair 2, PR vs prototype",c16,34,pr,4,proto,3,5.56,6.4,0.8400000000000007,False
+"pair 2, PR vs prototype",c16,35,pr,4,proto,3,3.36,3.4,0.040000000000000036,False
+"pair 2, PR vs prototype",c16,36,pr,4,proto,3,4.88,4.64,-0.2400000000000002,False
+"pair 2, PR vs prototype",c16,37,pr,4,proto,3,4.36,4.08,-0.28000000000000025,False
+"pair 2, PR vs prototype",c16,38,pr,4,proto,3,5.4,5.8,0.39999999999999947,False
+"pair 2, PR vs prototype",c16,39,pr,4,proto,3,5.16,5.8,0.6399999999999997,False
+"pair 2, PR vs prototype",c16,40,pr,4,proto,3,4.48,4.76,0.27999999999999936,False
+"pair 2, PR vs prototype",c16,41,pr,4,proto,3,4.64,4.04,-0.5999999999999996,False
+"pair 2, PR vs prototype",c16,42,pr,4,proto,3,5.68,6.24,0.5600000000000005,False
+"pair 2, PR vs prototype",c16,43,pr,4,proto,3,4.48,4.24,-0.2400000000000002,False
+"pair 2, PR vs prototype",c16,44,pr,4,proto,3,3.96,3.76,-0.20000000000000018,False
+"pair 2, PR vs prototype",c16,45,pr,4,proto,3,4.8,4.8,0.0,True
+"pair 2, PR vs prototype",c16,46,pr,4,proto,3,4.08,5.0,0.9199999999999999,False
+"pair 2, PR vs prototype",c16,47,pr,4,proto,3,4.28,4.2,-0.08000000000000007,False
+"pair 2, PR vs prototype",c16,48,pr,4,proto,3,5.52,5.56,0.040000000000000036,False
+"pair 2, PR vs prototype",c16,49,pr,4,proto,3,2.84,2.84,0.0,True
+"pair 2, PR vs prototype",c16,50,pr,4,proto,3,5.88,5.44,-0.4399999999999995,False
+"pair 2, PR vs prototype",c16,51,pr,4,proto,3,3.32,3.2,-0.11999999999999966,False
+"pair 2, PR vs prototype",c16,52,pr,4,proto,3,4.48,5.04,0.5599999999999996,False
+"pair 2, PR vs prototype",c16,53,pr,4,proto,3,3.88,4.24,0.3600000000000003,False
+"pair 2, PR vs prototype",c16,54,pr,4,proto,3,5.84,5.72,-0.1200000000000001,False
+"pair 2, PR vs prototype",c16,55,pr,4,proto,3,5.6,5.32,-0.27999999999999936,False
+"pair 2, PR vs prototype",c16,56,pr,4,proto,3,4.4,4.88,0.47999999999999954,False
+"pair 2, PR vs prototype",c16,57,pr,4,proto,3,4.32,4.04,-0.28000000000000025,False
+"pair 2, PR vs prototype",c16,58,pr,4,proto,3,5.2,5.32,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,59,pr,4,proto,3,4.84,4.4,-0.4399999999999995,False
+"pair 2, PR vs prototype",c16,60,pr,4,proto,3,3.48,3.64,0.16000000000000014,False
+"pair 2, PR vs prototype",c16,61,pr,4,proto,3,4.88,5.0,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,62,pr,4,proto,3,4.2,4.52,0.3199999999999994,False
+"pair 2, PR vs prototype",c16,63,pr,4,proto,3,4.28,4.72,0.4399999999999995,False
+"pair 2, PR vs prototype",c16,64,pr,4,proto,3,5.76,5.28,-0.47999999999999954,False
+"pair 2, PR vs prototype",c16,65,pr,4,proto,3,2.76,2.96,0.20000000000000018,False
+"pair 2, PR vs prototype",c16,66,pr,4,proto,3,6.36,6.0,-0.3600000000000003,False
+"pair 2, PR vs prototype",c16,67,pr,4,proto,3,3.44,3.28,-0.16000000000000014,False
+"pair 2, PR vs prototype",c16,68,pr,4,proto,3,4.88,5.24,0.3600000000000003,False
+"pair 2, PR vs prototype",c16,69,pr,4,proto,3,4.2,4.32,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,70,pr,4,proto,3,5.4,5.6,0.1999999999999993,False
+"pair 2, PR vs prototype",c16,71,pr,4,proto,3,4.92,5.0,0.08000000000000007,False
+"pair 2, PR vs prototype",c16,72,pr,4,proto,3,4.64,5.52,0.8799999999999999,False
+"pair 2, PR vs prototype",c16,73,pr,4,proto,3,4.08,3.64,-0.43999999999999995,False
+"pair 2, PR vs prototype",c16,74,pr,4,proto,3,5.76,5.88,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,75,pr,4,proto,3,4.52,4.4,-0.11999999999999922,False
+"pair 2, PR vs prototype",c16,76,pr,4,proto,3,4.0,3.72,-0.2799999999999998,False
+"pair 2, PR vs prototype",c16,77,pr,4,proto,3,4.64,4.76,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,78,pr,4,proto,3,4.2,4.4,0.20000000000000018,False
+"pair 2, PR vs prototype",c16,79,pr,4,proto,3,4.24,4.36,0.1200000000000001,False
+"pair 2, PR vs prototype",c16,80,pr,4,proto,3,5.52,5.32,-0.1999999999999993,False
+"pair 2, PR vs prototype",c16,81,pr,4,proto,3,2.92,3.08,0.16000000000000014,False
+"pair 2, PR vs prototype",c16,82,pr,4,proto,3,5.44,5.92,0.47999999999999954,False
+"pair 2, PR vs prototype",c16,83,pr,4,proto,3,3.4,3.48,0.08000000000000007,False
+"pair 2, PR vs prototype",c16,84,pr,4,proto,3,4.28,4.32,0.040000000000000036,False
+"pair 2, PR vs prototype",c16,85,pr,4,proto,3,4.12,4.32,0.20000000000000018,False
+"pair 2, PR vs prototype",c16,86,pr,4,proto,3,5.8,6.04,0.2400000000000002,False
+"pair 2, PR vs prototype",c16,87,pr,4,proto,3,5.36,5.44,0.08000000000000007,False
+"pair 2, PR vs prototype",c16,88,pr,4,proto,3,4.72,4.56,-0.16000000000000014,False
+"pair 2, PR vs prototype",c16,89,pr,4,proto,3,4.08,4.32,0.2400000000000002,False
+"pair 2, PR vs prototype",c16,90,pr,4,proto,3,5.56,5.88,0.3200000000000003,False
+"pair 2, PR vs prototype",c16,91,pr,4,proto,3,4.2,4.28,0.08000000000000007,False
+"pair 2, PR vs prototype",c16,92,pr,4,proto,3,3.52,3.44,-0.08000000000000007,False
+"pair 2, PR vs prototype",c16,93,pr,4,proto,3,4.4,5.36,0.96,False
+"pair 2, PR vs prototype",c16,94,pr,4,proto,3,4.0,4.4,0.40000000000000036,False
+"pair 2, PR vs prototype",c16,95,pr,4,proto,3,4.24,4.32,0.08000000000000007,False
+PR across starts,burst,long,pr,1,pr,4,36.72,36.72,0.0,True
+PR across starts,burst,short-0,pr,1,pr,4,2.24,2.72,0.48,False
+PR across starts,burst,short-1,pr,1,pr,4,2.8,2.76,-0.040000000000000036,False
+PR across starts,burst,short-2,pr,1,pr,4,3.0,2.4,-0.6000000000000001,False
+PR across starts,burst,short-3,pr,1,pr,4,1.76,1.76,0.0,True
+PR across starts,burst,short-4,pr,1,pr,4,2.48,2.16,-0.31999999999999984,False
+PR across starts,burst,short-5,pr,1,pr,4,2.2,2.08,-0.1200000000000001,False
+PR across starts,burst,short-6,pr,1,pr,4,2.6,2.6,0.0,True
+PR across starts,burst,short-7,pr,1,pr,4,2.36,2.36,0.0,True
+PR across starts,c8,0,pr,1,pr,4,5.4,6.0,0.5999999999999996,False
+PR across starts,c8,1,pr,1,pr,4,3.0,2.6,-0.3999999999999999,False
+PR across starts,c8,2,pr,1,pr,4,5.68,6.08,0.40000000000000036,False
+PR across starts,c8,3,pr,1,pr,4,3.56,3.36,-0.20000000000000018,False
+PR across starts,c8,4,pr,1,pr,4,4.88,4.76,-0.1200000000000001,False
+PR across starts,c8,5,pr,1,pr,4,3.92,3.84,-0.08000000000000007,False
+PR across starts,c8,6,pr,1,pr,4,5.12,5.76,0.6399999999999997,False
+PR across starts,c8,7,pr,1,pr,4,4.84,5.56,0.7199999999999998,False
+PR across starts,c8,8,pr,1,pr,4,4.96,5.0,0.040000000000000036,False
+PR across starts,c8,9,pr,1,pr,4,4.68,4.08,-0.5999999999999996,False
+PR across starts,c8,10,pr,1,pr,4,5.36,5.56,0.1999999999999993,False
+PR across starts,c8,11,pr,1,pr,4,4.24,4.32,0.08000000000000007,False
+PR across starts,c8,12,pr,1,pr,4,3.88,3.52,-0.3599999999999999,False
+PR across starts,c8,13,pr,1,pr,4,5.0,4.92,-0.08000000000000007,False
+PR across starts,c8,14,pr,1,pr,4,3.92,4.44,0.5200000000000005,False
+PR across starts,c8,15,pr,1,pr,4,4.32,4.32,0.0,True
+PR across starts,c8,16,pr,1,pr,4,5.32,5.56,0.23999999999999932,False
+PR across starts,c8,17,pr,1,pr,4,2.96,3.0,0.040000000000000036,False
+PR across starts,c8,18,pr,1,pr,4,5.72,6.24,0.5200000000000005,False
+PR across starts,c8,19,pr,1,pr,4,3.28,3.6,0.3200000000000003,False
+PR across starts,c8,20,pr,1,pr,4,4.44,4.32,-0.1200000000000001,False
+PR across starts,c8,21,pr,1,pr,4,3.88,3.96,0.08000000000000007,False
+PR across starts,c8,22,pr,1,pr,4,5.52,6.2,0.6800000000000006,False
+PR across starts,c8,23,pr,1,pr,4,5.52,5.72,0.20000000000000018,False
+PR across starts,c8,24,pr,1,pr,4,5.16,4.64,-0.5200000000000005,False
+PR across starts,c8,25,pr,1,pr,4,4.24,4.08,-0.16000000000000014,False
+PR across starts,c8,26,pr,1,pr,4,5.88,5.52,-0.3600000000000003,False
+PR across starts,c8,27,pr,1,pr,4,4.12,4.32,0.20000000000000018,False
+PR across starts,c8,28,pr,1,pr,4,4.0,4.28,0.28000000000000025,False
+PR across starts,c8,29,pr,1,pr,4,4.88,5.4,0.5200000000000005,False
+PR across starts,c8,30,pr,1,pr,4,4.12,4.2,0.08000000000000007,False
+PR across starts,c8,31,pr,1,pr,4,4.44,4.4,-0.040000000000000036,False
+PR across starts,c8,32,pr,1,pr,4,5.44,5.32,-0.1200000000000001,False
+PR across starts,c8,33,pr,1,pr,4,3.2,3.0,-0.20000000000000018,False
+PR across starts,c8,34,pr,1,pr,4,6.2,5.6,-0.6000000000000005,False
+PR across starts,c8,35,pr,1,pr,4,3.28,3.28,0.0,True
+PR across starts,c8,36,pr,1,pr,4,4.96,5.0,0.040000000000000036,False
+PR across starts,c8,37,pr,1,pr,4,3.88,4.08,0.20000000000000018,False
+PR across starts,c8,38,pr,1,pr,4,5.8,5.12,-0.6799999999999997,False
+PR across starts,c8,39,pr,1,pr,4,5.32,5.72,0.39999999999999947,False
+PR across starts,c8,40,pr,1,pr,4,4.76,4.48,-0.27999999999999936,False
+PR across starts,c8,41,pr,1,pr,4,4.28,3.88,-0.40000000000000036,False
+PR across starts,c8,42,pr,1,pr,4,6.92,5.96,-0.96,False
+PR across starts,c8,43,pr,1,pr,4,4.0,4.48,0.4800000000000004,False
+PR across starts,c8,44,pr,1,pr,4,3.76,3.76,0.0,True
+PR across starts,c8,45,pr,1,pr,4,4.68,4.64,-0.040000000000000036,False
+PR across starts,c8,46,pr,1,pr,4,4.24,4.2,-0.040000000000000036,False
+PR across starts,c8,47,pr,1,pr,4,4.08,4.08,0.0,True
+PR across starts,c16,0,pr,1,pr,4,5.2,5.56,0.35999999999999943,False
+PR across starts,c16,1,pr,1,pr,4,2.6,2.92,0.31999999999999984,False
+PR across starts,c16,2,pr,1,pr,4,5.76,4.76,-1.0,False
+PR across starts,c16,3,pr,1,pr,4,3.56,3.44,-0.1200000000000001,False
+PR across starts,c16,4,pr,1,pr,4,4.72,4.72,0.0,True
+PR across starts,c16,5,pr,1,pr,4,4.2,3.84,-0.3600000000000003,False
+PR across starts,c16,6,pr,1,pr,4,5.44,5.52,0.07999999999999918,False
+PR across starts,c16,7,pr,1,pr,4,5.0,5.56,0.5599999999999996,False
+PR across starts,c16,8,pr,1,pr,4,4.76,4.72,-0.040000000000000036,False
+PR across starts,c16,9,pr,1,pr,4,4.2,4.2,0.0,True
+PR across starts,c16,10,pr,1,pr,4,6.16,6.2,0.040000000000000036,False
+PR across starts,c16,11,pr,1,pr,4,4.52,4.76,0.2400000000000002,False
+PR across starts,c16,12,pr,1,pr,4,3.52,3.64,0.1200000000000001,False
+PR across starts,c16,13,pr,1,pr,4,4.8,5.0,0.20000000000000018,False
+PR across starts,c16,14,pr,1,pr,4,4.12,4.56,0.4399999999999995,False
+PR across starts,c16,15,pr,1,pr,4,4.44,4.44,0.0,True
+PR across starts,c16,16,pr,1,pr,4,5.96,5.56,-0.40000000000000036,False
+PR across starts,c16,17,pr,1,pr,4,3.08,2.96,-0.1200000000000001,False
+PR across starts,c16,18,pr,1,pr,4,5.84,5.96,0.1200000000000001,False
+PR across starts,c16,19,pr,1,pr,4,4.08,3.64,-0.43999999999999995,False
+PR across starts,c16,20,pr,1,pr,4,4.68,4.96,0.28000000000000025,False
+PR across starts,c16,21,pr,1,pr,4,3.72,4.44,0.7200000000000002,False
+PR across starts,c16,22,pr,1,pr,4,5.72,5.8,0.08000000000000007,False
+PR across starts,c16,23,pr,1,pr,4,5.88,5.64,-0.2400000000000002,False
+PR across starts,c16,24,pr,1,pr,4,5.28,4.52,-0.7600000000000007,False
+PR across starts,c16,25,pr,1,pr,4,4.08,4.44,0.3600000000000003,False
+PR across starts,c16,26,pr,1,pr,4,5.6,5.84,0.2400000000000002,False
+PR across starts,c16,27,pr,1,pr,4,4.24,3.76,-0.4800000000000004,False
+PR across starts,c16,28,pr,1,pr,4,3.96,3.88,-0.08000000000000007,False
+PR across starts,c16,29,pr,1,pr,4,5.0,4.8,-0.20000000000000018,False
+PR across starts,c16,30,pr,1,pr,4,3.8,4.56,0.7599999999999998,False
+PR across starts,c16,31,pr,1,pr,4,4.36,4.24,-0.1200000000000001,False
+PR across starts,c16,32,pr,1,pr,4,5.64,5.64,0.0,True
+PR across starts,c16,33,pr,1,pr,4,2.96,3.08,0.1200000000000001,False
+PR across starts,c16,34,pr,1,pr,4,6.04,5.56,-0.4800000000000004,False
+PR across starts,c16,35,pr,1,pr,4,3.84,3.36,-0.48,False
+PR across starts,c16,36,pr,1,pr,4,4.52,4.88,0.3600000000000003,False
+PR across starts,c16,37,pr,1,pr,4,3.88,4.36,0.4800000000000004,False
+PR across starts,c16,38,pr,1,pr,4,5.48,5.4,-0.08000000000000007,False
+PR across starts,c16,39,pr,1,pr,4,5.48,5.16,-0.3200000000000003,False
+PR across starts,c16,40,pr,1,pr,4,4.68,4.48,-0.1999999999999993,False
+PR across starts,c16,41,pr,1,pr,4,4.16,4.64,0.47999999999999954,False
+PR across starts,c16,42,pr,1,pr,4,5.36,5.68,0.3199999999999994,False
+PR across starts,c16,43,pr,1,pr,4,4.44,4.48,0.040000000000000036,False
+PR across starts,c16,44,pr,1,pr,4,3.4,3.96,0.56,False
+PR across starts,c16,45,pr,1,pr,4,4.28,4.8,0.5199999999999996,False
+PR across starts,c16,46,pr,1,pr,4,4.52,4.08,-0.4399999999999995,False
+PR across starts,c16,47,pr,1,pr,4,4.6,4.28,-0.3199999999999994,False
+PR across starts,c16,48,pr,1,pr,4,5.32,5.52,0.1999999999999993,False
+PR across starts,c16,49,pr,1,pr,4,3.04,2.84,-0.20000000000000018,False
+PR across starts,c16,50,pr,1,pr,4,5.16,5.88,0.7199999999999998,False
+PR across starts,c16,51,pr,1,pr,4,3.36,3.32,-0.040000000000000036,False
+PR across starts,c16,52,pr,1,pr,4,4.4,4.48,0.08000000000000007,False
+PR across starts,c16,53,pr,1,pr,4,4.12,3.88,-0.2400000000000002,False
+PR across starts,c16,54,pr,1,pr,4,5.52,5.84,0.3200000000000003,False
+PR across starts,c16,55,pr,1,pr,4,5.36,5.6,0.23999999999999932,False
+PR across starts,c16,56,pr,1,pr,4,5.12,4.4,-0.7199999999999998,False
+PR across starts,c16,57,pr,1,pr,4,4.16,4.32,0.16000000000000014,False
+PR across starts,c16,58,pr,1,pr,4,5.84,5.2,-0.6399999999999997,False
+PR across starts,c16,59,pr,1,pr,4,4.52,4.84,0.3200000000000003,False
+PR across starts,c16,60,pr,1,pr,4,3.84,3.48,-0.3599999999999999,False
+PR across starts,c16,61,pr,1,pr,4,4.92,4.88,-0.040000000000000036,False
+PR across starts,c16,62,pr,1,pr,4,4.44,4.2,-0.2400000000000002,False
+PR across starts,c16,63,pr,1,pr,4,4.6,4.28,-0.3199999999999994,False
+PR across starts,c16,64,pr,1,pr,4,5.72,5.76,0.040000000000000036,False
+PR across starts,c16,65,pr,1,pr,4,2.84,2.76,-0.08000000000000007,False
+PR across starts,c16,66,pr,1,pr,4,6.52,6.36,-0.15999999999999925,False
+PR across starts,c16,67,pr,1,pr,4,3.72,3.44,-0.28000000000000025,False
+PR across starts,c16,68,pr,1,pr,4,5.16,4.88,-0.28000000000000025,False
+PR across starts,c16,69,pr,1,pr,4,3.72,4.2,0.48,False
+PR across starts,c16,70,pr,1,pr,4,5.56,5.4,-0.15999999999999925,False
+PR across starts,c16,71,pr,1,pr,4,4.88,4.92,0.040000000000000036,False
+PR across starts,c16,72,pr,1,pr,4,4.84,4.64,-0.20000000000000018,False
+PR across starts,c16,73,pr,1,pr,4,3.8,4.08,0.28000000000000025,False
+PR across starts,c16,74,pr,1,pr,4,5.72,5.76,0.040000000000000036,False
+PR across starts,c16,75,pr,1,pr,4,4.2,4.52,0.3199999999999994,False
+PR across starts,c16,76,pr,1,pr,4,3.92,4.0,0.08000000000000007,False
+PR across starts,c16,77,pr,1,pr,4,5.08,4.64,-0.4400000000000004,False
+PR across starts,c16,78,pr,1,pr,4,4.2,4.2,0.0,True
+PR across starts,c16,79,pr,1,pr,4,4.48,4.24,-0.2400000000000002,False
+PR across starts,c16,80,pr,1,pr,4,5.68,5.52,-0.16000000000000014,False
+PR across starts,c16,81,pr,1,pr,4,2.76,2.92,0.16000000000000014,False
+PR across starts,c16,82,pr,1,pr,4,6.24,5.44,-0.7999999999999998,False
+PR across starts,c16,83,pr,1,pr,4,3.52,3.4,-0.1200000000000001,False
+PR across starts,c16,84,pr,1,pr,4,4.08,4.28,0.20000000000000018,False
+PR across starts,c16,85,pr,1,pr,4,3.88,4.12,0.2400000000000002,False
+PR across starts,c16,86,pr,1,pr,4,5.68,5.8,0.1200000000000001,False
+PR across starts,c16,87,pr,1,pr,4,5.44,5.36,-0.08000000000000007,False
+PR across starts,c16,88,pr,1,pr,4,4.52,4.72,0.20000000000000018,False
+PR across starts,c16,89,pr,1,pr,4,3.84,4.08,0.2400000000000002,False
+PR across starts,c16,90,pr,1,pr,4,5.44,5.56,0.11999999999999922,False
+PR across starts,c16,91,pr,1,pr,4,4.64,4.2,-0.4399999999999995,False
+PR across starts,c16,92,pr,1,pr,4,3.48,3.52,0.040000000000000036,False
+PR across starts,c16,93,pr,1,pr,4,4.76,4.4,-0.35999999999999943,False
+PR across starts,c16,94,pr,1,pr,4,4.16,4.0,-0.16000000000000014,False
+PR across starts,c16,95,pr,1,pr,4,4.2,4.24,0.040000000000000036,False
+prototype across starts,burst,long,proto,2,proto,3,36.72,36.72,0.0,True
+prototype across starts,burst,short-0,proto,2,proto,3,2.24,2.68,0.43999999999999995,False
+prototype across starts,burst,short-1,proto,2,proto,3,2.36,2.84,0.48,False
+prototype across starts,burst,short-2,proto,2,proto,3,2.92,2.68,-0.23999999999999977,False
+prototype across starts,burst,short-3,proto,2,proto,3,1.84,1.88,0.039999999999999813,False
+prototype across starts,burst,short-4,proto,2,proto,3,2.16,2.4,0.23999999999999977,False
+prototype across starts,burst,short-5,proto,2,proto,3,2.04,2.24,0.20000000000000018,False
+prototype across starts,burst,short-6,proto,2,proto,3,2.52,2.16,-0.3599999999999999,False
+prototype across starts,burst,short-7,proto,2,proto,3,2.52,2.56,0.040000000000000036,False
+prototype across starts,c8,0,proto,2,proto,3,5.56,5.88,0.3200000000000003,False
+prototype across starts,c8,1,proto,2,proto,3,2.92,2.6,-0.31999999999999984,False
+prototype across starts,c8,2,proto,2,proto,3,5.4,4.52,-0.8800000000000008,False
+prototype across starts,c8,3,proto,2,proto,3,3.44,3.32,-0.1200000000000001,False
+prototype across starts,c8,4,proto,2,proto,3,4.88,4.56,-0.3200000000000003,False
+prototype across starts,c8,5,proto,2,proto,3,3.84,4.2,0.3600000000000003,False
+prototype across starts,c8,6,proto,2,proto,3,5.64,5.36,-0.27999999999999936,False
+prototype across starts,c8,7,proto,2,proto,3,5.48,5.72,0.23999999999999932,False
+prototype across starts,c8,8,proto,2,proto,3,4.96,4.76,-0.20000000000000018,False
+prototype across starts,c8,9,proto,2,proto,3,4.08,4.44,0.3600000000000003,False
+prototype across starts,c8,10,proto,2,proto,3,5.6,5.56,-0.040000000000000036,False
+prototype across starts,c8,11,proto,2,proto,3,4.24,4.32,0.08000000000000007,False
+prototype across starts,c8,12,proto,2,proto,3,3.84,3.88,0.040000000000000036,False
+prototype across starts,c8,13,proto,2,proto,3,5.08,5.08,0.0,True
+prototype across starts,c8,14,proto,2,proto,3,4.28,3.88,-0.40000000000000036,False
+prototype across starts,c8,15,proto,2,proto,3,4.44,4.36,-0.08000000000000007,False
+prototype across starts,c8,16,proto,2,proto,3,5.4,6.0,0.5999999999999996,False
+prototype across starts,c8,17,proto,2,proto,3,2.88,2.92,0.040000000000000036,False
+prototype across starts,c8,18,proto,2,proto,3,5.72,5.32,-0.39999999999999947,False
+prototype across starts,c8,19,proto,2,proto,3,3.4,3.52,0.1200000000000001,False
+prototype across starts,c8,20,proto,2,proto,3,4.96,4.6,-0.3600000000000003,False
+prototype across starts,c8,21,proto,2,proto,3,3.72,3.88,0.1599999999999997,False
+prototype across starts,c8,22,proto,2,proto,3,5.72,5.28,-0.4399999999999995,False
+prototype across starts,c8,23,proto,2,proto,3,5.88,5.48,-0.39999999999999947,False
+prototype across starts,c8,24,proto,2,proto,3,5.12,5.0,-0.1200000000000001,False
+prototype across starts,c8,25,proto,2,proto,3,4.08,4.36,0.28000000000000025,False
+prototype across starts,c8,26,proto,2,proto,3,5.96,5.52,-0.4400000000000004,False
+prototype across starts,c8,27,proto,2,proto,3,4.4,4.12,-0.28000000000000025,False
+prototype across starts,c8,28,proto,2,proto,3,3.76,4.16,0.40000000000000036,False
+prototype across starts,c8,29,proto,2,proto,3,4.88,4.56,-0.3200000000000003,False
+prototype across starts,c8,30,proto,2,proto,3,4.2,4.2,0.0,True
+prototype across starts,c8,31,proto,2,proto,3,4.48,4.44,-0.040000000000000036,False
+prototype across starts,c8,32,proto,2,proto,3,5.8,5.32,-0.47999999999999954,False
+prototype across starts,c8,33,proto,2,proto,3,2.92,3.08,0.16000000000000014,False
+prototype across starts,c8,34,proto,2,proto,3,5.68,5.88,0.20000000000000018,False
+prototype across starts,c8,35,proto,2,proto,3,3.32,3.44,0.1200000000000001,False
+prototype across starts,c8,36,proto,2,proto,3,4.64,5.44,0.8000000000000007,False
+prototype across starts,c8,37,proto,2,proto,3,4.08,3.56,-0.52,False
+prototype across starts,c8,38,proto,2,proto,3,5.28,5.44,0.16000000000000014,False
+prototype across starts,c8,39,proto,2,proto,3,5.24,5.44,0.20000000000000018,False
+prototype across starts,c8,40,proto,2,proto,3,5.0,4.76,-0.2400000000000002,False
+prototype across starts,c8,41,proto,2,proto,3,4.28,4.32,0.040000000000000036,False
+prototype across starts,c8,42,proto,2,proto,3,5.96,5.96,0.0,True
+prototype across starts,c8,43,proto,2,proto,3,4.2,4.36,0.16000000000000014,False
+prototype across starts,c8,44,proto,2,proto,3,3.64,4.24,0.6000000000000001,False
+prototype across starts,c8,45,proto,2,proto,3,4.8,4.44,-0.35999999999999943,False
+prototype across starts,c8,46,proto,2,proto,3,4.48,3.88,-0.6000000000000005,False
+prototype across starts,c8,47,proto,2,proto,3,4.0,4.68,0.6799999999999997,False
+prototype across starts,c16,0,proto,2,proto,3,5.44,5.24,-0.20000000000000018,False
+prototype across starts,c16,1,proto,2,proto,3,2.6,2.6,0.0,True
+prototype across starts,c16,2,proto,2,proto,3,5.48,5.64,0.15999999999999925,False
+prototype across starts,c16,3,proto,2,proto,3,3.56,3.32,-0.2400000000000002,False
+prototype across starts,c16,4,proto,2,proto,3,4.8,4.6,-0.20000000000000018,False
+prototype across starts,c16,5,proto,2,proto,3,4.2,3.76,-0.4400000000000004,False
+prototype across starts,c16,6,proto,2,proto,3,5.2,5.24,0.040000000000000036,False
+prototype across starts,c16,7,proto,2,proto,3,5.0,5.56,0.5599999999999996,False
+prototype across starts,c16,8,proto,2,proto,3,4.76,4.92,0.16000000000000014,False
+prototype across starts,c16,9,proto,2,proto,3,4.24,4.2,-0.040000000000000036,False
+prototype across starts,c16,10,proto,2,proto,3,6.04,6.0,-0.040000000000000036,False
+prototype across starts,c16,11,proto,2,proto,3,4.28,4.44,0.16000000000000014,False
+prototype across starts,c16,12,proto,2,proto,3,3.56,3.56,0.0,True
+prototype across starts,c16,13,proto,2,proto,3,5.48,5.08,-0.40000000000000036,False
+prototype across starts,c16,14,proto,2,proto,3,4.16,4.2,0.040000000000000036,False
+prototype across starts,c16,15,proto,2,proto,3,4.36,4.32,-0.040000000000000036,False
+prototype across starts,c16,16,proto,2,proto,3,5.56,6.04,0.4800000000000004,False
+prototype across starts,c16,17,proto,2,proto,3,2.88,3.08,0.20000000000000018,False
+prototype across starts,c16,18,proto,2,proto,3,6.48,6.32,-0.16000000000000014,False
+prototype across starts,c16,19,proto,2,proto,3,3.64,3.6,-0.040000000000000036,False
+prototype across starts,c16,20,proto,2,proto,3,5.48,5.08,-0.40000000000000036,False
+prototype across starts,c16,21,proto,2,proto,3,3.88,4.44,0.5600000000000005,False
+prototype across starts,c16,22,proto,2,proto,3,5.24,5.64,0.39999999999999947,False
+prototype across starts,c16,23,proto,2,proto,3,5.76,5.56,-0.20000000000000018,False
+prototype across starts,c16,24,proto,2,proto,3,4.44,5.0,0.5599999999999996,False
+prototype across starts,c16,25,proto,2,proto,3,4.08,3.88,-0.20000000000000018,False
+prototype across starts,c16,26,proto,2,proto,3,5.56,5.68,0.1200000000000001,False
+prototype across starts,c16,27,proto,2,proto,3,4.56,4.4,-0.15999999999999925,False
+prototype across starts,c16,28,proto,2,proto,3,3.52,4.0,0.48,False
+prototype across starts,c16,29,proto,2,proto,3,5.12,4.84,-0.28000000000000025,False
+prototype across starts,c16,30,proto,2,proto,3,4.52,5.16,0.6400000000000006,False
+prototype across starts,c16,31,proto,2,proto,3,4.32,4.4,0.08000000000000007,False
+prototype across starts,c16,32,proto,2,proto,3,5.64,5.48,-0.15999999999999925,False
+prototype across starts,c16,33,proto,2,proto,3,2.88,2.92,0.040000000000000036,False
+prototype across starts,c16,34,proto,2,proto,3,6.68,6.4,-0.27999999999999936,False
+prototype across starts,c16,35,proto,2,proto,3,3.88,3.4,-0.48,False
+prototype across starts,c16,36,proto,2,proto,3,4.88,4.64,-0.2400000000000002,False
+prototype across starts,c16,37,proto,2,proto,3,3.96,4.08,0.1200000000000001,False
+prototype across starts,c16,38,proto,2,proto,3,5.56,5.8,0.2400000000000002,False
+prototype across starts,c16,39,proto,2,proto,3,5.32,5.8,0.47999999999999954,False
+prototype across starts,c16,40,proto,2,proto,3,4.32,4.76,0.4399999999999995,False
+prototype across starts,c16,41,proto,2,proto,3,4.44,4.04,-0.40000000000000036,False
+prototype across starts,c16,42,proto,2,proto,3,5.76,6.24,0.4800000000000004,False
+prototype across starts,c16,43,proto,2,proto,3,4.44,4.24,-0.20000000000000018,False
+prototype across starts,c16,44,proto,2,proto,3,4.2,3.76,-0.4400000000000004,False
+prototype across starts,c16,45,proto,2,proto,3,4.68,4.8,0.1200000000000001,False
+prototype across starts,c16,46,proto,2,proto,3,4.04,5.0,0.96,False
+prototype across starts,c16,47,proto,2,proto,3,4.08,4.2,0.1200000000000001,False
+prototype across starts,c16,48,proto,2,proto,3,5.6,5.56,-0.040000000000000036,False
+prototype across starts,c16,49,proto,2,proto,3,2.96,2.84,-0.1200000000000001,False
+prototype across starts,c16,50,proto,2,proto,3,5.68,5.44,-0.23999999999999932,False
+prototype across starts,c16,51,proto,2,proto,3,3.08,3.2,0.1200000000000001,False
+prototype across starts,c16,52,proto,2,proto,3,4.4,5.04,0.6399999999999997,False
+prototype across starts,c16,53,proto,2,proto,3,3.8,4.24,0.4400000000000004,False
+prototype across starts,c16,54,proto,2,proto,3,5.36,5.72,0.35999999999999943,False
+prototype across starts,c16,55,proto,2,proto,3,5.2,5.32,0.1200000000000001,False
+prototype across starts,c16,56,proto,2,proto,3,4.72,4.88,0.16000000000000014,False
+prototype across starts,c16,57,proto,2,proto,3,4.16,4.04,-0.1200000000000001,False
+prototype across starts,c16,58,proto,2,proto,3,5.56,5.32,-0.23999999999999932,False
+prototype across starts,c16,59,proto,2,proto,3,4.52,4.4,-0.11999999999999922,False
+prototype across starts,c16,60,proto,2,proto,3,3.6,3.64,0.040000000000000036,False
+prototype across starts,c16,61,proto,2,proto,3,4.84,5.0,0.16000000000000014,False
+prototype across starts,c16,62,proto,2,proto,3,5.2,4.52,-0.6800000000000006,False
+prototype across starts,c16,63,proto,2,proto,3,4.28,4.72,0.4399999999999995,False
+prototype across starts,c16,64,proto,2,proto,3,5.6,5.28,-0.3199999999999994,False
+prototype across starts,c16,65,proto,2,proto,3,3.08,2.96,-0.1200000000000001,False
+prototype across starts,c16,66,proto,2,proto,3,6.16,6.0,-0.16000000000000014,False
+prototype across starts,c16,67,proto,2,proto,3,3.52,3.28,-0.2400000000000002,False
+prototype across starts,c16,68,proto,2,proto,3,5.0,5.24,0.2400000000000002,False
+prototype across starts,c16,69,proto,2,proto,3,3.76,4.32,0.5600000000000005,False
+prototype across starts,c16,70,proto,2,proto,3,5.48,5.6,0.11999999999999922,False
+prototype across starts,c16,71,proto,2,proto,3,5.16,5.0,-0.16000000000000014,False
+prototype across starts,c16,72,proto,2,proto,3,4.88,5.52,0.6399999999999997,False
+prototype across starts,c16,73,proto,2,proto,3,4.52,3.64,-0.8799999999999994,False
+prototype across starts,c16,74,proto,2,proto,3,5.48,5.88,0.39999999999999947,False
+prototype across starts,c16,75,proto,2,proto,3,4.24,4.4,0.16000000000000014,False
+prototype across starts,c16,76,proto,2,proto,3,3.32,3.72,0.40000000000000036,False
+prototype across starts,c16,77,proto,2,proto,3,4.96,4.76,-0.20000000000000018,False
+prototype across starts,c16,78,proto,2,proto,3,4.28,4.4,0.1200000000000001,False
+prototype across starts,c16,79,proto,2,proto,3,4.68,4.36,-0.3199999999999994,False
+prototype across starts,c16,80,proto,2,proto,3,5.44,5.32,-0.1200000000000001,False
+prototype across starts,c16,81,proto,2,proto,3,2.96,3.08,0.1200000000000001,False
+prototype across starts,c16,82,proto,2,proto,3,5.4,5.92,0.5199999999999996,False
+prototype across starts,c16,83,proto,2,proto,3,3.76,3.48,-0.2799999999999998,False
+prototype across starts,c16,84,proto,2,proto,3,5.56,4.32,-1.2399999999999993,False
+prototype across starts,c16,85,proto,2,proto,3,3.8,4.32,0.5200000000000005,False
+prototype across starts,c16,86,proto,2,proto,3,5.76,6.04,0.28000000000000025,False
+prototype across starts,c16,87,proto,2,proto,3,5.08,5.44,0.3600000000000003,False
+prototype across starts,c16,88,proto,2,proto,3,4.64,4.56,-0.08000000000000007,False
+prototype across starts,c16,89,proto,2,proto,3,3.84,4.32,0.4800000000000004,False
+prototype across starts,c16,90,proto,2,proto,3,5.56,5.88,0.3200000000000003,False
+prototype across starts,c16,91,proto,2,proto,3,4.4,4.28,-0.1200000000000001,False
+prototype across starts,c16,92,proto,2,proto,3,3.88,3.44,-0.43999999999999995,False
+prototype across starts,c16,93,proto,2,proto,3,5.12,5.36,0.2400000000000002,False
+prototype across starts,c16,94,proto,2,proto,3,4.76,4.4,-0.35999999999999943,False
+prototype across starts,c16,95,proto,2,proto,3,4.32,4.32,0.0,True
